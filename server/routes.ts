@@ -4,6 +4,38 @@ import { storage } from "./storage";
 import { transferRequestSchema, transferResponseSchema, paymentRequestSchema, submitAuthorizationSchema, authorizationSchema, type Authorization } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { getNetworkConfig } from "@shared/networks";
+import { createPublicClient, createWalletClient, http, type Address, type Hex } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { base, celo } from 'viem/chains';
+
+const USDC_ABI = [
+  {
+    name: 'receiveWithAuthorization',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'from', type: 'address' },
+      { name: 'to', type: 'address' },
+      { name: 'value', type: 'uint256' },
+      { name: 'validAfter', type: 'uint256' },
+      { name: 'validBefore', type: 'uint256' },
+      { name: 'nonce', type: 'bytes32' },
+      { name: 'v', type: 'uint8' },
+      { name: 'r', type: 'bytes32' },
+      { name: 's', type: 'bytes32' },
+    ],
+    outputs: [],
+  },
+] as const;
+
+function getFacilitatorAccount() {
+  const privateKey = process.env.FACILITATOR_PRIVATE_KEY;
+  if (!privateKey) {
+    throw new Error('FACILITATOR_PRIVATE_KEY not set');
+  }
+  const formattedKey = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
+  return privateKeyToAccount(formattedKey as Hex);
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/balance/:address', async (req, res) => {
@@ -175,11 +207,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { domain, message, signature } = authorization;
       const { from, to, value, validAfter, validBefore, nonce } = message;
       
-      if (domain.chainId !== message.from.length) {
-        const existingAuth = await storage.getAuthorization(nonce, domain.chainId);
-        if (existingAuth && existingAuth.status === 'used') {
-          return res.status(400).json({ error: 'Authorization already used' });
-        }
+      const existingAuth = await storage.getAuthorization(nonce, domain.chainId);
+      if (existingAuth && existingAuth.status === 'used') {
+        return res.status(400).json({ error: 'Authorization already used' });
       }
       
       const now = Math.floor(Date.now() / 1000);
@@ -195,15 +225,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid address format' });
       }
       
-      console.log('Submitting authorization:', {
+      console.log('[Facilitator] Processing authorization:', {
         from,
         to,
         value,
         nonce,
+        chainId: domain.chainId,
         useReceiveWith,
       });
       
-      const txHash = `0x${randomUUID().replace(/-/g, '')}`;
+      const chain = domain.chainId === 8453 ? base : celo;
+      const networkConfig = getNetworkConfig(domain.chainId === 8453 ? 'base' : 'celo');
+      const facilitatorAccount = getFacilitatorAccount();
+      
+      const walletClient = createWalletClient({
+        account: facilitatorAccount,
+        chain,
+        transport: http(networkConfig.rpcUrl),
+      });
+      
+      const [v, r, s] = [
+        parseInt(signature.slice(130, 132), 16),
+        signature.slice(0, 66) as Hex,
+        `0x${signature.slice(66, 130)}` as Hex,
+      ];
+      
+      console.log('[Facilitator] Submitting receiveWithAuthorization to blockchain...');
+      console.log('[Facilitator] Facilitator address:', facilitatorAccount.address);
+      console.log('[Facilitator] USDC contract:', networkConfig.usdcAddress);
+      
+      const txHash = await walletClient.writeContract({
+        address: networkConfig.usdcAddress as Address,
+        abi: USDC_ABI,
+        functionName: 'receiveWithAuthorization',
+        args: [
+          from as Address,
+          to as Address,
+          BigInt(value),
+          BigInt(validAfter),
+          BigInt(validBefore),
+          nonce as Hex,
+          v,
+          r,
+          s,
+        ],
+      });
+      
+      console.log('[Facilitator] Transaction submitted! Hash:', txHash);
       
       const auth: Authorization = {
         id: randomUUID(),
@@ -259,9 +327,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       res.json(response);
-    } catch (error) {
-      console.error('Error submitting authorization:', error);
-      res.status(400).json({ error: 'Invalid authorization' });
+    } catch (error: any) {
+      console.error('[Facilitator] Error submitting authorization:', error);
+      res.status(400).json({ 
+        error: error.message || 'Invalid authorization',
+        details: error.shortMessage || error.details || undefined
+      });
     }
   });
 

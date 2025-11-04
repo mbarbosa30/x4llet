@@ -54,12 +54,35 @@ The frontend follows a performance-first approach optimized for low-bandwidth en
 - Session-based middleware with logging
 
 **API Endpoints:**
-- `GET /api/balance/:address?chainId=<chainId>` - Fetch wallet balance for specific chain
-- `GET /api/transactions/:address?chainId=<chainId>` - Retrieve transaction history
-- `POST /api/relay/transfer-3009` - Relay gasless EIP-3009 transfers
+- `GET /api/balance/:address?chainId=<chainId>` - Fetch real blockchain USDC balance using viem RPC calls
+- `GET /api/transactions/:address?chainId=<chainId>` - Retrieve transaction history (wallet-initiated only)
+- `POST /api/relay/transfer-3009` - Relay gasless EIP-3009 transfers (currently mock implementation)
+- `POST /api/relay/submit-authorization` - **Production facilitator endpoint** for offline payment completion
 
-**Relayer Pattern:**
-The backend acts as a transaction relayer to enable gasless transfers. Users sign EIP-712 typed data locally, and the server submits the authorization to the USDC contract's `transferWithAuthorization` method. This allows users to transfer funds without holding native tokens for gas.
+**Facilitator Pattern (X402):**
+The backend implements a production-ready EIP-3009 facilitator that enables true offline payments:
+
+1. **Payment Request Generation** (Receiver creates):
+   - Receiver generates Payment Request QR containing: `{chainId, token, to, amount, ttl, facilitatorUrl}`
+   - Payer scans this QR in offline mode
+
+2. **Offline Authorization Signing** (Payer signs):
+   - Payer's device creates EIP-712 `ReceiveWithAuthorization` message with all parameters
+   - Signs locally using their private key (works completely offline)
+   - Generates Authorization QR containing: `{domain, message, signature}`
+
+3. **Facilitator Submission** (Receiver claims):
+   - Receiver scans Authorization QR (can be done offline, submitted when online)
+   - Facilitator validates signature, checks expiration and nonce uniqueness
+   - Facilitator submits `receiveWithAuthorization(from, to, value, validAfter, validBefore, nonce, v, r, s)` to USDC contract
+   - Facilitator pays gas fees in native tokens (CELO or ETH)
+   - Transaction executes atomically - funds transfer only if signature is valid
+
+**Facilitator Wallet:**
+- Managed via `FACILITATOR_PRIVATE_KEY` environment secret
+- Address: `0x2c696E742e07d92D9ae574865267C54B13930363`
+- Funded with ~5 CELO for gas fees on Celo mainnet
+- Uses `receiveWithAuthorization` (safer than `transferWithAuthorization` - prevents front-running as only payee can submit)
 
 **Data Storage:**
 Currently using in-memory storage with mock data for development. Schema defined with Drizzle ORM includes:
@@ -93,7 +116,10 @@ The application is designed to support PostgreSQL through the existing Drizzle c
 
 **Supported Chains:**
 - Base (chainId: 8453) - USDC at `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
-- Celo (chainId: 42220) - USDC at `0xef4229c8c3250C675F21BCefa42f58EfbfF6002a`
+- Celo (chainId: 42220) - USDC at `0xcebA9300f2b948710d2653dD7B07f33A8B32118C` (Circle native USDC)
+
+**Default Network:**
+The application defaults to Celo network for all new users and operations. User can switch networks in Settings.
 
 **Network Switching:**
 User-selectable network preference stored in IndexedDB. All balance queries and transactions route through the selected network's RPC endpoint and USDC contract address.
