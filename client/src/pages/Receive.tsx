@@ -21,7 +21,7 @@ export default function Receive() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [address, setAddress] = useState<string | null>(null);
-  const [network, setNetwork] = useState<'base' | 'celo'>('base');
+  const [network, setNetwork] = useState<'base' | 'celo'>('celo');
   const [amount, setAmount] = useState('');
   const [ttl, setTtl] = useState('600');
   const [description, setDescription] = useState('');

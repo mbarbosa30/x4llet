@@ -26,7 +26,7 @@ export default function Send() {
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
   const [address, setAddress] = useState<string | null>(null);
-  const [network, setNetwork] = useState<'base' | 'celo'>('base');
+  const [network, setNetwork] = useState<'base' | 'celo'>('celo');
   const [showScanner, setShowScanner] = useState(false);
   const [paymentRequest, setPaymentRequest] = useState<PaymentRequest | null>(null);
   const [authorizationQR, setAuthorizationQR] = useState<AuthorizationQR | null>(null);
@@ -43,6 +43,31 @@ export default function Send() {
         
         const prefs = await getPreferences();
         setNetwork(prefs.network);
+        
+        const storedRequest = sessionStorage.getItem('payment_request');
+        if (storedRequest) {
+          try {
+            const request: PaymentRequest = JSON.parse(storedRequest);
+            const requestNetwork = request.chainId === 42220 ? 'celo' : 'base';
+            
+            if (requestNetwork !== prefs.network) {
+              toast({
+                title: "Wrong Network",
+                description: "Payment request is for a different network",
+                variant: "destructive",
+              });
+            } else {
+              setPaymentRequest(request);
+              setRecipient(request.to);
+              setAmount((parseInt(request.amount) / 1000000).toFixed(2));
+              setMode('online');
+              setStep('input');
+            }
+            sessionStorage.removeItem('payment_request');
+          } catch (error) {
+            console.error('Failed to parse payment request:', error);
+          }
+        }
       } catch (error: any) {
         if (error.message === 'RECOVERY_CODE_REQUIRED') {
           setLocation('/unlock');
@@ -52,7 +77,7 @@ export default function Send() {
       }
     };
     loadWallet();
-  }, [setLocation]);
+  }, [setLocation, toast]);
 
   const sendMutation = useMutation({
     mutationFn: async (data: TransferRequest) => {

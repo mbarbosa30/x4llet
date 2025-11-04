@@ -226,7 +226,7 @@ export async function getPreferences(): Promise<UserPreferences> {
   return prefs || {
     currency: 'USD',
     language: 'en',
-    network: 'base',
+    network: 'celo',
   };
 }
 

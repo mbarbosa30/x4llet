@@ -6,14 +6,18 @@ import { ArrowUpRight, ArrowDownLeft, Settings, QrCode } from 'lucide-react';
 import BalanceCard from '@/components/BalanceCard';
 import TransactionList from '@/components/TransactionList';
 import AddressDisplay from '@/components/AddressDisplay';
+import QRScanner from '@/components/QRScanner';
 import { getWallet, getPreferences } from '@/lib/wallet';
-import type { BalanceResponse } from '@shared/schema';
+import { useToast } from '@/hooks/use-toast';
+import type { BalanceResponse, PaymentRequest } from '@shared/schema';
 
 export default function Home() {
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const [address, setAddress] = useState<string | null>(null);
   const [currency, setCurrency] = useState('USD');
   const [chainId, setChainId] = useState(42220); // Default to Celo
+  const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -62,6 +66,28 @@ export default function Home() {
 
   const transactions = balanceData?.transactions || [];
 
+  const handleScanPaymentRequest = (data: string) => {
+    try {
+      const paymentRequest: PaymentRequest = JSON.parse(data);
+      
+      if (!paymentRequest.v || !paymentRequest.to || !paymentRequest.amount) {
+        throw new Error('Invalid payment request');
+      }
+      
+      setShowScanner(false);
+      
+      sessionStorage.setItem('payment_request', JSON.stringify(paymentRequest));
+      setLocation('/send');
+      
+    } catch (error) {
+      toast({
+        title: "Invalid QR Code",
+        description: "This doesn't appear to be a valid payment request",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (!address) {
     return null;
   }
@@ -74,7 +100,7 @@ export default function Home() {
           <Button 
             variant="ghost" 
             size="icon"
-            onClick={() => console.log('Scan QR - TODO')}
+            onClick={() => setShowScanner(true)}
             data-testid="button-scan"
           >
             <QrCode className="h-5 w-5" />
@@ -139,6 +165,13 @@ export default function Home() {
           />
         </div>
       </main>
+
+      {showScanner && (
+        <QRScanner
+          onScan={handleScanPaymentRequest}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
     </div>
   );
 }
