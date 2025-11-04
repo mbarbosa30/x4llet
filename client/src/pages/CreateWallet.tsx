@@ -1,22 +1,104 @@
 import { useState } from 'react';
+import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Shield, Download, Printer } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { createWallet } from '@/lib/wallet';
+import { useToast } from '@/hooks/use-toast';
 
 export default function CreateWallet() {
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const [step, setStep] = useState<'intro' | 'recovery'>('intro');
   const [cloudBackup, setCloudBackup] = useState(false);
-  const [recoveryCode] = useState('ABCD-EFGH-IJKL'); // TODO: remove mock functionality
+  const [recoveryCode, setRecoveryCode] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
 
-  const handleCreateWallet = () => {
-    console.log('Creating wallet...');
-    setStep('recovery');
+  const handleCreateWallet = async () => {
+    try {
+      setIsCreating(true);
+      const { wallet, recoveryCode: code } = await createWallet();
+      setRecoveryCode(code);
+      setStep('recovery');
+      console.log('Wallet created:', wallet.address);
+    } catch (error) {
+      console.error('Failed to create wallet:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create wallet. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleSaveImage = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 600;
+    canvas.height = 200;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 600, 200);
+      ctx.fillStyle = '#000000';
+      ctx.font = '24px monospace';
+      ctx.fillText('Recovery Code:', 20, 50);
+      ctx.font = 'bold 32px monospace';
+      ctx.fillText(recoveryCode, 20, 100);
+      ctx.font = '14px sans-serif';
+      ctx.fillText('Store this code safely. You will need it to restore your wallet.', 20, 150);
+      
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'recovery-code.png';
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+      });
+    }
+  };
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Wallet Recovery Code</title>
+            <style>
+              body { font-family: monospace; padding: 40px; }
+              h1 { font-size: 24px; }
+              .code { font-size: 32px; font-weight: bold; margin: 20px 0; }
+              .warning { font-size: 14px; color: #666; }
+            </style>
+          </head>
+          <body>
+            <h1>Wallet Recovery Code</h1>
+            <div class="code">${recoveryCode}</div>
+            <p class="warning">Store this code safely. You will need it to restore your wallet.</p>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+    }
   };
 
   const handleContinue = () => {
-    console.log('Wallet created, navigating to home...');
+    if (cloudBackup) {
+      console.log('TODO: Implement cloud backup');
+    }
+    toast({
+      title: "Wallet Created!",
+      description: "Your wallet is ready to use.",
+    });
+    setLocation('/home');
   };
 
   if (step === 'recovery') {
@@ -40,11 +122,21 @@ export default function CreateWallet() {
           </Card>
 
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" className="w-full" data-testid="button-save-image">
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={handleSaveImage}
+              data-testid="button-save-image"
+            >
               <Download className="h-4 w-4 mr-2" />
               Save Image
             </Button>
-            <Button variant="outline" className="w-full" data-testid="button-print">
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={handlePrint}
+              data-testid="button-print"
+            >
               <Printer className="h-4 w-4 mr-2" />
               Print
             </Button>
@@ -108,13 +200,23 @@ export default function CreateWallet() {
         </Card>
 
         <Button 
-          onClick={handleCreateWallet} 
+          onClick={handleCreateWallet}
+          disabled={isCreating}
           className="w-full" 
           size="lg"
           data-testid="button-create-wallet"
         >
-          Create Wallet
+          {isCreating ? 'Creating...' : 'Create Wallet'}
         </Button>
+
+        <div className="text-center">
+          <button 
+            onClick={() => setLocation('/restore')}
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            Already have a wallet? Restore
+          </button>
+        </div>
       </div>
     </div>
   );

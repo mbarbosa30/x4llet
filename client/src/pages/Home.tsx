@@ -1,39 +1,62 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useLocation } from 'wouter';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { ArrowUpRight, ArrowDownLeft, Settings, QrCode } from 'lucide-react';
 import BalanceCard from '@/components/BalanceCard';
-import TransactionList, { Transaction } from '@/components/TransactionList';
+import TransactionList from '@/components/TransactionList';
+import { getWallet, getPreferences } from '@/lib/wallet';
+import type { BalanceResponse } from '@shared/schema';
 
 export default function Home() {
-  // TODO: remove mock functionality
-  const [balance] = useState('1,250.00');
-  const [fiatValue] = useState('1,250.00');
-  const [transactions] = useState<Transaction[]>([
-    {
-      id: '1',
-      type: 'receive',
-      address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
-      amount: '250.00',
-      timestamp: new Date(Date.now() - 5 * 60000).toISOString(),
-      status: 'completed'
-    },
-    {
-      id: '2',
-      type: 'send',
-      address: '0x9f8a26F2C9F90C4E3c8b12D7E3A4B5C6D7E8F9A0',
-      amount: '50.00',
-      timestamp: new Date(Date.now() - 120 * 60000).toISOString(),
-      status: 'completed'
-    },
-    {
-      id: '3',
-      type: 'receive',
-      address: '0x1234567890abcdef1234567890abcdef12345678',
-      amount: '1,000.00',
-      timestamp: new Date(Date.now() - 24 * 60 * 60000).toISOString(),
-      status: 'completed'
-    }
-  ]);
+  const [, setLocation] = useLocation();
+  const [address, setAddress] = useState<string | null>(null);
+  const [currency, setCurrency] = useState('USD');
+
+  useEffect(() => {
+    const loadWallet = async () => {
+      try {
+        const wallet = await getWallet();
+        if (!wallet) {
+          setLocation('/');
+          return;
+        }
+        setAddress(wallet.address);
+        
+        const prefs = await getPreferences();
+        setCurrency(prefs.currency);
+      } catch (error: any) {
+        if (error.message === 'RECOVERY_CODE_REQUIRED') {
+          setLocation('/unlock');
+        } else {
+          setLocation('/');
+        }
+      }
+    };
+    loadWallet();
+  }, [setLocation]);
+
+  const { data: balanceData, isLoading } = useQuery<BalanceResponse>({
+    queryKey: ['/api/balance', address],
+    enabled: !!address,
+    refetchInterval: 10000,
+  });
+
+  const { data: exchangeRate } = useQuery<{ currency: string; rate: number }>({
+    queryKey: ['/api/exchange-rate', currency],
+    enabled: !!currency,
+  });
+
+  const balance = balanceData?.balance || '0.00';
+  const fiatValue = exchangeRate 
+    ? (parseFloat(balance) * exchangeRate.rate).toFixed(2)
+    : balance;
+
+  const transactions = balanceData?.transactions || [];
+
+  if (!address) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -43,7 +66,7 @@ export default function Home() {
           <Button 
             variant="ghost" 
             size="icon"
-            onClick={() => console.log('Scan QR')}
+            onClick={() => console.log('Scan QR - TODO')}
             data-testid="button-scan"
           >
             <QrCode className="h-5 w-5" />
@@ -51,7 +74,7 @@ export default function Home() {
           <Button 
             variant="ghost" 
             size="icon"
-            onClick={() => console.log('Open settings')}
+            onClick={() => setLocation('/settings')}
             data-testid="button-settings"
           >
             <Settings className="h-5 w-5" />
@@ -60,18 +83,24 @@ export default function Home() {
       </header>
 
       <main className="max-w-md mx-auto p-4 space-y-6">
-        <BalanceCard 
-          balance={balance}
-          currency="USDC"
-          fiatValue={fiatValue}
-          fiatCurrency="USD"
-        />
+        {isLoading ? (
+          <div className="animate-pulse">
+            <div className="h-32 bg-muted rounded-lg"></div>
+          </div>
+        ) : (
+          <BalanceCard 
+            balance={balance}
+            currency="USDC"
+            fiatValue={fiatValue}
+            fiatCurrency={currency}
+          />
+        )}
 
         <div className="grid grid-cols-2 gap-2">
           <Button 
             size="lg" 
             className="w-full"
-            onClick={() => console.log('Navigate to send')}
+            onClick={() => setLocation('/send')}
             data-testid="button-send"
           >
             <ArrowUpRight className="h-5 w-5 mr-2" />
@@ -81,7 +110,7 @@ export default function Home() {
             size="lg" 
             variant="outline"
             className="w-full"
-            onClick={() => console.log('Navigate to receive')}
+            onClick={() => setLocation('/receive')}
             data-testid="button-receive"
           >
             <ArrowDownLeft className="h-5 w-5 mr-2" />
@@ -92,7 +121,10 @@ export default function Home() {
         <div>
           <h2 className="text-sm font-medium mb-4">Recent Activity</h2>
           <TransactionList 
-            transactions={transactions}
+            transactions={transactions.map(tx => ({
+              ...tx,
+              address: tx.type === 'send' ? tx.to : tx.from,
+            }))}
             onTransactionClick={(tx) => console.log('Transaction clicked:', tx)}
           />
         </div>

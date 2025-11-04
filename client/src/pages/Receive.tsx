@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Share2, Link as LinkIcon } from 'lucide-react';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
@@ -6,21 +7,78 @@ import AddressDisplay from '@/components/AddressDisplay';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
+import { getWallet } from '@/lib/wallet';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Receive() {
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const [showPaymentLink, setShowPaymentLink] = useState(false);
   const [linkAmount, setLinkAmount] = useState('');
-  const address = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb'; // TODO: remove mock functionality
+  const [address, setAddress] = useState<string | null>(null);
 
-  const handleShare = () => {
-    console.log('Share address');
+  useEffect(() => {
+    const loadWallet = async () => {
+      try {
+        const wallet = await getWallet();
+        if (!wallet) {
+          setLocation('/');
+          return;
+        }
+        setAddress(wallet.address);
+      } catch (error: any) {
+        if (error.message === 'RECOVERY_CODE_REQUIRED') {
+          setLocation('/unlock');
+        } else {
+          setLocation('/');
+        }
+      }
+    };
+    loadWallet();
+  }, [setLocation]);
+
+  const handleShare = async () => {
+    if (!address) return;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'My Wallet Address',
+          text: `Send USDC to: ${address}`,
+        });
+      } catch (err) {
+        console.log('Share cancelled or failed:', err);
+      }
+    } else {
+      await navigator.clipboard.writeText(address);
+      toast({
+        title: "Copied!",
+        description: "Address copied to clipboard",
+      });
+    }
   };
 
   const handleCreatePaymentLink = () => {
-    console.log('Create payment link with amount:', linkAmount);
+    if (!address) return;
+    
+    const baseUrl = window.location.origin;
+    const link = linkAmount 
+      ? `${baseUrl}/pay?address=${address}&amount=${linkAmount}`
+      : `${baseUrl}/pay?address=${address}`;
+    
+    navigator.clipboard.writeText(link);
+    toast({
+      title: "Payment Link Created!",
+      description: "Link copied to clipboard",
+    });
+    
     setShowPaymentLink(false);
     setLinkAmount('');
   };
+
+  if (!address) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -28,7 +86,7 @@ export default function Receive() {
         <Button 
           variant="ghost" 
           size="icon"
-          onClick={() => console.log('Navigate back')}
+          onClick={() => setLocation('/home')}
           data-testid="button-back"
         >
           <ArrowLeft className="h-5 w-5" />

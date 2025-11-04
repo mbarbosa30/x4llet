@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -16,3 +16,85 @@ export const insertUserSchema = createInsertSchema(users).pick({
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+export interface Wallet {
+  address: string;
+  publicKey: string;
+  createdAt: string;
+}
+
+export interface Balance {
+  balance: string;
+  decimals: number;
+  nonce: string;
+}
+
+export interface Transaction {
+  id: string;
+  type: 'send' | 'receive';
+  from: string;
+  to: string;
+  amount: string;
+  timestamp: string;
+  status: 'pending' | 'completed' | 'failed';
+  txHash?: string;
+}
+
+export interface UserPreferences {
+  currency: string;
+  language: string;
+  network: 'base' | 'celo';
+}
+
+export const balanceResponseSchema = z.object({
+  balance: z.string(),
+  decimals: z.number(),
+  nonce: z.string(),
+  transactions: z.array(z.object({
+    id: z.string(),
+    type: z.enum(['send', 'receive']),
+    from: z.string(),
+    to: z.string(),
+    amount: z.string(),
+    timestamp: z.string(),
+    status: z.enum(['pending', 'completed', 'failed']),
+    txHash: z.string().optional(),
+  })),
+});
+
+export type BalanceResponse = z.infer<typeof balanceResponseSchema>;
+
+export const transferRequestSchema = z.object({
+  chainId: z.number(),
+  token: z.string(),
+  typedData: z.object({
+    domain: z.object({
+      name: z.string(),
+      version: z.string(),
+      chainId: z.number(),
+      verifyingContract: z.string(),
+    }),
+    types: z.record(z.array(z.object({
+      name: z.string(),
+      type: z.string(),
+    }))),
+    message: z.object({
+      from: z.string(),
+      to: z.string(),
+      value: z.string(),
+      validAfter: z.string(),
+      validBefore: z.string(),
+      nonce: z.string(),
+    }),
+  }),
+  signature: z.string(),
+});
+
+export type TransferRequest = z.infer<typeof transferRequestSchema>;
+
+export const transferResponseSchema = z.object({
+  txHash: z.string(),
+  status: z.enum(['submitted', 'pending', 'completed', 'failed']),
+});
+
+export type TransferResponse = z.infer<typeof transferResponseSchema>;
