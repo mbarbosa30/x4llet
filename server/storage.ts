@@ -44,23 +44,39 @@ interface BlockExplorerTx {
   tokenDecimal: string;
 }
 
-async function fetchTransactionsFromBaseScan(address: string): Promise<Transaction[]> {
-  const apiKey = process.env.BASESCAN_API_KEY;
+// Etherscan v2 unified API - supports 60+ EVM chains with single API key
+async function fetchTransactionsFromEtherscan(address: string, chainId: number): Promise<Transaction[]> {
+  const apiKey = process.env.ETHERSCAN_API_KEY;
   if (!apiKey) {
-    console.log('[BaseScan] No API key configured, skipping on-chain transaction fetch');
+    console.log('[Etherscan v2] No API key configured, skipping on-chain transaction fetch');
+    console.log('[Etherscan v2] Please add ETHERSCAN_API_KEY to your Replit Secrets');
     return [];
   }
 
-  const usdcAddress = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-  const url = `https://api.basescan.org/api?module=account&action=tokentx&contractaddress=${usdcAddress}&address=${address}&sort=desc&apikey=${apiKey}`;
+  // Map chainId to USDC contract address
+  const usdcAddresses: Record<number, string> = {
+    8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',  // Base mainnet
+    42220: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C',  // Celo mainnet
+  };
+
+  const usdcAddress = usdcAddresses[chainId];
+  if (!usdcAddress) {
+    console.error(`[Etherscan v2] Unsupported chainId: ${chainId}`);
+    return [];
+  }
+
+  const chainName = chainId === 8453 ? 'Base' : chainId === 42220 ? 'Celo' : `Chain ${chainId}`;
+  
+  // Etherscan v2 unified endpoint with chainid parameter
+  const url = `https://api.etherscan.io/v2/api?chainid=${chainId}&module=account&action=tokentx&contractaddress=${usdcAddress}&address=${address}&sort=desc&apikey=${apiKey}`;
 
   try {
-    console.log(`[BaseScan] Fetching transactions for ${address}`);
+    console.log(`[Etherscan v2] Fetching ${chainName} transactions for ${address}`);
     const response = await fetch(url);
     const data = await response.json();
 
     if (data.status !== '1' || !data.result) {
-      console.log('[BaseScan] No transactions found or API error:', data.message);
+      console.log(`[Etherscan v2] No ${chainName} transactions found or API error:`, data.message);
       return [];
     }
 
@@ -80,54 +96,10 @@ async function fetchTransactionsFromBaseScan(address: string): Promise<Transacti
       } as Transaction;
     });
 
-    console.log(`[BaseScan] Found ${transactions.length} transactions`);
+    console.log(`[Etherscan v2] Found ${transactions.length} ${chainName} transactions`);
     return transactions;
   } catch (error) {
-    console.error('[BaseScan] Error fetching transactions:', error);
-    return [];
-  }
-}
-
-async function fetchTransactionsFromCeloScan(address: string): Promise<Transaction[]> {
-  const apiKey = process.env.CELOSCAN_API_KEY;
-  if (!apiKey) {
-    console.log('[CeloScan] No API key configured, skipping on-chain transaction fetch');
-    return [];
-  }
-
-  const usdcAddress = '0xcebA9300f2b948710d2653dD7B07f33A8B32118C';
-  const url = `https://api.celoscan.io/api?module=account&action=tokentx&contractaddress=${usdcAddress}&address=${address}&sort=desc&apikey=${apiKey}`;
-
-  try {
-    console.log(`[CeloScan] Fetching transactions for ${address}`);
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (data.status !== '1' || !data.result) {
-      console.log('[CeloScan] No transactions found or API error:', data.message);
-      return [];
-    }
-
-    const transactions: Transaction[] = data.result.map((tx: BlockExplorerTx) => {
-      const isSend = tx.from.toLowerCase() === address.toLowerCase();
-      const amount = formatUsdcAmount(tx.value);
-
-      return {
-        id: tx.hash,
-        type: isSend ? 'send' : 'receive',
-        from: tx.from,
-        to: tx.to,
-        amount,
-        timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
-        status: 'completed',
-        txHash: tx.hash,
-      } as Transaction;
-    });
-
-    console.log(`[CeloScan] Found ${transactions.length} transactions`);
-    return transactions;
-  } catch (error) {
-    console.error('[CeloScan] Error fetching transactions:', error);
+    console.error(`[Etherscan v2] Error fetching ${chainName} transactions:`, error);
     return [];
   }
 }
@@ -254,11 +226,9 @@ export class MemStorage implements IStorage {
       const balanceInUsdc = formatUsdcAmount(balance);
       console.log(`[Balance API] Converted balance: ${balanceInUsdc} USDC`);
       
-      // Fetch on-chain transactions
+      // Fetch on-chain transactions using Etherscan v2 unified API
       console.log('[Balance API] Fetching on-chain transaction history...');
-      const onChainTransactions = chainId === 8453 
-        ? await fetchTransactionsFromBaseScan(address)
-        : await fetchTransactionsFromCeloScan(address);
+      const onChainTransactions = await fetchTransactionsFromEtherscan(address, chainId);
       
       // Get locally stored transactions (from wallet-initiated transfers)
       const existing = this.balances.get(key);
