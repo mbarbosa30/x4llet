@@ -7,6 +7,7 @@ import BalanceCard from '@/components/BalanceCard';
 import TransactionList from '@/components/TransactionList';
 import AddressDisplay from '@/components/AddressDisplay';
 import QRScanner from '@/components/QRScanner';
+import Footer from '@/components/Footer';
 import { getWallet, getPreferences } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 import type { BalanceResponse, PaymentRequest } from '@shared/schema';
@@ -165,6 +166,8 @@ export default function Home() {
           />
         </div>
       </main>
+
+      <Footer />
 
       {showScanner && (
         <QRScanner

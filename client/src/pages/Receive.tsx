@@ -6,6 +6,7 @@ import { ArrowLeft, Share2, QrCode, Scan } from 'lucide-react';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import QRScanner from '@/components/QRScanner';
 import AddressDisplay from '@/components/AddressDisplay';
+import Footer from '@/components/Footer';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
@@ -309,6 +310,8 @@ export default function Receive() {
           </div>
         )}
       </main>
+
+      <Footer />
 
       {showScanner && (
         <QRScanner

@@ -7,6 +7,7 @@ import { ArrowLeft, QrCode, Scan } from 'lucide-react';
 import NumericKeypad from '@/components/NumericKeypad';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import QRScanner from '@/components/QRScanner';
+import Footer from '@/components/Footer';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getWallet, getPrivateKey, getPreferences } from '@/lib/wallet';
@@ -494,6 +495,8 @@ export default function Send() {
           </div>
         )}
       </main>
+
+      <Footer />
 
       {showScanner && (
         <QRScanner

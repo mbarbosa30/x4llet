@@ -10,6 +10,8 @@ import Home from "@/pages/Home";
 import Send from "@/pages/Send";
 import Receive from "@/pages/Receive";
 import Settings from "@/pages/Settings";
+import HowItWorks from "@/pages/HowItWorks";
+import Faqs from "@/pages/Faqs";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -22,6 +24,8 @@ function Router() {
       <Route path="/send" component={Send} />
       <Route path="/receive" component={Receive} />
       <Route path="/settings" component={Settings} />
+      <Route path="/how-it-works" component={HowItWorks} />
+      <Route path="/faqs" component={Faqs} />
       <Route component={NotFound} />
     </Switch>
   );

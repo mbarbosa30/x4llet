@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ChevronRight, Download, Upload, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import Footer from '@/components/Footer';
 import { getPreferences, savePreferences, exportWalletBackup, getPrivateKey } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -280,6 +281,8 @@ export default function Settings() {
           </div>
         </div>
       </main>
+
+      <Footer />
 
       <Dialog open={showExportPrivateKey} onOpenChange={handleClosePrivateKeyDialog}>
         <DialogContent>
