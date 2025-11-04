@@ -54,10 +54,25 @@ The frontend follows a performance-first approach optimized for low-bandwidth en
 - Session-based middleware with logging
 
 **API Endpoints:**
-- `GET /api/balance/:address?chainId=<chainId>` - Fetch real blockchain USDC balance using viem RPC calls
-- `GET /api/transactions/:address?chainId=<chainId>` - Retrieve transaction history (wallet-initiated only)
+- `GET /api/balance/:address?chainId=<chainId>` - Fetch real blockchain USDC balance using viem RPC calls, plus complete on-chain transaction history
+- `GET /api/transactions/:address?chainId=<chainId>` - Retrieve complete on-chain transaction history from block explorer APIs (BaseScan/CeloScan)
 - `POST /api/relay/transfer-3009` - Relay gasless EIP-3009 transfers (currently mock implementation)
 - `POST /api/relay/submit-authorization` - **Production facilitator endpoint** for offline payment completion
+
+**Transaction History:**
+The backend fetches complete USDC transaction history from blockchain explorers:
+- Base network: BaseScan API (`api.basescan.org`) with ERC20 token transfer endpoint
+- Celo network: CeloScan API (`api.celoscan.io`) with ERC20 token transfer endpoint
+- Shows all USDC transfers (both sent and received), not just wallet-initiated transactions
+- Requires `BASESCAN_API_KEY` and `CELOSCAN_API_KEY` environment secrets
+
+**BigInt Precision Handling:**
+All USDC amount conversions use BigInt arithmetic to prevent precision loss with large values:
+- USDC uses 6 decimals (1 USDC = 1,000,000 units)
+- `formatUsdcAmount()` helper converts raw blockchain values to human-readable strings
+- Rounds to nearest cent by adding 5,000 units (0.005 USDC) before division
+- Preserves full precision for amounts exceeding JavaScript's MAX_SAFE_INTEGER (9,007,199 USDC)
+- TypeScript target set to ES2020 to support BigInt literals
 
 **Facilitator Pattern (X402):**
 The backend implements a production-ready EIP-3009 facilitator that enables true offline payments:
