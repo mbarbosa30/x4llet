@@ -5,8 +5,22 @@ import type { Wallet, UserPreferences } from '@shared/schema';
 
 const WALLET_KEY = 'wallet_encrypted_key';
 const PREFERENCES_KEY = 'user_preferences';
+const SESSION_PASSWORD_KEY = 'session_password';
 
-let sessionRecoveryCode: string | null = null;
+function getSessionPassword(): string | null {
+  if (typeof window === 'undefined') return null;
+  return sessionStorage.getItem(SESSION_PASSWORD_KEY);
+}
+
+function setSessionPassword(password: string): void {
+  if (typeof window === 'undefined') return;
+  sessionStorage.setItem(SESSION_PASSWORD_KEY, password);
+}
+
+function clearSessionPassword(): void {
+  if (typeof window === 'undefined') return;
+  sessionStorage.removeItem(SESSION_PASSWORD_KEY);
+}
 
 function generateRecoveryCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -101,15 +115,15 @@ async function decryptPrivateKey(encryptedData: string, recoveryCode: string): P
 }
 
 export function setSessionRecoveryCode(code: string) {
-  sessionRecoveryCode = code;
+  setSessionPassword(code);
 }
 
 export function getSessionRecoveryCode(): string | null {
-  return sessionRecoveryCode;
+  return getSessionPassword();
 }
 
 export function clearSessionRecoveryCode() {
-  sessionRecoveryCode = null;
+  clearSessionPassword();
 }
 
 export async function createWallet(password: string): Promise<{ wallet: Wallet; privateKey: string }> {
@@ -134,7 +148,7 @@ export async function getWallet(recoveryCode?: string): Promise<Wallet | null> {
   const encrypted = await get<string>(WALLET_KEY);
   if (!encrypted) return null;
   
-  const code = recoveryCode || sessionRecoveryCode;
+  const code = recoveryCode || getSessionPassword();
   if (!code) {
     throw new Error('RECOVERY_CODE_REQUIRED');
   }
@@ -143,8 +157,8 @@ export async function getWallet(recoveryCode?: string): Promise<Wallet | null> {
     const privateKey = await decryptPrivateKey(encrypted, code);
     const account = privateKeyToAccount(privateKey as `0x${string}`);
     
-    if (!sessionRecoveryCode) {
-      setSessionRecoveryCode(code);
+    if (!getSessionPassword()) {
+      setSessionPassword(code);
     }
     
     return {
@@ -192,7 +206,7 @@ export async function getPrivateKey(password?: string): Promise<string | null> {
   const encrypted = await get<string>(WALLET_KEY);
   if (!encrypted) return null;
   
-  const code = password || sessionRecoveryCode;
+  const code = password || getSessionPassword();
   if (!code) return null;
   
   try {

@@ -13,6 +13,7 @@ export default function Home() {
   const [, setLocation] = useLocation();
   const [address, setAddress] = useState<string | null>(null);
   const [currency, setCurrency] = useState('USD');
+  const [chainId, setChainId] = useState(42220); // Default to Celo
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -26,6 +27,7 @@ export default function Home() {
         
         const prefs = await getPreferences();
         setCurrency(prefs.currency);
+        setChainId(prefs.network === 'celo' ? 42220 : 8453);
       } catch (error: any) {
         if (error.message === 'RECOVERY_CODE_REQUIRED') {
           setLocation('/unlock');
@@ -38,9 +40,14 @@ export default function Home() {
   }, [setLocation]);
 
   const { data: balanceData, isLoading } = useQuery<BalanceResponse>({
-    queryKey: ['/api/balance', address],
+    queryKey: ['/api/balance', address, chainId],
     enabled: !!address,
     refetchInterval: 10000,
+    queryFn: async () => {
+      const res = await fetch(`/api/balance/${address}?chainId=${chainId}`);
+      if (!res.ok) throw new Error('Failed to fetch balance');
+      return res.json();
+    },
   });
 
   const { data: exchangeRate } = useQuery<{ currency: string; rate: number }>({

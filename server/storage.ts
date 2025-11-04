@@ -1,5 +1,17 @@
 import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { createPublicClient, http, type Address } from 'viem';
+import { base, celo } from 'viem/chains';
+
+const USDC_ABI = [
+  {
+    constant: true,
+    inputs: [{ name: '_owner', type: 'address' }],
+    name: 'balanceOf',
+    outputs: [{ name: 'balance', type: 'uint256' }],
+    type: 'function',
+  },
+] as const;
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -91,21 +103,61 @@ export class MemStorage implements IStorage {
 
   async getBalance(address: string, chainId: number): Promise<BalanceResponse> {
     const key = `${address}-${chainId}`;
-    const existing = this.balances.get(key);
     
-    if (existing) {
-      return existing;
+    try {
+      // Fetch real blockchain balance
+      const chain = chainId === 8453 ? base : celo;
+      const usdcAddress = chainId === 8453 
+        ? '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address
+        : '0xef4229c8c3250C675F21BCefa42f58EfbfF6002a' as Address;
+      
+      const client = createPublicClient({
+        chain,
+        transport: http(),
+      });
+      
+      const balance = await client.readContract({
+        address: usdcAddress,
+        abi: USDC_ABI,
+        functionName: 'balanceOf',
+        args: [address as Address],
+      });
+      
+      // Convert from 6 decimals to human readable
+      const balanceInUsdc = (Number(balance) / 1000000).toFixed(2);
+      
+      // Get existing transactions from cache or empty array
+      const existing = this.balances.get(key);
+      const transactions = existing?.transactions || [];
+      
+      const response: BalanceResponse = {
+        balance: balanceInUsdc,
+        decimals: 6,
+        nonce: randomUUID().replace(/-/g, '').slice(0, 32),
+        transactions,
+      };
+      
+      // Cache the result
+      this.balances.set(key, response);
+      return response;
+    } catch (error) {
+      console.error('Error fetching blockchain balance:', error);
+      
+      // Fallback to cached data or zero balance
+      const existing = this.balances.get(key);
+      if (existing) {
+        return existing;
+      }
+      
+      const fallback: BalanceResponse = {
+        balance: '0.00',
+        decimals: 6,
+        nonce: randomUUID().replace(/-/g, '').slice(0, 32),
+        transactions: [],
+      };
+      
+      return fallback;
     }
-    
-    const mockData: BalanceResponse = {
-      balance: '0.00',
-      decimals: 6,
-      nonce: randomUUID().replace(/-/g, '').slice(0, 32),
-      transactions: [],
-    };
-    
-    this.balances.set(key, mockData);
-    return mockData;
   }
 
   async getTransactions(address: string, chainId: number): Promise<Transaction[]> {
