@@ -15,7 +15,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
   celo: {
     chainId: 42220,
     name: 'Celo',
-    usdcAddress: '0xef4229c8c3250C675F21BCefa42f58EfbfF6002a',
+    usdcAddress: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C', // Circle native USDC (official)
     rpcUrl: 'https://forno.celo.org',
   },
 };

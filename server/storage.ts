@@ -104,18 +104,24 @@ export class MemStorage implements IStorage {
   async getBalance(address: string, chainId: number): Promise<BalanceResponse> {
     const key = `${address}-${chainId}`;
     
+    console.log(`[Balance API] Fetching balance for address: ${address}, chainId: ${chainId}`);
+    
     try {
       // Fetch real blockchain balance
       const chain = chainId === 8453 ? base : celo;
       const usdcAddress = chainId === 8453 
-        ? '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address
-        : '0xef4229c8c3250C675F21BCefa42f58EfbfF6002a' as Address;
+        ? '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address  // Base USDC
+        : '0xcebA9300f2b948710d2653dD7B07f33A8B32118C' as Address; // Celo Circle native USDC
+      
+      console.log(`[Balance API] Using ${chain.name} (chainId: ${chain.id}), USDC: ${usdcAddress}`);
+      console.log(`[Balance API] RPC URL: ${chain.rpcUrls.default.http[0]}`);
       
       const client = createPublicClient({
         chain,
         transport: http(),
       });
       
+      console.log('[Balance API] Calling balanceOf on USDC contract...');
       const balance = await client.readContract({
         address: usdcAddress,
         abi: USDC_ABI,
@@ -123,8 +129,11 @@ export class MemStorage implements IStorage {
         args: [address as Address],
       });
       
+      console.log(`[Balance API] Raw balance from blockchain: ${balance.toString()}`);
+      
       // Convert from 6 decimals to human readable
       const balanceInUsdc = (Number(balance) / 1000000).toFixed(2);
+      console.log(`[Balance API] Converted balance: ${balanceInUsdc} USDC`);
       
       // Get existing transactions from cache or empty array
       const existing = this.balances.get(key);
@@ -139,16 +148,23 @@ export class MemStorage implements IStorage {
       
       // Cache the result
       this.balances.set(key, response);
+      console.log(`[Balance API] Success! Returning balance: ${balanceInUsdc}`);
       return response;
     } catch (error) {
-      console.error('Error fetching blockchain balance:', error);
+      console.error('[Balance API] ERROR fetching blockchain balance:', error);
+      console.error('[Balance API] Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       
       // Fallback to cached data or zero balance
       const existing = this.balances.get(key);
       if (existing) {
+        console.log('[Balance API] Returning cached balance after error');
         return existing;
       }
       
+      console.log('[Balance API] No cache available, returning zero balance');
       const fallback: BalanceResponse = {
         balance: '0.00',
         decimals: 6,
