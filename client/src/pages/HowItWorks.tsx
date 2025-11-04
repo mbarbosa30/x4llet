@@ -22,17 +22,32 @@ export default function HowItWorks() {
 
       <main className="max-w-md mx-auto p-4 pb-20">
         <section className="space-y-4 mb-8">
+          <h2 className="text-xl font-semibold">What is x402?</h2>
+          <p className="text-sm text-muted-foreground">
+            x402 is a protocol that enables offline gasless USDC payments. It's what makes this wallet unique - 
+            allowing you to send money without internet connection and without needing to hold any tokens for gas fees.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Traditional crypto wallets require you to be online and hold native tokens (like ETH or CELO) to pay transaction fees. 
+            x402 solves both problems by using pre-signed authorizations and a facilitator service that covers gas costs.
+          </p>
+          <p className="text-sm text-muted-foreground font-medium">
+            This technology makes crypto accessible in low-bandwidth environments and removes the complexity of managing multiple tokens.
+          </p>
+        </section>
+
+        <section className="space-y-4 mb-8">
           <h2 className="text-xl font-semibold">Your Wallet</h2>
           <p className="text-sm text-muted-foreground">
-            This is a lightweight cryptocurrency wallet that lets you send and receive USDC on Base and Celo networks. 
+            This is a lightweight cryptocurrency wallet powered by x402 that lets you send and receive USDC on Base and Celo networks. 
             Your private keys are encrypted and stored locally on your device - you have complete control over your funds.
           </p>
         </section>
 
         <section className="space-y-4 mb-8">
-          <h2 className="text-xl font-semibold">Offline Payments</h2>
+          <h2 className="text-xl font-semibold">Offline Payments with x402</h2>
           <p className="text-sm text-muted-foreground">
-            The wallet supports offline payments using EIP-3009 authorization. This means you can send money without an internet connection:
+            The x402 protocol enables offline payments using EIP-3009 authorization. This means you can send money without an internet connection:
           </p>
           <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground ml-2">
             <li>Receiver creates a Payment Request QR code (can be offline)</li>
@@ -41,16 +56,20 @@ export default function HowItWorks() {
             <li>Receiver scans and submits it when they have internet</li>
           </ol>
           <p className="text-sm text-muted-foreground">
-            The actual blockchain transaction happens when the receiver submits the authorization. Gas fees are paid by our facilitator service.
+            The actual blockchain transaction happens when the receiver submits the authorization to the x402 facilitator service. 
+            This design allows both parties to complete their part of the payment without requiring internet connectivity.
           </p>
         </section>
 
         <section className="space-y-4 mb-8">
-          <h2 className="text-xl font-semibold">Gasless Transfers</h2>
+          <h2 className="text-xl font-semibold">Gasless Transfers with x402</h2>
           <p className="text-sm text-muted-foreground">
-            You don't need to hold native tokens (CELO or ETH) to send USDC. When you sign a transfer authorization, 
-            our facilitator service pays the gas fees and submits the transaction on your behalf. This makes sending 
-            USDC as simple as signing a message.
+            You don't need to hold native tokens (CELO or ETH) to send USDC. The x402 protocol uses EIP-3009 authorization, 
+            which means you only sign a message - you don't submit a transaction.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            The x402 facilitator service pays the gas fees and submits the transaction on your behalf. This makes sending 
+            USDC as simple as signing a message - no need to acquire, manage, or spend native tokens.
           </p>
         </section>
 
