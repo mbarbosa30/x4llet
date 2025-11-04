@@ -60,11 +60,12 @@ The frontend follows a performance-first approach optimized for low-bandwidth en
 - `POST /api/relay/submit-authorization` - **Production facilitator endpoint** for offline payment completion
 
 **Transaction History:**
-The backend fetches complete USDC transaction history from blockchain explorers:
-- Base network: BaseScan API (`api.basescan.org`) with ERC20 token transfer endpoint
-- Celo network: CeloScan API (`api.celoscan.io`) with ERC20 token transfer endpoint
+The backend fetches complete USDC transaction history using the **Etherscan v2 unified API**:
+- Single endpoint: `https://api.etherscan.io/v2/api` with `chainid` parameter
+- Supports 60+ EVM chains including Base (chainId 8453) and Celo (chainId 42220)
 - Shows all USDC transfers (both sent and received), not just wallet-initiated transactions
-- Requires `BASESCAN_API_KEY` and `CELOSCAN_API_KEY` environment secrets
+- Requires single `ETHERSCAN_API_KEY` environment secret (works across all supported chains)
+- V1 APIs (BaseScan/CeloScan) deprecated May 31, 2025 - this app uses future-proof v2
 
 **BigInt Precision Handling:**
 All USDC amount conversions use BigInt arithmetic to prevent precision loss with large values:
