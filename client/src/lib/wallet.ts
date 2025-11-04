@@ -112,7 +112,7 @@ export function clearSessionRecoveryCode() {
   sessionRecoveryCode = null;
 }
 
-export async function createWallet(password: string): Promise<{ wallet: Wallet }> {
+export async function createWallet(password: string): Promise<{ wallet: Wallet; privateKey: string }> {
   const privateKey = generatePrivateKey();
   const account = privateKeyToAccount(privateKey);
   
@@ -127,7 +127,7 @@ export async function createWallet(password: string): Promise<{ wallet: Wallet }
     createdAt: new Date().toISOString(),
   };
   
-  return { wallet };
+  return { wallet, privateKey };
 }
 
 export async function getWallet(recoveryCode?: string): Promise<Wallet | null> {
@@ -188,12 +188,15 @@ export async function deleteWallet(): Promise<void> {
   clearSessionRecoveryCode();
 }
 
-export async function getPrivateKey(): Promise<string | null> {
+export async function getPrivateKey(password?: string): Promise<string | null> {
   const encrypted = await get<string>(WALLET_KEY);
-  if (!encrypted || !sessionRecoveryCode) return null;
+  if (!encrypted) return null;
+  
+  const code = password || sessionRecoveryCode;
+  if (!code) return null;
   
   try {
-    return await decryptPrivateKey(encrypted, sessionRecoveryCode);
+    return await decryptPrivateKey(encrypted, code);
   } catch {
     return null;
   }

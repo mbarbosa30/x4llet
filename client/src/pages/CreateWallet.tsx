@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Shield, Eye, EyeOff } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Shield, Eye, EyeOff, Copy, Check, AlertTriangle } from 'lucide-react';
 import { createWallet } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 
@@ -16,6 +17,10 @@ export default function CreateWallet() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [step, setStep] = useState<'password' | 'backup'>('password');
+  const [privateKey, setPrivateKey] = useState('');
+  const [backupConfirmed, setBackupConfirmed] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const validatePassword = () => {
     if (password.length < 8) {
@@ -65,14 +70,11 @@ export default function CreateWallet() {
 
     try {
       setIsCreating(true);
-      const { wallet } = await createWallet(password);
+      const { wallet, privateKey: pk } = await createWallet(password);
       console.log('Wallet created:', wallet.address);
       
-      toast({
-        title: "Wallet Created!",
-        description: "Your wallet is ready to use.",
-      });
-      setLocation('/home');
+      setPrivateKey(pk);
+      setStep('backup');
     } catch (error) {
       console.error('Failed to create wallet:', error);
       toast({
@@ -85,6 +87,37 @@ export default function CreateWallet() {
     }
   };
 
+  const handleCopyPrivateKey = async () => {
+    try {
+      await navigator.clipboard.writeText(privateKey);
+      setCopied(true);
+      toast({
+        title: "Copied!",
+        description: "Private key copied to clipboard",
+      });
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const handleContinue = () => {
+    if (!backupConfirmed) {
+      toast({
+        title: "Backup Required",
+        description: "Please confirm you've saved your private key",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    toast({
+      title: "Wallet Created!",
+      description: "Your wallet is ready to use.",
+    });
+    setLocation('/home');
+  };
+
   const strength = getPasswordStrength();
   const strengthColors = {
     weak: 'bg-red-500',
@@ -93,6 +126,100 @@ export default function CreateWallet() {
   };
 
   const isPasswordValid = validatePassword() === null;
+
+  if (step === 'backup') {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <div className="w-full max-w-md space-y-8">
+          <div className="text-center">
+            <Shield className="h-16 w-16 mx-auto mb-4 text-primary" />
+            <h1 className="text-2xl font-semibold mb-2">Backup Your Wallet</h1>
+            <p className="text-sm text-muted-foreground">
+              Save your private key to recover your wallet if needed
+            </p>
+          </div>
+
+          <Card className="p-6 space-y-4 border-destructive/50">
+            <div className="flex gap-3">
+              <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <h3 className="font-semibold text-destructive">Critical: Save This Key</h3>
+                <p className="text-sm text-muted-foreground">
+                  This is your only backup. If you lose both your password AND this private key, your funds will be lost forever.
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6 space-y-4">
+            <div className="space-y-2">
+              <Label>Your Private Key</Label>
+              <div className="space-y-2">
+                <div className="font-mono text-xs break-all bg-muted p-3 rounded-md border" data-testid="text-private-key">
+                  {privateKey}
+                </div>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleCopyPrivateKey}
+                  data-testid="button-copy-private-key"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="h-4 w-4 mr-2" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy Private Key
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div className="pt-2 space-y-2 text-xs text-muted-foreground">
+              <p className="font-medium">How to save your private key:</p>
+              <ul className="space-y-1 list-disc list-inside">
+                <li>Write it down on paper and store it securely</li>
+                <li>Save it in a password manager</li>
+                <li>Never share it with anyone</li>
+                <li>Keep it separate from your password</li>
+              </ul>
+            </div>
+          </Card>
+
+          <Card className="p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="backup-confirmed"
+                checked={backupConfirmed}
+                onCheckedChange={(checked) => setBackupConfirmed(checked === true)}
+                data-testid="checkbox-backup-confirmed"
+              />
+              <label
+                htmlFor="backup-confirmed"
+                className="text-sm cursor-pointer"
+              >
+                I understand that if I lose my password and this private key, I will permanently lose access to my wallet and funds. I have saved my private key in a secure location.
+              </label>
+            </div>
+          </Card>
+
+          <Button
+            onClick={handleContinue}
+            disabled={!backupConfirmed}
+            className="w-full"
+            size="lg"
+            data-testid="button-continue"
+          >
+            Continue to Wallet
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
