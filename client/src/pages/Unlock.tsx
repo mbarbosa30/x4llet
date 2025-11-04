@@ -3,14 +3,15 @@ import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { Shield } from 'lucide-react';
+import { Shield, Eye, EyeOff } from 'lucide-react';
 import { getWallet, hasWallet } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Unlock() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [recoveryCode, setRecoveryCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isUnlocking, setIsUnlocking] = useState(false);
 
   useEffect(() => {
@@ -26,7 +27,7 @@ export default function Unlock() {
   const handleUnlock = async () => {
     try {
       setIsUnlocking(true);
-      const wallet = await getWallet(recoveryCode);
+      const wallet = await getWallet(password);
       
       if (wallet) {
         toast({
@@ -39,12 +40,18 @@ export default function Unlock() {
       toast({
         title: "Failed to Unlock",
         description: error.message === 'INVALID_RECOVERY_CODE' 
-          ? "Invalid recovery code. Please try again." 
+          ? "Incorrect password. Please try again." 
           : "An error occurred.",
         variant: "destructive",
       });
     } finally {
       setIsUnlocking(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && password && !isUnlocking) {
+      handleUnlock();
     }
   };
 
@@ -55,29 +62,39 @@ export default function Unlock() {
           <Shield className="h-12 w-12 mx-auto mb-4 text-primary" />
           <h1 className="text-2xl font-semibold mb-2">Unlock Wallet</h1>
           <p className="text-sm text-muted-foreground">
-            Enter your recovery code to unlock your wallet
+            Enter your password to unlock your wallet
           </p>
         </div>
 
         <Card className="p-6 space-y-4">
           <div className="space-y-2">
-            <label htmlFor="recovery-code" className="text-sm font-medium">
-              Recovery Code
+            <label htmlFor="password" className="text-sm font-medium">
+              Password
             </label>
-            <Input
-              id="recovery-code"
-              type="text"
-              placeholder="XXXX-XXXX-XXXX"
-              value={recoveryCode}
-              onChange={(e) => setRecoveryCode(e.target.value)}
-              className="font-mono"
-              data-testid="input-recovery-code"
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyPress={handleKeyPress}
+                data-testid="input-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                data-testid="button-toggle-password"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
 
           <Button 
             onClick={handleUnlock}
-            disabled={!recoveryCode || isUnlocking}
+            disabled={!password || isUnlocking}
             className="w-full"
             size="lg"
             data-testid="button-unlock"
@@ -90,6 +107,7 @@ export default function Unlock() {
           <button 
             onClick={() => setLocation('/')}
             className="text-sm text-muted-foreground hover:text-foreground"
+            data-testid="link-back"
           >
             Back to Start
           </button>

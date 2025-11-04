@@ -112,16 +112,14 @@ export function clearSessionRecoveryCode() {
   sessionRecoveryCode = null;
 }
 
-export async function createWallet(): Promise<{ wallet: Wallet; recoveryCode: string }> {
+export async function createWallet(password: string): Promise<{ wallet: Wallet }> {
   const privateKey = generatePrivateKey();
   const account = privateKeyToAccount(privateKey);
   
-  const recoveryCode = generateRecoveryCode();
-  
-  const encryptedKey = await encryptPrivateKey(privateKey, recoveryCode);
+  const encryptedKey = await encryptPrivateKey(privateKey, password);
   await set(WALLET_KEY, encryptedKey);
   
-  setSessionRecoveryCode(recoveryCode);
+  setSessionRecoveryCode(password);
   
   const wallet: Wallet = {
     address: account.address,
@@ -129,7 +127,7 @@ export async function createWallet(): Promise<{ wallet: Wallet; recoveryCode: st
     createdAt: new Date().toISOString(),
   };
   
-  return { wallet, recoveryCode };
+  return { wallet };
 }
 
 export async function getWallet(recoveryCode?: string): Promise<Wallet | null> {

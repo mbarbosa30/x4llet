@@ -2,27 +2,77 @@ import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Shield, Download, Printer } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Shield, Eye, EyeOff } from 'lucide-react';
 import { createWallet } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 
 export default function CreateWallet() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [step, setStep] = useState<'intro' | 'recovery'>('intro');
-  const [cloudBackup, setCloudBackup] = useState(false);
-  const [recoveryCode, setRecoveryCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
+  const validatePassword = () => {
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters';
+    }
+    if (!/[a-z]/.test(password)) {
+      return 'Password must contain at least one lowercase letter';
+    }
+    if (!/[A-Z]/.test(password)) {
+      return 'Password must contain at least one uppercase letter';
+    }
+    if (!/[0-9]/.test(password)) {
+      return 'Password must contain at least one number';
+    }
+    if (password !== confirmPassword) {
+      return 'Passwords do not match';
+    }
+    return null;
+  };
+
+  const getPasswordStrength = () => {
+    if (password.length === 0) return null;
+    if (password.length < 8) return 'weak';
+    
+    let strength = 0;
+    if (password.length >= 12) strength++;
+    if (/[a-z]/.test(password)) strength++;
+    if (/[A-Z]/.test(password)) strength++;
+    if (/[0-9]/.test(password)) strength++;
+    if (/[^a-zA-Z0-9]/.test(password)) strength++;
+    
+    if (strength <= 2) return 'weak';
+    if (strength <= 3) return 'medium';
+    return 'strong';
+  };
+
   const handleCreateWallet = async () => {
+    const error = validatePassword();
+    if (error) {
+      toast({
+        title: "Invalid Password",
+        description: error,
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsCreating(true);
-      const { wallet, recoveryCode: code } = await createWallet();
-      setRecoveryCode(code);
-      setStep('recovery');
+      const { wallet } = await createWallet(password);
       console.log('Wallet created:', wallet.address);
+      
+      toast({
+        title: "Wallet Created!",
+        description: "Your wallet is ready to use.",
+      });
+      setLocation('/home');
     } catch (error) {
       console.error('Failed to create wallet:', error);
       toast({
@@ -35,137 +85,14 @@ export default function CreateWallet() {
     }
   };
 
-  const handleSaveImage = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 600;
-    canvas.height = 200;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, 600, 200);
-      ctx.fillStyle = '#000000';
-      ctx.font = '24px monospace';
-      ctx.fillText('Recovery Code:', 20, 50);
-      ctx.font = 'bold 32px monospace';
-      ctx.fillText(recoveryCode, 20, 100);
-      ctx.font = '14px sans-serif';
-      ctx.fillText('Store this code safely. You will need it to restore your wallet.', 20, 150);
-      
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'recovery-code.png';
-          a.click();
-          URL.revokeObjectURL(url);
-        }
-      });
-    }
+  const strength = getPasswordStrength();
+  const strengthColors = {
+    weak: 'bg-red-500',
+    medium: 'bg-yellow-500',
+    strong: 'bg-green-500',
   };
 
-  const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Wallet Recovery Code</title>
-            <style>
-              body { font-family: monospace; padding: 40px; }
-              h1 { font-size: 24px; }
-              .code { font-size: 32px; font-weight: bold; margin: 20px 0; }
-              .warning { font-size: 14px; color: #666; }
-            </style>
-          </head>
-          <body>
-            <h1>Wallet Recovery Code</h1>
-            <div class="code">${recoveryCode}</div>
-            <p class="warning">Store this code safely. You will need it to restore your wallet.</p>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
-    }
-  };
-
-  const handleContinue = () => {
-    if (cloudBackup) {
-      console.log('TODO: Implement cloud backup');
-    }
-    toast({
-      title: "Wallet Created!",
-      description: "Your wallet is ready to use.",
-    });
-    setLocation('/home');
-  };
-
-  if (step === 'recovery') {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-        <div className="w-full max-w-md space-y-6">
-          <div className="text-center">
-            <Shield className="h-12 w-12 mx-auto mb-4 text-primary" />
-            <h1 className="text-2xl font-semibold mb-2">Save Your Recovery Code</h1>
-            <p className="text-sm text-muted-foreground">
-              Write this down and store it safely. You'll need it to restore your wallet.
-            </p>
-          </div>
-
-          <Card className="p-8">
-            <div className="text-center">
-              <code className="text-xl font-mono font-medium tracking-wider" data-testid="text-recovery-code">
-                {recoveryCode}
-              </code>
-            </div>
-          </Card>
-
-          <div className="grid grid-cols-2 gap-2">
-            <Button 
-              variant="outline" 
-              className="w-full"
-              onClick={handleSaveImage}
-              data-testid="button-save-image"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Save Image
-            </Button>
-            <Button 
-              variant="outline" 
-              className="w-full"
-              onClick={handlePrint}
-              data-testid="button-print"
-            >
-              <Printer className="h-4 w-4 mr-2" />
-              Print
-            </Button>
-          </div>
-
-          <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-            <Label htmlFor="cloud-backup" className="text-sm">
-              Back up to cloud (encrypted)
-            </Label>
-            <Switch
-              id="cloud-backup"
-              checked={cloudBackup}
-              onCheckedChange={setCloudBackup}
-              data-testid="switch-cloud-backup"
-            />
-          </div>
-
-          <Button 
-            onClick={handleContinue} 
-            className="w-full" 
-            size="lg"
-            data-testid="button-continue"
-          >
-            I've Saved My Code
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const isPasswordValid = validatePassword() === null;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
@@ -174,34 +101,88 @@ export default function CreateWallet() {
           <Shield className="h-16 w-16 mx-auto mb-4 text-primary" />
           <h1 className="text-2xl font-semibold mb-2">Create Your Wallet</h1>
           <p className="text-sm text-muted-foreground">
-            Get started in seconds with a secure, self-custodial wallet
+            Choose a strong password to secure your wallet
           </p>
         </div>
 
-        <Card className="p-6">
-          <ul className="space-y-4">
-            <li className="flex gap-3">
-              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
-                1
+        <Card className="p-6 space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                data-testid="input-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                data-testid="button-toggle-password"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            {strength && (
+              <div className="space-y-1">
+                <div className="flex gap-1">
+                  <div className={`h-1 flex-1 rounded ${strength === 'weak' ? strengthColors.weak : 'bg-muted'}`} />
+                  <div className={`h-1 flex-1 rounded ${strength === 'medium' || strength === 'strong' ? strengthColors.medium : 'bg-muted'}`} />
+                  <div className={`h-1 flex-1 rounded ${strength === 'strong' ? strengthColors.strong : 'bg-muted'}`} />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Password strength: <span className="capitalize">{strength}</span>
+                </p>
               </div>
-              <div className="text-sm">
-                <strong>Your keys stay on your device</strong> — you're in complete control
-              </div>
-            </li>
-            <li className="flex gap-3">
-              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
-                2
-              </div>
-              <div className="text-sm">
-                <strong>Write down your recovery code</strong> — it's the only way to restore access
-              </div>
-            </li>
-          </ul>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password">Confirm Password</Label>
+            <div className="relative">
+              <Input
+                id="confirm-password"
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm your password"
+                data-testid="input-confirm-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                data-testid="button-toggle-confirm-password"
+              >
+                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          <div className="pt-2 space-y-2 text-xs text-muted-foreground">
+            <p className="font-medium">Password requirements:</p>
+            <ul className="space-y-1 list-disc list-inside">
+              <li>At least 8 characters</li>
+              <li>One uppercase letter (A-Z)</li>
+              <li>One lowercase letter (a-z)</li>
+              <li>One number (0-9)</li>
+            </ul>
+          </div>
+        </Card>
+
+        <Card className="p-4 bg-muted/50 border-primary/20">
+          <p className="text-xs text-muted-foreground">
+            <strong className="text-foreground">Important:</strong> Your password encrypts your wallet on this device. 
+            If you forget it, you cannot recover your wallet. There is no "forgot password" option.
+          </p>
         </Card>
 
         <Button 
           onClick={handleCreateWallet}
-          disabled={isCreating}
+          disabled={isCreating || !isPasswordValid}
           className="w-full" 
           size="lg"
           data-testid="button-create-wallet"
@@ -211,10 +192,11 @@ export default function CreateWallet() {
 
         <div className="text-center">
           <button 
-            onClick={() => setLocation('/restore')}
+            onClick={() => setLocation('/unlock')}
             className="text-sm text-muted-foreground hover:text-foreground"
+            data-testid="link-unlock"
           >
-            Already have a wallet? Restore
+            Already have a wallet? Unlock
           </button>
         </div>
       </div>
