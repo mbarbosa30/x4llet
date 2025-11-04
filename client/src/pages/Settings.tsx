@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ChevronRight, Download, Upload, Globe, DollarSign } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Download, Upload, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { getPreferences, savePreferences, exportWalletBackup } from '@/lib/wallet';
+import { getPreferences, savePreferences, exportWalletBackup, getPrivateKey } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -30,9 +30,15 @@ export default function Settings() {
   const [language, setLanguage] = useState('en');
   const [network, setNetwork] = useState<'base' | 'celo'>('base');
   const [showExport, setShowExport] = useState(false);
+  const [showExportPrivateKey, setShowExportPrivateKey] = useState(false);
   const [showCurrency, setShowCurrency] = useState(false);
   const [showNetwork, setShowNetwork] = useState(false);
   const [recoveryCode, setRecoveryCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [privateKey, setPrivateKey] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPrivateKey, setShowPrivateKey] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -110,6 +116,62 @@ export default function Settings() {
     setShowNetwork(false);
   };
 
+  const handleExportPrivateKey = async () => {
+    if (!password || password.length < 8) {
+      toast({
+        title: "Invalid Password",
+        description: "Please enter your password",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const key = await getPrivateKey(password);
+      if (!key) {
+        toast({
+          title: "Export Failed",
+          description: "Invalid password",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setPrivateKey(key);
+      setPassword('');
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast({
+        title: "Export Failed",
+        description: "Invalid password",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCopyPrivateKey = async () => {
+    try {
+      await navigator.clipboard.writeText(privateKey);
+      setCopied(true);
+      toast({
+        title: "Copied!",
+        description: "Private key copied to clipboard",
+      });
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const handleClosePrivateKeyDialog = () => {
+    setShowExportPrivateKey(false);
+    setPrivateKey('');
+    setPassword('');
+    setShowPassword(false);
+    setShowPrivateKey(false);
+    setCopied(false);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="h-16 border-b flex items-center px-4">
@@ -130,6 +192,17 @@ export default function Settings() {
             Security
           </h2>
           <Card className="divide-y">
+            <button
+              onClick={() => setShowExportPrivateKey(true)}
+              className="w-full flex items-center justify-between p-4 hover-elevate"
+              data-testid="button-export-private-key"
+            >
+              <div className="flex items-center gap-3">
+                <Key className="h-5 w-5 text-muted-foreground" />
+                <span className="text-sm font-medium">Export Private Key</span>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </button>
             <button
               onClick={() => setShowExport(true)}
               className="w-full flex items-center justify-between p-4 hover-elevate"
@@ -207,6 +280,107 @@ export default function Settings() {
           </div>
         </div>
       </main>
+
+      <Dialog open={showExportPrivateKey} onOpenChange={handleClosePrivateKeyDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Export Private Key</DialogTitle>
+            <DialogDescription>
+              {!privateKey ? (
+                "Enter your password to view your private key"
+              ) : (
+                "Your private key gives full access to your wallet. Never share it with anyone."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {!privateKey ? (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="export-password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="export-password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleExportPrivateKey()}
+                    data-testid="input-export-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    data-testid="button-toggle-export-password"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Your Private Key</Label>
+                <div className="space-y-2">
+                  <div className="relative">
+                    <div className="font-mono text-xs break-all bg-muted p-3 rounded-md border" data-testid="text-exported-private-key">
+                      {showPrivateKey ? privateKey : '•'.repeat(66)}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowPrivateKey(!showPrivateKey)}
+                      className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+                      data-testid="button-toggle-private-key-visibility"
+                    >
+                      {showPrivateKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleCopyPrivateKey}
+                    data-testid="button-copy-exported-private-key"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="h-4 w-4 mr-2" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy Private Key
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="pt-2 space-y-2 text-xs text-muted-foreground bg-destructive/10 p-3 rounded-md border border-destructive/20">
+                <p className="font-medium text-destructive">⚠️ Security Warning</p>
+                <ul className="space-y-1 list-disc list-inside">
+                  <li>Anyone with this key can access your funds</li>
+                  <li>Never share it with anyone</li>
+                  <li>Store it in a secure location</li>
+                </ul>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={handleClosePrivateKeyDialog} data-testid="button-close-export">
+              {privateKey ? 'Close' : 'Cancel'}
+            </Button>
+            {!privateKey && (
+              <Button onClick={handleExportPrivateKey} data-testid="button-confirm-export">
+                View Private Key
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showExport} onOpenChange={setShowExport}>
         <DialogContent>
