@@ -3,26 +3,33 @@ import { useLocation } from 'wouter';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, QrCode } from 'lucide-react';
+import { ArrowLeft, QrCode, Scan } from 'lucide-react';
 import NumericKeypad from '@/components/NumericKeypad';
+import QRCodeDisplay from '@/components/QRCodeDisplay';
+import QRScanner from '@/components/QRScanner';
 import { Card } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getWallet, getPrivateKey, getPreferences } from '@/lib/wallet';
 import { privateKeyToAccount } from 'viem/accounts';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { getNetworkConfig } from '@shared/networks';
-import type { TransferRequest, TransferResponse } from '@shared/schema';
+import type { TransferRequest, TransferResponse, PaymentRequest, AuthorizationQR } from '@shared/schema';
 
 export default function Send() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const [step, setStep] = useState<'input' | 'confirm'>('input');
+  const [mode, setMode] = useState<'online' | 'offline'>('online');
+  const [step, setStep] = useState<'input' | 'confirm' | 'qr'>('input');
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
   const [address, setAddress] = useState<string | null>(null);
   const [network, setNetwork] = useState<'base' | 'celo'>('base');
+  const [showScanner, setShowScanner] = useState(false);
+  const [paymentRequest, setPaymentRequest] = useState<PaymentRequest | null>(null);
+  const [authorizationQR, setAuthorizationQR] = useState<AuthorizationQR | null>(null);
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -89,7 +96,34 @@ export default function Send() {
     }
   };
 
-  const handleConfirm = async () => {
+  const handleScanRequest = (data: string) => {
+    try {
+      const request: PaymentRequest = JSON.parse(data);
+      
+      if (request.chainId !== getNetworkConfig(network).chainId) {
+        toast({
+          title: "Wrong Network",
+          description: "Payment request is for a different network",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setPaymentRequest(request);
+      setRecipient(request.to);
+      setAmount((parseInt(request.amount) / 1000000).toFixed(2));
+      setShowScanner(false);
+      setStep('confirm');
+    } catch (error) {
+      toast({
+        title: "Invalid QR Code",
+        description: "Could not parse payment request",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCreateAuthorizationQR = async () => {
     if (!address) return;
     
     try {
@@ -102,9 +136,98 @@ export default function Send() {
       const networkConfig = getNetworkConfig(network);
       
       const value = Math.floor(parseFloat(amount) * 1000000).toString();
-      const nonce = `0x${Array.from({ length: 32 }, () => 
-        Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
-      ).join('')}`;
+      
+      const nonceBytes = new Uint8Array(32);
+      crypto.getRandomValues(nonceBytes);
+      const nonce = `0x${Array.from(nonceBytes).map(b => b.toString(16).padStart(2, '0')).join('')}`;
+      
+      const validAfter = '0';
+      const validBefore = Math.floor(Date.now() / 1000 + (paymentRequest?.ttl || 600)).toString();
+
+      const domain = {
+        name: 'USD Coin',
+        version: '2',
+        chainId: networkConfig.chainId,
+        verifyingContract: networkConfig.usdcAddress as `0x${string}`,
+      };
+
+      const message = {
+        from: address as `0x${string}`,
+        to: recipient as `0x${string}`,
+        value: BigInt(value),
+        validAfter: BigInt(validAfter),
+        validBefore: BigInt(validBefore),
+        nonce: nonce as `0x${string}`,
+      };
+
+      const signature = await account.signTypedData({
+        domain,
+        types: {
+          TransferWithAuthorization: [
+            { name: 'from', type: 'address' },
+            { name: 'to', type: 'address' },
+            { name: 'value', type: 'uint256' },
+            { name: 'validAfter', type: 'uint256' },
+            { name: 'validBefore', type: 'uint256' },
+            { name: 'nonce', type: 'bytes32' },
+          ],
+        },
+        primaryType: 'TransferWithAuthorization',
+        message,
+      });
+
+      const authQR: AuthorizationQR = {
+        domain,
+        message: {
+          from: address,
+          to: recipient,
+          value,
+          validAfter,
+          validBefore,
+          nonce,
+        },
+        signature,
+      };
+
+      setAuthorizationQR(authQR);
+      setStep('qr');
+      
+      toast({
+        title: "Authorization Created!",
+        description: "Show this QR to the receiver",
+      });
+    } catch (error) {
+      console.error('Error creating authorization:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create authorization",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!address) return;
+    
+    if (mode === 'offline') {
+      await handleCreateAuthorizationQR();
+      return;
+    }
+    
+    try {
+      const privateKey = await getPrivateKey();
+      if (!privateKey) {
+        throw new Error('No wallet found');
+      }
+
+      const account = privateKeyToAccount(privateKey as `0x${string}`);
+      const networkConfig = getNetworkConfig(network);
+      
+      const value = Math.floor(parseFloat(amount) * 1000000).toString();
+      
+      const nonceBytes = new Uint8Array(32);
+      crypto.getRandomValues(nonceBytes);
+      const nonce = `0x${Array.from(nonceBytes).map(b => b.toString(16).padStart(2, '0')).join('')}`;
       
       const validAfter = '0';
       const validBefore = Math.floor(Date.now() / 1000 + 600).toString();
@@ -161,75 +284,8 @@ export default function Send() {
     }
   };
 
-  if (step === 'confirm') {
-    return (
-      <div className="min-h-screen bg-background">
-        <header className="h-16 border-b flex items-center px-4">
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => setStep('input')}
-            data-testid="button-back"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-lg font-semibold ml-2">Confirm Transaction</h1>
-        </header>
-
-        <main className="max-w-md mx-auto p-4 space-y-6">
-          <Card className="p-6 space-y-4">
-            <div>
-              <div className="text-sm text-muted-foreground mb-1">To</div>
-              <div className="font-mono text-sm break-all" data-testid="text-confirm-recipient">
-                {recipient}
-              </div>
-            </div>
-
-            <div className="border-t pt-4">
-              <div className="text-sm text-muted-foreground mb-1">Amount</div>
-              <div className="text-3xl font-medium tabular-nums" data-testid="text-confirm-amount">
-                {amount} USDC
-              </div>
-            </div>
-
-            <div className="border-t pt-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Network fee</span>
-                <span className="font-medium text-primary">Free (Gasless)</span>
-              </div>
-            </div>
-
-            <div className="border-t pt-4">
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Total</span>
-                <span className="text-lg font-medium tabular-nums">{amount} USDC</span>
-              </div>
-            </div>
-          </Card>
-
-          <div className="space-y-2">
-            <Button 
-              onClick={handleConfirm}
-              disabled={sendMutation.isPending}
-              className="w-full" 
-              size="lg"
-              data-testid="button-confirm-send"
-            >
-              {sendMutation.isPending ? 'Sending...' : 'Confirm Send'}
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => setStep('input')}
-              disabled={sendMutation.isPending}
-              className="w-full"
-              data-testid="button-cancel"
-            >
-              Cancel
-            </Button>
-          </div>
-        </main>
-      </div>
-    );
+  if (!address) {
+    return null;
   }
 
   return (
@@ -238,7 +294,15 @@ export default function Send() {
         <Button 
           variant="ghost" 
           size="icon"
-          onClick={() => setLocation('/home')}
+          onClick={() => {
+            if (step !== 'input') {
+              setStep('input');
+              setPaymentRequest(null);
+              setAuthorizationQR(null);
+            } else {
+              setLocation('/home');
+            }
+          }}
           data-testid="button-back"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -246,52 +310,172 @@ export default function Send() {
         <h1 className="text-lg font-semibold ml-2">Send USDC</h1>
       </header>
 
-      <main className="max-w-md mx-auto p-4 space-y-8">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Recipient</label>
-          <div className="flex gap-2">
-            <Input 
-              placeholder="Address or @handle"
-              value={recipient}
-              onChange={(e) => setRecipient(e.target.value)}
-              className="flex-1 font-mono text-sm"
-              data-testid="input-recipient"
-            />
+      <main className="max-w-md mx-auto p-4 space-y-6">
+        {step === 'input' && (
+          <>
+            <Tabs value={mode} onValueChange={(v) => setMode(v as 'online' | 'offline')} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="online" data-testid="tab-online">Online</TabsTrigger>
+                <TabsTrigger value="offline" data-testid="tab-offline">Offline</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {mode === 'offline' && (
+              <Card className="p-4 bg-muted/50">
+                <p className="text-sm text-muted-foreground">
+                  Offline mode creates a signed authorization QR that the receiver can submit later. No internet required for signing.
+                </p>
+              </Card>
+            )}
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="recipient" className="text-sm font-medium">
+                  Recipient Address
+                </label>
+                <div className="flex gap-2">
+                  <Input 
+                    id="recipient"
+                    placeholder="0x..."
+                    value={recipient}
+                    onChange={(e) => setRecipient(e.target.value)}
+                    className="flex-1"
+                    data-testid="input-recipient"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setShowScanner(true)}
+                    data-testid="button-scan-request"
+                  >
+                    <Scan className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Amount (USDC)</label>
+                <div className="text-4xl font-semibold text-center py-4">
+                  {amount || '0.00'}
+                </div>
+              </div>
+
+              <NumericKeypad
+                onNumberClick={handleNumberClick}
+                onBackspace={handleBackspace}
+                onDecimal={handleDecimal}
+              />
+
+              <Button 
+                onClick={handleNext}
+                disabled={!recipient || !amount || parseFloat(amount) <= 0}
+                className="w-full"
+                size="lg"
+                data-testid="button-next"
+              >
+                Continue
+              </Button>
+            </div>
+          </>
+        )}
+
+        {step === 'confirm' && (
+          <div className="space-y-6">
+            <Card className="p-4 space-y-4">
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Sending</div>
+                <div className="text-2xl font-semibold">{amount} USDC</div>
+              </div>
+
+              <div className="border-t pt-4">
+                <div className="text-sm text-muted-foreground mb-1">To</div>
+                <div className="font-mono text-sm break-all">{recipient}</div>
+              </div>
+
+              {paymentRequest?.description && (
+                <div className="border-t pt-4">
+                  <div className="text-sm text-muted-foreground mb-1">Description</div>
+                  <div className="text-sm">{paymentRequest.description}</div>
+                </div>
+              )}
+
+              {mode === 'offline' && (
+                <div className="border-t pt-4">
+                  <div className="text-sm text-muted-foreground mb-1">Mode</div>
+                  <div className="text-sm">Offline Authorization (no network needed)</div>
+                </div>
+              )}
+            </Card>
+
             <Button 
-              variant="outline" 
-              size="icon"
-              onClick={() => console.log('Scan QR code - TODO')}
-              data-testid="button-scan-qr"
+              onClick={handleConfirm}
+              disabled={sendMutation.isPending}
+              className="w-full"
+              size="lg"
+              data-testid="button-confirm"
             >
-              <QrCode className="h-5 w-5" />
+              {mode === 'offline' ? 'Create Authorization QR' : (sendMutation.isPending ? 'Sending...' : 'Confirm & Send')}
+            </Button>
+
+            <Button 
+              variant="outline"
+              onClick={() => {
+                setStep('input');
+                setPaymentRequest(null);
+              }}
+              className="w-full"
+              data-testid="button-cancel"
+            >
+              Cancel
             </Button>
           </div>
-        </div>
+        )}
 
-        <div className="text-center py-8">
-          <div className="text-sm text-muted-foreground mb-2">Amount</div>
-          <div className="text-4xl font-medium tabular-nums min-h-[3rem]" data-testid="text-amount-display">
-            {amount || '0'} <span className="text-2xl text-muted-foreground">USDC</span>
+        {step === 'qr' && authorizationQR && (
+          <div className="space-y-6">
+            <Card className="p-4">
+              <div className="text-center space-y-2">
+                <div className="text-sm text-muted-foreground">Authorization QR Created</div>
+                <div className="text-lg font-semibold">{amount} USDC</div>
+              </div>
+            </Card>
+
+            <div className="text-center space-y-4">
+              <div className="text-sm text-muted-foreground">
+                Show this QR to the receiver to complete the payment
+              </div>
+              <div className="flex justify-center">
+                <QRCodeDisplay value={JSON.stringify(authorizationQR)} size={300} />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                This authorization is valid for {paymentRequest?.ttl || 600} seconds
+              </p>
+            </div>
+
+            <Button 
+              variant="outline"
+              onClick={() => {
+                setStep('input');
+                setRecipient('');
+                setAmount('');
+                setPaymentRequest(null);
+                setAuthorizationQR(null);
+              }}
+              className="w-full"
+              data-testid="button-new-payment"
+            >
+              New Payment
+            </Button>
           </div>
-        </div>
-
-        <NumericKeypad 
-          onNumberClick={handleNumberClick}
-          onBackspace={handleBackspace}
-          onDecimal={handleDecimal}
-          disabled={!recipient}
-        />
-
-        <Button 
-          onClick={handleNext}
-          disabled={!recipient || !amount || amount === '0' || parseFloat(amount) <= 0}
-          className="w-full"
-          size="lg"
-          data-testid="button-next"
-        >
-          Next
-        </Button>
+        )}
       </main>
+
+      {showScanner && (
+        <QRScanner
+          onScan={handleScanRequest}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
     </div>
   );
 }

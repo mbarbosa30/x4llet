@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -8,15 +8,23 @@ export interface IStorage {
   
   getBalance(address: string, chainId: number): Promise<BalanceResponse>;
   getTransactions(address: string, chainId: number): Promise<Transaction[]>;
+  addTransaction(address: string, chainId: number, tx: Transaction): Promise<void>;
+  
+  saveAuthorization(auth: Authorization): Promise<void>;
+  getAuthorization(nonce: string, chainId: number): Promise<Authorization | undefined>;
+  getAuthorizationsByAddress(address: string, chainId: number): Promise<Authorization[]>;
+  markAuthorizationUsed(nonce: string, chainId: number, txHash: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private balances: Map<string, BalanceResponse>;
+  private authorizations: Map<string, Authorization>;
 
   constructor() {
     this.users = new Map();
     this.balances = new Map();
+    this.authorizations = new Map();
     
     this.initMockData();
   }
@@ -120,6 +128,32 @@ export class MemStorage implements IStorage {
       } else {
         existing.balance = (currentBalance - txAmount).toFixed(2);
       }
+    }
+  }
+
+  async saveAuthorization(auth: Authorization): Promise<void> {
+    const key = `${auth.nonce}-${auth.chainId}`;
+    this.authorizations.set(key, auth);
+  }
+
+  async getAuthorization(nonce: string, chainId: number): Promise<Authorization | undefined> {
+    const key = `${nonce}-${chainId}`;
+    return this.authorizations.get(key);
+  }
+
+  async getAuthorizationsByAddress(address: string, chainId: number): Promise<Authorization[]> {
+    return Array.from(this.authorizations.values()).filter(
+      auth => (auth.from === address || auth.to === address) && auth.chainId === chainId
+    );
+  }
+
+  async markAuthorizationUsed(nonce: string, chainId: number, txHash: string): Promise<void> {
+    const key = `${nonce}-${chainId}`;
+    const auth = this.authorizations.get(key);
+    if (auth) {
+      auth.status = 'used';
+      auth.usedAt = new Date().toISOString();
+      auth.txHash = txHash;
     }
   }
 }

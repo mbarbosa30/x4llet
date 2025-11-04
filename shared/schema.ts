@@ -98,3 +98,63 @@ export const transferResponseSchema = z.object({
 });
 
 export type TransferResponse = z.infer<typeof transferResponseSchema>;
+
+export const paymentRequestSchema = z.object({
+  v: z.number().default(1),
+  chainId: z.number(),
+  token: z.string(),
+  to: z.string(),
+  amount: z.string(),
+  decimals: z.number().default(6),
+  ttl: z.number(),
+  facilitatorUrl: z.string(),
+  ref: z.string().optional(),
+  description: z.string().optional(),
+});
+
+export type PaymentRequest = z.infer<typeof paymentRequestSchema>;
+
+export const authorizationSchema = z.object({
+  id: z.string(),
+  chainId: z.number(),
+  nonce: z.string(),
+  from: z.string(),
+  to: z.string(),
+  value: z.string(),
+  validAfter: z.string(),
+  validBefore: z.string(),
+  signature: z.string(),
+  status: z.enum(['pending', 'used', 'cancelled', 'expired']),
+  createdAt: z.string(),
+  usedAt: z.string().optional(),
+  txHash: z.string().optional(),
+});
+
+export type Authorization = z.infer<typeof authorizationSchema>;
+
+export const authorizationQRSchema = z.object({
+  domain: z.object({
+    name: z.string(),
+    version: z.string(),
+    chainId: z.number(),
+    verifyingContract: z.string(),
+  }),
+  message: z.object({
+    from: z.string(),
+    to: z.string(),
+    value: z.string(),
+    validAfter: z.string(),
+    validBefore: z.string(),
+    nonce: z.string(),
+  }),
+  signature: z.string(),
+});
+
+export type AuthorizationQR = z.infer<typeof authorizationQRSchema>;
+
+export const submitAuthorizationSchema = z.object({
+  authorization: authorizationQRSchema,
+  useReceiveWith: z.boolean().default(true),
+});
+
+export type SubmitAuthorization = z.infer<typeof submitAuthorizationSchema>;
