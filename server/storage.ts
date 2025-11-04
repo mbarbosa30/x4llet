@@ -13,6 +13,125 @@ const USDC_ABI = [
   },
 ] as const;
 
+// Helper function to convert USDC raw value (6 decimals) to human-readable string with 2 decimal places
+// Uses BigInt to preserve precision for large amounts and rounds to nearest cent
+function formatUsdcAmount(rawValue: string | bigint): string {
+  const valueBigInt = typeof rawValue === 'string' ? BigInt(rawValue) : rawValue;
+  const decimals = 1000000n; // 6 decimals for USDC
+  
+  // Round to nearest cent by adding half of the smallest unit we're displaying (0.005 USDC = 5000 units)
+  const roundedValue = valueBigInt + 5000n;
+  
+  // Get integer part (whole USDC)
+  const integerPart = roundedValue / decimals;
+  
+  // Get fractional part (cents) 
+  const remainder = roundedValue % decimals;
+  const fractionalPart = remainder / 10000n; // Divide by 10^4 to get 2 decimal places
+  
+  // Format with 2 decimal places
+  const fractionalStr = fractionalPart.toString().padStart(2, '0');
+  return `${integerPart}.${fractionalStr}`;
+}
+
+interface BlockExplorerTx {
+  hash: string;
+  from: string;
+  to: string;
+  value: string;
+  timeStamp: string;
+  tokenSymbol: string;
+  tokenDecimal: string;
+}
+
+async function fetchTransactionsFromBaseScan(address: string): Promise<Transaction[]> {
+  const apiKey = process.env.BASESCAN_API_KEY;
+  if (!apiKey) {
+    console.log('[BaseScan] No API key configured, skipping on-chain transaction fetch');
+    return [];
+  }
+
+  const usdcAddress = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+  const url = `https://api.basescan.org/api?module=account&action=tokentx&contractaddress=${usdcAddress}&address=${address}&sort=desc&apikey=${apiKey}`;
+
+  try {
+    console.log(`[BaseScan] Fetching transactions for ${address}`);
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status !== '1' || !data.result) {
+      console.log('[BaseScan] No transactions found or API error:', data.message);
+      return [];
+    }
+
+    const transactions: Transaction[] = data.result.map((tx: BlockExplorerTx) => {
+      const isSend = tx.from.toLowerCase() === address.toLowerCase();
+      const amount = formatUsdcAmount(tx.value);
+
+      return {
+        id: tx.hash,
+        type: isSend ? 'send' : 'receive',
+        from: tx.from,
+        to: tx.to,
+        amount,
+        timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+        status: 'completed',
+        txHash: tx.hash,
+      } as Transaction;
+    });
+
+    console.log(`[BaseScan] Found ${transactions.length} transactions`);
+    return transactions;
+  } catch (error) {
+    console.error('[BaseScan] Error fetching transactions:', error);
+    return [];
+  }
+}
+
+async function fetchTransactionsFromCeloScan(address: string): Promise<Transaction[]> {
+  const apiKey = process.env.CELOSCAN_API_KEY;
+  if (!apiKey) {
+    console.log('[CeloScan] No API key configured, skipping on-chain transaction fetch');
+    return [];
+  }
+
+  const usdcAddress = '0xcebA9300f2b948710d2653dD7B07f33A8B32118C';
+  const url = `https://api.celoscan.io/api?module=account&action=tokentx&contractaddress=${usdcAddress}&address=${address}&sort=desc&apikey=${apiKey}`;
+
+  try {
+    console.log(`[CeloScan] Fetching transactions for ${address}`);
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status !== '1' || !data.result) {
+      console.log('[CeloScan] No transactions found or API error:', data.message);
+      return [];
+    }
+
+    const transactions: Transaction[] = data.result.map((tx: BlockExplorerTx) => {
+      const isSend = tx.from.toLowerCase() === address.toLowerCase();
+      const amount = formatUsdcAmount(tx.value);
+
+      return {
+        id: tx.hash,
+        type: isSend ? 'send' : 'receive',
+        from: tx.from,
+        to: tx.to,
+        amount,
+        timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+        status: 'completed',
+        txHash: tx.hash,
+      } as Transaction;
+    });
+
+    console.log(`[CeloScan] Found ${transactions.length} transactions`);
+    return transactions;
+  } catch (error) {
+    console.error('[CeloScan] Error fetching transactions:', error);
+    return [];
+  }
+}
+
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -127,17 +246,47 @@ export class MemStorage implements IStorage {
         abi: USDC_ABI,
         functionName: 'balanceOf',
         args: [address as Address],
-      });
+      }) as bigint;
       
       console.log(`[Balance API] Raw balance from blockchain: ${balance.toString()}`);
       
-      // Convert from 6 decimals to human readable
-      const balanceInUsdc = (Number(balance) / 1000000).toFixed(2);
+      // Convert from 6 decimals to human readable (using BigInt to preserve precision)
+      const balanceInUsdc = formatUsdcAmount(balance);
       console.log(`[Balance API] Converted balance: ${balanceInUsdc} USDC`);
       
-      // Get existing transactions from cache or empty array
+      // Fetch on-chain transactions
+      console.log('[Balance API] Fetching on-chain transaction history...');
+      const onChainTransactions = chainId === 8453 
+        ? await fetchTransactionsFromBaseScan(address)
+        : await fetchTransactionsFromCeloScan(address);
+      
+      // Get locally stored transactions (from wallet-initiated transfers)
       const existing = this.balances.get(key);
-      const transactions = existing?.transactions || [];
+      const localTransactions = existing?.transactions || [];
+      
+      // Merge on-chain and local transactions, removing duplicates by txHash
+      const transactionMap = new Map<string, Transaction>();
+      
+      // Add on-chain transactions first
+      onChainTransactions.forEach(tx => {
+        if (tx.txHash) {
+          transactionMap.set(tx.txHash, tx);
+        }
+      });
+      
+      // Add local transactions (may override on-chain if same txHash)
+      localTransactions.forEach(tx => {
+        if (tx.txHash && !transactionMap.has(tx.txHash)) {
+          transactionMap.set(tx.txHash, tx);
+        }
+      });
+      
+      // Convert back to array and sort by timestamp (newest first)
+      const transactions = Array.from(transactionMap.values()).sort((a, b) => 
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+      
+      console.log(`[Balance API] Total transactions: ${transactions.length} (${onChainTransactions.length} on-chain, ${localTransactions.length} local)`);
       
       const response: BalanceResponse = {
         balance: balanceInUsdc,
