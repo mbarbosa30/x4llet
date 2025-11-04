@@ -25,17 +25,17 @@ The frontend follows a performance-first approach optimized for low-bandwidth en
 
 **State Management:**
 - Local-first architecture using IndexedDB for wallet key storage
-- Session-based recovery code management for wallet unlocking
+- Session-based password management for wallet unlocking
 - TanStack Query for API data caching and synchronization
 - User preferences (currency, language, network) stored in IndexedDB
 
 **Routing Structure:**
 - `/` - Create wallet (entry point)
-- `/unlock` - Unlock existing wallet with recovery code
+- `/unlock` - Unlock existing wallet with password
 - `/restore` - Restore wallet from encrypted backup
 - `/home` - Main dashboard with balance and transactions
-- `/send` - Send USDC with numeric keypad
-- `/receive` - Receive USDC with QR code and address sharing
+- `/send` - Send USDC with numeric keypad (online and offline modes)
+- `/receive` - Receive USDC with QR code and Payment Request generation
 - `/settings` - User preferences and wallet management
 
 **Key Components:**
@@ -73,18 +73,21 @@ The application is designed to support PostgreSQL through the existing Drizzle c
 **Wallet Generation:**
 - Uses viem's `generatePrivateKey()` to create secp256k1 private keys
 - Derives Ethereum addresses using `privateKeyToAccount()`
-- Generates 12-character recovery codes using alphanumeric charset (excluding ambiguous characters)
+- User chooses their own password (minimum 8 characters, must include uppercase, lowercase, and number)
 
 **Key Storage:**
 - Private keys encrypted using WebCrypto API (AES-GCM with PBKDF2 key derivation)
 - Encrypted keys stored in IndexedDB under `wallet_encrypted_key`
-- Recovery code used as encryption password (100,000 PBKDF2 iterations)
-- Session-based recovery code caching to avoid repeated password prompts
+- User-chosen password used as encryption key (100,000 PBKDF2 iterations)
+- Session-based password caching to avoid repeated password prompts
+- **Important**: Password is unrecoverable - no "forgot password" option exists
 
 **Transaction Signing:**
 - EIP-712 typed data signing for gasless transfers
 - Signature format compatible with USDC's EIP-3009 implementation
-- Support for ERC-2612 permit as fallback for tokens without EIP-3009
+- Cryptographically secure nonce generation using `crypto.getRandomValues()`
+- Support for offline authorization QR creation (payer signs without network)
+- Payment Request / Authorization QR flow for offline payments
 
 ### Network Configuration
 
