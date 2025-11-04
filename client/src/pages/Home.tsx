@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowUpRight, ArrowDownLeft, Settings, QrCode } from 'lucide-react';
 import BalanceCard from '@/components/BalanceCard';
 import TransactionList from '@/components/TransactionList';
+import AddressDisplay from '@/components/AddressDisplay';
 import { getWallet, getPreferences } from '@/lib/wallet';
 import type { BalanceResponse } from '@shared/schema';
 
@@ -83,6 +84,8 @@ export default function Home() {
       </header>
 
       <main className="max-w-md mx-auto p-4 space-y-6">
+        <AddressDisplay address={address} />
+        
         {isLoading ? (
           <div className="animate-pulse">
             <div className="h-32 bg-muted rounded-lg"></div>
