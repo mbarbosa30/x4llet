@@ -1,0 +1,79 @@
+import { ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+
+export interface Transaction {
+  id: string;
+  type: 'send' | 'receive';
+  address: string;
+  amount: string;
+  timestamp: string;
+  status?: 'pending' | 'completed' | 'failed';
+}
+
+interface TransactionListProps {
+  transactions: Transaction[];
+  onTransactionClick?: (tx: Transaction) => void;
+}
+
+export default function TransactionList({ transactions, onTransactionClick }: TransactionListProps) {
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  if (transactions.length === 0) {
+    return (
+      <div className="text-center py-12 text-muted-foreground" data-testid="text-no-transactions">
+        No transactions yet
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-0">
+      {transactions.map((tx, index) => (
+        <div
+          key={tx.id}
+          onClick={() => onTransactionClick?.(tx)}
+          className={`flex items-center gap-4 py-4 ${
+            index !== transactions.length - 1 ? 'border-b' : ''
+          } ${onTransactionClick ? 'hover-elevate cursor-pointer' : ''}`}
+          data-testid={`transaction-item-${tx.id}`}
+        >
+          <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+            tx.type === 'send' ? 'bg-muted' : 'bg-primary/10'
+          }`}>
+            {tx.type === 'send' ? (
+              <ArrowUpRight className="h-5 w-5 text-foreground" />
+            ) : (
+              <ArrowDownLeft className="h-5 w-5 text-primary" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium">
+              {tx.type === 'send' ? 'Sent to' : 'Received from'}
+            </div>
+            <div className="text-xs text-muted-foreground font-mono truncate">
+              {tx.address.slice(0, 10)}...{tx.address.slice(-8)}
+            </div>
+          </div>
+          <div className="text-right flex-shrink-0">
+            <div className={`text-sm font-medium tabular-nums ${
+              tx.type === 'send' ? 'text-foreground' : 'text-primary'
+            }`}>
+              {tx.type === 'send' ? '-' : '+'}{tx.amount}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {formatTime(tx.timestamp)}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
