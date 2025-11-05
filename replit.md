@@ -152,15 +152,17 @@ Different USDC deployments use different domain separator formats. The applicati
   }
   ```
 
-- **Salt-based format** (Celo, Polygon): Uses `salt` as bytes32 field containing chainId
+- **Salt-based format** (Celo, Polygon): Uses `salt` as bytes32 field containing keccak256(abi.encode(chainId))
   ```typescript
   domain: {
     name: 'USD Coin',
     version: '2',
     verifyingContract: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C',
-    salt: '0x000000000000000000000000000000000000000000000000000000000000a4ec' // chainId 42220 as bytes32
+    salt: keccak256(encodeAbiParameters([{ type: 'uint256' }], [BigInt(42220)]))
+    // Result: 0x7f2b1d82a0b9b9ee88e5c5ff0000f8fb0e0c84c4c9e2e3a8f3ec4e5c5ff0000f (example)
   }
   ```
+  **Important:** The salt field must be the keccak256 hash of the ABI-encoded chainId, not just the zero-padded chainId. This is a Celo/Polygon-specific requirement for USDC's EIP-712 domain separator.
 
 The backend extracts chainId from either format for validation and transaction routing.
 
