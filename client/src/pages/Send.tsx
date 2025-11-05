@@ -31,6 +31,7 @@ export default function Send() {
   const [showScanner, setShowScanner] = useState(false);
   const [paymentRequest, setPaymentRequest] = useState<PaymentRequest | null>(null);
   const [authorizationQR, setAuthorizationQR] = useState<AuthorizationQR | null>(null);
+  const [paymentLink, setPaymentLink] = useState<string | null>(null);
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -227,12 +228,18 @@ export default function Send() {
         signature,
       };
 
+      // Generate shareable payment link
+      const authData = btoa(JSON.stringify(authQR));
+      const baseUrl = window.location.origin;
+      const link = `${baseUrl}/pay?auth=${authData}`;
+
       setAuthorizationQR(authQR);
+      setPaymentLink(link);
       setStep('qr');
       
       toast({
-        title: "Authorization Created!",
-        description: "Show this QR to the receiver",
+        title: "Payment Link Created!",
+        description: "Anyone can execute this payment by scanning the QR or visiting the link",
       });
     } catch (error) {
       console.error('Error creating authorization:', error);
@@ -361,7 +368,7 @@ export default function Send() {
             {mode === 'offline' && (
               <Card className="p-4 bg-muted/50">
                 <p className="text-sm text-muted-foreground">
-                  Offline mode creates a signed authorization QR that the receiver can submit later. No internet required for signing.
+                  Offline mode creates a shareable payment link that anyone can execute. No internet required for signing - just share the link or QR code.
                 </p>
               </Card>
             )}
@@ -500,41 +507,58 @@ export default function Send() {
           </div>
         )}
 
-        {step === 'qr' && authorizationQR && (
+        {step === 'qr' && authorizationQR && paymentLink && (
           <div className="space-y-6">
             <Card className="p-4">
               <div className="text-center space-y-2">
-                <div className="text-sm text-muted-foreground">Authorization QR Created</div>
+                <div className="text-sm text-muted-foreground">Payment Link Created</div>
                 <div className="text-lg font-semibold">{amount} USDC</div>
               </div>
             </Card>
 
             <div className="text-center space-y-4">
               <div className="text-sm text-muted-foreground">
-                Show this QR to the receiver to complete the payment
+                Anyone can execute this payment by scanning the QR or visiting the link
               </div>
               <div className="flex justify-center">
-                <QRCodeDisplay value={JSON.stringify(authorizationQR)} size={300} />
+                <QRCodeDisplay value={paymentLink} size={300} />
               </div>
               <p className="text-xs text-muted-foreground">
                 This authorization is valid for {paymentRequest?.ttl || 600} seconds
               </p>
             </div>
 
-            <Button 
-              variant="outline"
-              onClick={() => {
-                setStep('input');
-                setRecipient('');
-                setAmount('');
-                setPaymentRequest(null);
-                setAuthorizationQR(null);
-              }}
-              className="w-full"
-              data-testid="button-new-payment"
-            >
-              New Payment
-            </Button>
+            <div className="space-y-3">
+              <Button 
+                onClick={() => {
+                  navigator.clipboard.writeText(paymentLink);
+                  toast({
+                    title: "Link Copied!",
+                    description: "Payment link copied to clipboard",
+                  });
+                }}
+                className="w-full"
+                data-testid="button-copy-link"
+              >
+                Copy Payment Link
+              </Button>
+
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  setStep('input');
+                  setRecipient('');
+                  setAmount('');
+                  setPaymentRequest(null);
+                  setAuthorizationQR(null);
+                  setPaymentLink(null);
+                }}
+                className="w-full"
+                data-testid="button-new-payment"
+              >
+                New Payment
+              </Button>
+            </div>
           </div>
         )}
       </main>
