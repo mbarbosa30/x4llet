@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useLocation } from 'wouter';
+import { useLocation, Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -324,13 +324,13 @@ export default function CreateWallet() {
           </Button>
 
           <div className="text-center">
-            <button 
-              onClick={() => setLocation('/unlock')}
+            <Link 
+              href="/unlock"
               className="text-sm text-muted-foreground hover:text-foreground"
               data-testid="link-unlock"
             >
               Already have a wallet? Unlock
-            </button>
+            </Link>
           </div>
         </div>
       </div>
