@@ -12,7 +12,7 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getWallet, getPrivateKey, getPreferences } from '@/lib/wallet';
 import { privateKeyToAccount } from 'viem/accounts';
-import { getAddress } from 'viem';
+import { getAddress, keccak256, encodeAbiParameters } from 'viem';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { getNetworkConfig } from '@shared/networks';
@@ -184,7 +184,7 @@ export default function Send() {
       const validAfter = '0';
       const validBefore = Math.floor(Date.now() / 1000 + (paymentRequest?.ttl || 600)).toString();
 
-      // Base uses standard chainId format, Celo uses salt-based format (Polygon-style)
+      // Base uses standard chainId format, Celo uses salt-based format with keccak256(abi.encode(chainId))
       const domain = networkConfig.chainId === 8453 
         ? {
             name: 'USD Coin',
@@ -196,7 +196,7 @@ export default function Send() {
             name: 'USD Coin',
             version: '2',
             verifyingContract: getAddress(networkConfig.usdcAddress),
-            salt: `0x${networkConfig.chainId.toString(16).padStart(64, '0')}` as `0x${string}`,
+            salt: keccak256(encodeAbiParameters([{ type: 'uint256' }], [BigInt(networkConfig.chainId)])),
           };
 
       const message = {
@@ -287,7 +287,7 @@ export default function Send() {
       const validAfter = '0';
       const validBefore = Math.floor(Date.now() / 1000 + 600).toString();
 
-      // Base uses standard chainId format, Celo uses salt-based format (Polygon-style)
+      // Base uses standard chainId format, Celo uses salt-based format with keccak256(abi.encode(chainId))
       const domain = networkConfig.chainId === 8453 
         ? {
             name: 'USD Coin',
@@ -299,7 +299,7 @@ export default function Send() {
             name: 'USD Coin',
             version: '2',
             verifyingContract: getAddress(networkConfig.usdcAddress),
-            salt: `0x${networkConfig.chainId.toString(16).padStart(64, '0')}` as `0x${string}`,
+            salt: keccak256(encodeAbiParameters([{ type: 'uint256' }], [BigInt(networkConfig.chainId)])),
           };
 
       const message = {
