@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, QrCode, Scan, Clipboard } from 'lucide-react';
+import { ArrowLeft, QrCode, Scan, Clipboard, MessageSquare } from 'lucide-react';
 import NumericKeypad from '@/components/NumericKeypad';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import QRScanner from '@/components/QRScanner';
@@ -585,7 +585,26 @@ export default function Send() {
                 className="w-full"
                 data-testid="button-copy-link"
               >
+                <Clipboard className="w-4 h-4 mr-2" />
                 Copy Payment Link
+              </Button>
+
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  const message = `Please execute this payment for me: ${paymentLink}`;
+                  const smsUrl = `sms:?body=${encodeURIComponent(message)}`;
+                  window.location.href = smsUrl;
+                  toast({
+                    title: "Opening SMS App",
+                    description: "Share this link with someone to execute the payment",
+                  });
+                }}
+                className="w-full"
+                data-testid="button-share-sms"
+              >
+                <MessageSquare className="w-4 h-4 mr-2" />
+                Share via SMS
               </Button>
 
               <Button 
