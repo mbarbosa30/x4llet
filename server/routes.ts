@@ -90,7 +90,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const expectedDomain = {
-        name: 'USD Coin',
+        name: 'USDC',
         version: '2',
         chainId: validatedData.chainId,
       };

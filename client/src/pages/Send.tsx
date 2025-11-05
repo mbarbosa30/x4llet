@@ -184,7 +184,7 @@ export default function Send() {
       const validBefore = Math.floor(Date.now() / 1000 + (paymentRequest?.ttl || 600)).toString();
 
       const domain = {
-        name: 'USD Coin',
+        name: 'USDC',
         version: '2',
         chainId: networkConfig.chainId,
         verifyingContract: networkConfig.usdcAddress as `0x${string}`,
@@ -280,7 +280,7 @@ export default function Send() {
 
       const typedData = {
         domain: {
-          name: 'USD Coin',
+          name: 'USDC',
           version: '2',
           chainId: networkConfig.chainId,
           verifyingContract: networkConfig.usdcAddress as `0x${string}`,
