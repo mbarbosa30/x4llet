@@ -10,6 +10,23 @@ import { base, celo } from 'viem/chains';
 
 const USDC_ABI = [
   {
+    name: 'transferWithAuthorization',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'from', type: 'address' },
+      { name: 'to', type: 'address' },
+      { name: 'value', type: 'uint256' },
+      { name: 'validAfter', type: 'uint256' },
+      { name: 'validBefore', type: 'uint256' },
+      { name: 'nonce', type: 'bytes32' },
+      { name: 'v', type: 'uint8' },
+      { name: 'r', type: 'bytes32' },
+      { name: 's', type: 'bytes32' },
+    ],
+    outputs: [],
+  },
+  {
     name: 'receiveWithAuthorization',
     type: 'function',
     stateMutability: 'nonpayable',
@@ -84,9 +101,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid domain parameters' });
       }
       
-      const { from, to, value } = validatedData.typedData.message;
+      const { from, to, value, validAfter, validBefore, nonce } = validatedData.typedData.message;
       
-      if (!from || !to || !value) {
+      if (!from || !to || !value || !validAfter || !validBefore || !nonce) {
         return res.status(400).json({ error: 'Missing required fields' });
       }
       
@@ -94,15 +111,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid address format' });
       }
       
-      console.log('Processing transfer:', {
+      // Validate timestamps
+      const now = Math.floor(Date.now() / 1000);
+      if (parseInt(validBefore) < now) {
+        return res.status(400).json({ error: 'Authorization expired' });
+      }
+      
+      if (parseInt(validAfter) > now) {
+        return res.status(400).json({ error: 'Authorization not yet valid' });
+      }
+      
+      console.log('[Facilitator] Processing online transfer:', {
         from,
         to,
-        amount: value,
+        value,
         chainId: validatedData.chainId,
       });
       
-      const txHash = `0x${randomUUID().replace(/-/g, '')}`;
+      // Get network configuration
+      const chain = validatedData.chainId === 8453 ? base : celo;
+      const networkConfig = getNetworkConfig(validatedData.chainId === 8453 ? 'base' : 'celo');
+      const facilitatorAccount = getFacilitatorAccount();
       
+      // Create wallet client
+      const walletClient = createWalletClient({
+        account: facilitatorAccount,
+        chain,
+        transport: http(networkConfig.rpcUrl),
+      });
+      
+      // Extract v, r, s from signature
+      const signature = validatedData.signature;
+      const [v, r, s] = [
+        parseInt(signature.slice(130, 132), 16),
+        signature.slice(0, 66) as Hex,
+        `0x${signature.slice(66, 130)}` as Hex,
+      ];
+      
+      console.log('[Facilitator] Submitting transferWithAuthorization to blockchain...');
+      console.log('[Facilitator] Facilitator address:', facilitatorAccount.address);
+      console.log('[Facilitator] USDC contract:', networkConfig.usdcAddress);
+      
+      // Submit transaction to blockchain
+      const txHash = await walletClient.writeContract({
+        address: networkConfig.usdcAddress as Address,
+        abi: USDC_ABI,
+        functionName: 'transferWithAuthorization',
+        args: [
+          from as Address,
+          to as Address,
+          BigInt(value),
+          BigInt(validAfter),
+          BigInt(validBefore),
+          nonce as Hex,
+          v,
+          r,
+          s,
+        ],
+      });
+      
+      console.log('[Facilitator] Transaction submitted! Hash:', txHash);
+      
+      // Store transaction records
       await storage.addTransaction(
         from,
         validatedData.chainId,
@@ -139,9 +209,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       res.json(response);
-    } catch (error) {
-      console.error('Error processing transfer:', error);
-      res.status(400).json({ error: 'Invalid transfer request' });
+    } catch (error: any) {
+      console.error('[Facilitator] Error processing transfer:', error);
+      res.status(400).json({ 
+        error: error.message || 'Invalid transfer request',
+        details: error.shortMessage || error.details || undefined
+      });
     }
   });
 
