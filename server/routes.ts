@@ -8,6 +8,9 @@ import { createPublicClient, createWalletClient, http, type Address, type Hex } 
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, celo } from 'viem/chains';
 
+// USDC EIP-3009 ABI
+// Note: Both functions are defined, but this implementation uses transferWithAuthorization for all cases
+// (online and offline modes) since the facilitator submits transactions and pays gas fees
 const USDC_ABI = [
   {
     name: 'transferWithAuthorization',
@@ -321,7 +324,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/relay/submit-authorization', async (req, res) => {
     try {
       const validatedData = submitAuthorizationSchema.parse(req.body);
-      const { authorization, useReceiveWith } = validatedData;
+      const { authorization } = validatedData;
       
       const { domain, message, signature } = authorization;
       const { from, to, value, validAfter, validBefore, nonce } = message;

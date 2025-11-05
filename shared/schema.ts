@@ -172,7 +172,6 @@ export type AuthorizationQR = z.infer<typeof authorizationQRSchema>;
 
 export const submitAuthorizationSchema = z.object({
   authorization: authorizationQRSchema,
-  useReceiveWith: z.boolean().default(true),
 });
 
 export type SubmitAuthorization = z.infer<typeof submitAuthorizationSchema>;
