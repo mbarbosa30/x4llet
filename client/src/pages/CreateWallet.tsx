@@ -11,7 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 import Footer from '@/components/Footer';
 
 export default function CreateWallet() {
-  console.log('[CreateWallet] Component mounted');
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [password, setPassword] = useState('');

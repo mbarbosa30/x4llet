@@ -8,30 +8,35 @@ export default function Landing() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
+    let isActive = true;
+
     async function checkWalletState() {
-      console.log('[Landing] Checking wallet state...');
       try {
         const walletExists = await hasWallet();
         const unlocked = isWalletUnlocked();
-        console.log('[Landing] Wallet exists:', walletExists, 'Unlocked:', unlocked);
+
+        if (!isActive) return;
 
         if (!walletExists) {
-          console.log('[Landing] Redirecting to /create');
           setLocation('/create');
         } else if (unlocked) {
-          console.log('[Landing] Redirecting to /home');
           setLocation('/home');
         } else {
-          console.log('[Landing] Redirecting to /unlock');
           setLocation('/unlock');
         }
       } catch (error) {
         console.error('Failed to check wallet state:', error);
-        setLocation('/create');
+        if (isActive) {
+          setLocation('/create');
+        }
       }
     }
 
     checkWalletState();
+
+    return () => {
+      isActive = false;
+    };
   }, [setLocation]);
 
   return (
