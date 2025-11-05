@@ -9,6 +9,7 @@ import RestoreWallet from "@/pages/RestoreWallet";
 import Home from "@/pages/Home";
 import Send from "@/pages/Send";
 import Receive from "@/pages/Receive";
+import Pay from "@/pages/Pay";
 import Settings from "@/pages/Settings";
 import HowItWorks from "@/pages/HowItWorks";
 import Faqs from "@/pages/Faqs";
@@ -23,6 +24,7 @@ function Router() {
       <Route path="/home" component={Home} />
       <Route path="/send" component={Send} />
       <Route path="/receive" component={Receive} />
+      <Route path="/pay" component={Pay} />
       <Route path="/settings" component={Settings} />
       <Route path="/how-it-works" component={HowItWorks} />
       <Route path="/faqs" component={Faqs} />
