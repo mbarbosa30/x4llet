@@ -8,6 +8,7 @@ import { getWallet, hasWallet } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Unlock() {
+  console.log('[Unlock] Component mounted');
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [password, setPassword] = useState('');
