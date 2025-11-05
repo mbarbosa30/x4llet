@@ -18,11 +18,15 @@ export default function Unlock() {
     const checkWallet = async () => {
       const exists = await hasWallet();
       if (!exists) {
-        setLocation('/');
+        toast({
+          title: "No Wallet Found",
+          description: "Please create a wallet first",
+        });
+        setLocation('/create');
       }
     };
     checkWallet();
-  }, [setLocation]);
+  }, [setLocation, toast]);
 
   const handleUnlock = async () => {
     try {
