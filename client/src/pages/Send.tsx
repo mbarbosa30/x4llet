@@ -40,6 +40,7 @@ export default function Send() {
   const [paymentRequest, setPaymentRequest] = useState<PaymentRequest | null>(null);
   const [authorizationQR, setAuthorizationQR] = useState<AuthorizationQR | null>(null);
   const [paymentLink, setPaymentLink] = useState<string | null>(null);
+  const [isLoadingWallet, setIsLoadingWallet] = useState(true);
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -84,6 +85,8 @@ export default function Send() {
         } else {
           setLocation('/');
         }
+      } finally {
+        setIsLoadingWallet(false);
       }
     };
     loadWallet();
@@ -359,6 +362,17 @@ export default function Send() {
       });
     }
   };
+
+  if (isLoadingWallet) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
+          <p className="text-sm text-muted-foreground">Loading wallet...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!address) {
     return null;
