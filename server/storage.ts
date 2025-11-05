@@ -1,7 +1,9 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, authorizations } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo } from 'viem/chains';
+import { db } from "./db";
+import { eq, and } from "drizzle-orm";
 
 const USDC_ABI = [
   {
@@ -345,4 +347,89 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Database storage with PostgreSQL for authorizations
+export class DbStorage extends MemStorage {
+  async saveAuthorization(auth: Authorization): Promise<void> {
+    await db.insert(authorizations).values({
+      id: auth.id,
+      chainId: auth.chainId,
+      nonce: auth.nonce,
+      from: auth.from,
+      to: auth.to,
+      value: auth.value,
+      validAfter: auth.validAfter,
+      validBefore: auth.validBefore,
+      signature: auth.signature,
+      status: auth.status,
+      usedAt: auth.usedAt ? new Date(auth.usedAt) : undefined,
+      txHash: auth.txHash,
+    });
+  }
+
+  async getAuthorization(nonce: string, chainId: number): Promise<Authorization | undefined> {
+    const result = await db
+      .select()
+      .from(authorizations)
+      .where(and(eq(authorizations.nonce, nonce), eq(authorizations.chainId, chainId)))
+      .limit(1);
+    
+    if (result.length === 0) {
+      return undefined;
+    }
+
+    const auth = result[0];
+    return {
+      id: auth.id,
+      chainId: auth.chainId,
+      nonce: auth.nonce,
+      from: auth.from,
+      to: auth.to,
+      value: auth.value,
+      validAfter: auth.validAfter,
+      validBefore: auth.validBefore,
+      signature: auth.signature,
+      status: auth.status as 'pending' | 'used' | 'cancelled' | 'expired',
+      createdAt: auth.createdAt.toISOString(),
+      usedAt: auth.usedAt?.toISOString(),
+      txHash: auth.txHash || undefined,
+    };
+  }
+
+  async getAuthorizationsByAddress(address: string, chainId: number): Promise<Authorization[]> {
+    const results = await db
+      .select()
+      .from(authorizations)
+      .where(eq(authorizations.chainId, chainId));
+    
+    return results
+      .filter(auth => auth.from === address || auth.to === address)
+      .map(auth => ({
+        id: auth.id,
+        chainId: auth.chainId,
+        nonce: auth.nonce,
+        from: auth.from,
+        to: auth.to,
+        value: auth.value,
+        validAfter: auth.validAfter,
+        validBefore: auth.validBefore,
+        signature: auth.signature,
+        status: auth.status as 'pending' | 'used' | 'cancelled' | 'expired',
+        createdAt: auth.createdAt.toISOString(),
+        usedAt: auth.usedAt?.toISOString(),
+        txHash: auth.txHash || undefined,
+      }));
+  }
+
+  async markAuthorizationUsed(nonce: string, chainId: number, txHash: string): Promise<void> {
+    await db
+      .update(authorizations)
+      .set({
+        status: 'used',
+        usedAt: new Date(),
+        txHash,
+      })
+      .where(and(eq(authorizations.nonce, nonce), eq(authorizations.chainId, chainId)));
+  }
+}
+
+export const storage = new DbStorage();
