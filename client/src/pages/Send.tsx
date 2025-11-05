@@ -18,6 +18,13 @@ import { apiRequest } from '@/lib/queryClient';
 import { getNetworkConfig } from '@shared/networks';
 import type { TransferRequest, TransferResponse, PaymentRequest, AuthorizationQR } from '@shared/schema';
 
+// UTF-8 safe base64 encoding
+function encodeBase64(str: string): string {
+  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) => {
+    return String.fromCharCode(parseInt(p1, 16));
+  }));
+}
+
 export default function Send() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -231,7 +238,7 @@ export default function Send() {
       };
 
       // Generate shareable payment link (URL-safe base64 encoding)
-      const authData = btoa(JSON.stringify(authQR));
+      const authData = encodeBase64(JSON.stringify(authQR));
       const urlSafeAuthData = encodeURIComponent(authData);
       const baseUrl = window.location.origin;
       const link = `${baseUrl}/pay?auth=${urlSafeAuthData}`;
