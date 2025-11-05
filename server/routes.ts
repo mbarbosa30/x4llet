@@ -88,15 +88,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = transferRequestSchema.parse(req.body);
       
-      // Extract chainId from either domain.chainId or domain.salt (Polygon/Celo style)
-      let domainChainId = validatedData.typedData.domain.chainId;
-      if (!domainChainId && validatedData.typedData.domain.salt) {
-        // Extract chainId from salt (hex bytes32)
-        domainChainId = parseInt(validatedData.typedData.domain.salt, 16);
-      }
-      
-      if (validatedData.chainId !== domainChainId) {
-        return res.status(400).json({ error: 'Chain ID mismatch' });
+      // Validate domain chainId for Base (standard format), or accept salt for Celo
+      if (validatedData.chainId === 8453) {
+        // Base uses standard chainId format
+        if (validatedData.typedData.domain.chainId !== validatedData.chainId) {
+          return res.status(400).json({ error: 'Chain ID mismatch for Base network' });
+        }
+      } else if (validatedData.chainId === 42220) {
+        // Celo uses salt-based format - salt contains keccak256(abi.encode(chainId))
+        if (!validatedData.typedData.domain.salt) {
+          return res.status(400).json({ error: 'Missing salt field for Celo network' });
+        }
+      } else {
+        return res.status(400).json({ error: 'Unsupported chain ID' });
       }
       
       // Validate domain parameters (name and version are always required)
@@ -330,14 +334,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { domain, message, signature } = authorization;
       const { from, to, value, validAfter, validBefore, nonce } = message;
       
-      // Extract chainId from either domain.chainId or domain.salt (Polygon/Celo style)
-      let chainId = domain.chainId;
-      if (!chainId && domain.salt) {
-        // Extract chainId from salt (hex bytes32)
-        chainId = parseInt(domain.salt, 16);
-      }
-      if (!chainId) {
-        return res.status(400).json({ error: 'Missing chain ID' });
+      // Determine chainId from domain structure
+      // Base uses standard chainId field, Celo uses salt field with keccak256(abi.encode(chainId))
+      let chainId: number;
+      if (domain.chainId) {
+        // Base uses standard chainId format
+        chainId = domain.chainId;
+      } else if (domain.salt) {
+        // Celo uses salt-based format - we know it's Celo (42220) if salt is present
+        chainId = 42220;
+      } else {
+        return res.status(400).json({ error: 'Missing chain ID or salt in domain' });
       }
       
       const existingAuth = await storage.getAuthorization(nonce, chainId);
