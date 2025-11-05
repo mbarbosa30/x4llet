@@ -88,25 +88,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = transferRequestSchema.parse(req.body);
       
-      // Validate domain chainId for Base (standard format), or accept salt for Celo
-      if (validatedData.chainId === 8453) {
-        // Base uses standard chainId format
-        if (validatedData.typedData.domain.chainId !== validatedData.chainId) {
-          return res.status(400).json({ error: 'Chain ID mismatch for Base network' });
-        }
-      } else if (validatedData.chainId === 42220) {
-        // Celo uses salt-based format - salt contains keccak256(abi.encode(chainId))
-        if (!validatedData.typedData.domain.salt) {
-          return res.status(400).json({ error: 'Missing salt field for Celo network' });
-        }
-      } else {
-        return res.status(400).json({ error: 'Unsupported chain ID' });
+      // Validate domain chainId matches request chainId
+      if (validatedData.typedData.domain.chainId !== validatedData.chainId) {
+        return res.status(400).json({ error: 'Chain ID mismatch between domain and request' });
       }
       
-      // Validate domain parameters (name and version are always required)
-      if (validatedData.typedData.domain.name !== 'USD Coin' ||
+      // Validate domain parameters (name varies by network, version is always "2")
+      const expectedName = validatedData.chainId === 8453 ? 'USD Coin' : 'USDC';
+      if (validatedData.typedData.domain.name !== expectedName ||
           validatedData.typedData.domain.version !== '2') {
-        return res.status(400).json({ error: 'Invalid domain parameters' });
+        return res.status(400).json({ error: `Invalid domain parameters (expected name: "${expectedName}", version: "2")` });
       }
       
       const { from, to, value, validAfter, validBefore, nonce } = validatedData.typedData.message;
@@ -334,18 +325,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { domain, message, signature } = authorization;
       const { from, to, value, validAfter, validBefore, nonce } = message;
       
-      // Determine chainId from domain structure
-      // Base uses standard chainId field, Celo uses salt field with keccak256(abi.encode(chainId))
-      let chainId: number;
-      if (domain.chainId) {
-        // Base uses standard chainId format
-        chainId = domain.chainId;
-      } else if (domain.salt) {
-        // Celo uses salt-based format - we know it's Celo (42220) if salt is present
-        chainId = 42220;
-      } else {
-        return res.status(400).json({ error: 'Missing chain ID or salt in domain' });
+      // Get chainId from domain (both Base and Celo use standard chainId format)
+      if (!domain.chainId) {
+        return res.status(400).json({ error: 'Missing chainId in domain' });
       }
+      const chainId = domain.chainId;
       
       const existingAuth = await storage.getAuthorization(nonce, chainId);
       if (existingAuth && existingAuth.status === 'used') {

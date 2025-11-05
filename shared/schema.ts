@@ -89,9 +89,9 @@ export const transferRequestSchema = z.object({
     domain: z.object({
       name: z.string(),
       version: z.string(),
-      chainId: z.number().optional(),
+      chainId: z.number(),
       verifyingContract: z.string(),
-      salt: z.string().optional(),
+      salt: z.string().optional(), // Legacy field, not used
     }),
     types: z.record(z.array(z.object({
       name: z.string(),
@@ -155,9 +155,9 @@ export const authorizationQRSchema = z.object({
   domain: z.object({
     name: z.string(),
     version: z.string(),
-    chainId: z.number().optional(),
+    chainId: z.number(),
     verifyingContract: z.string(),
-    salt: z.string().optional(),
+    salt: z.string().optional(), // Legacy field, not used
   }),
   message: z.object({
     from: z.string(),

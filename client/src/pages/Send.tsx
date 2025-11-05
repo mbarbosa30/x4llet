@@ -12,7 +12,7 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getWallet, getPrivateKey, getPreferences } from '@/lib/wallet';
 import { privateKeyToAccount } from 'viem/accounts';
-import { getAddress, keccak256, encodeAbiParameters } from 'viem';
+import { getAddress } from 'viem';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { getNetworkConfig } from '@shared/networks';
@@ -184,20 +184,13 @@ export default function Send() {
       const validAfter = '0';
       const validBefore = Math.floor(Date.now() / 1000 + (paymentRequest?.ttl || 600)).toString();
 
-      // Base uses standard chainId format, Celo uses salt-based format with keccak256(abi.encode(chainId))
-      const domain = networkConfig.chainId === 8453 
-        ? {
-            name: 'USD Coin',
-            version: '2',
-            chainId: networkConfig.chainId,
-            verifyingContract: getAddress(networkConfig.usdcAddress),
-          }
-        : {
-            name: 'USD Coin',
-            version: '2',
-            verifyingContract: getAddress(networkConfig.usdcAddress),
-            salt: keccak256(encodeAbiParameters([{ type: 'uint256' }], [BigInt(networkConfig.chainId)])),
-          };
+      // Both Base and Celo use standard chainId format, but Celo uses "USDC" as name
+      const domain = {
+        name: networkConfig.chainId === 8453 ? 'USD Coin' : 'USDC',
+        version: '2',
+        chainId: networkConfig.chainId,
+        verifyingContract: getAddress(networkConfig.usdcAddress),
+      };
 
       const message = {
         from: getAddress(address),
@@ -287,20 +280,13 @@ export default function Send() {
       const validAfter = '0';
       const validBefore = Math.floor(Date.now() / 1000 + 600).toString();
 
-      // Base uses standard chainId format, Celo uses salt-based format with keccak256(abi.encode(chainId))
-      const domain = networkConfig.chainId === 8453 
-        ? {
-            name: 'USD Coin',
-            version: '2',
-            chainId: networkConfig.chainId,
-            verifyingContract: getAddress(networkConfig.usdcAddress),
-          }
-        : {
-            name: 'USD Coin',
-            version: '2',
-            verifyingContract: getAddress(networkConfig.usdcAddress),
-            salt: keccak256(encodeAbiParameters([{ type: 'uint256' }], [BigInt(networkConfig.chainId)])),
-          };
+      // Both Base and Celo use standard chainId format, but Celo uses "USDC" as name
+      const domain = {
+        name: networkConfig.chainId === 8453 ? 'USD Coin' : 'USDC',
+        version: '2',
+        chainId: networkConfig.chainId,
+        verifyingContract: getAddress(networkConfig.usdcAddress),
+      };
 
       const message = {
         from: getAddress(address),
