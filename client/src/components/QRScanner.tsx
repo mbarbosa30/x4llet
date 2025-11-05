@@ -32,13 +32,28 @@ export default function QRScanner({ onScan, onClose }: QRScannerProps) {
             stopScanner();
           },
           () => {
+            // Scan error callback - ignore individual scan failures
           }
         );
 
         setIsScanning(true);
       } catch (err: any) {
         console.error('Scanner error:', err);
-        setError(err.message || 'Failed to start scanner');
+        
+        // Provide user-friendly error messages
+        let errorMessage = 'Failed to start camera';
+        
+        if (err.message?.includes('NotAllowedError') || err.message?.includes('Permission')) {
+          errorMessage = 'Camera permission denied. Please allow camera access in your browser settings.';
+        } else if (err.message?.includes('NotFoundError') || err.message?.includes('NotReadableError')) {
+          errorMessage = 'No camera found or camera is already in use by another application.';
+        } else if (err.message?.includes('NotSupportedError')) {
+          errorMessage = 'Camera not supported in this browser. Try using Chrome, Safari, or Firefox.';
+        } else if (err.message?.includes('OverconstrainedError')) {
+          errorMessage = 'Could not find a suitable camera. Try using the rear camera.';
+        }
+        
+        setError(errorMessage);
       }
     };
 

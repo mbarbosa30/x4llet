@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, QrCode, Scan } from 'lucide-react';
+import { ArrowLeft, QrCode, Scan, Clipboard } from 'lucide-react';
 import NumericKeypad from '@/components/NumericKeypad';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import QRScanner from '@/components/QRScanner';
@@ -124,6 +124,7 @@ export default function Send() {
 
   const handleScanRequest = (data: string) => {
     try {
+      // Try parsing as JSON first (Payment Request format)
       const request: PaymentRequest = JSON.parse(data);
       
       if (request.chainId !== getNetworkConfig(network).chainId) {
@@ -141,11 +142,24 @@ export default function Send() {
       setShowScanner(false);
       setStep('confirm');
     } catch (error) {
-      toast({
-        title: "Invalid QR Code",
-        description: "Could not parse payment request",
-        variant: "destructive",
-      });
+      // If JSON parsing fails, treat it as a plain wallet address
+      const trimmedData = data.trim();
+      
+      // Check if it looks like an Ethereum address (0x followed by 40 hex characters)
+      if (/^0x[a-fA-F0-9]{40}$/.test(trimmedData)) {
+        setRecipient(trimmedData);
+        setShowScanner(false);
+        toast({
+          title: "Address Scanned",
+          description: "Enter amount to continue",
+        });
+      } else {
+        toast({
+          title: "Invalid QR Code",
+          description: "Please scan a valid wallet address or payment request",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -362,12 +376,43 @@ export default function Send() {
                 <div className="flex gap-2">
                   <Input 
                     id="recipient"
-                    placeholder="0x..."
+                    placeholder="0x... or scan QR"
                     value={recipient}
                     onChange={(e) => setRecipient(e.target.value)}
                     className="flex-1"
                     data-testid="input-recipient"
                   />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={async () => {
+                      try {
+                        const text = await navigator.clipboard.readText();
+                        if (/^0x[a-fA-F0-9]{40}$/.test(text.trim())) {
+                          setRecipient(text.trim());
+                          toast({
+                            title: "Address Pasted",
+                            description: "Recipient address set from clipboard",
+                          });
+                        } else {
+                          toast({
+                            title: "Invalid Address",
+                            description: "Clipboard doesn't contain a valid wallet address",
+                            variant: "destructive",
+                          });
+                        }
+                      } catch (err) {
+                        toast({
+                          title: "Paste Failed",
+                          description: "Could not read from clipboard",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                    data-testid="button-paste-address"
+                  >
+                    <Clipboard className="h-4 w-4" />
+                  </Button>
                   <Button
                     variant="outline"
                     size="icon"

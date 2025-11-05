@@ -105,6 +105,7 @@ export default function Receive() {
 
   const handleScanAuthorization = (data: string) => {
     try {
+      // Try parsing as JSON first (Authorization QR format)
       const authQR: AuthorizationQR = JSON.parse(data);
       
       if (authQR.message.to.toLowerCase() !== address?.toLowerCase()) {
