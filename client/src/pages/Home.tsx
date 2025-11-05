@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ArrowUpRight, ArrowDownLeft, Settings, QrCode } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, Settings, QrCode, RefreshCw } from 'lucide-react';
 import BalanceCard from '@/components/BalanceCard';
 import TransactionList from '@/components/TransactionList';
 import AddressDisplay from '@/components/AddressDisplay';
@@ -10,6 +10,7 @@ import QRScanner from '@/components/QRScanner';
 import Footer from '@/components/Footer';
 import { getWallet, getPreferences } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
+import { queryClient } from '@/lib/queryClient';
 import type { BalanceResponse, PaymentRequest } from '@shared/schema';
 
 export default function Home() {
@@ -20,6 +21,7 @@ export default function Home() {
   const [chainId, setChainId] = useState(42220); // Default to Celo
   const [showScanner, setShowScanner] = useState(false);
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -50,7 +52,7 @@ export default function Home() {
   const { data: balanceData, isLoading } = useQuery<BalanceResponse>({
     queryKey: ['/api/balance', address, chainId],
     enabled: !!address,
-    refetchInterval: 10000,
+    refetchInterval: 30000,
     queryFn: async () => {
       const res = await fetch(`/api/balance/${address}?chainId=${chainId}`);
       if (!res.ok) throw new Error('Failed to fetch balance');
@@ -69,6 +71,16 @@ export default function Home() {
     : balance;
 
   const transactions = balanceData?.transactions || [];
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await queryClient.invalidateQueries({ queryKey: ['/api/balance', address, chainId] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/exchange-rate', currency] });
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
+  };
 
   const handleScanPaymentRequest = (data: string) => {
     try {
@@ -112,6 +124,15 @@ export default function Home() {
       <header className="h-16 border-b flex items-center justify-between px-4">
         <h1 className="text-lg font-semibold">Wallet</h1>
         <div className="flex gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            data-testid="button-refresh"
+          >
+            <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </Button>
           <Button 
             variant="ghost" 
             size="icon"
