@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, QrCode, Scan, Clipboard, MessageSquare } from 'lucide-react';
+import { ArrowLeft, QrCode, Scan, Clipboard, MessageSquare, Repeat } from 'lucide-react';
 import NumericKeypad from '@/components/NumericKeypad';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import QRScanner from '@/components/QRScanner';
@@ -16,7 +16,7 @@ import { getAddress } from 'viem';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { getNetworkConfig } from '@shared/networks';
-import type { TransferRequest, TransferResponse, PaymentRequest, AuthorizationQR } from '@shared/schema';
+import type { TransferRequest, TransferResponse, PaymentRequest, AuthorizationQR, BalanceResponse } from '@shared/schema';
 
 // UTF-8 safe base64 encoding
 function encodeBase64(str: string): string {
@@ -33,14 +33,20 @@ export default function Send() {
   const [mode, setMode] = useState<'online' | 'offline'>('online');
   const [step, setStep] = useState<'input' | 'confirm' | 'qr'>('input');
   const [recipient, setRecipient] = useState('');
-  const [amount, setAmount] = useState('');
+  const [inputValue, setInputValue] = useState(''); // User's editing buffer in current currency
+  const [usdcAmount, setUsdcAmount] = useState(''); // Canonical USDC amount (always in USDC)
   const [address, setAddress] = useState<string | null>(null);
   const [network, setNetwork] = useState<'base' | 'celo'>('celo');
+  const [chainId, setChainId] = useState(42220);
+  const [currency, setCurrency] = useState('USD');
+  const [displayCurrency, setDisplayCurrency] = useState<'USDC' | 'fiat'>('USDC');
   const [showScanner, setShowScanner] = useState(false);
   const [paymentRequest, setPaymentRequest] = useState<PaymentRequest | null>(null);
   const [authorizationQR, setAuthorizationQR] = useState<AuthorizationQR | null>(null);
   const [paymentLink, setPaymentLink] = useState<string | null>(null);
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
+  const isTogglingRef = useRef(false);
+  const lastConvertedRef = useRef<{value: string; currency: 'USDC' | 'fiat'}>({value: '', currency: 'USDC'});
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -54,6 +60,8 @@ export default function Send() {
         
         const prefs = await getPreferences();
         setNetwork(prefs.network);
+        setChainId(prefs.network === 'celo' ? 42220 : 8453);
+        setCurrency(prefs.currency);
         
         const storedRequest = sessionStorage.getItem('payment_request');
         if (storedRequest) {
@@ -70,7 +78,9 @@ export default function Send() {
             } else {
               setPaymentRequest(request);
               setRecipient(request.to);
-              setAmount((parseInt(request.amount) / 1000000).toFixed(2));
+              const usdcValue = (parseInt(request.amount) / 1000000).toFixed(6);
+              setUsdcAmount(usdcValue);
+              setInputValue(usdcValue);
               setMode('online');
               setStep('input');
             }
@@ -91,6 +101,63 @@ export default function Send() {
     };
     loadWallet();
   }, [setLocation, toast]);
+
+  const { data: balanceData } = useQuery<BalanceResponse>({
+    queryKey: ['/api/balance', address, chainId],
+    enabled: !!address,
+    refetchInterval: 10000,
+    queryFn: async () => {
+      const res = await fetch(`/api/balance/${address}?chainId=${chainId}`);
+      if (!res.ok) throw new Error('Failed to fetch balance');
+      return res.json();
+    },
+  });
+
+  const { data: exchangeRate } = useQuery<{ currency: string; rate: number }>({
+    queryKey: ['/api/exchange-rate', currency],
+    enabled: !!currency && currency !== 'USD',
+  });
+
+  const balance = balanceData?.balance || '0.00';
+  const rate = exchangeRate?.rate || 1;
+  const rateLoaded = currency === 'USD' || !!exchangeRate;
+
+  // Convert input to canonical USDC only when USER changes input (not when rate updates)
+  useEffect(() => {
+    // Skip during toggle to prevent precision loss from rounded inputValue
+    if (isTogglingRef.current) {
+      isTogglingRef.current = false;
+      lastConvertedRef.current = {value: inputValue, currency: displayCurrency};
+      return;
+    }
+
+    // Only convert if user actually changed something (not just rate update)
+    if (lastConvertedRef.current.value === inputValue && 
+        lastConvertedRef.current.currency === displayCurrency) {
+      return; // Skip - only rate changed, not user input
+    }
+
+    // Update last converted tracking
+    lastConvertedRef.current = {value: inputValue, currency: displayCurrency};
+
+    if (!inputValue || inputValue === '') {
+      setUsdcAmount('');
+      return;
+    }
+
+    const numValue = parseFloat(inputValue);
+    if (isNaN(numValue)) {
+      return;
+    }
+
+    if (displayCurrency === 'USDC') {
+      setUsdcAmount(inputValue);
+    } else {
+      // Convert fiat to USDC
+      const usdc = numValue / rate;
+      setUsdcAmount(usdc.toFixed(6));
+    }
+  }, [inputValue, displayCurrency, rate]);
 
   const sendMutation = useMutation({
     mutationFn: async (data: TransferRequest) => {
@@ -115,21 +182,53 @@ export default function Send() {
   });
 
   const handleNumberClick = (num: string) => {
-    setAmount(prev => prev + num);
+    setInputValue(prev => prev + num);
   };
 
   const handleBackspace = () => {
-    setAmount(prev => prev.slice(0, -1));
+    setInputValue(prev => prev.slice(0, -1));
   };
 
   const handleDecimal = () => {
-    if (!amount.includes('.')) {
-      setAmount(prev => prev + '.');
+    if (!inputValue.includes('.')) {
+      setInputValue(prev => prev + '.');
+    }
+  };
+
+  const handleCurrencyToggle = () => {
+    // Only allow toggle if rate is loaded (or USD)
+    if (!rateLoaded) {
+      toast({
+        title: "Loading Exchange Rate",
+        description: "Please wait while we load the exchange rate",
+      });
+      return;
+    }
+
+    if (!usdcAmount) {
+      // No amount entered, just toggle
+      setDisplayCurrency(prev => prev === 'USDC' ? 'fiat' : 'USDC');
+      return;
+    }
+
+    // Set flag to prevent useEffect from recalculating during toggle
+    isTogglingRef.current = true;
+
+    // When toggling, update inputValue to match the new currency display
+    if (displayCurrency === 'USDC') {
+      // Switching to fiat
+      const fiatValue = parseFloat(usdcAmount) * rate;
+      setInputValue(fiatValue.toFixed(2));
+      setDisplayCurrency('fiat');
+    } else {
+      // Switching to USDC
+      setInputValue(usdcAmount);
+      setDisplayCurrency('USDC');
     }
   };
 
   const handleNext = () => {
-    if (recipient && amount && parseFloat(amount) > 0) {
+    if (recipient && usdcAmount && parseFloat(usdcAmount) > 0) {
       setStep('confirm');
     }
   };
@@ -150,7 +249,9 @@ export default function Send() {
       
       setPaymentRequest(request);
       setRecipient(request.to);
-      setAmount((parseInt(request.amount) / 1000000).toFixed(2));
+      const usdcValue = (parseInt(request.amount) / 1000000).toFixed(6);
+      setUsdcAmount(usdcValue);
+      setInputValue(usdcValue);
       setStep('confirm');
     } catch (error) {
       // If JSON parsing fails, treat it as a plain wallet address
@@ -185,7 +286,7 @@ export default function Send() {
       const account = privateKeyToAccount(privateKey as `0x${string}`);
       const networkConfig = getNetworkConfig(network);
       
-      const value = Math.floor(parseFloat(amount) * 1000000).toString();
+      const value = Math.floor(parseFloat(usdcAmount) * 1000000).toString();
       
       const nonceBytes = new Uint8Array(32);
       crypto.getRandomValues(nonceBytes);
@@ -281,7 +382,7 @@ export default function Send() {
       const account = privateKeyToAccount(privateKey as `0x${string}`);
       const networkConfig = getNetworkConfig(network);
       
-      const value = Math.floor(parseFloat(amount) * 1000000).toString();
+      const value = Math.floor(parseFloat(usdcAmount) * 1000000).toString();
       
       const nonceBytes = new Uint8Array(32);
       crypto.getRandomValues(nonceBytes);
@@ -380,24 +481,29 @@ export default function Send() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="h-16 border-b flex items-center px-4">
-        <Button 
-          variant="ghost" 
-          size="icon"
-          onClick={() => {
-            if (step !== 'input') {
-              setStep('input');
-              setPaymentRequest(null);
-              setAuthorizationQR(null);
-            } else {
-              setLocation('/home');
-            }
-          }}
-          data-testid="button-back"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-lg font-semibold ml-2">Send USDC</h1>
+      <header className="h-16 border-b flex items-center justify-between px-4">
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => {
+              if (step !== 'input') {
+                setStep('input');
+                setPaymentRequest(null);
+                setAuthorizationQR(null);
+              } else {
+                setLocation('/home');
+              }
+            }}
+            data-testid="button-back"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-semibold">Send USDC</h1>
+        </div>
+        <div className="text-sm text-muted-foreground" data-testid="text-balance">
+          {balance} USDC
+        </div>
       </header>
 
       <main className="max-w-md mx-auto p-4 space-y-6">
@@ -475,9 +581,35 @@ export default function Send() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Amount (USDC)</label>
-                <div className="text-4xl font-semibold text-center py-4">
-                  {amount || '0.00'}
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">
+                    Amount ({displayCurrency === 'USDC' ? 'USDC' : currency})
+                  </label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCurrencyToggle}
+                    disabled={!rateLoaded && currency !== 'USD'}
+                    data-testid="button-toggle-currency"
+                  >
+                    <Repeat className="h-4 w-4 mr-1" />
+                    {displayCurrency === 'USDC' ? currency : 'USDC'}
+                  </Button>
+                </div>
+                <div className="text-center py-4">
+                  <div className="text-4xl font-semibold">
+                    {inputValue || '0.00'}
+                  </div>
+                  {usdcAmount && displayCurrency === 'fiat' && (
+                    <div className="text-sm text-muted-foreground mt-2">
+                      ≈ {parseFloat(usdcAmount).toFixed(2)} USDC
+                    </div>
+                  )}
+                  {usdcAmount && displayCurrency === 'USDC' && currency !== 'USD' && (
+                    <div className="text-sm text-muted-foreground mt-2">
+                      ≈ {(parseFloat(usdcAmount) * rate).toFixed(2)} {currency}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -489,7 +621,7 @@ export default function Send() {
 
               <Button 
                 onClick={handleNext}
-                disabled={!recipient || !amount || parseFloat(amount) <= 0}
+                disabled={!recipient || !usdcAmount || parseFloat(usdcAmount) <= 0}
                 className="w-full"
                 size="lg"
                 data-testid="button-next"
@@ -505,7 +637,7 @@ export default function Send() {
             <Card className="p-4 space-y-4">
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Sending</div>
-                <div className="text-2xl font-semibold">{amount} USDC</div>
+                <div className="text-2xl font-semibold">{usdcAmount} USDC</div>
               </div>
 
               <div className="border-t pt-4">
@@ -557,7 +689,7 @@ export default function Send() {
             <Card className="p-4">
               <div className="text-center space-y-2">
                 <div className="text-sm text-muted-foreground">Payment Link Created</div>
-                <div className="text-lg font-semibold">{amount} USDC</div>
+                <div className="text-lg font-semibold">{usdcAmount} USDC</div>
               </div>
             </Card>
 
@@ -612,7 +744,8 @@ export default function Send() {
                 onClick={() => {
                   setStep('input');
                   setRecipient('');
-                  setAmount('');
+                  setInputValue('');
+                  setUsdcAmount('');
                   setPaymentRequest(null);
                   setAuthorizationQR(null);
                   setPaymentLink(null);

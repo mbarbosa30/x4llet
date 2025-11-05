@@ -172,10 +172,18 @@ export default function Home() {
         <div>
           <h2 className="text-sm font-medium mb-4">Recent Activity</h2>
           <TransactionList 
-            transactions={transactions.map(tx => ({
-              ...tx,
-              address: tx.type === 'send' ? tx.to : tx.from,
-            }))}
+            transactions={transactions.map(tx => {
+              const fiatAmount = exchangeRate 
+                ? (parseFloat(tx.amount) * exchangeRate.rate).toFixed(2)
+                : null;
+              
+              return {
+                ...tx,
+                address: tx.type === 'send' ? tx.to : tx.from,
+                fiatAmount: fiatAmount || undefined,
+                fiatCurrency: currency !== 'USD' ? currency : undefined,
+              };
+            })}
             onTransactionClick={(tx) => console.log('Transaction clicked:', tx)}
           />
         </div>

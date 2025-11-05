@@ -7,6 +7,8 @@ export interface Transaction {
   amount: string;
   timestamp: string;
   status?: 'pending' | 'completed' | 'failed';
+  fiatAmount?: string;
+  fiatCurrency?: string;
 }
 
 interface TransactionListProps {
@@ -68,6 +70,11 @@ export default function TransactionList({ transactions, onTransactionClick }: Tr
             }`}>
               {tx.type === 'send' ? '-' : '+'}{tx.amount}
             </div>
+            {tx.fiatAmount && tx.fiatCurrency && (
+              <div className="text-xs text-muted-foreground tabular-nums">
+                ≈ {tx.fiatAmount} {tx.fiatCurrency}
+              </div>
+            )}
             <div className="text-xs text-muted-foreground">
               {formatTime(tx.timestamp)}
             </div>
