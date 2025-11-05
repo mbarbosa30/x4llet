@@ -14,6 +14,7 @@ import Pay from "@/pages/Pay";
 import Settings from "@/pages/Settings";
 import HowItWorks from "@/pages/HowItWorks";
 import Faqs from "@/pages/Faqs";
+import Context from "@/pages/Context";
 import NotFound from "@/pages/not-found";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
@@ -47,6 +48,7 @@ function Router() {
       </Route>
       <Route path="/how-it-works" component={HowItWorks} />
       <Route path="/faqs" component={Faqs} />
+      <Route path="/context" component={Context} />
       <Route component={NotFound} />
     </Switch>
   );
