@@ -32,6 +32,41 @@ function generateRecoveryCode(): string {
   return code;
 }
 
+export function validateRecoveryCode(code: string): { valid: boolean; error?: string } {
+  const trimmed = code.trim();
+  
+  if (!trimmed) {
+    return { valid: false, error: 'Recovery code is required' };
+  }
+  
+  const normalized = trimmed.replace(/-/g, '').toUpperCase();
+  
+  if (normalized.length !== 12) {
+    return { valid: false, error: 'Recovery code must be 12 characters (XXXX-XXXX-XXXX)' };
+  }
+  
+  const validChars = /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]+$/;
+  if (!validChars.test(normalized)) {
+    return { valid: false, error: 'Recovery code contains invalid characters' };
+  }
+  
+  return { valid: true };
+}
+
+export function formatRecoveryCode(code: string): string {
+  const normalized = code.replace(/-/g, '').toUpperCase();
+  
+  if (normalized.length === 0) return '';
+  
+  let formatted = '';
+  for (let i = 0; i < normalized.length && i < 12; i++) {
+    if (i > 0 && i % 4 === 0) formatted += '-';
+    formatted += normalized[i];
+  }
+  
+  return formatted;
+}
+
 async function encryptPrivateKey(privateKey: string, recoveryCode: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(privateKey);
@@ -189,6 +224,33 @@ export async function restoreWallet(encryptedBackup: string, recoveryCode: strin
   
   await set(WALLET_KEY, encryptedBackup);
   setSessionRecoveryCode(recoveryCode);
+  
+  return {
+    address: account.address,
+    publicKey: account.address,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+export async function importFromPrivateKey(privateKey: string, newRecoveryCode: string): Promise<Wallet> {
+  const validation = validateRecoveryCode(newRecoveryCode);
+  if (!validation.valid) {
+    throw new Error(validation.error || 'Invalid recovery code');
+  }
+  
+  const trimmedRecoveryCode = newRecoveryCode.trim();
+  
+  let cleanedKey = privateKey.trim();
+  if (!cleanedKey.startsWith('0x')) {
+    cleanedKey = '0x' + cleanedKey;
+  }
+  
+  const account = privateKeyToAccount(cleanedKey as `0x${string}`);
+  
+  const encryptedKey = await encryptPrivateKey(cleanedKey, trimmedRecoveryCode);
+  await set(WALLET_KEY, encryptedKey);
+  
+  setSessionRecoveryCode(trimmedRecoveryCode);
   
   return {
     address: account.address,
