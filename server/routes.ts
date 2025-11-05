@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { transferRequestSchema, transferResponseSchema, paymentRequestSchema, submitAuthorizationSchema, authorizationSchema, type Authorization } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { getNetworkConfig } from "@shared/networks";
-import { createPublicClient, createWalletClient, http, type Address, type Hex } from 'viem';
+import { createPublicClient, createWalletClient, http, type Address, type Hex, hexToSignature, recoverAddress, hashTypedData } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, celo } from 'viem/chains';
 
@@ -139,17 +139,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transport: http(networkConfig.rpcUrl),
       });
       
-      // Extract v, r, s from signature
-      const signature = validatedData.signature;
-      const [v, r, s] = [
-        parseInt(signature.slice(130, 132), 16),
-        signature.slice(0, 66) as Hex,
-        `0x${signature.slice(66, 130)}` as Hex,
-      ];
+      // Extract v, r, s from signature using viem utilities
+      const signature = validatedData.signature as Hex;
+      const { r, s, v } = hexToSignature(signature);
       
+      // Verify signature locally before submitting to blockchain
+      const domain = {
+        name: validatedData.typedData.domain.name,
+        version: validatedData.typedData.domain.version,
+        chainId: validatedData.typedData.domain.chainId,
+        verifyingContract: validatedData.typedData.domain.verifyingContract as Address,
+      };
+      
+      const types = {
+        TransferWithAuthorization: [
+          { name: 'from', type: 'address' },
+          { name: 'to', type: 'address' },
+          { name: 'value', type: 'uint256' },
+          { name: 'validAfter', type: 'uint256' },
+          { name: 'validBefore', type: 'uint256' },
+          { name: 'nonce', type: 'bytes32' },
+        ],
+      };
+      
+      const message = {
+        from: from as Address,
+        to: to as Address,
+        value: BigInt(value),
+        validAfter: BigInt(validAfter),
+        validBefore: BigInt(validBefore),
+        nonce: nonce as Hex,
+      };
+      
+      // Recover the address from the signature
+      const recoveredAddress = await recoverAddress({
+        hash: hashTypedData({ domain, types, primaryType: 'TransferWithAuthorization', message }),
+        signature,
+      });
+      
+      console.log('[Facilitator] Signature verification:');
+      console.log('  Expected signer (from):', from);
+      console.log('  Recovered address:', recoveredAddress);
+      console.log('  Signature components:', { v, r: r.slice(0, 10) + '...', s: s.slice(0, 10) + '...' });
+      
+      if (recoveredAddress.toLowerCase() !== from.toLowerCase()) {
+        console.error('[Facilitator] Signature verification failed!');
+        return res.status(400).json({ 
+          error: 'Invalid signature: recovered address does not match from address',
+          details: `Expected ${from}, got ${recoveredAddress}`
+        });
+      }
+      
+      console.log('[Facilitator] Signature verified locally ✓');
       console.log('[Facilitator] Submitting transferWithAuthorization to blockchain...');
       console.log('[Facilitator] Facilitator address:', facilitatorAccount.address);
       console.log('[Facilitator] USDC contract:', networkConfig.usdcAddress);
+      console.log('[Facilitator] Domain:', domain);
+      console.log('[Facilitator] Message:', { ...message, value: value, nonce: nonce.slice(0, 10) + '...' });
       
       // Submit transaction to blockchain
       const txHash = await walletClient.writeContract({
@@ -163,7 +209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           BigInt(validAfter),
           BigInt(validBefore),
           nonce as Hex,
-          v,
+          Number(v),
           r,
           s,
         ],
@@ -368,15 +414,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transport: http(networkConfig.rpcUrl),
       });
       
-      const [v, r, s] = [
-        parseInt(signature.slice(130, 132), 16),
-        signature.slice(0, 66) as Hex,
-        `0x${signature.slice(66, 130)}` as Hex,
-      ];
+      // Extract v, r, s from signature using viem utilities
+      const signatureHex = signature as Hex;
+      const { r, s, v } = hexToSignature(signatureHex);
       
+      // Verify signature locally before submitting to blockchain
+      const types = {
+        TransferWithAuthorization: [
+          { name: 'from', type: 'address' },
+          { name: 'to', type: 'address' },
+          { name: 'value', type: 'uint256' },
+          { name: 'validAfter', type: 'uint256' },
+          { name: 'validBefore', type: 'uint256' },
+          { name: 'nonce', type: 'bytes32' },
+        ],
+      };
+      
+      const messageForVerify = {
+        from: from as Address,
+        to: to as Address,
+        value: BigInt(value),
+        validAfter: BigInt(validAfter),
+        validBefore: BigInt(validBefore),
+        nonce: nonce as Hex,
+      };
+      
+      const domainForVerify = {
+        name: domain.name,
+        version: domain.version,
+        chainId: domain.chainId,
+        verifyingContract: domain.verifyingContract as Address,
+      };
+      
+      // Recover the address from the signature
+      const recoveredAddress = await recoverAddress({
+        hash: hashTypedData({ domain: domainForVerify, types, primaryType: 'TransferWithAuthorization', message: messageForVerify }),
+        signature: signatureHex,
+      });
+      
+      console.log('[Facilitator] Signature verification (offline mode):');
+      console.log('  Expected signer (from):', from);
+      console.log('  Recovered address:', recoveredAddress);
+      console.log('  Signature components:', { v, r: r.slice(0, 10) + '...', s: s.slice(0, 10) + '...' });
+      
+      if (recoveredAddress.toLowerCase() !== from.toLowerCase()) {
+        console.error('[Facilitator] Signature verification failed!');
+        return res.status(400).json({ 
+          error: 'Invalid signature: recovered address does not match from address',
+          details: `Expected ${from}, got ${recoveredAddress}`
+        });
+      }
+      
+      console.log('[Facilitator] Signature verified locally ✓');
       console.log('[Facilitator] Submitting transferWithAuthorization to blockchain (anyone can execute)...');
       console.log('[Facilitator] Facilitator address:', facilitatorAccount.address);
       console.log('[Facilitator] USDC contract:', networkConfig.usdcAddress);
+      console.log('[Facilitator] Domain:', domainForVerify);
+      console.log('[Facilitator] Message:', { ...messageForVerify, value: value, nonce: nonce.slice(0, 10) + '...' });
       
       const txHash = await walletClient.writeContract({
         address: networkConfig.usdcAddress as Address,
@@ -389,7 +483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           BigInt(validAfter),
           BigInt(validBefore),
           nonce as Hex,
-          v,
+          Number(v),
           r,
           s,
         ],
