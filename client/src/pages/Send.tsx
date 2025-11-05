@@ -219,8 +219,8 @@ export default function Send() {
       const authQR: AuthorizationQR = {
         domain,
         message: {
-          from: address,
-          to: recipient,
+          from: message.from,
+          to: message.to,
           value,
           validAfter,
           validBefore,
