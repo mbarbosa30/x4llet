@@ -9,17 +9,20 @@ export default function Landing() {
 
   useEffect(() => {
     async function checkWalletState() {
-      const walletExists = await hasWallet();
-      const unlocked = isWalletUnlocked();
+      try {
+        const walletExists = await hasWallet();
+        const unlocked = isWalletUnlocked();
 
-      setChecking(false);
-
-      if (!walletExists) {
+        if (!walletExists) {
+          setLocation('/create');
+        } else if (unlocked) {
+          setLocation('/home');
+        } else {
+          setLocation('/unlock');
+        }
+      } catch (error) {
+        console.error('Failed to check wallet state:', error);
         setLocation('/create');
-      } else if (unlocked) {
-        setLocation('/home');
-      } else {
-        setLocation('/unlock');
       }
     }
 

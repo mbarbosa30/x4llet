@@ -103,14 +103,24 @@ export default function Unlock() {
           </Button>
         </Card>
 
-        <div className="text-center">
+        <div className="text-center space-y-3">
           <button 
-            onClick={() => setLocation('/')}
+            onClick={() => setLocation('/restore')}
             className="text-sm text-muted-foreground hover:text-foreground"
-            data-testid="link-back"
+            data-testid="link-forgot-password"
           >
-            Back to Start
+            Forgot your password? <span className="text-foreground font-medium">Recover with private key</span>
           </button>
+          
+          <div>
+            <button 
+              onClick={() => setLocation('/')}
+              className="text-sm text-muted-foreground hover:text-foreground"
+              data-testid="link-back"
+            >
+              Back to Start
+            </button>
+          </div>
         </div>
       </div>
     </div>
