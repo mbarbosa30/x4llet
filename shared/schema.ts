@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -23,7 +23,9 @@ export const authorizations = pgTable("authorizations", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   usedAt: timestamp("used_at"),
   txHash: text("tx_hash"),
-});
+}, (table) => ({
+  nonceChainIdUnique: unique().on(table.nonce, table.chainId),
+}));
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,

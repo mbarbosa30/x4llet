@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo } from 'viem/chains';
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 
 const USDC_ABI = [
   {
@@ -399,11 +399,18 @@ export class DbStorage extends MemStorage {
     const results = await db
       .select()
       .from(authorizations)
-      .where(eq(authorizations.chainId, chainId));
+      .where(
+        and(
+          eq(authorizations.chainId, chainId),
+          or(
+            eq(authorizations.from, address),
+            eq(authorizations.to, address)
+          )
+        )
+      );
     
     return results
-      .filter(auth => auth.from === address || auth.to === address)
-      .map(auth => ({
+      .map((auth: typeof authorizations.$inferSelect) => ({
         id: auth.id,
         chainId: auth.chainId,
         nonce: auth.nonce,
