@@ -279,13 +279,40 @@ export default function Send() {
       const validAfter = '0';
       const validBefore = Math.floor(Date.now() / 1000 + 600).toString();
 
-      const typedData = {
-        domain: {
-          name: 'USD Coin',
-          version: '2',
-          chainId: networkConfig.chainId,
-          verifyingContract: getAddress(networkConfig.usdcAddress),
+      const domain = {
+        name: 'USD Coin',
+        version: '2',
+        chainId: networkConfig.chainId,
+        verifyingContract: getAddress(networkConfig.usdcAddress),
+      };
+
+      const message = {
+        from: getAddress(address),
+        to: getAddress(recipient),
+        value: BigInt(value),
+        validAfter: BigInt(validAfter),
+        validBefore: BigInt(validBefore),
+        nonce: nonce as `0x${string}`,
+      };
+
+      const signature = await account.signTypedData({
+        domain,
+        types: {
+          TransferWithAuthorization: [
+            { name: 'from', type: 'address' },
+            { name: 'to', type: 'address' },
+            { name: 'value', type: 'uint256' },
+            { name: 'validAfter', type: 'uint256' },
+            { name: 'validBefore', type: 'uint256' },
+            { name: 'nonce', type: 'bytes32' },
+          ],
         },
+        primaryType: 'TransferWithAuthorization',
+        message,
+      });
+
+      const typedData = {
+        domain,
         types: {
           TransferWithAuthorization: [
             { name: 'from', type: 'address' },
@@ -297,21 +324,14 @@ export default function Send() {
           ],
         },
         message: {
-          from: getAddress(address),
-          to: getAddress(recipient),
+          from: message.from,
+          to: message.to,
           value,
           validAfter,
           validBefore,
           nonce,
         },
       };
-
-      const signature = await account.signTypedData({
-        domain: typedData.domain,
-        types: typedData.types,
-        primaryType: 'TransferWithAuthorization',
-        message: typedData.message,
-      });
 
       const transferRequest: TransferRequest = {
         chainId: networkConfig.chainId,
