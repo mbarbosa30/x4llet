@@ -66,7 +66,6 @@ export default function Receive() {
         description: `Transaction: ${data.txHash.slice(0, 10)}...`,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/balance'] });
-      setShowScanner(false);
     },
     onError: (error: any) => {
       toast({

@@ -13,6 +13,7 @@ export default function QRScanner({ onScan, onClose }: QRScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const hasScannedRef = useRef(false);
   const qrRegionId = 'qr-reader';
 
   useEffect(() => {
@@ -27,9 +28,20 @@ export default function QRScanner({ onScan, onClose }: QRScannerProps) {
             fps: 10,
             qrbox: { width: 250, height: 250 },
           },
-          (decodedText) => {
+          async (decodedText) => {
+            // Prevent duplicate scans
+            if (hasScannedRef.current) {
+              return;
+            }
+            
+            hasScannedRef.current = true;
+            
+            // Stop scanner immediately to prevent further scans
+            await stopScanner();
+            
+            // Notify parent component and close scanner
             onScan(decodedText);
-            stopScanner();
+            onClose();
           },
           () => {
             // Scan error callback - ignore individual scan failures
@@ -64,14 +76,16 @@ export default function QRScanner({ onScan, onClose }: QRScannerProps) {
     };
   }, []);
 
-  const stopScanner = () => {
-    if (scannerRef.current && isScanning) {
-      scannerRef.current.stop().then(() => {
+  const stopScanner = async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop();
         scannerRef.current = null;
         setIsScanning(false);
-      }).catch((err) => {
+        hasScannedRef.current = false;
+      } catch (err) {
         console.error('Error stopping scanner:', err);
-      });
+      }
     }
   };
 

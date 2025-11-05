@@ -139,7 +139,6 @@ export default function Send() {
       setPaymentRequest(request);
       setRecipient(request.to);
       setAmount((parseInt(request.amount) / 1000000).toFixed(2));
-      setShowScanner(false);
       setStep('confirm');
     } catch (error) {
       // If JSON parsing fails, treat it as a plain wallet address
@@ -148,7 +147,6 @@ export default function Send() {
       // Check if it looks like an Ethereum address (0x followed by 40 hex characters)
       if (/^0x[a-fA-F0-9]{40}$/.test(trimmedData)) {
         setRecipient(trimmedData);
-        setShowScanner(false);
         toast({
           title: "Address Scanned",
           description: "Enter amount to continue",
