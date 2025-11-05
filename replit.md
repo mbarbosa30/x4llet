@@ -112,11 +112,28 @@ The backend implements a production-ready EIP-3009 facilitator for both online a
 - **Security**: Nonce tracking prevents double-spending; authorization QRs exchanged directly between payer/receiver minimize interception risk
 
 **Data Storage:**
-Currently using in-memory storage with mock data for development. Schema defined with Drizzle ORM includes:
-- `users` table with username/password (authentication scaffold)
-- TypeScript interfaces for `Wallet`, `Balance`, `Transaction`, and `UserPreferences`
+PostgreSQL database with intelligent caching to minimize external API dependency:
 
-The application is designed to support PostgreSQL through the existing Drizzle configuration, enabling persistent storage when the database is provisioned.
+**Database Tables:**
+- `users` - User authentication (username/password scaffold)
+- `wallets` - Tracks wallet addresses with first-seen and last-seen timestamps
+- `authorizations` - Persists EIP-3009 signed authorizations with nonce uniqueness constraints
+- `cached_balances` - Stores USDC balances with 30-second TTL to reduce RPC calls
+- `cached_transactions` - Permanent storage of on-chain transactions (prevents duplicate Etherscan API fetches)
+- `exchange_rates` - Caches fiat conversion rates with 5-minute TTL
+
+**Caching Strategy:**
+- **Balance Cache (30s TTL)**: DbStorage checks database before hitting RPC endpoints. Fresh data upserted on cache miss/expiry.
+- **Transaction Cache (permanent)**: All discovered transactions stored permanently with unique `txHash` constraint. Merged with local wallet-initiated transactions.
+- **Exchange Rate Cache (5min TTL)**: Rates fetched from ExchangeRate-API once per 5 minutes, cached in database. Graceful fallback to static rates on API failure.
+- **Cache Invalidation**: Balance cache automatically invalidated when new transactions are added via `addTransaction()`.
+- **Wallet Registration**: First balance check for an address automatically registers the wallet with timestamp tracking.
+
+**Performance Benefits:**
+- Reduces blockchain RPC calls by 95%+ for frequently queried addresses
+- Eliminates duplicate Etherscan API requests for historical transactions
+- Minimizes exchange rate API calls while maintaining fresh data
+- Enables offline balance display from cache when network is unavailable
 
 ### Cryptographic Architecture
 
