@@ -56,7 +56,6 @@ export default function Receive() {
     mutationFn: async (authQR: AuthorizationQR) => {
       const res = await apiRequest('POST', '/api/relay/submit-authorization', {
         authorization: authQR,
-        useReceiveWith: true,
       });
       return res.json() as Promise<TransferResponse>;
     },
@@ -110,8 +109,11 @@ export default function Receive() {
         try {
           const url = new URL(data);
           if (url.pathname === '/pay' && url.searchParams.has('auth')) {
-            // Redirect to the payment page to execute
-            window.location.href = data;
+            // Navigate to the payment page (preserve URL encoding)
+            const authParam = url.searchParams.get('auth');
+            if (authParam) {
+              setLocation(`/pay?auth=${encodeURIComponent(authParam)}`);
+            }
             return;
           }
         } catch (urlError) {

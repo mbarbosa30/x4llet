@@ -228,10 +228,11 @@ export default function Send() {
         signature,
       };
 
-      // Generate shareable payment link
+      // Generate shareable payment link (URL-safe base64 encoding)
       const authData = btoa(JSON.stringify(authQR));
+      const urlSafeAuthData = encodeURIComponent(authData);
       const baseUrl = window.location.origin;
-      const link = `${baseUrl}/pay?auth=${authData}`;
+      const link = `${baseUrl}/pay?auth=${urlSafeAuthData}`;
 
       setAuthorizationQR(authQR);
       setPaymentLink(link);

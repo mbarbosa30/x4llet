@@ -24,7 +24,7 @@ export default function Pay() {
         return;
       }
 
-      // Decode base64 and parse JSON
+      // Decode base64 and parse JSON (URLSearchParams already URL-decodes)
       const decoded = atob(authData);
       const parsed = JSON.parse(decoded) as AuthorizationQR;
       
