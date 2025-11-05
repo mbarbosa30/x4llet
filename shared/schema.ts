@@ -27,6 +27,45 @@ export const authorizations = pgTable("authorizations", {
   nonceChainIdUnique: unique().on(table.nonce, table.chainId),
 }));
 
+export const wallets = pgTable("wallets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  address: text("address").notNull().unique(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastSeen: timestamp("last_seen").notNull().defaultNow(),
+});
+
+export const cachedBalances = pgTable("cached_balances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  address: text("address").notNull(),
+  chainId: integer("chain_id").notNull(),
+  balance: text("balance").notNull(),
+  decimals: integer("decimals").notNull().default(6),
+  nonce: text("nonce").notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  addressChainIdUnique: unique().on(table.address, table.chainId),
+}));
+
+export const cachedTransactions = pgTable("cached_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  txHash: text("tx_hash").notNull().unique(),
+  chainId: integer("chain_id").notNull(),
+  type: text("type").notNull(),
+  from: text("from").notNull(),
+  to: text("to").notNull(),
+  amount: text("amount").notNull(),
+  timestamp: timestamp("timestamp").notNull(),
+  status: text("status").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const exchangeRates = pgTable("exchange_rates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  currency: text("currency").notNull().unique(),
+  rate: text("rate").notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,

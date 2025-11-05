@@ -263,10 +263,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Cache for exchange rates (1 hour TTL)
-  let exchangeRateCache: { rates: Record<string, number>; timestamp: number } | null = null;
-  const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
-
   app.get('/api/exchange-rate/:currency', async (req, res) => {
     try {
       const { currency } = req.params;
@@ -284,46 +280,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'KES': 129.00,
       };
 
-      let rates = fallbackRates;
-
-      // Check if we have cached rates that are still fresh
-      const now = Date.now();
-      const cacheIsValid = exchangeRateCache && (now - exchangeRateCache.timestamp) < CACHE_DURATION;
-
-      if (cacheIsValid && exchangeRateCache) {
-        console.log('[Exchange Rate] Using cached rates');
-        rates = exchangeRateCache.rates;
-      } else {
-        // Fetch fresh rates from ExchangeRate-API (open endpoint, no auth required)
-        try {
-          console.log('[Exchange Rate] Fetching fresh rates from ExchangeRate-API...');
-          const apiResponse = await fetch('https://open.er-api.com/v6/latest/USD');
-          
-          if (!apiResponse.ok) {
-            console.warn(`[Exchange Rate] API returned status ${apiResponse.status}, using fallback rates`);
-          } else {
-            const data = await apiResponse.json();
-            
-            if (data.result === 'success' && data.rates) {
-              rates = { USD: 1.00, ...data.rates };
-              
-              // Cache the fresh rates
-              exchangeRateCache = {
-                rates,
-                timestamp: now,
-              };
-              
-              console.log('[Exchange Rate] Fresh rates cached successfully');
-            } else {
-              console.warn('[Exchange Rate] API returned unexpected format, using fallback rates');
-            }
-          }
-        } catch (apiError) {
-          console.error('[Exchange Rate] Failed to fetch from API, using fallback rates:', apiError);
-        }
-      }
+      // Check database cache first
+      const cachedRate = await storage.getExchangeRate(currency);
       
-      const rate = rates[currency.toUpperCase()] || 1.00;
+      if (cachedRate !== null) {
+        res.json({ currency: currency.toUpperCase(), rate: cachedRate });
+        return;
+      }
+
+      // Cache miss - fetch fresh rates from ExchangeRate-API
+      let rate = fallbackRates[currency.toUpperCase()] || 1.00;
+
+      try {
+        console.log('[Exchange Rate] Fetching fresh rates from ExchangeRate-API...');
+        const apiResponse = await fetch('https://open.er-api.com/v6/latest/USD');
+        
+        if (!apiResponse.ok) {
+          console.warn(`[Exchange Rate] API returned status ${apiResponse.status}, using fallback rate`);
+        } else {
+          const data = await apiResponse.json();
+          
+          if (data.result === 'success' && data.rates) {
+            const fetchedRate = data.rates[currency.toUpperCase()];
+            if (fetchedRate) {
+              rate = fetchedRate;
+              
+              // Cache the fresh rate in database
+              await storage.cacheExchangeRate(currency, rate);
+              
+              console.log(`[Exchange Rate] Fresh rate for ${currency} cached: ${rate}`);
+            }
+          } else {
+            console.warn('[Exchange Rate] API returned unexpected format, using fallback rate');
+          }
+        }
+      } catch (apiError) {
+        console.error('[Exchange Rate] Failed to fetch from API, using fallback rate:', apiError);
+      }
       
       res.json({ currency: currency.toUpperCase(), rate });
     } catch (error) {

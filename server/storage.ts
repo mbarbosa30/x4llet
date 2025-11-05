@@ -1,9 +1,9 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, authorizations } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo } from 'viem/chains';
 import { db } from "./db";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, desc } from "drizzle-orm";
 
 const USDC_ABI = [
   {
@@ -347,8 +347,184 @@ export class MemStorage implements IStorage {
   }
 }
 
-// Database storage with PostgreSQL for authorizations
+// Database storage with PostgreSQL for all data
 export class DbStorage extends MemStorage {
+  private readonly CACHE_TTL_MS = 30000; // 30 seconds for balance cache
+  private readonly RATE_TTL_MS = 300000; // 5 minutes for exchange rates
+
+  async registerWallet(address: string): Promise<void> {
+    try {
+      await db.insert(wallets).values({
+        address,
+      }).onConflictDoUpdate({
+        target: wallets.address,
+        set: {
+          lastSeen: new Date(),
+        },
+      });
+    } catch (error) {
+      console.error('[DB] Error registering wallet:', error);
+    }
+  }
+
+  async getBalance(address: string, chainId: number): Promise<BalanceResponse> {
+    // Register wallet if first time seeing it
+    await this.registerWallet(address);
+
+    // Check cache first
+    const cached = await db
+      .select()
+      .from(cachedBalances)
+      .where(and(eq(cachedBalances.address, address), eq(cachedBalances.chainId, chainId)))
+      .limit(1);
+
+    const now = new Date();
+    const cacheAge = cached[0] ? now.getTime() - cached[0].updatedAt.getTime() : Infinity;
+
+    // Return cached balance if fresh enough
+    if (cached[0] && cacheAge < this.CACHE_TTL_MS) {
+      console.log(`[DB Cache] Returning cached balance for ${address} (age: ${Math.round(cacheAge / 1000)}s)`);
+      
+      const transactions = await this.getTransactions(address, chainId);
+      
+      return {
+        balance: cached[0].balance,
+        decimals: cached[0].decimals,
+        nonce: cached[0].nonce,
+        transactions,
+      };
+    }
+
+    // Cache miss or stale - fetch from blockchain
+    console.log(`[DB Cache] Cache ${cached[0] ? 'stale' : 'miss'} - fetching fresh balance from blockchain`);
+    const freshBalance = await super.getBalance(address, chainId);
+
+    // Store fresh data in database
+    await this.cacheBalance(address, chainId, freshBalance);
+    await this.cacheTransactions(address, chainId, freshBalance.transactions);
+
+    return freshBalance;
+  }
+
+  private async cacheBalance(address: string, chainId: number, balance: BalanceResponse): Promise<void> {
+    try {
+      await db.insert(cachedBalances).values({
+        address,
+        chainId,
+        balance: balance.balance,
+        decimals: balance.decimals,
+        nonce: balance.nonce,
+        updatedAt: new Date(),
+      }).onConflictDoUpdate({
+        target: [cachedBalances.address, cachedBalances.chainId],
+        set: {
+          balance: balance.balance,
+          nonce: balance.nonce,
+          updatedAt: new Date(),
+        },
+      });
+    } catch (error) {
+      console.error('[DB] Error caching balance:', error);
+    }
+  }
+
+  private async cacheTransactions(address: string, chainId: number, transactions: Transaction[]): Promise<void> {
+    for (const tx of transactions) {
+      try {
+        if (!tx.txHash) continue;
+
+        await db.insert(cachedTransactions).values({
+          txHash: tx.txHash,
+          chainId,
+          type: tx.type,
+          from: tx.from,
+          to: tx.to,
+          amount: tx.amount,
+          timestamp: new Date(tx.timestamp),
+          status: tx.status,
+        }).onConflictDoNothing();
+      } catch (error) {
+        console.error(`[DB] Error caching transaction ${tx.txHash}:`, error);
+      }
+    }
+  }
+
+  async getTransactions(address: string, chainId: number): Promise<Transaction[]> {
+    const results = await db
+      .select()
+      .from(cachedTransactions)
+      .where(
+        and(
+          eq(cachedTransactions.chainId, chainId),
+          or(
+            eq(cachedTransactions.from, address),
+            eq(cachedTransactions.to, address)
+          )
+        )
+      )
+      .orderBy(desc(cachedTransactions.timestamp));
+
+    return results.map(tx => ({
+      id: tx.txHash,
+      type: tx.type as 'send' | 'receive',
+      from: tx.from,
+      to: tx.to,
+      amount: tx.amount,
+      timestamp: tx.timestamp.toISOString(),
+      status: tx.status as 'pending' | 'completed' | 'failed',
+      txHash: tx.txHash,
+    }));
+  }
+
+  async addTransaction(address: string, chainId: number, tx: Transaction): Promise<void> {
+    await super.addTransaction(address, chainId, tx);
+    
+    if (tx.txHash) {
+      await this.cacheTransactions(address, chainId, [tx]);
+    }
+
+    // Invalidate balance cache so next fetch gets fresh data
+    await db
+      .delete(cachedBalances)
+      .where(and(eq(cachedBalances.address, address), eq(cachedBalances.chainId, chainId)));
+  }
+
+  async getExchangeRate(currency: string): Promise<number | null> {
+    const cached = await db
+      .select()
+      .from(exchangeRates)
+      .where(eq(exchangeRates.currency, currency.toUpperCase()))
+      .limit(1);
+
+    if (cached[0]) {
+      const age = Date.now() - cached[0].updatedAt.getTime();
+      if (age < this.RATE_TTL_MS) {
+        console.log(`[DB Cache] Returning cached exchange rate for ${currency} (age: ${Math.round(age / 1000)}s)`);
+        return parseFloat(cached[0].rate);
+      }
+    }
+
+    return null;
+  }
+
+  async cacheExchangeRate(currency: string, rate: number): Promise<void> {
+    try {
+      await db.insert(exchangeRates).values({
+        currency: currency.toUpperCase(),
+        rate: rate.toString(),
+        updatedAt: new Date(),
+      }).onConflictDoUpdate({
+        target: exchangeRates.currency,
+        set: {
+          rate: rate.toString(),
+          updatedAt: new Date(),
+        },
+      });
+    } catch (error) {
+      console.error(`[DB] Error caching exchange rate for ${currency}:`, error);
+    }
+  }
+
   async saveAuthorization(auth: Authorization): Promise<void> {
     await db.insert(authorizations).values({
       id: auth.id,
