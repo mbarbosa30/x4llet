@@ -17,6 +17,13 @@ import { getNetworkConfig } from '@shared/networks';
 import { apiRequest } from '@/lib/queryClient';
 import type { PaymentRequest, AuthorizationQR, TransferResponse } from '@shared/schema';
 
+// UTF-8 safe base64 encoding
+function encodeBase64(str: string): string {
+  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) => {
+    return String.fromCharCode(parseInt(p1, 16));
+  }));
+}
+
 export default function Receive() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -97,7 +104,7 @@ export default function Receive() {
     
     toast({
       title: "Payment Request Created!",
-      description: "Show this QR to the payer",
+      description: "Anyone can scan this QR to pay",
     });
   };
 
@@ -277,10 +284,13 @@ export default function Receive() {
 
                 <div className="text-center space-y-4">
                   <div className="text-sm text-muted-foreground">
-                    Show this QR to the payer
+                    Scan with camera to pay
                   </div>
                   <div className="flex justify-center">
-                    <QRCodeDisplay value={JSON.stringify(paymentRequest)} size={256} />
+                    <QRCodeDisplay 
+                      value={`${window.location.origin}/pay?request=${encodeURIComponent(encodeBase64(JSON.stringify(paymentRequest)))}`} 
+                      size={256} 
+                    />
                   </div>
                 </div>
 
