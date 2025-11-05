@@ -350,7 +350,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         value,
         nonce,
         chainId: domain.chainId,
-        useReceiveWith,
+        mode: 'offline',
       });
       
       const chain = domain.chainId === 8453 ? base : celo;
@@ -369,14 +369,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `0x${signature.slice(66, 130)}` as Hex,
       ];
       
-      console.log('[Facilitator] Submitting receiveWithAuthorization to blockchain...');
+      console.log('[Facilitator] Submitting transferWithAuthorization to blockchain (anyone can execute)...');
       console.log('[Facilitator] Facilitator address:', facilitatorAccount.address);
       console.log('[Facilitator] USDC contract:', networkConfig.usdcAddress);
       
       const txHash = await walletClient.writeContract({
         address: networkConfig.usdcAddress as Address,
         abi: USDC_ABI,
-        functionName: 'receiveWithAuthorization',
+        functionName: 'transferWithAuthorization',
         args: [
           from as Address,
           to as Address,
