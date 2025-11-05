@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ChevronRight, Download, Upload, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Smartphone } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Download, Upload, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import Footer from '@/components/Footer';
+import InstallPrompt from '@/components/InstallPrompt';
 import { getPreferences, savePreferences, exportWalletBackup, getPrivateKey } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -40,8 +41,6 @@ export default function Settings() {
   const [showPassword, setShowPassword] = useState(false);
   const [showPrivateKey, setShowPrivateKey] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [isInstallable, setIsInstallable] = useState(false);
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -55,23 +54,6 @@ export default function Settings() {
       }
     };
     loadPreferences();
-
-    const handleBeforeInstallPrompt = (e: any) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setIsInstallable(true);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    if ((window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || 
-        (window.navigator as any).standalone) {
-      setIsInstallable(false);
-    }
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
   }, []);
 
   const handleExportBackup = async () => {
@@ -192,29 +174,6 @@ export default function Settings() {
     setCopied(false);
   };
 
-  const handleInstallApp = async () => {
-    if (!deferredPrompt) {
-      toast({
-        title: "Already Installed",
-        description: "The app is already installed or your browser doesn't support installation",
-      });
-      return;
-    }
-
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
-      toast({
-        title: "App Installed!",
-        description: "x4llet has been added to your home screen",
-      });
-      setIsInstallable(false);
-    }
-    
-    setDeferredPrompt(null);
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <header className="h-16 border-b flex items-center px-4">
@@ -230,6 +189,8 @@ export default function Settings() {
       </header>
 
       <main className="max-w-md mx-auto p-4 space-y-8">
+        <InstallPrompt />
+
         <div className="space-y-2">
           <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-2">
             Security
@@ -314,22 +275,6 @@ export default function Settings() {
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
-            {isInstallable && (
-              <button
-                onClick={handleInstallApp}
-                className="w-full flex items-center justify-between p-4 hover-elevate"
-                data-testid="button-install-app"
-              >
-                <div className="flex items-center gap-3">
-                  <Smartphone className="h-5 w-5 text-muted-foreground" />
-                  <div className="text-left">
-                    <div className="text-sm font-medium">Install App</div>
-                    <div className="text-xs text-muted-foreground">Add to home screen</div>
-                  </div>
-                </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground" />
-              </button>
-            )}
           </Card>
         </div>
 
