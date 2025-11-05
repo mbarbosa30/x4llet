@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Shield, Eye, EyeOff } from 'lucide-react';
-import { getWallet, hasWallet } from '@/lib/wallet';
+import { getWallet } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Unlock() {
