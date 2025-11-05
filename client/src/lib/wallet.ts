@@ -232,14 +232,7 @@ export async function restoreWallet(encryptedBackup: string, recoveryCode: strin
   };
 }
 
-export async function importFromPrivateKey(privateKey: string, newRecoveryCode: string): Promise<Wallet> {
-  const validation = validateRecoveryCode(newRecoveryCode);
-  if (!validation.valid) {
-    throw new Error(validation.error || 'Invalid recovery code');
-  }
-  
-  const trimmedRecoveryCode = newRecoveryCode.trim();
-  
+export async function importFromPrivateKey(privateKey: string, newPassword: string): Promise<Wallet> {
   let cleanedKey = privateKey.trim();
   if (!cleanedKey.startsWith('0x')) {
     cleanedKey = '0x' + cleanedKey;
@@ -247,10 +240,10 @@ export async function importFromPrivateKey(privateKey: string, newRecoveryCode: 
   
   const account = privateKeyToAccount(cleanedKey as `0x${string}`);
   
-  const encryptedKey = await encryptPrivateKey(cleanedKey, trimmedRecoveryCode);
+  const encryptedKey = await encryptPrivateKey(cleanedKey, newPassword);
   await set(WALLET_KEY, encryptedKey);
   
-  setSessionRecoveryCode(trimmedRecoveryCode);
+  setSessionPassword(newPassword);
   
   return {
     address: account.address,

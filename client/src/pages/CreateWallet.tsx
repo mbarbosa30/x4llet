@@ -147,7 +147,8 @@ export default function CreateWallet() {
                 <div className="space-y-1">
                   <h3 className="font-semibold text-destructive">Critical: Save This Key</h3>
                   <p className="text-sm text-muted-foreground">
-                    This is your only backup. If you lose both your password AND this private key, your funds will be lost forever.
+                    This is your master backup key. If you lose your password, you can use this private key to recover your wallet and set a new password. 
+                    Without it, lost passwords cannot be recovered.
                   </p>
                 </div>
               </div>
@@ -204,7 +205,7 @@ export default function CreateWallet() {
                   htmlFor="backup-confirmed"
                   className="text-sm cursor-pointer"
                 >
-                  I understand that if I lose my password and this private key, I will permanently lose access to my wallet and funds. I have saved my private key in a secure location.
+                  I understand this private key is my master backup. Without it, I cannot recover my wallet if I lose my password. I have saved it in a secure location.
                 </label>
               </div>
             </Card>
@@ -307,8 +308,8 @@ export default function CreateWallet() {
 
           <Card className="p-4 bg-muted/50 border-primary/20">
             <p className="text-xs text-muted-foreground">
-              <strong className="text-foreground">Important:</strong> Your password encrypts your wallet on this device. 
-              If you forget it, you cannot recover your wallet. There is no "forgot password" option.
+              <strong className="text-foreground">How security works:</strong> Your password encrypts your wallet locally on this device. 
+              You'll see your private key backup next - that's your master recovery key if you lose your password or switch devices.
             </p>
           </Card>
 

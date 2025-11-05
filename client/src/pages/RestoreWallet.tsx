@@ -2,31 +2,50 @@ import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Shield } from 'lucide-react';
+import { Shield, Eye, EyeOff } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { restoreWallet, importFromPrivateKey, validateRecoveryCode, formatRecoveryCode } from '@/lib/wallet';
+import { restoreWallet, importFromPrivateKey } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 
 export default function RestoreWallet() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
-  const [recoveryCode, setRecoveryCode] = useState('');
+  const [password, setPassword] = useState('');
   const [encryptedBackup, setEncryptedBackup] = useState('');
   const [isRestoring, setIsRestoring] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   
   const [privateKey, setPrivateKey] = useState('');
-  const [newRecoveryCode, setNewRecoveryCode] = useState('');
-  const [recoveryCodeError, setRecoveryCodeError] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+
+  const validatePassword = (pwd: string): string => {
+    if (pwd.length < 8) return 'Password must be at least 8 characters';
+    if (!/[a-z]/.test(pwd)) return 'Must include lowercase letter';
+    if (!/[A-Z]/.test(pwd)) return 'Must include uppercase letter';
+    if (!/[0-9]/.test(pwd)) return 'Must include number';
+    return '';
+  };
+
+  const handlePasswordChange = (value: string) => {
+    setNewPassword(value);
+    if (value.length > 0) {
+      setPasswordError(validatePassword(value));
+    } else {
+      setPasswordError('');
+    }
+  };
 
   const handleRestore = async () => {
     try {
       setIsRestoring(true);
-      const wallet = await restoreWallet(encryptedBackup, recoveryCode);
+      const wallet = await restoreWallet(encryptedBackup, password);
       
       toast({
         title: "Wallet Restored!",
@@ -38,7 +57,7 @@ export default function RestoreWallet() {
       console.error('Failed to restore wallet:', error);
       toast({
         title: "Restore Failed",
-        description: "Invalid recovery code or backup data. Please try again.",
+        description: "Invalid password or backup data. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -46,33 +65,27 @@ export default function RestoreWallet() {
     }
   };
 
-  const handleRecoveryCodeChange = (value: string) => {
-    const formatted = formatRecoveryCode(value);
-    setNewRecoveryCode(formatted);
-    
-    if (formatted.length > 0) {
-      const validation = validateRecoveryCode(formatted);
-      setRecoveryCodeError(validation.valid ? '' : validation.error || '');
-    } else {
-      setRecoveryCodeError('');
-    }
-  };
-
   const handleImport = async () => {
+    const validation = validatePassword(newPassword);
+    if (validation) {
+      setPasswordError(validation);
+      return;
+    }
+
     try {
       setIsImporting(true);
-      const wallet = await importFromPrivateKey(privateKey, newRecoveryCode);
+      const wallet = await importFromPrivateKey(privateKey, newPassword);
       
       toast({
-        title: "Wallet Imported!",
-        description: `Successfully imported wallet: ${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`,
+        title: "Wallet Recovered!",
+        description: `Successfully recovered wallet: ${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`,
       });
       
       setLocation('/home');
     } catch (error: any) {
       console.error('Failed to import wallet:', error);
       toast({
-        title: "Import Failed",
+        title: "Recovery Failed",
         description: error.message || "Invalid private key. Please check and try again.",
         variant: "destructive",
       });
@@ -88,31 +101,40 @@ export default function RestoreWallet() {
           <Shield className="h-12 w-12 mx-auto mb-4 text-primary" />
           <h1 className="text-2xl font-semibold mb-2">Restore Wallet</h1>
           <p className="text-sm text-muted-foreground">
-            Import your wallet using encrypted backup or private key
+            Restore from encrypted backup or recover using your private key
           </p>
         </div>
 
         <Tabs defaultValue="backup" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="backup" data-testid="tab-backup">From Backup</TabsTrigger>
-            <TabsTrigger value="privatekey" data-testid="tab-privatekey">From Private Key</TabsTrigger>
+            <TabsTrigger value="privatekey" data-testid="tab-privatekey">Recover with Private Key</TabsTrigger>
           </TabsList>
 
           <TabsContent value="backup" className="space-y-4">
             <Card className="p-6 space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="recovery-code">Recovery Code</Label>
-                <Input
-                  id="recovery-code"
-                  type="text"
-                  placeholder="XXXX-XXXX-XXXX"
-                  value={recoveryCode}
-                  onChange={(e) => setRecoveryCode(e.target.value)}
-                  className="font-mono"
-                  data-testid="input-recovery-code"
-                />
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    data-testid="input-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    data-testid="button-toggle-password"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  The recovery code used when creating this backup
+                  The password you used when creating this wallet
                 </p>
               </div>
 
@@ -133,7 +155,7 @@ export default function RestoreWallet() {
 
               <Button 
                 onClick={handleRestore}
-                disabled={!recoveryCode || !encryptedBackup || isRestoring}
+                disabled={!password || !encryptedBackup || isRestoring}
                 className="w-full"
                 size="lg"
                 data-testid="button-restore"
@@ -144,9 +166,15 @@ export default function RestoreWallet() {
           </TabsContent>
 
           <TabsContent value="privatekey" className="space-y-4">
+            <div className="mb-4 p-3 bg-muted/50 rounded-lg border">
+              <p className="text-sm text-foreground">
+                <strong>Lost your password?</strong> Use your private key backup to recover access and set a new password for this device.
+              </p>
+            </div>
+
             <Card className="p-6 space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="private-key">Private Key</Label>
+                <Label htmlFor="private-key">Private Key Backup</Label>
                 <Textarea
                   id="private-key"
                   placeholder="0x..."
@@ -156,37 +184,46 @@ export default function RestoreWallet() {
                   data-testid="input-private-key"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Your raw private key (with or without 0x prefix)
+                  The private key you saved when creating your wallet
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="new-recovery-code">New Recovery Code</Label>
-                <Input
-                  id="new-recovery-code"
-                  type="text"
-                  placeholder="XXXX-XXXX-XXXX"
-                  value={newRecoveryCode}
-                  onChange={(e) => handleRecoveryCodeChange(e.target.value)}
-                  className="font-mono"
-                  data-testid="input-new-recovery-code"
-                />
-                {recoveryCodeError && (
-                  <p className="text-xs text-destructive">{recoveryCodeError}</p>
+                <Label htmlFor="new-password">New Password</Label>
+                <div className="relative">
+                  <Input
+                    id="new-password"
+                    type={showNewPassword ? 'text' : 'password'}
+                    placeholder="Choose a new password"
+                    value={newPassword}
+                    onChange={(e) => handlePasswordChange(e.target.value)}
+                    data-testid="input-new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    data-testid="button-toggle-new-password"
+                  >
+                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {passwordError && (
+                  <p className="text-xs text-destructive">{passwordError}</p>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Must be 12 characters using A-Z and 2-9 (XXXX-XXXX-XXXX format)
+                  Create a new password to secure this wallet on this device (8+ chars, uppercase, lowercase, number)
                 </p>
               </div>
 
               <Button 
                 onClick={handleImport}
-                disabled={!privateKey || !newRecoveryCode || !!recoveryCodeError || isImporting}
+                disabled={!privateKey || !newPassword || !!passwordError || isImporting}
                 className="w-full"
                 size="lg"
                 data-testid="button-import"
               >
-                {isImporting ? 'Importing...' : 'Import Wallet'}
+                {isImporting ? 'Recovering...' : 'Recover Wallet'}
               </Button>
             </Card>
           </TabsContent>
