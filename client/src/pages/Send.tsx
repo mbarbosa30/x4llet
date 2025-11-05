@@ -12,6 +12,7 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getWallet, getPrivateKey, getPreferences } from '@/lib/wallet';
 import { privateKeyToAccount } from 'viem/accounts';
+import { getAddress } from 'viem';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { getNetworkConfig } from '@shared/networks';
@@ -187,12 +188,12 @@ export default function Send() {
         name: 'USD Coin',
         version: '2',
         chainId: networkConfig.chainId,
-        verifyingContract: networkConfig.usdcAddress as `0x${string}`,
+        verifyingContract: getAddress(networkConfig.usdcAddress),
       };
 
       const message = {
-        from: address as `0x${string}`,
-        to: recipient as `0x${string}`,
+        from: getAddress(address),
+        to: getAddress(recipient),
         value: BigInt(value),
         validAfter: BigInt(validAfter),
         validBefore: BigInt(validBefore),
@@ -283,7 +284,7 @@ export default function Send() {
           name: 'USD Coin',
           version: '2',
           chainId: networkConfig.chainId,
-          verifyingContract: networkConfig.usdcAddress as `0x${string}`,
+          verifyingContract: getAddress(networkConfig.usdcAddress),
         },
         types: {
           TransferWithAuthorization: [
@@ -296,8 +297,8 @@ export default function Send() {
           ],
         },
         message: {
-          from: address,
-          to: recipient,
+          from: getAddress(address),
+          to: getAddress(recipient),
           value,
           validAfter,
           validBefore,
