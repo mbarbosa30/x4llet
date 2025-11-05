@@ -1,7 +1,7 @@
 {
-  "name": "x4llet - Offline USDC Wallet",
+  "name": "x4llet - Gasless USDC Payments",
   "short_name": "x4llet",
-  "description": "Send USDC without internet or gas fees. Non-custodial wallet with offline payments.",
+  "description": "Send USDC offline without gas fees. Non-custodial crypto wallet on Base and Celo networks.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

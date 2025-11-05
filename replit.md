@@ -1,8 +1,8 @@
-# Lightweight Crypto Wallet PWA
+# x4llet - Lightweight Crypto Wallet PWA
 
 ## Overview
 
-A minimalist Progressive Web App (PWA) for managing cryptocurrency wallets with gasless USDC transfers. The application prioritizes performance, accessibility, and offline-first functionality, targeting users in low-bandwidth environments. It supports wallet creation with local key storage, encrypted cloud backups, and gasless transactions using EIP-3009 authorization on Base and Celo networks.
+x4llet is a minimalist Progressive Web App (PWA) for managing cryptocurrency wallets with gasless USDC transfers. The application prioritizes performance, accessibility, and offline-first functionality, targeting users in low-bandwidth environments. It supports wallet creation with local key storage, encrypted cloud backups, and gasless transactions using EIP-3009 authorization on Base and Celo networks.
 
 ## User Preferences
 
