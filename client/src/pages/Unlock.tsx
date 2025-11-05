@@ -14,20 +14,6 @@ export default function Unlock() {
   const [showPassword, setShowPassword] = useState(false);
   const [isUnlocking, setIsUnlocking] = useState(false);
 
-  useEffect(() => {
-    const checkWallet = async () => {
-      const exists = await hasWallet();
-      if (!exists) {
-        toast({
-          title: "No Wallet Found",
-          description: "Please create a wallet first",
-        });
-        setLocation('/create');
-      }
-    };
-    checkWallet();
-  }, [setLocation, toast]);
-
   const handleUnlock = async () => {
     try {
       setIsUnlocking(true);

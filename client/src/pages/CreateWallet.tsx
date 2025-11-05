@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Shield, Eye, EyeOff, Copy, Check, AlertTriangle } from 'lucide-react';
-import { createWallet, hasWallet } from '@/lib/wallet';
+import { createWallet } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 import Footer from '@/components/Footer';
 
@@ -22,15 +22,6 @@ export default function CreateWallet() {
   const [privateKey, setPrivateKey] = useState('');
   const [backupConfirmed, setBackupConfirmed] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [walletExists, setWalletExists] = useState(false);
-
-  useEffect(() => {
-    const checkWallet = async () => {
-      const exists = await hasWallet();
-      setWalletExists(exists);
-    };
-    checkWallet();
-  }, []);
 
   const validatePassword = () => {
     if (password.length < 8) {
@@ -332,17 +323,15 @@ export default function CreateWallet() {
             {isCreating ? 'Creating...' : 'Create Wallet'}
           </Button>
 
-          {walletExists && (
-            <div className="text-center">
-              <button 
-                onClick={() => setLocation('/unlock')}
-                className="text-sm text-muted-foreground hover:text-foreground"
-                data-testid="link-unlock"
-              >
-                Already have a wallet? Unlock
-              </button>
-            </div>
-          )}
+          <div className="text-center">
+            <button 
+              onClick={() => setLocation('/unlock')}
+              className="text-sm text-muted-foreground hover:text-foreground"
+              data-testid="link-unlock"
+            >
+              Already have a wallet? Unlock
+            </button>
+          </div>
         </div>
       </div>
       <Footer />
