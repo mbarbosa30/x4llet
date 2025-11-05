@@ -193,7 +193,7 @@ export default function Send() {
       };
 
       const message = {
-        from: getAddress(address),
+        from: account.address,
         to: getAddress(recipient),
         value: BigInt(value),
         validAfter: BigInt(validAfter),
@@ -289,7 +289,7 @@ export default function Send() {
       };
 
       const message = {
-        from: getAddress(address),
+        from: account.address,
         to: getAddress(recipient),
         value: BigInt(value),
         validAfter: BigInt(validAfter),
