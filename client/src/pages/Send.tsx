@@ -184,12 +184,20 @@ export default function Send() {
       const validAfter = '0';
       const validBefore = Math.floor(Date.now() / 1000 + (paymentRequest?.ttl || 600)).toString();
 
-      const domain = {
-        name: 'USD Coin',
-        version: '2',
-        chainId: networkConfig.chainId,
-        verifyingContract: getAddress(networkConfig.usdcAddress),
-      };
+      // Base uses standard chainId format, Celo uses salt-based format (Polygon-style)
+      const domain = networkConfig.chainId === 8453 
+        ? {
+            name: 'USD Coin',
+            version: '2',
+            chainId: networkConfig.chainId,
+            verifyingContract: getAddress(networkConfig.usdcAddress),
+          }
+        : {
+            name: 'USD Coin',
+            version: '2',
+            verifyingContract: getAddress(networkConfig.usdcAddress),
+            salt: `0x${networkConfig.chainId.toString(16).padStart(64, '0')}` as `0x${string}`,
+          };
 
       const message = {
         from: getAddress(address),
@@ -279,12 +287,20 @@ export default function Send() {
       const validAfter = '0';
       const validBefore = Math.floor(Date.now() / 1000 + 600).toString();
 
-      const domain = {
-        name: 'USD Coin',
-        version: '2',
-        chainId: networkConfig.chainId,
-        verifyingContract: getAddress(networkConfig.usdcAddress),
-      };
+      // Base uses standard chainId format, Celo uses salt-based format (Polygon-style)
+      const domain = networkConfig.chainId === 8453 
+        ? {
+            name: 'USD Coin',
+            version: '2',
+            chainId: networkConfig.chainId,
+            verifyingContract: getAddress(networkConfig.usdcAddress),
+          }
+        : {
+            name: 'USD Coin',
+            version: '2',
+            verifyingContract: getAddress(networkConfig.usdcAddress),
+            salt: `0x${networkConfig.chainId.toString(16).padStart(64, '0')}` as `0x${string}`,
+          };
 
       const message = {
         from: getAddress(address),

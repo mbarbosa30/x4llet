@@ -139,6 +139,31 @@ The application is designed to support PostgreSQL through the existing Drizzle c
 - Support for offline authorization QR creation (payer signs without network)
 - Payment Request / Authorization QR flow for offline payments
 
+**EIP-712 Domain Format:**
+Different USDC deployments use different domain separator formats. The application supports both:
+
+- **Standard format** (Base mainnet): Uses `chainId` as uint256 field
+  ```typescript
+  domain: {
+    name: 'USD Coin',
+    version: '2',
+    chainId: 8453,  // uint256
+    verifyingContract: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
+  }
+  ```
+
+- **Salt-based format** (Celo, Polygon): Uses `salt` as bytes32 field containing chainId
+  ```typescript
+  domain: {
+    name: 'USD Coin',
+    version: '2',
+    verifyingContract: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C',
+    salt: '0x000000000000000000000000000000000000000000000000000000000000a4ec' // chainId 42220 as bytes32
+  }
+  ```
+
+The backend extracts chainId from either format for validation and transaction routing.
+
 ### Network Configuration
 
 **Supported Chains:**

@@ -89,8 +89,9 @@ export const transferRequestSchema = z.object({
     domain: z.object({
       name: z.string(),
       version: z.string(),
-      chainId: z.number(),
+      chainId: z.number().optional(),
       verifyingContract: z.string(),
+      salt: z.string().optional(),
     }),
     types: z.record(z.array(z.object({
       name: z.string(),
@@ -154,8 +155,9 @@ export const authorizationQRSchema = z.object({
   domain: z.object({
     name: z.string(),
     version: z.string(),
-    chainId: z.number(),
+    chainId: z.number().optional(),
     verifyingContract: z.string(),
+    salt: z.string().optional(),
   }),
   message: z.object({
     from: z.string(),

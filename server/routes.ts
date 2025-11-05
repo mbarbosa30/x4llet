@@ -88,19 +88,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = transferRequestSchema.parse(req.body);
       
-      if (validatedData.chainId !== validatedData.typedData.domain.chainId) {
+      // Extract chainId from either domain.chainId or domain.salt (Polygon/Celo style)
+      let domainChainId = validatedData.typedData.domain.chainId;
+      if (!domainChainId && validatedData.typedData.domain.salt) {
+        // Extract chainId from salt (hex bytes32)
+        domainChainId = parseInt(validatedData.typedData.domain.salt, 16);
+      }
+      
+      if (validatedData.chainId !== domainChainId) {
         return res.status(400).json({ error: 'Chain ID mismatch' });
       }
       
-      const expectedDomain = {
-        name: 'USD Coin',
-        version: '2',
-        chainId: validatedData.chainId,
-      };
-      
-      if (validatedData.typedData.domain.name !== expectedDomain.name ||
-          validatedData.typedData.domain.version !== expectedDomain.version ||
-          validatedData.typedData.domain.chainId !== expectedDomain.chainId) {
+      // Validate domain parameters (name and version are always required)
+      if (validatedData.typedData.domain.name !== 'USD Coin' ||
+          validatedData.typedData.domain.version !== '2') {
         return res.status(400).json({ error: 'Invalid domain parameters' });
       }
       
@@ -329,7 +330,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { domain, message, signature } = authorization;
       const { from, to, value, validAfter, validBefore, nonce } = message;
       
-      const existingAuth = await storage.getAuthorization(nonce, domain.chainId);
+      // Extract chainId from either domain.chainId or domain.salt (Polygon/Celo style)
+      let chainId = domain.chainId;
+      if (!chainId && domain.salt) {
+        // Extract chainId from salt (hex bytes32)
+        chainId = parseInt(domain.salt, 16);
+      }
+      if (!chainId) {
+        return res.status(400).json({ error: 'Missing chain ID' });
+      }
+      
+      const existingAuth = await storage.getAuthorization(nonce, chainId);
       if (existingAuth && existingAuth.status === 'used') {
         return res.status(400).json({ error: 'Authorization already used' });
       }
@@ -352,12 +363,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         to,
         value,
         nonce,
-        chainId: domain.chainId,
+        chainId,
         mode: 'offline',
       });
       
-      const chain = domain.chainId === 8453 ? base : celo;
-      const networkConfig = getNetworkConfig(domain.chainId === 8453 ? 'base' : 'celo');
+      const chain = chainId === 8453 ? base : celo;
+      const networkConfig = getNetworkConfig(chainId === 8453 ? 'base' : 'celo');
       const facilitatorAccount = getFacilitatorAccount();
       
       const walletClient = createWalletClient({
@@ -397,7 +408,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const auth: Authorization = {
         id: randomUUID(),
-        chainId: domain.chainId,
+        chainId,
         nonce,
         from,
         to,
@@ -415,7 +426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await storage.addTransaction(
         from,
-        domain.chainId,
+        chainId,
         {
           id: randomUUID(),
           type: 'send',
@@ -430,7 +441,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await storage.addTransaction(
         to,
-        domain.chainId,
+        chainId,
         {
           id: randomUUID(),
           type: 'receive',
