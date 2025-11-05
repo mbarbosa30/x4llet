@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ChevronRight, Download, Upload, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, FileText } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Download, Upload, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import Footer from '@/components/Footer';
 import InstallPrompt from '@/components/InstallPrompt';
@@ -292,25 +292,6 @@ export default function Settings() {
                   <div className="text-sm font-medium">Display Currency</div>
                   <div className="text-xs text-muted-foreground">{currency}</div>
                 </div>
-              </div>
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
-            </button>
-          </Card>
-        </div>
-
-        <div className="space-y-2">
-          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-2">
-            About
-          </h2>
-          <Card>
-            <button
-              onClick={() => setLocation('/context')}
-              className="w-full flex items-center justify-between p-4 hover-elevate"
-              data-testid="button-context"
-            >
-              <div className="flex items-center gap-3">
-                <FileText className="h-5 w-5 text-muted-foreground" />
-                <span className="text-sm font-medium">Context</span>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
