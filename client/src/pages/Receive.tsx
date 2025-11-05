@@ -104,23 +104,30 @@ export default function Receive() {
 
   const handleScanAuthorization = (data: string) => {
     try {
-      // Try parsing as JSON first (Authorization QR format)
-      const authQR: AuthorizationQR = JSON.parse(data);
-      
-      if (authQR.message.to.toLowerCase() !== address?.toLowerCase()) {
-        toast({
-          title: "Wrong Recipient",
-          description: "This authorization is for a different address",
-          variant: "destructive",
-        });
-        return;
+      // Check if it's a payment URL
+      if (data.startsWith('http://') || data.startsWith('https://')) {
+        // Extract path and check if it's a payment link
+        try {
+          const url = new URL(data);
+          if (url.pathname === '/pay' && url.searchParams.has('auth')) {
+            // Redirect to the payment page to execute
+            window.location.href = data;
+            return;
+          }
+        } catch (urlError) {
+          // Not a valid URL, fall through to JSON parsing
+        }
       }
       
+      // Try parsing as JSON (Authorization QR format)
+      const authQR: AuthorizationQR = JSON.parse(data);
+      
+      // Submit the authorization (anyone can execute with transferWithAuthorization)
       submitAuthMutation.mutate(authQR);
     } catch (error) {
       toast({
         title: "Invalid QR Code",
-        description: "Could not parse authorization",
+        description: "Please scan a valid payment link or authorization",
         variant: "destructive",
       });
     }
