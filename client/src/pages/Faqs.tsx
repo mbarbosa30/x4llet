@@ -114,9 +114,13 @@ export default function Faqs() {
               Do I need to pay gas fees?
             </AccordionTrigger>
             <AccordionContent>
+              <p className="text-sm text-muted-foreground mb-2">
+                No. The x402 protocol eliminates gas fees for users through EIP-3009, which separates signing from execution.
+              </p>
               <p className="text-sm text-muted-foreground">
-                No. The x402 protocol eliminates gas fees for users. When you send USDC, you sign an authorization and the x402 
-                facilitator service pays the gas fees on your behalf. You only need USDC - no need to hold CELO or ETH for gas.
+                When you send USDC, you only sign an authorization message. Because EIP-3009 allows <span className="font-medium">anyone who possesses the authorization</span> to 
+                execute it, the x402 facilitator service can submit it to the blockchain and pay the gas fees on your behalf. 
+                You only need USDC - no need to hold CELO or ETH for gas.
               </p>
             </AccordionContent>
           </AccordionItem>
@@ -127,17 +131,18 @@ export default function Faqs() {
             </AccordionTrigger>
             <AccordionContent>
               <p className="text-sm text-muted-foreground mb-2">
-                The x402 protocol enables offline payments using pre-signed authorizations:
+                The x402 protocol enables offline payments using EIP-3009 pre-signed authorizations:
               </p>
               <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground ml-2">
                 <li>Receiver creates a Payment Request (works offline)</li>
-                <li>Payer scans it and signs locally (works offline)</li>
+                <li>Payer scans it and signs the authorization locally (works offline)</li>
                 <li>Payer shows Authorization QR to receiver</li>
-                <li>Receiver submits it to x402 facilitator when they have internet</li>
+                <li>Receiver (or anyone with the authorization) submits it when they have internet</li>
               </ol>
               <p className="text-sm text-muted-foreground mt-2">
-                The blockchain transaction happens when the receiver submits the authorization online. Both parties can complete 
-                their part without requiring internet connectivity - that's the power of x402.
+                EIP-3009 makes this possible by allowing <span className="font-medium">anyone who possesses the authorization</span> to execute it - 
+                not just the sender or receiver. In practice, the authorization is submitted to the x402 facilitator service, which executes 
+                the blockchain transaction and pays the gas. Both parties can complete their part without internet - that's the power of x402.
               </p>
             </AccordionContent>
           </AccordionItem>
