@@ -276,6 +276,14 @@ export async function hasWallet(): Promise<boolean> {
   return !!encrypted;
 }
 
+export function isWalletUnlocked(): boolean {
+  return !!getSessionPassword();
+}
+
+export function lockWallet(): void {
+  clearSessionPassword();
+}
+
 export async function getPreferences(): Promise<UserPreferences> {
   const prefs = await get<UserPreferences>(PREFERENCES_KEY);
   return prefs || {

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ChevronRight, Download, Upload, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Download, Upload, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import Footer from '@/components/Footer';
 import InstallPrompt from '@/components/InstallPrompt';
-import { getPreferences, savePreferences, exportWalletBackup, getPrivateKey } from '@/lib/wallet';
+import { getPreferences, savePreferences, exportWalletBackup, getPrivateKey, lockWallet } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -174,6 +174,15 @@ export default function Settings() {
     setCopied(false);
   };
 
+  const handleLockWallet = () => {
+    lockWallet();
+    toast({
+      title: "Wallet Locked",
+      description: "Your wallet has been locked for security",
+    });
+    setLocation('/unlock');
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="h-16 border-b flex items-center px-4">
@@ -226,6 +235,17 @@ export default function Settings() {
               <div className="flex items-center gap-3">
                 <Upload className="h-5 w-5 text-muted-foreground" />
                 <span className="text-sm font-medium">Restore from Code</span>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </button>
+            <button
+              onClick={handleLockWallet}
+              className="w-full flex items-center justify-between p-4 hover-elevate"
+              data-testid="button-lock-wallet"
+            >
+              <div className="flex items-center gap-3">
+                <Lock className="h-5 w-5 text-muted-foreground" />
+                <span className="text-sm font-medium">Lock Wallet</span>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
