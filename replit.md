@@ -57,7 +57,7 @@ The frontend follows a performance-first approach optimized for low-bandwidth en
 - `GET /api/balance/:address?chainId=<chainId>` - Fetch real blockchain USDC balance using viem RPC calls, plus complete on-chain transaction history
 - `GET /api/transactions/:address?chainId=<chainId>` - Retrieve complete on-chain transaction history from block explorer APIs (BaseScan/CeloScan)
 - `POST /api/relay/transfer-3009` - **Production facilitator endpoint** for online USDC transfers using `transferWithAuthorization`
-- `POST /api/relay/submit-authorization` - **Production facilitator endpoint** for offline payment completion using `receiveWithAuthorization`
+- `POST /api/relay/submit-authorization` - **Production facilitator endpoint** for offline payment completion using `transferWithAuthorization`
 
 **Transaction History:**
 The backend fetches complete USDC transaction history using the **Etherscan v2 unified API**:
@@ -100,7 +100,7 @@ The backend implements a production-ready EIP-3009 facilitator for both online a
 3. **Facilitator Submission** (Receiver claims):
    - Receiver scans Authorization QR (can be done offline, submitted when online)
    - Facilitator validates signature, checks expiration and nonce uniqueness
-   - Facilitator submits `receiveWithAuthorization(from, to, value, validAfter, validBefore, nonce, v, r, s)` to USDC contract
+   - Facilitator submits `transferWithAuthorization(from, to, value, validAfter, validBefore, nonce, v, r, s)` to USDC contract
    - Facilitator pays gas fees in native tokens (CELO or ETH)
    - Transaction executes atomically - funds transfer only if signature is valid
 
@@ -108,8 +108,8 @@ The backend implements a production-ready EIP-3009 facilitator for both online a
 - Managed via `FACILITATOR_PRIVATE_KEY` environment secret
 - Address: `0x2c696E742e07d92D9ae574865267C54B13930363`
 - Funded with ~5 CELO for gas fees on Celo mainnet
-- **Online mode**: Uses `transferWithAuthorization` (anyone can submit, faster execution)
-- **Offline mode**: Uses `receiveWithAuthorization` (only payee can submit, prevents front-running)
+- **Both online and offline modes**: Use `transferWithAuthorization` (anyone can submit, facilitator pays gas)
+- **Security**: Nonce tracking prevents double-spending; authorization QRs exchanged directly between payer/receiver minimize interception risk
 
 **Data Storage:**
 Currently using in-memory storage with mock data for development. Schema defined with Drizzle ORM includes:
