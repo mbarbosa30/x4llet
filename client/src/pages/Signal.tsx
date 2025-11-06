@@ -82,7 +82,7 @@ export default function Signal() {
       const types = {
         Endorsement: [
           { name: 'endorser', type: 'address' },
-          { name: 'endorsed', type: 'address' },
+          { name: 'endorsee', type: 'address' },
           { name: 'epoch', type: 'uint64' },
           { name: 'nonce', type: 'uint64' },
           { name: 'timestamp', type: 'uint64' },
@@ -90,12 +90,12 @@ export default function Signal() {
       };
 
       const timestamp = Math.floor(Date.now() / 1000);
-      const endorsement = {
+      const message = {
         endorser: validatedEndorser.toLowerCase(),
-        endorsed: validatedEndorsed.toLowerCase(),
-        epoch: epoch.epochId,
-        nonce: nonce,
-        timestamp: timestamp,
+        endorsee: validatedEndorsed.toLowerCase(),
+        epoch: BigInt(epoch.epochId),
+        nonce: BigInt(nonce),
+        timestamp: BigInt(timestamp),
       };
 
       // Sign
@@ -103,20 +103,20 @@ export default function Signal() {
         domain,
         types,
         primaryType: 'Endorsement',
-        message: {
-          endorser: endorsement.endorser,
-          endorsed: endorsement.endorsed,
-          epoch: BigInt(endorsement.epoch),
-          nonce: BigInt(endorsement.nonce),
-          timestamp: BigInt(endorsement.timestamp),
-        },
+        message,
       });
 
-      // Submit vouch
+      // Submit vouch - structure per MaxFlow API spec
       return submitVouch({
-        endorsement,
-        signature,
-        chainId: chainId,
+        endorsement: {
+          endorser: message.endorser,
+          endorsee: message.endorsee,
+          epoch: message.epoch.toString(),
+          nonce: message.nonce.toString(),
+          timestamp: message.timestamp.toString(),
+          sig: signature,
+          chainId: chainId,
+        },
       });
     },
     onSuccess: (data) => {

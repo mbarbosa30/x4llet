@@ -1,0 +1,191 @@
+Complete Guide: Integrating MaxFlow Vouching into Your App
+Here's a step-by-step guide for implementing MaxFlow vouching in any external application:
+
+Overview
+Your app will need to:
+
+Connect to the user's wallet
+Fetch the current epoch and nonce
+Create an EIP-712 typed signature
+Submit the vouch to MaxFlow
+Prerequisites
+Required Libraries:
+
+ethers v6 (or viem - both work)
+User's wallet (MetaMask, WalletConnect, etc.)
+npm install ethers
+
+Complete Implementation
+Step 1: Connect Wallet
+import { BrowserProvider } from 'ethers';
+// Connect to user's wallet
+const provider = new BrowserProvider(window.ethereum);
+await provider.send("eth_requestAccounts", []);
+const signer = await provider.getSigner();
+const endorserAddress = await signer.getAddress();
+
+Step 2: Get Current Epoch
+const epochResponse = await fetch('https://maxflow.one/api/epoch/current');
+const { epochId } = await epochResponse.json();
+// Returns: { epochId: 1, status: "open", ... }
+
+Step 3: Get Next Nonce
+const nonceResponse = await fetch(
+  `https://maxflow.one/api/nonce/${endorserAddress}/${epochId}`
+);
+const { nextNonce } = await nonceResponse.json();
+// Returns: { maxNonce: 0, nextNonce: 1 }
+
+Step 4: Prepare EIP-712 Message
+// Get the chainId from user's wallet
+const network = await provider.getNetwork();
+const chainId = Number(network.chainId);
+// Define EIP-712 domain
+const domain = {
+  name: 'MaxFlow',
+  version: '1',
+  chainId: chainId  // Dynamic - uses whatever network user is on
+};
+// Define EIP-712 types - CRITICAL: Use uint64, not uint256!
+const types = {
+  Endorsement: [
+    { name: 'endorser', type: 'address' },
+    { name: 'endorsee', type: 'address' },
+    { name: 'epoch', type: 'uint64' },      // Must be uint64
+    { name: 'nonce', type: 'uint64' },      // Must be uint64
+    { name: 'timestamp', type: 'uint64' }   // Must be uint64
+  ]
+};
+// Create the message
+const message = {
+  endorser: endorserAddress,
+  endorsee: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb', // Who to vouch for
+  epoch: BigInt(epochId),
+  nonce: BigInt(nextNonce),
+  timestamp: BigInt(Math.floor(Date.now() / 1000))
+};
+
+Step 5: Sign with EIP-712
+const signature = await signer.signTypedData(domain, types, message);
+// Returns: "0xabcd1234..." (hex string)
+
+Step 6: Submit the Vouch
+const response = await fetch('https://maxflow.one/api/vouch', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    endorsement: {
+      endorser: message.endorser,
+      endorsee: message.endorsee,
+      epoch: message.epoch.toString(),        // Convert BigInt to string
+      nonce: message.nonce.toString(),
+      timestamp: message.timestamp.toString(),
+      sig: signature,                         // Signature goes INSIDE
+      chainId: chainId,                       // chainId goes INSIDE
+      note: "Optional message"                // Optional
+    }
+  })
+});
+if (response.ok) {
+  const result = await response.json();
+  console.log('Vouch created!', result);
+  // Returns: { success: true, endorsement: {...}, message: "..." }
+} else {
+  const error = await response.json();
+  console.error('Failed:', error);
+}
+
+Complete Working Function
+async function vouchForAddress(endorseeAddress) {
+  try {
+    // 1. Connect wallet
+    const provider = new BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    const signer = await provider.getSigner();
+    const endorserAddress = await signer.getAddress();
+    
+    // 2. Get epoch
+    const epochRes = await fetch('https://maxflow.one/api/epoch/current');
+    const { epochId } = await epochRes.json();
+    
+    // 3. Get nonce
+    const nonceRes = await fetch(
+      `https://maxflow.one/api/nonce/${endorserAddress}/${epochId}`
+    );
+    const { nextNonce } = await nonceRes.json();
+    
+    // 4. Get chainId
+    const network = await provider.getNetwork();
+    const chainId = Number(network.chainId);
+    
+    // 5. Prepare message
+    const domain = {
+      name: 'MaxFlow',
+      version: '1',
+      chainId: chainId
+    };
+    
+    const types = {
+      Endorsement: [
+        { name: 'endorser', type: 'address' },
+        { name: 'endorsee', type: 'address' },
+        { name: 'epoch', type: 'uint64' },
+        { name: 'nonce', type: 'uint64' },
+        { name: 'timestamp', type: 'uint64' }
+      ]
+    };
+    
+    const message = {
+      endorser: endorserAddress,
+      endorsee: endorseeAddress,
+      epoch: BigInt(epochId),
+      nonce: BigInt(nextNonce),
+      timestamp: BigInt(Math.floor(Date.now() / 1000))
+    };
+    
+    // 6. Sign
+    const signature = await signer.signTypedData(domain, types, message);
+    
+    // 7. Submit
+    const response = await fetch('https://maxflow.one/api/vouch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        endorsement: {
+          endorser: message.endorser,
+          endorsee: message.endorsee,
+          epoch: message.epoch.toString(),
+          nonce: message.nonce.toString(),
+          timestamp: message.timestamp.toString(),
+          sig: signature,
+          chainId: chainId
+        }
+      })
+    });
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Vouching failed:', error);
+    throw error;
+  }
+}
+// Usage
+await vouchForAddress('0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb');
+
+Critical Points to Remember
+✅ Use uint64 - Not uint256 for epoch, nonce, timestamp
+✅ sig and chainId go INSIDE the endorsement object
+✅ Field is endorsee - Not endorsed
+✅ Convert BigInt to string when sending to API
+✅ Dynamic chainId - Use whatever network the user is on
+✅ CORS enabled - Direct browser calls work fine
+
+Common Errors & Solutions
+"Invalid signature" → Check you're using uint64 not uint256
+"Invalid nonce" → Fetch a fresh nonce before each vouch
+404 on nonce → Make sure URL is /api/nonce/ not /api/maxflow/nonce/
+CORS error → Should not happen anymore, but verify you're calling maxflow.one
+
+That's it! Your app can now vouch for users and integrate MaxFlow's Sybil-resistant reputation scoring. 🎯

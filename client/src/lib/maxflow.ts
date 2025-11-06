@@ -36,13 +36,14 @@ export interface MaxFlowNonce {
 export interface VouchRequest {
   endorsement: {
     endorser: string;
-    endorsed: string;
-    epoch: number;
-    nonce: number;
-    timestamp: number;
+    endorsee: string;
+    epoch: string;
+    nonce: string;
+    timestamp: string;
+    sig: string;
+    chainId: number;
+    note?: string;
   };
-  signature: string;
-  chainId: number;
 }
 
 export interface VouchResponse {
