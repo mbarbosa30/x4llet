@@ -67,16 +67,16 @@ export default function Signal() {
       const domain = {
         name: 'MaxFlow',
         version: '1',
-        chainId: 42220, // Celo
+        chainId: 1,
       };
 
       const types = {
         Endorsement: [
           { name: 'endorser', type: 'address' },
           { name: 'endorsee', type: 'address' },
-          { name: 'epoch', type: 'uint256' },
-          { name: 'nonce', type: 'uint256' },
-          { name: 'timestamp', type: 'uint256' },
+          { name: 'epoch', type: 'uint64' },
+          { name: 'nonce', type: 'uint64' },
+          { name: 'timestamp', type: 'uint64' },
         ],
       };
 
@@ -105,7 +105,7 @@ export default function Signal() {
         nonce: message.nonce.toString(),
         timestamp: message.timestamp.toString(),
         sig: signature,
-        chainId: 42220,
+        chainId: 1,
       });
     },
     onSuccess: (data) => {
