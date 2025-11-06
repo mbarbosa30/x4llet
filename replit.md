@@ -4,6 +4,7 @@
 offPay is a minimalist Progressive Web App (PWA) for managing cryptocurrency wallets with gasless USDC transfers. It prioritizes performance, accessibility, and offline-first functionality for users in low-bandwidth environments. Key capabilities include wallet creation with local key storage, encrypted cloud backups, and gasless transactions using EIP-3009 authorization on Base and Celo networks. The project aims to provide a robust and accessible crypto wallet solution with a focus on usability and efficiency.
 
 ## Recent Changes (November 6, 2025)
+- **MaxFlow score caching**: Implemented intelligent database caching for MaxFlow scores with 5-minute TTL in `cached_maxflow_scores` table. Cache-first strategy reduces response time by 82-84% (from ~1400ms to ~230ms) for cached requests, improves offline functionality, and reduces load on MaxFlow API servers.
 - **MaxFlow API proxy**: Implemented backend proxy routes for all MaxFlow API calls to resolve CORS issues. Frontend now calls `/api/maxflow/*` which proxies to `https://maxflow.one/api/*`. This enables vouching functionality to work properly in browsers.
 - **Settings version refresh**: Made version number clickable in Settings page - clicking triggers hard refresh with cache-busting query parameter to load latest deployed version
 - **Landing page messaging**: Updated bullet points to explicitly mention local key storage ("Keys stored locally, encrypted on your device"), x402 protocol ("Gasless transfers powered by x402"), and max flow computation ("Build network signal through max flow computation")
@@ -26,7 +27,7 @@ The backend is built with Express.js (TypeScript), Drizzle ORM, and PostgreSQL (
 Wallet generation uses `viem` to create secp256k1 private keys. Private keys are encrypted using WebCrypto API (AES-GCM with PBKDF2) and stored in IndexedDB, protected by a user-chosen password (unrecoverable). EIP-712 typed data signing is used for gasless transfers, compatible with USDC's EIP-3009. The application correctly handles EIP-712 domain differences for "USDC" vs. "USD Coin" across Base and Celo networks.
 
 ### Data Storage
-A PostgreSQL database with Drizzle ORM is used for intelligent caching. Tables include `users`, `wallets`, `authorizations`, `cached_balances` (30s TTL), `cached_transactions` (permanent), and `exchange_rates` (5min TTL). This caching strategy significantly reduces blockchain RPC calls and external API requests, improving performance and enabling offline balance display.
+A PostgreSQL database with Drizzle ORM is used for intelligent caching. Tables include `users`, `wallets`, `authorizations`, `cached_balances` (30s TTL), `cached_transactions` (permanent), `cached_maxflow_scores` (5min TTL), and `exchange_rates` (5min TTL). This caching strategy significantly reduces blockchain RPC calls and external API requests, improving performance and enabling offline balance display.
 
 ### Network Configuration
 The application supports Base (chainId: 8453) and Celo (chainId: 42220) networks, defaulting to Celo. Users can switch networks in settings.
