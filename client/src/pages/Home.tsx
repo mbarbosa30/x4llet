@@ -130,10 +130,10 @@ export default function Home() {
 
   return (
     <div 
-      className="min-h-screen bg-background"
+      className="min-h-screen bg-background pt-16"
       style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
     >
-      <header className="h-16 border-b flex items-center justify-between px-4">
+      <header className="fixed top-0 left-0 right-0 h-16 bg-background border-b flex items-center justify-between px-4 z-50">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold">offPay</h1>
           {maxflowScore && (

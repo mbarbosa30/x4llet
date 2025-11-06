@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, Download, Upload, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette } from 'lucide-react';
+import { ChevronRight, Download, Upload, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette, Shield, RefreshCw, QrCode } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import BottomNav from '@/components/BottomNav';
 import InstallPrompt from '@/components/InstallPrompt';
-import { getPreferences, savePreferences, exportWalletBackup, getPrivateKey, lockWallet } from '@/lib/wallet';
+import QRScanner from '@/components/QRScanner';
+import { getWallet, getPreferences, savePreferences, exportWalletBackup, getPrivateKey, lockWallet } from '@/lib/wallet';
+import { getMaxFlowScore } from '@/lib/maxflow';
+import { queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -28,6 +32,7 @@ import {
 export default function Settings() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [address, setAddress] = useState<string | null>(null);
   const [currency, setCurrency] = useState('USD');
   const [language, setLanguage] = useState('en');
   const [network, setNetwork] = useState<'base' | 'celo'>('base');
@@ -43,10 +48,17 @@ export default function Settings() {
   const [copied, setCopied] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [showTheme, setShowTheme] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     const loadPreferences = async () => {
       try {
+        const wallet = await getWallet();
+        if (wallet) {
+          setAddress(wallet.address);
+        }
+        
         const prefs = await getPreferences();
         setCurrency(prefs.currency);
         setLanguage(prefs.language);
@@ -69,6 +81,22 @@ export default function Settings() {
     };
     loadPreferences();
   }, []);
+
+  const { data: maxflowScore } = useQuery({
+    queryKey: ['/maxflow/score', address],
+    queryFn: () => getMaxFlowScore(address!),
+    enabled: !!address,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await queryClient.invalidateQueries({ queryKey: ['/maxflow/score', address] });
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
+  };
 
   const handleExportBackup = async () => {
     if (!recoveryCode || recoveryCode.length < 12) {
@@ -217,11 +245,44 @@ export default function Settings() {
 
   return (
     <div 
-      className="min-h-screen bg-background"
+      className="min-h-screen bg-background pt-16"
       style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
     >
-      <header className="h-16 border-b flex items-center px-4">
-        <h1 className="text-lg font-semibold">Settings</h1>
+      <header className="fixed top-0 left-0 right-0 h-16 bg-background border-b flex items-center justify-between px-4 z-50">
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-semibold">offPay</h1>
+          {maxflowScore && (
+            <button
+              onClick={() => setLocation('/signal')}
+              className="flex items-center gap-1.5 hover-elevate active-elevate-2 px-2 py-1 rounded-md border text-xs font-medium"
+              data-testid="badge-maxflow-score"
+              title="Network Signal"
+              aria-label={`Network Signal: ${Math.round(maxflowScore.localHealth)}`}
+            >
+              <Shield className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+              <span aria-hidden="true">{Math.round(maxflowScore.localHealth)}</span>
+            </button>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            data-testid="button-refresh"
+          >
+            <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => setShowScanner(true)}
+            data-testid="button-scan"
+          >
+            <QrCode className="h-5 w-5" />
+          </Button>
+        </div>
       </header>
 
       <main className="max-w-md mx-auto p-4 space-y-8">
@@ -358,6 +419,20 @@ export default function Settings() {
       </main>
 
       <BottomNav />
+
+      {showScanner && (
+        <QRScanner
+          onScan={(data) => {
+            // Just close scanner, could be used for vouching or other features
+            setShowScanner(false);
+            toast({
+              title: "QR Code Scanned",
+              description: data.slice(0, 20) + (data.length > 20 ? '...' : ''),
+            });
+          }}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
 
       <Dialog open={showExportPrivateKey} onOpenChange={handleClosePrivateKeyDialog}>
         <DialogContent>
