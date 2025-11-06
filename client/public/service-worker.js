@@ -1,4 +1,4 @@
-const CACHE_NAME = 'x4llet-v1';
+const CACHE_NAME = 'offpay-v1';
 const APP_SHELL = '/index.html';
 const ASSETS_TO_CACHE = [
   '/',
