@@ -72,7 +72,7 @@ export default function Landing() {
               </div>
               <div className="flex items-center gap-3">
                 <Network className="h-4 w-4 text-primary flex-shrink-0" />
-                <span className="text-sm">Build network signal with MaxFlow's flow-driven computation</span>
+                <span className="text-sm">Build network signal through max flow computation</span>
               </div>
             </div>
           </div>
