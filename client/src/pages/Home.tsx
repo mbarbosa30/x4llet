@@ -131,7 +131,21 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       <header className="h-16 border-b flex items-center justify-between px-4">
-        <h1 className="text-lg font-semibold">offPay</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-semibold">offPay</h1>
+          {maxflowScore && (
+            <button
+              onClick={() => setLocation('/signal')}
+              className="flex items-center gap-1.5 hover-elevate active-elevate-2 px-2 py-1 rounded-md border text-xs font-medium"
+              data-testid="badge-maxflow-score"
+              title="Network Signal"
+              aria-label={`Network Signal: ${Math.round(maxflowScore.localHealth)}`}
+            >
+              <Shield className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+              <span aria-hidden="true">{Math.round(maxflowScore.localHealth)}</span>
+            </button>
+          )}
+        </div>
         <div className="flex gap-2">
           <Button 
             variant="ghost" 
@@ -163,19 +177,6 @@ export default function Home() {
 
       <main className="max-w-md mx-auto p-4 space-y-6">
         <AddressDisplay address={address} />
-        
-        {maxflowScore && (
-          <button
-            onClick={() => setLocation('/signal')}
-            className="flex items-center gap-2 hover-elevate active-elevate-2 px-3 py-1.5 rounded-full border bg-background/50"
-            data-testid="badge-maxflow-score"
-          >
-            <Shield className="h-3.5 w-3.5 text-primary" />
-            <span className="text-xs font-medium">
-              MaxFlow: {Math.round(maxflowScore.localHealth)}
-            </span>
-          </button>
-        )}
         
         {isLoading ? (
           <div className="animate-pulse">
