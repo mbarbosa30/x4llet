@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, Download, Upload, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette } from 'lucide-react';
+import { ChevronRight, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import InstallPrompt from '@/components/InstallPrompt';
-import { getWallet, getPreferences, savePreferences, exportWalletBackup, getPrivateKey, lockWallet } from '@/lib/wallet';
+import { getWallet, getPreferences, savePreferences, getPrivateKey, lockWallet } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -32,11 +32,9 @@ export default function Settings() {
   const [currency, setCurrency] = useState('USD');
   const [language, setLanguage] = useState('en');
   const [network, setNetwork] = useState<'base' | 'celo'>('base');
-  const [showExport, setShowExport] = useState(false);
   const [showExportPrivateKey, setShowExportPrivateKey] = useState(false);
   const [showCurrency, setShowCurrency] = useState(false);
   const [showNetwork, setShowNetwork] = useState(false);
-  const [recoveryCode, setRecoveryCode] = useState('');
   const [password, setPassword] = useState('');
   const [privateKey, setPrivateKey] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -76,47 +74,6 @@ export default function Settings() {
     loadPreferences();
   }, []);
 
-  const handleExportBackup = async () => {
-    if (!recoveryCode || recoveryCode.length < 12) {
-      toast({
-        title: "Invalid Recovery Code",
-        description: "Please enter your recovery code",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const backup = await exportWalletBackup(recoveryCode);
-      
-      const blob = new Blob([backup], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'wallet-backup.txt';
-      a.click();
-      URL.revokeObjectURL(url);
-      
-      toast({
-        title: "Backup Exported!",
-        description: "Your encrypted backup has been downloaded",
-      });
-      
-      setShowExport(false);
-      setRecoveryCode('');
-    } catch (error) {
-      console.error('Export failed:', error);
-      toast({
-        title: "Export Failed",
-        description: "Failed to export backup",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleRestoreBackup = () => {
-    setLocation('/restore');
-  };
 
   const handleCurrencyChange = async (newCurrency: string) => {
     setCurrency(newCurrency);
@@ -242,28 +199,6 @@ export default function Settings() {
               <div className="flex items-center gap-3">
                 <Key className="h-5 w-5 text-muted-foreground" />
                 <span className="text-sm font-medium">Export Private Key</span>
-              </div>
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
-            </button>
-            <button
-              onClick={() => setShowExport(true)}
-              className="w-full flex items-center justify-between p-4 hover-elevate"
-              data-testid="button-export-backup"
-            >
-              <div className="flex items-center gap-3">
-                <Download className="h-5 w-5 text-muted-foreground" />
-                <span className="text-sm font-medium">Export Backup</span>
-              </div>
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
-            </button>
-            <button
-              onClick={handleRestoreBackup}
-              className="w-full flex items-center justify-between p-4 hover-elevate"
-              data-testid="button-restore-backup"
-            >
-              <div className="flex items-center gap-3">
-                <Upload className="h-5 w-5 text-muted-foreground" />
-                <span className="text-sm font-medium">Restore from Code</span>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
@@ -456,36 +391,6 @@ export default function Settings() {
                 View Private Key
               </Button>
             )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showExport} onOpenChange={setShowExport}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Export Backup</DialogTitle>
-            <DialogDescription>
-              Enter your recovery code to encrypt and export your wallet backup
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="recovery-code">Recovery Code</Label>
-              <Input
-                id="recovery-code"
-                type="text"
-                placeholder="XXXX-XXXX-XXXX"
-                value={recoveryCode}
-                onChange={(e) => setRecoveryCode(e.target.value)}
-                className="font-mono"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowExport(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleExportBackup}>Export</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
