@@ -83,13 +83,18 @@ async function fetchTransactionsFromEtherscan(address: string, chainId: number):
     }
 
     const transactions: Transaction[] = data.result.map((tx: BlockExplorerTx) => {
-      const isSend = tx.from.toLowerCase() === address.toLowerCase();
+      // Normalize addresses for comparison (handle checksum variations)
+      const normalizedWallet = address.toLowerCase();
+      const normalizedFrom = tx.from.toLowerCase();
+      const normalizedTo = tx.to.toLowerCase();
+      
+      const isSend = normalizedFrom === normalizedWallet;
       const amount = formatUsdcAmount(tx.value);
 
       console.log(`[Transaction Type Detection] TX ${tx.hash.slice(0, 10)}...`);
-      console.log(`  Wallet: ${address.toLowerCase()}`);
-      console.log(`  From:   ${tx.from.toLowerCase()}`);
-      console.log(`  To:     ${tx.to.toLowerCase()}`);
+      console.log(`  Wallet: ${normalizedWallet}`);
+      console.log(`  From:   ${normalizedFrom}`);
+      console.log(`  To:     ${normalizedTo}`);
       console.log(`  Type:   ${isSend ? 'SEND' : 'RECEIVE'}`);
 
       return {
