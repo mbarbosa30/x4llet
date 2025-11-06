@@ -199,7 +199,7 @@ export default function Signal() {
                   <h3 className="text-sm font-semibold">Get Started</h3>
                   <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
                     <li>Share your address with people you trust</li>
-                    <li>Ask them to vouch for you on offPay</li>
+                    <li>Ask them to vouch for you on nanoPay</li>
                     <li>Vouch for others carefully — it impacts your score</li>
                   </ol>
                 </div>
