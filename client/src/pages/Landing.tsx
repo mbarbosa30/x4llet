@@ -49,7 +49,7 @@ export default function Landing() {
             <div>
               <h1 className="text-3xl font-bold mb-2">offPay</h1>
               <p className="text-muted-foreground">
-                Your lightweight crypto wallet
+                Crypto wallet with built-in network strength
               </p>
             </div>
 
@@ -104,6 +104,12 @@ export default function Landing() {
                 </Link>
               </div>
             )}
+          </div>
+
+          <div className="text-center max-w-md mx-auto pt-8 text-sm text-muted-foreground leading-relaxed">
+            <p>
+              Designed for everyone, everywhere. It works in low-bandwidth environments and functions completely offline. Your wallet holds USDC for payments and a MaxFlow signal score that proves your legitimacy and measures your trust network strength — building both financial and reputation capital.
+            </p>
           </div>
         </div>
       </div>
