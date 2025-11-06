@@ -231,21 +231,21 @@ export default function Signal() {
                 </p>
               )}
 
-              {!isLoading && scoreData?.details && (
+              {!isLoading && scoreData?.metrics && (
                 <div className="pt-4 border-t space-y-2">
-                  <h3 className="text-xs font-semibold text-muted-foreground mb-3">Score Breakdown</h3>
+                  <h3 className="text-xs font-semibold text-muted-foreground mb-3">Network Metrics</h3>
                   <div className="grid grid-cols-1 gap-2 text-sm">
-                    <div className="flex justify-between items-center" data-testid="metric-flow">
-                      <span className="text-muted-foreground">Flow Component</span>
-                      <span className="font-mono font-medium">{scoreData.details.flowComponent.toFixed(1)}</span>
-                    </div>
                     <div className="flex justify-between items-center" data-testid="metric-redundancy">
-                      <span className="text-muted-foreground">Redundancy</span>
-                      <span className="font-mono font-medium">{scoreData.details.redundancyComponent.toFixed(1)}</span>
+                      <span className="text-muted-foreground">Path Redundancy</span>
+                      <span className="font-mono font-medium">{scoreData.metrics.medianMinCut.toFixed(1)}</span>
                     </div>
-                    <div className="flex justify-between items-center" data-testid="metric-quality">
-                      <span className="text-muted-foreground">Vouch Quality</span>
-                      <span className="font-mono font-medium">{(scoreData.details.vouchQualityFactor * 100).toFixed(0)}%</span>
+                    <div className="flex justify-between items-center" data-testid="metric-maxflow">
+                      <span className="text-muted-foreground">Maximum Flow</span>
+                      <span className="font-mono font-medium">{scoreData.metrics.maxPossibleFlow.toFixed(1)}</span>
+                    </div>
+                    <div className="flex justify-between items-center" data-testid="metric-residual">
+                      <span className="text-muted-foreground">Average Residual</span>
+                      <span className="font-mono font-medium">{scoreData.metrics.avgResidualFlow.toFixed(1)}</span>
                     </div>
                   </div>
                 </div>

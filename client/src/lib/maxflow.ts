@@ -13,6 +13,14 @@ export interface MaxFlowScore {
   egoContextId: number;
   localHealth: number;
   vouchCount: number;
+  seedAddresses: string[];
+  metrics: {
+    totalNodes: number;
+    acceptedUsers: number;
+    avgResidualFlow: number;
+    medianMinCut: number;
+    maxPossibleFlow: number;
+  };
   details: {
     flowComponent: number;
     redundancyComponent: number;
@@ -20,6 +28,7 @@ export interface MaxFlowScore {
     kudosBoost: number;
     mode: string;
   };
+  nodeDetails: any[];
 }
 
 export interface MaxFlowEpoch {
