@@ -2,9 +2,11 @@
  * MaxFlow API Integration
  * Provides social vouching and reputation scores
  * API Docs: https://maxflow.one/api-docs
+ * 
+ * Note: All requests are proxied through our backend to avoid CORS issues
  */
 
-const MAXFLOW_API = 'https://maxflow.one/api';
+const MAXFLOW_API = '/api/maxflow';
 
 export interface MaxFlowScore {
   ownerAddress: string;
@@ -60,7 +62,7 @@ export interface VouchResponse {
  * Get LocalHealth score for an address (no auth required)
  */
 export async function getMaxFlowScore(address: string): Promise<MaxFlowScore> {
-  const response = await fetch(`${MAXFLOW_API}/ego/${address}/score`);
+  const response = await fetch(`${MAXFLOW_API}/score/${address}`);
   if (!response.ok) {
     throw new Error('Failed to fetch MaxFlow score');
   }

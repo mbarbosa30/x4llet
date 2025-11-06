@@ -547,6 +547,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // MaxFlow API Proxy Routes (to avoid CORS issues)
+  app.get('/api/maxflow/score/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      const response = await fetch(`https://maxflow.one/api/ego/${address}/score`);
+      
+      if (!response.ok) {
+        return res.status(response.status).json({ error: 'Failed to fetch MaxFlow score' });
+      }
+      
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error('Error fetching MaxFlow score:', error);
+      res.status(500).json({ error: 'Failed to fetch MaxFlow score' });
+    }
+  });
+
+  app.get('/api/maxflow/epoch/current', async (req, res) => {
+    try {
+      const response = await fetch('https://maxflow.one/api/epoch/current');
+      
+      if (!response.ok) {
+        return res.status(response.status).json({ error: 'Failed to fetch current epoch' });
+      }
+      
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error('Error fetching current epoch:', error);
+      res.status(500).json({ error: 'Failed to fetch current epoch' });
+    }
+  });
+
+  app.get('/api/maxflow/nonce/:address/:epoch', async (req, res) => {
+    try {
+      const { address, epoch } = req.params;
+      const response = await fetch(`https://maxflow.one/api/nonce/${address}/${epoch}`);
+      
+      if (!response.ok) {
+        return res.status(response.status).json({ error: 'Failed to fetch nonce' });
+      }
+      
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error('Error fetching nonce:', error);
+      res.status(500).json({ error: 'Failed to fetch nonce' });
+    }
+  });
+
+  app.post('/api/maxflow/vouch', async (req, res) => {
+    try {
+      const response = await fetch('https://maxflow.one/api/vouch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(req.body),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to submit vouch' }));
+        return res.status(response.status).json(errorData);
+      }
+      
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error('Error submitting vouch:', error);
+      res.status(500).json({ error: 'Failed to submit vouch' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
