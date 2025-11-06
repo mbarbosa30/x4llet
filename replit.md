@@ -1,250 +1,51 @@
 # x4llet - Lightweight Crypto Wallet PWA
 
 ## Overview
-
-x4llet is a minimalist Progressive Web App (PWA) for managing cryptocurrency wallets with gasless USDC transfers. The application prioritizes performance, accessibility, and offline-first functionality, targeting users in low-bandwidth environments. It supports wallet creation with local key storage, encrypted cloud backups, and gasless transactions using EIP-3009 authorization on Base and Celo networks.
+x4llet is a minimalist Progressive Web App (PWA) for managing cryptocurrency wallets with gasless USDC transfers. It prioritizes performance, accessibility, and offline-first functionality for users in low-bandwidth environments. Key capabilities include wallet creation with local key storage, encrypted cloud backups, and gasless transactions using EIP-3009 authorization on Base and Celo networks. The project aims to provide a robust and accessible crypto wallet solution with a focus on usability and efficiency.
 
 ## User Preferences
-
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
 ### Frontend Architecture
-
-**Technology Stack:**
-- React 18 with TypeScript
-- Vite for build tooling and development
-- Wouter for lightweight client-side routing
-- TanStack Query (React Query) for server state management
-- Shadcn UI components built on Radix UI primitives
-- Tailwind CSS for utility-first styling
-
-**Design Philosophy:**
-The frontend follows a performance-first approach optimized for low-bandwidth environments. The design system uses system fonts to avoid external font loading, minimal animations, and a constrained color palette. All screens follow a fixed header + scrollable content + optional fixed footer pattern with a max-width of 448px for one-handed mobile use.
-
-**State Management:**
-- Local-first architecture using IndexedDB for wallet key storage
-- Session-based password management for wallet unlocking
-- TanStack Query for API data caching and synchronization
-- User preferences (currency, language, network) stored in IndexedDB
-
-**Routing Structure:**
-- `/` - Create wallet (entry point)
-- `/unlock` - Unlock existing wallet with password
-- `/restore` - Restore wallet from encrypted backup
-- `/home` - Main dashboard with balance and transactions
-- `/send` - Send USDC with numeric keypad (online and offline modes)
-- `/receive` - Receive USDC with QR code and Payment Request generation
-- `/settings` - User preferences and wallet management
-
-**Key Components:**
-- `AddressDisplay` - Truncated address with copy-to-clipboard
-- `BalanceCard` - Primary balance display with fiat conversion
-- `NumericKeypad` - Touch-optimized number input for amounts
-- `QRCodeDisplay` - Canvas-based QR code generation
-- `TransactionList` - Activity feed with send/receive indicators
+The frontend uses React 18 with TypeScript, Vite, Wouter for routing, TanStack Query for server state, Shadcn UI (built on Radix UI) for components, and Tailwind CSS for styling. It follows a performance-first, mobile-optimized design with a fixed header/footer and scrollable content within a max-width of 448px. State management utilizes IndexedDB for local-first key storage and TanStack Query for API data caching.
 
 ### Backend Architecture
-
-**Technology Stack:**
-- Express.js server with TypeScript
-- Drizzle ORM for database interactions
-- PostgreSQL via Neon serverless adapter
-- Session-based middleware with logging
-
-**API Endpoints:**
-- `GET /api/balance/:address?chainId=<chainId>` - Fetch real blockchain USDC balance using viem RPC calls, plus complete on-chain transaction history
-- `GET /api/transactions/:address?chainId=<chainId>` - Retrieve complete on-chain transaction history from block explorer APIs (BaseScan/CeloScan)
-- `POST /api/relay/transfer-3009` - **Production facilitator endpoint** for online USDC transfers using `transferWithAuthorization`
-- `POST /api/relay/submit-authorization` - **Production facilitator endpoint** for offline payment completion using `transferWithAuthorization`
-
-**Transaction History:**
-The backend fetches complete USDC transaction history using the **Etherscan v2 unified API**:
-- Single endpoint: `https://api.etherscan.io/v2/api` with `chainid` parameter
-- Supports 60+ EVM chains including Base (chainId 8453) and Celo (chainId 42220)
-- Shows all USDC transfers (both sent and received), not just wallet-initiated transactions
-- Requires single `ETHERSCAN_API_KEY` environment secret (works across all supported chains)
-- V1 APIs (BaseScan/CeloScan) deprecated May 31, 2025 - this app uses future-proof v2
-
-**BigInt Precision Handling:**
-All USDC amount conversions use BigInt arithmetic to prevent precision loss with large values:
-- USDC uses 6 decimals (1 USDC = 1,000,000 units)
-- `formatUsdcAmount()` helper converts raw blockchain values to human-readable strings
-- Rounds to nearest cent by adding 5,000 units (0.005 USDC) before division
-- Preserves full precision for amounts exceeding JavaScript's MAX_SAFE_INTEGER (9,007,199 USDC)
-- TypeScript target set to ES2020 to support BigInt literals
-
-**Facilitator Pattern (EIP-3009):**
-The backend implements a production-ready EIP-3009 facilitator for both online and offline gasless USDC transfers:
-
-**Online Transfers** (immediate execution):
-1. User creates transaction on Send page in "Online" mode
-2. Frontend signs EIP-712 `TransferWithAuthorization` message locally with user's private key
-3. Signed authorization sent to `/api/relay/transfer-3009`
-4. Facilitator validates signature, checks expiration and address formats
-5. Facilitator submits `transferWithAuthorization(from, to, value, validAfter, validBefore, nonce, v, r, s)` to USDC contract
-6. Transaction executes immediately - funds transfer only if signature is valid
-7. Facilitator pays gas fees, returns real blockchain txHash to user
-
-**Offline Transfers** (X402 protocol):
-1. **Payment Request Generation** (Receiver creates):
-   - Receiver generates Payment Request QR containing: `{chainId, token, to, amount, ttl, facilitatorUrl}`
-   - Payer scans this QR in offline mode
-
-2. **Offline Authorization Signing** (Payer signs):
-   - Payer's device creates EIP-712 `TransferWithAuthorization` message with all parameters
-   - Signs locally using their private key (works completely offline)
-   - Generates Authorization QR containing: `{domain, message, signature}`
-
-3. **Facilitator Submission** (Receiver claims):
-   - Receiver scans Authorization QR (can be done offline, submitted when online)
-   - Facilitator validates signature, checks expiration and nonce uniqueness
-   - Facilitator submits `transferWithAuthorization(from, to, value, validAfter, validBefore, nonce, v, r, s)` to USDC contract
-   - Facilitator pays gas fees in native tokens (CELO or ETH)
-   - Transaction executes atomically - funds transfer only if signature is valid
-
-**Facilitator Wallet:**
-- Managed via `FACILITATOR_PRIVATE_KEY` environment secret
-- Address: `0x2c696E742e07d92D9ae574865267C54B13930363`
-- Funded with ~5 CELO for gas fees on Celo mainnet
-- **Both online and offline modes**: Use `transferWithAuthorization` (anyone can submit, facilitator pays gas)
-- **Security**: Nonce tracking prevents double-spending; authorization QRs exchanged directly between payer/receiver minimize interception risk
-
-**Data Storage:**
-PostgreSQL database with intelligent caching to minimize external API dependency:
-
-**Database Tables:**
-- `users` - User authentication (username/password scaffold)
-- `wallets` - Tracks wallet addresses with first-seen and last-seen timestamps
-- `authorizations` - Persists EIP-3009 signed authorizations with nonce uniqueness constraints
-- `cached_balances` - Stores USDC balances with 30-second TTL to reduce RPC calls
-- `cached_transactions` - Permanent storage of on-chain transactions (prevents duplicate Etherscan API fetches)
-- `exchange_rates` - Caches fiat conversion rates with 5-minute TTL
-
-**Caching Strategy:**
-- **Balance Cache (30s TTL)**: DbStorage checks database before hitting RPC endpoints. Fresh data upserted on cache miss/expiry.
-- **Transaction Cache (permanent)**: All discovered transactions stored permanently with unique `txHash` constraint. Merged with local wallet-initiated transactions.
-- **Exchange Rate Cache (5min TTL)**: Rates fetched from ExchangeRate-API once per 5 minutes, cached in database. Graceful fallback to static rates on API failure.
-- **Cache Invalidation**: Balance cache automatically invalidated when new transactions are added via `addTransaction()`.
-- **Wallet Registration**: First balance check for an address automatically registers the wallet with timestamp tracking.
-
-**Performance Benefits:**
-- Reduces blockchain RPC calls by 95%+ for frequently queried addresses
-- Eliminates duplicate Etherscan API requests for historical transactions
-- Minimizes exchange rate API calls while maintaining fresh data
-- Enables offline balance display from cache when network is unavailable
+The backend is built with Express.js (TypeScript), Drizzle ORM, and PostgreSQL (via Neon serverless adapter). It provides APIs for balance and transaction history, and crucially, implements a production-ready EIP-3009 facilitator for gasless USDC transfers (both online and offline). Transaction history is fetched using the Etherscan v2 unified API, supporting 60+ EVM chains. All USDC amount conversions use BigInt for precision. The facilitator pattern enables relaying `transferWithAuthorization` calls, with the facilitator covering gas fees.
 
 ### Cryptographic Architecture
+Wallet generation uses `viem` to create secp256k1 private keys. Private keys are encrypted using WebCrypto API (AES-GCM with PBKDF2) and stored in IndexedDB, protected by a user-chosen password (unrecoverable). EIP-712 typed data signing is used for gasless transfers, compatible with USDC's EIP-3009. The application correctly handles EIP-712 domain differences for "USDC" vs. "USD Coin" across Base and Celo networks.
 
-**Wallet Generation:**
-- Uses viem's `generatePrivateKey()` to create secp256k1 private keys
-- Derives Ethereum addresses using `privateKeyToAccount()`
-- User chooses their own password (minimum 8 characters, must include uppercase, lowercase, and number)
-
-**Key Storage:**
-- Private keys encrypted using WebCrypto API (AES-GCM with PBKDF2 key derivation)
-- Encrypted keys stored in IndexedDB under `wallet_encrypted_key`
-- User-chosen password used as encryption key (100,000 PBKDF2 iterations)
-- Session-based password caching to avoid repeated password prompts
-- **Important**: Password is unrecoverable - no "forgot password" option exists
-
-**Transaction Signing:**
-- EIP-712 typed data signing for gasless transfers
-- Signature format compatible with USDC's EIP-3009 implementation
-- Cryptographically secure nonce generation using `crypto.getRandomValues()`
-- Support for offline authorization QR creation (payer signs without network)
-- Payment Request / Authorization QR flow for offline payments
-
-**EIP-712 Domain Format:**
-Both Base and Celo USDC contracts use the standard EIP-712 domain format with chainId, but differ in the name field:
-
-- **Base mainnet**: 
-  ```typescript
-  domain: {
-    name: 'USD Coin',
-    version: '2',
-    chainId: 8453,
-    verifyingContract: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
-  }
-  ```
-
-- **Celo mainnet**: 
-  ```typescript
-  domain: {
-    name: 'USDC',  // Note: Different from Base
-    version: '2',
-    chainId: 42220,
-    verifyingContract: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C'
-  }
-  ```
-  **Important:** Celo's USDC contract uses "USDC" as the name field, not "USD Coin". This difference is critical for signature validation.
-
-The application automatically selects the correct name based on the network to ensure signatures are valid.
+### Data Storage
+A PostgreSQL database with Drizzle ORM is used for intelligent caching. Tables include `users`, `wallets`, `authorizations`, `cached_balances` (30s TTL), `cached_transactions` (permanent), and `exchange_rates` (5min TTL). This caching strategy significantly reduces blockchain RPC calls and external API requests, improving performance and enabling offline balance display.
 
 ### Network Configuration
-
-**Supported Chains:**
-- Base (chainId: 8453) - USDC at `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
-- Celo (chainId: 42220) - USDC at `0xcebA9300f2b948710d2653dD7B07f33A8B32118C` (Circle native USDC)
-
-**Default Network:**
-The application defaults to Celo network for all new users and operations. User can switch networks in Settings.
-
-**Network Switching:**
-User-selectable network preference stored in IndexedDB. All balance queries and transactions route through the selected network's RPC endpoint and USDC contract address.
+The application supports Base (chainId: 8453) and Celo (chainId: 42220) networks, defaulting to Celo. Users can switch networks in settings.
 
 ### PWA Features
-
-**Offline-First Design:**
-- Service worker for asset caching (configured but not yet implemented)
-- Request queuing for offline transaction submission
-- IndexedDB for local data persistence
-- Manifest file with mobile app metadata
-
-**Mobile Optimizations:**
-- Viewport configuration prevents zoom on iOS
-- Apple mobile web app capable meta tags
-- Safe area padding for notched devices
-- Touch-optimized UI with minimum 44px touch targets
+The application is designed as an offline-first PWA with a service worker for asset caching (planned), IndexedDB for local data, and a manifest file. It includes mobile optimizations such as viewport configuration, Apple mobile web app meta tags, safe area padding, and touch-optimized UI.
 
 ## External Dependencies
 
 ### Blockchain Infrastructure
-
-**Viem** - Ethereum library for wallet operations, account derivation, and transaction signing. Chosen for its TypeScript-first design and tree-shakeable architecture.
-
-**Network RPC Providers:**
-- Base: `https://mainnet.base.org`
-- Celo: `https://forno.celo.org`
-
-**USDC Smart Contracts:**
-The application relies on native USDC implementations supporting EIP-3009 (`transferWithAuthorization`). Bridged or wrapped USDC variants without this interface are not supported.
+- **Viem**: Ethereum library for wallet operations, account derivation, and transaction signing.
+- **Network RPC Providers**: `https://mainnet.base.org` for Base, `https://forno.celo.org` for Celo.
+- **USDC Smart Contracts**: Relies on native USDC implementations supporting EIP-3009.
 
 ### UI Component Libraries
-
-**Radix UI** - Headless component primitives providing accessible, unstyled UI components including dialogs, dropdowns, tooltips, and form controls. Enables accessible interactions without prescribing visual design.
-
-**Shadcn UI** - Pre-styled components built on Radix UI, customized for the project's minimal design system. Components live in the codebase for full control over styling.
-
-**Lucide React** - Icon library providing consistent, minimal SVG icons.
-
-**QRCode** - Canvas-based QR code generation library for receive addresses and payment links.
+- **Radix UI**: Headless component primitives for accessible UI.
+- **Shadcn UI**: Pre-styled components built on Radix UI.
+- **Lucide React**: Icon library.
+- **QRCode**: Canvas-based QR code generation.
 
 ### Development Tools
-
-**Drizzle Kit** - Database migration and schema management. Currently configured for PostgreSQL but not actively managing migrations (using in-memory storage during development).
-
-**Neon Serverless** - PostgreSQL adapter designed for edge and serverless environments, enabling connection pooling and instant cold starts.
-
-**date-fns** - Lightweight date formatting library for transaction timestamps.
-
-**idb-keyval** - Simple IndexedDB wrapper providing Promise-based key-value storage for encrypted wallet keys and preferences.
+- **Drizzle Kit**: Database migration and schema management.
+- **Neon Serverless**: PostgreSQL adapter.
+- **date-fns**: Lightweight date formatting.
+- **idb-keyval**: Promise-based IndexedDB wrapper.
 
 ### Build & Development
-
-**Vite** - Build tool providing instant HMR, optimized production builds, and TypeScript support. Configured with Replit-specific plugins for development banners and error overlays.
-
-**Tailwind CSS** - Utility-first CSS framework with custom design tokens matching the minimal design guidelines.
-
-**TypeScript** - Strict typing across client, server, and shared modules with path aliases for clean imports.
+- **Vite**: Build tool for HMR and optimized builds.
+- **Tailwind CSS**: Utility-first CSS framework.
+- **TypeScript**: Strict typing across the codebase.
