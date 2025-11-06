@@ -181,9 +181,9 @@ export default function Signal() {
 
               <div className="space-y-4 text-left">
                 <div className="space-y-2">
-                  <h3 className="text-sm font-semibold">What is LocalHealth?</h3>
+                  <h3 className="text-sm font-semibold">What is your MaxFlow Score?</h3>
                   <p className="text-sm text-muted-foreground">
-                    Your LocalHealth score (0-100) measures your network quality through flow and path redundancy—not just who vouches for you. It's Sybil-resistant by design, using graph algorithms to detect authentic connections.
+                    Your MaxFlow score (0-100) measures your network quality through flow and path redundancy—not just who vouches for you. It's Sybil-resistant by design, using graph algorithms to detect authentic connections.
                   </p>
                 </div>
 
