@@ -154,7 +154,7 @@ export default function Signal() {
     <div className="flex flex-col h-screen max-w-[448px] mx-auto bg-background">
       <main 
         className="flex-1 overflow-y-auto p-4 pt-20 space-y-6"
-        style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
+        style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
       >
         <Card className="p-6 space-y-6">
           {!isLoading && score === 0 ? (

@@ -9,16 +9,16 @@ export default function BottomNav() {
 
   return (
     <nav 
-      className="fixed bottom-0 left-0 right-0 h-16 bg-background border-t z-50"
+      className="fixed bottom-0 left-0 right-0 bg-background border-t z-50"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       data-testid="bottom-nav"
     >
-      <div className="max-w-md mx-auto h-full grid grid-cols-3 gap-1 px-2">
+      <div className="max-w-md mx-auto h-16 flex items-center px-2">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setLocation('/signal')}
-          className={`flex flex-col items-center justify-center gap-1 h-full rounded-none ${
+          className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-12 rounded-none ${
             isActive('/signal') ? 'text-primary' : 'text-muted-foreground'
           }`}
           data-testid="nav-signal"
@@ -31,7 +31,7 @@ export default function BottomNav() {
           variant="ghost"
           size="sm"
           onClick={() => setLocation('/home')}
-          className={`flex flex-col items-center justify-center gap-1 h-full rounded-none ${
+          className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-12 rounded-none ${
             isActive('/home') ? 'text-primary' : 'text-muted-foreground'
           }`}
           data-testid="nav-wallet"
@@ -44,7 +44,7 @@ export default function BottomNav() {
           variant="ghost"
           size="sm"
           onClick={() => setLocation('/settings')}
-          className={`flex flex-col items-center justify-center gap-1 h-full rounded-none ${
+          className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-12 rounded-none ${
             isActive('/settings') ? 'text-primary' : 'text-muted-foreground'
           }`}
           data-testid="nav-settings"

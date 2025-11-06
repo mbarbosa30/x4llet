@@ -4,12 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { ChevronRight, Download, Upload, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import BottomNav from '@/components/BottomNav';
 import InstallPrompt from '@/components/InstallPrompt';
-import QRScanner from '@/components/QRScanner';
 import { getWallet, getPreferences, savePreferences, exportWalletBackup, getPrivateKey, lockWallet } from '@/lib/wallet';
-import { getMaxFlowScore } from '@/lib/maxflow';
-import { queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
