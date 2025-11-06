@@ -551,6 +551,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/maxflow/score/:address', async (req, res) => {
     try {
       const { address } = req.params;
+      
+      // Check cache first
+      const cachedScore = await storage.getMaxFlowScore(address);
+      if (cachedScore) {
+        return res.json(cachedScore);
+      }
+      
+      // Cache miss - fetch from MaxFlow API
+      console.log(`[MaxFlow API] Cache miss, fetching score for ${address}`);
       const response = await fetch(`https://maxflow.one/api/ego/${address}/score`);
       
       if (!response.ok) {
@@ -558,6 +567,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const data = await response.json();
+      
+      // Save to cache
+      await storage.saveMaxFlowScore(address, data);
+      
       res.json(data);
     } catch (error) {
       console.error('Error fetching MaxFlow score:', error);

@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, cachedMaxflowScores } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo } from 'viem/chains';
@@ -106,6 +106,20 @@ async function fetchTransactionsFromEtherscan(address: string, chainId: number):
   }
 }
 
+export interface MaxFlowScore {
+  ownerAddress: string;
+  localHealth: number;
+  seedAddresses: string[];
+  metrics: {
+    totalNodes: number;
+    acceptedUsers: number;
+    avgResidualFlow: number;
+    medianMinCut: number;
+    maxPossibleFlow: number;
+  };
+  nodeDetails: any[];
+}
+
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -119,6 +133,9 @@ export interface IStorage {
   getAuthorization(nonce: string, chainId: number): Promise<Authorization | undefined>;
   getAuthorizationsByAddress(address: string, chainId: number): Promise<Authorization[]>;
   markAuthorizationUsed(nonce: string, chainId: number, txHash: string): Promise<void>;
+  
+  getMaxFlowScore(address: string): Promise<MaxFlowScore | null>;
+  saveMaxFlowScore(address: string, scoreData: MaxFlowScore): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -344,6 +361,15 @@ export class MemStorage implements IStorage {
       auth.usedAt = new Date().toISOString();
       auth.txHash = txHash;
     }
+  }
+
+  async getMaxFlowScore(address: string): Promise<MaxFlowScore | null> {
+    // MemStorage doesn't cache MaxFlow scores
+    return null;
+  }
+
+  async saveMaxFlowScore(address: string, scoreData: MaxFlowScore): Promise<void> {
+    // MemStorage doesn't cache MaxFlow scores
   }
 }
 
@@ -612,6 +638,58 @@ export class DbStorage extends MemStorage {
         txHash,
       })
       .where(and(eq(authorizations.nonce, nonce), eq(authorizations.chainId, chainId)));
+  }
+
+  async getMaxFlowScore(address: string): Promise<MaxFlowScore | null> {
+    try {
+      const MAXFLOW_CACHE_TTL_MS = 300000; // 5 minutes
+      
+      const cached = await db
+        .select()
+        .from(cachedMaxflowScores)
+        .where(eq(cachedMaxflowScores.address, address.toLowerCase()))
+        .limit(1);
+
+      if (cached.length === 0) {
+        return null;
+      }
+
+      const cacheAge = Date.now() - cached[0].updatedAt.getTime();
+      
+      if (cacheAge > MAXFLOW_CACHE_TTL_MS) {
+        console.log(`[DB Cache] MaxFlow score cache expired for ${address} (age: ${Math.round(cacheAge / 1000)}s)`);
+        return null;
+      }
+
+      console.log(`[DB Cache] Returning cached MaxFlow score for ${address} (age: ${Math.round(cacheAge / 1000)}s)`);
+      return JSON.parse(cached[0].scoreData) as MaxFlowScore;
+    } catch (error) {
+      console.error('[DB] Error fetching cached MaxFlow score:', error);
+      return null;
+    }
+  }
+
+  async saveMaxFlowScore(address: string, scoreData: MaxFlowScore): Promise<void> {
+    try {
+      await db
+        .insert(cachedMaxflowScores)
+        .values({
+          address: address.toLowerCase(),
+          scoreData: JSON.stringify(scoreData),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: cachedMaxflowScores.address,
+          set: {
+            scoreData: JSON.stringify(scoreData),
+            updatedAt: new Date(),
+          },
+        });
+      
+      console.log(`[DB Cache] Saved MaxFlow score for ${address}`);
+    } catch (error) {
+      console.error('[DB] Error saving MaxFlow score:', error);
+    }
   }
 }
 

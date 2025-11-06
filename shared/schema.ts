@@ -66,6 +66,13 @@ export const exchangeRates = pgTable("exchange_rates", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const cachedMaxflowScores = pgTable("cached_maxflow_scores", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  address: text("address").notNull().unique(),
+  scoreData: text("score_data").notNull(), // JSON stringified MaxFlow score response
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
