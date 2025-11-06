@@ -148,7 +148,7 @@ export default function Signal() {
   };
 
   const score = scoreData?.localHealth ?? 0;
-  const vouchCount = scoreData?.vouchCount ?? 0;
+  const vouchCount = scoreData?.metrics?.acceptedUsers ?? 0;
 
   return (
     <div className="flex flex-col h-screen max-w-[448px] mx-auto bg-background">
