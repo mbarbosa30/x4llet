@@ -167,40 +167,87 @@ export default function Signal() {
 
       <main className="flex-1 overflow-y-auto p-4 space-y-6">
         <Card className="p-6 space-y-6">
-          <div className="text-center space-y-4">
-            <Shield className="h-12 w-12 mx-auto text-primary" />
-            <div>
-              <h2 className="text-sm text-muted-foreground mb-2">Your MaxFlow Score</h2>
-              {isLoading ? (
-                <div className="text-4xl font-bold text-foreground">--</div>
-              ) : (
-                <div className="text-5xl font-bold text-foreground" data-testid="text-score">
-                  {Math.round(score)}
+          {!isLoading && score === 0 ? (
+            <div className="space-y-6">
+              <div className="text-center space-y-4">
+                <Shield className="h-12 w-12 mx-auto text-muted-foreground" />
+                <div>
+                  <h2 className="text-lg font-semibold mb-2">Build Your Network Signal</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Your network signal is currently at zero. Here's how to get started.
+                  </p>
                 </div>
+              </div>
+
+              <div className="space-y-4 text-left">
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold">What is Network Signal?</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Network signal measures the health and strength of your trust network using max flow computation. 
+                    It's not a reputation score — it's a measure of how well you're connected through vouches from others.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold">How Vouching Works</h3>
+                  <p className="text-sm text-muted-foreground">
+                    When someone vouches for you, they're adding you to their trust network. 
+                    The more people vouch for you, and the stronger their own network signal, the higher your score becomes.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold">Get Started</h3>
+                  <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                    <li>Share your wallet address with people you trust</li>
+                    <li>Ask them to vouch for you on offPay</li>
+                    <li>Vouch for others to strengthen the network</li>
+                  </ol>
+                </div>
+
+                <div className="pt-2">
+                  <p className="text-xs text-muted-foreground">
+                    Your address: <span className="font-mono" data-testid="text-user-address">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center space-y-4">
+              <Shield className="h-12 w-12 mx-auto text-primary" />
+              <div>
+                <h2 className="text-sm text-muted-foreground mb-2">Your MaxFlow Score</h2>
+                {isLoading ? (
+                  <div className="text-4xl font-bold text-foreground">--</div>
+                ) : (
+                  <div className="text-5xl font-bold text-foreground" data-testid="text-score">
+                    {Math.round(score)}
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex justify-center gap-2">
+                {[...Array(10)].map((_, i) => (
+                  <div
+                    key={i}
+                    className={`h-2 w-2 rounded-full ${
+                      i < Math.round(score / 10) ? 'bg-primary' : 'bg-muted'
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {!isLoading && (
+                <p className="text-sm text-muted-foreground" data-testid="text-vouch-count">
+                  Vouched by {vouchCount} {vouchCount === 1 ? 'person' : 'people'}
+                </p>
               )}
-            </div>
-            
-            <div className="flex justify-center gap-2">
-              {[...Array(10)].map((_, i) => (
-                <div
-                  key={i}
-                  className={`h-2 w-2 rounded-full ${
-                    i < Math.round(score / 10) ? 'bg-primary' : 'bg-muted'
-                  }`}
-                />
-              ))}
-            </div>
 
-            {!isLoading && (
-              <p className="text-sm text-muted-foreground" data-testid="text-vouch-count">
-                Vouched by {vouchCount} {vouchCount === 1 ? 'person' : 'people'}
+              <p className="text-xs text-muted-foreground">
+                MaxFlow measures your trust network health through flow-driven computation
               </p>
-            )}
-
-            <p className="text-xs text-muted-foreground">
-              MaxFlow measures your trust network health through flow-driven computation
-            </p>
-          </div>
+            </div>
+          )}
 
           {!showVouchInput && (
             <Button
