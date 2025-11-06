@@ -2,28 +2,19 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ArrowUpRight, ArrowDownLeft, QrCode, RefreshCw, Shield, ScanLine } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import BalanceCard from '@/components/BalanceCard';
 import TransactionList from '@/components/TransactionList';
 import AddressDisplay from '@/components/AddressDisplay';
-import QRScanner from '@/components/QRScanner';
-import BottomNav from '@/components/BottomNav';
 import { getWallet, getPreferences } from '@/lib/wallet';
-import { getMaxFlowScore } from '@/lib/maxflow';
-import { useToast } from '@/hooks/use-toast';
-import { queryClient } from '@/lib/queryClient';
-import type { BalanceResponse, PaymentRequest } from '@shared/schema';
+import type { BalanceResponse } from '@shared/schema';
 
 export default function Home() {
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
   const [address, setAddress] = useState<string | null>(null);
   const [currency, setCurrency] = useState('USD');
   const [chainId, setChainId] = useState(42220); // Default to Celo
-  const [showScanner, setShowScanner] = useState(false);
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -67,51 +58,12 @@ export default function Home() {
     enabled: !!currency,
   });
 
-  const { data: maxflowScore } = useQuery({
-    queryKey: ['/maxflow/score', address],
-    queryFn: () => getMaxFlowScore(address!),
-    enabled: !!address,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-  });
-
   const balance = balanceData?.balance || '0.00';
   const fiatValue = exchangeRate 
     ? (parseFloat(balance) * exchangeRate.rate).toFixed(2)
     : balance;
 
   const transactions = balanceData?.transactions || [];
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      await queryClient.invalidateQueries({ queryKey: ['/api/balance', address, chainId] });
-      await queryClient.invalidateQueries({ queryKey: ['/api/exchange-rate', currency] });
-    } finally {
-      setTimeout(() => setIsRefreshing(false), 500);
-    }
-  };
-
-  const handleScanPaymentRequest = (data: string) => {
-    try {
-      const paymentRequest: PaymentRequest = JSON.parse(data);
-      
-      if (!paymentRequest.v || !paymentRequest.to || !paymentRequest.amount) {
-        throw new Error('Invalid payment request');
-      }
-      
-      setShowScanner(false);
-      
-      sessionStorage.setItem('payment_request', JSON.stringify(paymentRequest));
-      setLocation('/send');
-      
-    } catch (error) {
-      toast({
-        title: "Invalid QR Code",
-        description: "This doesn't appear to be a valid payment request",
-        variant: "destructive",
-      });
-    }
-  };
 
   if (isLoadingWallet) {
     return (
@@ -133,53 +85,6 @@ export default function Home() {
       className="min-h-screen bg-background pt-16"
       style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
     >
-      <header className="fixed top-0 left-0 right-0 h-16 bg-background border-b flex items-center justify-between px-4 z-50">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold">offPay</h1>
-          {maxflowScore && (
-            <button
-              onClick={() => setLocation('/signal')}
-              className="flex items-center gap-1.5 hover-elevate active-elevate-2 px-2 py-1 rounded-md border text-xs font-medium"
-              data-testid="badge-maxflow-score"
-              title="Network Signal"
-              aria-label={`Network Signal: ${Math.round(maxflowScore.localHealth)}`}
-            >
-              <Shield className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-              <span aria-hidden="true">{Math.round(maxflowScore.localHealth)}</span>
-            </button>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            data-testid="button-refresh"
-          >
-            <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => setLocation('/receive')}
-            data-testid="button-qr"
-            title="Show QR Code"
-          >
-            <QrCode className="h-5 w-5" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => setShowScanner(true)}
-            data-testid="button-scan"
-            title="Scan QR Code"
-          >
-            <ScanLine className="h-5 w-5" />
-          </Button>
-        </div>
-      </header>
-
       <main className="max-w-md mx-auto p-4 space-y-6">
         <AddressDisplay address={address} />
         
@@ -237,15 +142,6 @@ export default function Home() {
           />
         </div>
       </main>
-
-      <BottomNav />
-
-      {showScanner && (
-        <QRScanner
-          onScan={handleScanPaymentRequest}
-          onClose={() => setShowScanner(false)}
-        />
-      )}
     </div>
   );
 }

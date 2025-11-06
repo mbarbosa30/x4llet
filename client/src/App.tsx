@@ -1,4 +1,5 @@
-import { Switch, Route } from "wouter";
+import { useState } from "react";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -18,6 +19,11 @@ import Faqs from "@/pages/Faqs";
 import Context from "@/pages/Context";
 import NotFound from "@/pages/not-found";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import AppHeader from "@/components/AppHeader";
+import BottomNav from "@/components/BottomNav";
+import QRScanner from "@/components/QRScanner";
+import { useToast } from "@/hooks/use-toast";
+import type { PaymentRequest } from "@shared/schema";
 
 function Router() {
   return (
@@ -61,11 +67,49 @@ function Router() {
 }
 
 function App() {
+  const [location, setLocation] = useLocation();
+  const [showScanner, setShowScanner] = useState(false);
+  const { toast } = useToast();
+
+  // Only show header and bottom nav on protected routes
+  const protectedRoutes = ['/home', '/send', '/receive', '/settings', '/signal'];
+  const showLayout = protectedRoutes.includes(location);
+
+  const handleScanPaymentRequest = (data: string) => {
+    try {
+      const paymentRequest: PaymentRequest = JSON.parse(data);
+      
+      if (!paymentRequest.v || !paymentRequest.to || !paymentRequest.amount) {
+        throw new Error('Invalid payment request');
+      }
+      
+      setShowScanner(false);
+      
+      sessionStorage.setItem('payment_request', JSON.stringify(paymentRequest));
+      setLocation('/send');
+      
+    } catch (error) {
+      toast({
+        title: "Invalid QR Code",
+        description: "This doesn't appear to be a valid payment request",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
+        {showLayout && <AppHeader onScanClick={() => setShowScanner(true)} />}
         <Router />
+        {showLayout && <BottomNav />}
+        {showScanner && (
+          <QRScanner
+            onScan={handleScanPaymentRequest}
+            onClose={() => setShowScanner(false)}
+          />
+        )}
       </TooltipProvider>
     </QueryClientProvider>
   );

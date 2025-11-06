@@ -5,15 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Shield, Scan, RefreshCw, QrCode, ScanLine } from 'lucide-react';
+import { Scan, Shield } from 'lucide-react';
 import { getWallet, getPrivateKey } from '@/lib/wallet';
 import { getMaxFlowScore, getCurrentEpoch, getNextNonce, submitVouch } from '@/lib/maxflow';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getAddress } from 'viem';
 import { useToast } from '@/hooks/use-toast';
 import QRScanner from '@/components/QRScanner';
-import BottomNav from '@/components/BottomNav';
-import { queryClient as qc } from '@/lib/queryClient';
 
 export default function Signal() {
   const [, setLocation] = useLocation();
@@ -24,7 +22,6 @@ export default function Signal() {
   const [showVouchInput, setShowVouchInput] = useState(false);
   const [vouchAddress, setVouchAddress] = useState('');
   const [showScanner, setShowScanner] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -150,69 +147,13 @@ export default function Signal() {
     }
   };
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      await queryClient.invalidateQueries({ queryKey: ['/maxflow/score', address] });
-    } finally {
-      setTimeout(() => setIsRefreshing(false), 500);
-    }
-  };
-
   const score = scoreData?.localHealth ?? 0;
   const vouchCount = scoreData?.metrics?.acceptedUsers ?? 0;
 
   return (
     <div className="flex flex-col h-screen max-w-[448px] mx-auto bg-background">
-      <header className="fixed top-0 left-0 right-0 h-16 bg-background border-b flex items-center justify-between px-4 z-50 max-w-[448px] mx-auto">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold">offPay</h1>
-          {scoreData && (
-            <button
-              onClick={() => setLocation('/signal')}
-              className="flex items-center gap-1.5 hover-elevate active-elevate-2 px-2 py-1 rounded-md border text-xs font-medium"
-              data-testid="badge-maxflow-score"
-              title="Network Signal"
-              aria-label={`Network Signal: ${Math.round(scoreData.localHealth)}`}
-            >
-              <Shield className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-              <span aria-hidden="true">{Math.round(scoreData.localHealth)}</span>
-            </button>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            data-testid="button-refresh"
-          >
-            <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => setLocation('/receive')}
-            data-testid="button-qr"
-            title="Show QR Code"
-          >
-            <QrCode className="h-5 w-5" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => setShowScanner(true)}
-            data-testid="button-scan"
-            title="Scan QR Code"
-          >
-            <ScanLine className="h-5 w-5" />
-          </Button>
-        </div>
-      </header>
-
       <main 
-        className="flex-1 overflow-y-auto p-4 mt-16 space-y-6"
+        className="flex-1 overflow-y-auto p-4 pt-20 space-y-6"
         style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
       >
         <Card className="p-6 space-y-6">
@@ -376,8 +317,6 @@ export default function Signal() {
           )}
         </Card>
       </main>
-
-      <BottomNav />
 
       {showScanner && (
         <QRScanner
