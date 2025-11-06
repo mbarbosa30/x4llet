@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Shield, Scan, RefreshCw, QrCode } from 'lucide-react';
+import { Shield, Scan, RefreshCw, QrCode, ScanLine } from 'lucide-react';
 import { getWallet, getPrivateKey } from '@/lib/wallet';
 import { getMaxFlowScore, getCurrentEpoch, getNextNonce, submitVouch } from '@/lib/maxflow';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -193,10 +193,20 @@ export default function Signal() {
           <Button 
             variant="ghost" 
             size="icon"
-            onClick={() => setShowScanner(true)}
-            data-testid="button-scan"
+            onClick={() => setLocation('/receive')}
+            data-testid="button-qr"
+            title="Show QR Code"
           >
             <QrCode className="h-5 w-5" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => setShowScanner(true)}
+            data-testid="button-scan"
+            title="Scan QR Code"
+          >
+            <ScanLine className="h-5 w-5" />
           </Button>
         </div>
       </header>

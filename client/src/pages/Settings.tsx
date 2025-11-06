@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, Download, Upload, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette, Shield, RefreshCw, QrCode } from 'lucide-react';
+import { ChevronRight, Download, Upload, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette, Shield, RefreshCw, QrCode, ScanLine } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import BottomNav from '@/components/BottomNav';
 import InstallPrompt from '@/components/InstallPrompt';
@@ -277,10 +277,20 @@ export default function Settings() {
           <Button 
             variant="ghost" 
             size="icon"
-            onClick={() => setShowScanner(true)}
-            data-testid="button-scan"
+            onClick={() => setLocation('/receive')}
+            data-testid="button-qr"
+            title="Show QR Code"
           >
             <QrCode className="h-5 w-5" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => setShowScanner(true)}
+            data-testid="button-scan"
+            title="Scan QR Code"
+          >
+            <ScanLine className="h-5 w-5" />
           </Button>
         </div>
       </header>

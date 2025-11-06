@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowUpRight, ArrowDownLeft, QrCode, RefreshCw, Shield } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, QrCode, RefreshCw, Shield, ScanLine } from 'lucide-react';
 import BalanceCard from '@/components/BalanceCard';
 import TransactionList from '@/components/TransactionList';
 import AddressDisplay from '@/components/AddressDisplay';
@@ -162,10 +162,20 @@ export default function Home() {
           <Button 
             variant="ghost" 
             size="icon"
-            onClick={() => setShowScanner(true)}
-            data-testid="button-scan"
+            onClick={() => setLocation('/receive')}
+            data-testid="button-qr"
+            title="Show QR Code"
           >
             <QrCode className="h-5 w-5" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => setShowScanner(true)}
+            data-testid="button-scan"
+            title="Scan QR Code"
+          >
+            <ScanLine className="h-5 w-5" />
           </Button>
         </div>
       </header>
