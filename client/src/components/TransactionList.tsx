@@ -62,7 +62,7 @@ export default function TransactionList({ transactions, onTransactionClick }: Tr
               {tx.type === 'send' ? 'Sent to' : 'Received from'}
             </div>
             <div className="text-xs text-muted-foreground font-mono truncate">
-              {tx.address.slice(0, 10)}...{tx.address.slice(-8)}
+              {tx.address.slice(0, 6)}...{tx.address.slice(-4)} • {formatTime(tx.timestamp)}
             </div>
           </div>
           <div className="text-right flex-shrink-0">
@@ -76,9 +76,6 @@ export default function TransactionList({ transactions, onTransactionClick }: Tr
                 ≈ {tx.fiatAmount} {tx.fiatCurrency}
               </div>
             )}
-            <div className="text-xs text-muted-foreground">
-              {formatTime(tx.timestamp)}
-            </div>
           </div>
         </div>
       ))}
