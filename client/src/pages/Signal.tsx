@@ -176,25 +176,25 @@ export default function Signal() {
 
               <div className="space-y-4 text-left">
                 <div className="space-y-2">
-                  <h3 className="text-sm font-semibold">What is your MaxFlow Score?</h3>
+                  <h3 className="text-sm font-semibold">What is Network Signal?</h3>
                   <p className="text-sm text-muted-foreground">
-                    Your MaxFlow score (0-100) measures your network quality through flow and path redundancy—not just who vouches for you. It's Sybil-resistant by design, using graph algorithms to detect authentic connections.
+                    Network signal measures your trust network health through max flow computation. It's not a reputation score — it's based on how well you're connected through authentic vouches.
                   </p>
                 </div>
 
                 <div className="space-y-2">
                   <h3 className="text-sm font-semibold">How Vouching Works</h3>
                   <p className="text-sm text-muted-foreground">
-                    Vouches create network flow between people. Multiple independent paths to trusted contacts matter more than single endorsements. Who you vouch for affects your own score—vouching indiscriminately can reduce your network quality, creating an economic cost to spam vouching.
+                    When someone vouches for you, they add you to their trust network. But here's the key: <strong>who you vouch for affects your own score</strong>. Vouching indiscriminately dilutes your network quality, so vouch thoughtfully.
                   </p>
                 </div>
 
                 <div className="space-y-2">
                   <h3 className="text-sm font-semibold">Get Started</h3>
                   <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                    <li>Share your wallet address with people you trust</li>
+                    <li>Share your address with people you trust</li>
                     <li>Ask them to vouch for you on offPay</li>
-                    <li>Vouch thoughtfully—it affects your own score</li>
+                    <li>Vouch for others carefully — it impacts your score</li>
                   </ol>
                 </div>
 
