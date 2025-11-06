@@ -47,8 +47,8 @@ export default function Landing() {
         <div className="w-full max-w-md space-y-8">
           <div className="text-center space-y-6">
             <div>
-              <h1 className="text-3xl font-bold mb-2 mt-4">offPay</h1>
-              <p className="text-muted-foreground mb-4">
+              <h1 className="text-3xl font-bold mb-3 mt-12">offPay</h1>
+              <p className="text-muted-foreground mb-8">
                 Crypto wallet with built-in network strength
               </p>
             </div>
