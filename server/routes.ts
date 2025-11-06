@@ -567,6 +567,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const data = await response.json();
+      console.log(`[MaxFlow API] Score response for ${address}:`, JSON.stringify(data, null, 2));
       
       // Save to cache
       await storage.saveMaxFlowScore(address, data);
@@ -613,6 +614,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/maxflow/vouch', async (req, res) => {
     try {
+      console.log('[MaxFlow API] Vouch request:', JSON.stringify(req.body, null, 2));
+      
       const response = await fetch('https://maxflow.one/api/vouch', {
         method: 'POST',
         headers: {
@@ -621,12 +624,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         body: JSON.stringify(req.body),
       });
       
+      console.log('[MaxFlow API] Vouch response status:', response.status);
+      
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to submit vouch' }));
-        return res.status(response.status).json(errorData);
+        const errorText = await response.text();
+        console.error('[MaxFlow API] Vouch error response:', errorText);
+        try {
+          const errorData = JSON.parse(errorText);
+          return res.status(response.status).json(errorData);
+        } catch {
+          return res.status(response.status).json({ message: errorText || 'Failed to submit vouch' });
+        }
       }
       
       const data = await response.json();
+      console.log('[MaxFlow API] Vouch success:', JSON.stringify(data, null, 2));
       res.json(data);
     } catch (error) {
       console.error('Error submitting vouch:', error);

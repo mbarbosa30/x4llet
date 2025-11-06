@@ -122,7 +122,7 @@ export default function Signal() {
     onSuccess: (data) => {
       toast({
         title: "Vouch Submitted!",
-        description: `Successfully vouched for ${data.endorsement.endorsee.slice(0, 6)}...${data.endorsement.endorsee.slice(-4)}`,
+        description: `Successfully vouched for ${vouchAddress.slice(0, 6)}...${vouchAddress.slice(-4)}`,
       });
       setVouchAddress('');
       setShowVouchInput(false);
