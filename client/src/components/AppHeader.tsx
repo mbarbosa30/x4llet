@@ -40,7 +40,11 @@ export default function AppHeader({ onScanClick }: AppHeaderProps) {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await queryClient.invalidateQueries();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['/api/balance'] }),
+        queryClient.invalidateQueries({ queryKey: ['/api/transactions'] }),
+        queryClient.invalidateQueries({ queryKey: ['/maxflow/score'] }),
+      ]);
     } finally {
       setTimeout(() => setIsRefreshing(false), 500);
     }
