@@ -23,7 +23,7 @@ Before deploying, ensure:
 
 ## Step 2: Choose Deployment Type
 
-Replit offers several deployment types. For offPay, we recommend:
+Replit offers several deployment types. For nanoPay, we recommend:
 
 ### **Autoscale Deployment** (Recommended)
 - Automatically scales based on traffic
@@ -45,14 +45,14 @@ Replit offers several deployment types. For offPay, we recommend:
 2. **Configure Deployment Settings**
    
    **For Autoscale Deployment:**
-   - **Deployment name**: `offpay-production`
+   - **Deployment name**: `nanopay-production`
    - **Machine type**: Select based on expected load (start with smallest, scale up if needed)
    - **Max instances**: 3-5 (prevents runaway costs while allowing scaling)
    - **Run command**: Should auto-detect `npm run dev` (or configure as needed)
    - **Port**: Application runs on port 5000 (Vite default)
    
    **Important Configuration:**
-   - Ensure your app binds to `0.0.0.0:5000` (already configured in offPay)
+   - Ensure your app binds to `0.0.0.0:5000` (already configured in nanoPay)
    - Do NOT bind to `localhost` (won't be accessible externally)
    - Environment variables are automatically copied from development
 
@@ -60,7 +60,7 @@ Replit offers several deployment types. For offPay, we recommend:
    - Review all settings
    - Click **"Publish"**
    - Wait for deployment to complete (usually 1-3 minutes)
-   - You'll receive a temporary URL: `https://offpay-production.<username>.replit.app`
+   - You'll receive a temporary URL: `https://nanopay-production.<username>.replit.app`
 
 4. **Test Deployed Application**
    - Visit the temporary URL
@@ -81,7 +81,7 @@ Replit offers several deployment types. For offPay, we recommend:
 2. **Add Custom Domain**
    - Scroll to **"Custom Domains"** section
    - Click **"Add Domain"**
-   - Enter your domain (e.g., `offpay.com`)
+   - Enter your domain (e.g., `nanopay.com`)
    - Click **"Add"**
 
 3. **Note DNS Records**
@@ -148,7 +148,7 @@ Replit offers several deployment types. For offPay, we recommend:
 
 Once domain is verified:
 
-1. Visit your custom domain (e.g., `https://offpay.com`)
+1. Visit your custom domain (e.g., `https://nanopay.com`)
 2. Test all functionality:
    - Wallet creation and restoration
    - Balance viewing
@@ -214,7 +214,7 @@ Once domain is verified:
 
 ### PWA Installation Not Working
 
-**Problem**: Can't install offPay as PWA on mobile
+**Problem**: Can't install nanoPay as PWA on mobile
 
 **Solutions**:
 1. Ensure you're accessing via HTTPS (not HTTP)
@@ -253,7 +253,7 @@ If you encounter issues not covered in this guide:
 
 ## Updates and Redeployment
 
-To update offPay after making changes:
+To update nanoPay after making changes:
 
 1. Make changes in your Replit workspace
 2. Test thoroughly in development mode
@@ -267,5 +267,5 @@ Changes are deployed automatically without needing to reconfigure DNS.
 ---
 
 **Production URL**: Your custom domain  
-**Development/Testing URL**: `https://offpay-production.<username>.replit.app`  
+**Development/Testing URL**: `https://nanopay-production.<username>.replit.app`  
 **API Endpoints**: Served from same domain (no CORS issues)
