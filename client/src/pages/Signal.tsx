@@ -181,18 +181,16 @@ export default function Signal() {
 
               <div className="space-y-4 text-left">
                 <div className="space-y-2">
-                  <h3 className="text-sm font-semibold">What is Network Signal?</h3>
+                  <h3 className="text-sm font-semibold">What is LocalHealth?</h3>
                   <p className="text-sm text-muted-foreground">
-                    Network signal measures the health and strength of your trust network using max flow computation. 
-                    It's not a reputation score — it's a measure of how well you're connected through vouches from others.
+                    Your LocalHealth score (0-100) measures your network quality through flow and path redundancy—not just who vouches for you. It's Sybil-resistant by design, using graph algorithms to detect authentic connections.
                   </p>
                 </div>
 
                 <div className="space-y-2">
                   <h3 className="text-sm font-semibold">How Vouching Works</h3>
                   <p className="text-sm text-muted-foreground">
-                    When someone vouches for you, they're adding you to their trust network. 
-                    The more people vouch for you, and the stronger their own network signal, the higher your score becomes.
+                    Vouches create network flow between people. Multiple independent paths to trusted contacts matter more than single endorsements. Who you vouch for affects your own score—vouching indiscriminately can reduce your network quality, creating an economic cost to spam vouching.
                   </p>
                 </div>
 
@@ -201,7 +199,7 @@ export default function Signal() {
                   <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
                     <li>Share your wallet address with people you trust</li>
                     <li>Ask them to vouch for you on offPay</li>
-                    <li>Vouch for others to strengthen the network</li>
+                    <li>Vouch thoughtfully—it affects your own score</li>
                   </ol>
                 </div>
 
