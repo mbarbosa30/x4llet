@@ -85,17 +85,14 @@ export default function Signal() {
           { name: 'endorsee', type: 'address' },
           { name: 'epoch', type: 'uint64' },
           { name: 'nonce', type: 'uint64' },
-          { name: 'timestamp', type: 'uint64' },
         ],
       };
 
-      const timestamp = Math.floor(Date.now() / 1000);
       const message = {
         endorser: validatedEndorser.toLowerCase(),
         endorsee: validatedEndorsed.toLowerCase(),
         epoch: BigInt(epoch.epochId),
         nonce: BigInt(nonce),
-        timestamp: BigInt(timestamp),
       };
 
       // Sign
@@ -113,7 +110,6 @@ export default function Signal() {
           endorsee: message.endorsee,
           epoch: message.epoch.toString(),
           nonce: message.nonce.toString(),
-          timestamp: message.timestamp.toString(),
           sig: signature,
           chainId: chainId,
         },

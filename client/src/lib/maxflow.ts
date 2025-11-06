@@ -39,7 +39,6 @@ export interface VouchRequest {
     endorsee: string;
     epoch: string;
     nonce: string;
-    timestamp: string;
     sig: string;
     chainId: number;
     note?: string;
