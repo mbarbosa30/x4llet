@@ -1,4 +1,5 @@
 import { ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { formatAmount } from '@/lib/formatAmount';
 
 export interface Transaction {
   id: string;
@@ -68,7 +69,7 @@ export default function TransactionList({ transactions, onTransactionClick }: Tr
             <div className={`text-sm font-medium tabular-nums ${
               tx.type === 'send' ? 'text-foreground' : 'text-primary'
             }`}>
-              {tx.type === 'send' ? '-' : '+'}{tx.amount}
+              {tx.type === 'send' ? '-' : '+'}{formatAmount(tx.amount)}
             </div>
             {tx.fiatAmount && tx.fiatCurrency && (
               <div className="text-xs text-muted-foreground tabular-nums">
