@@ -345,9 +345,20 @@ export default function Settings() {
         </div>
 
         <div className="pt-4">
-          <div className="text-center text-xs text-muted-foreground">
+          <button
+            onClick={() => {
+              // Force hard refresh by adding timestamp to URL
+              window.location.href = window.location.href.split('?')[0] + '?refresh=' + Date.now();
+            }}
+            className="w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            title="Click to refresh and get latest version"
+            data-testid="button-version-refresh"
+          >
             Version 1.0.0
-          </div>
+          </button>
+          <p className="text-center text-xs text-muted-foreground/60 mt-1">
+            Tap version to refresh
+          </p>
         </div>
       </main>
 
