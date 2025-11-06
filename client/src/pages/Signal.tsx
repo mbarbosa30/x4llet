@@ -65,7 +65,7 @@ export default function Signal() {
       
       // Get epoch and nonce
       const epoch = await getCurrentEpoch();
-      const nonce = await getNextNonce(validatedEndorser.toLowerCase(), epoch.id);
+      const nonce = await getNextNonce(validatedEndorser.toLowerCase(), epoch.epochId);
       
       // Get chainId from user's network preference
       const prefs = await getPreferences();
@@ -93,7 +93,7 @@ export default function Signal() {
       const endorsement = {
         endorser: validatedEndorser.toLowerCase(),
         endorsed: validatedEndorsed.toLowerCase(),
-        epoch: epoch.id,
+        epoch: epoch.epochId,
         nonce: nonce,
         timestamp: timestamp,
       };

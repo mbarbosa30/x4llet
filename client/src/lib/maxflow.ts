@@ -23,7 +23,7 @@ export interface MaxFlowScore {
 }
 
 export interface MaxFlowEpoch {
-  id: number;
+  epochId: number;
   status: string;
   createdAt: string;
   closedAt: string | null;
