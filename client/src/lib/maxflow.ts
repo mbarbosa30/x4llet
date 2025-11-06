@@ -8,22 +8,23 @@ const MAXFLOW_API = 'https://maxflow.one/api';
 
 export interface MaxFlowScore {
   ownerAddress: string;
-  egoContextId: number;
   localHealth: number;
-  vouchCount: number;
-  details: {
-    flowComponent: number;
-    redundancyComponent: number;
-    vouchQualityFactor: number;
-    kudosBoost: number;
-    mode: string;
+  seedAddresses: string[];
+  metrics: {
+    totalNodes: number;
+    acceptedUsers: number;
+    avgResidualFlow: number;
+    medianMinCut: number;
+    maxPossibleFlow: number;
   };
+  nodeDetails: any[];
 }
 
 export interface MaxFlowEpoch {
-  id: number;
-  startTime: string;
-  endTime: string;
+  epochId: number;
+  status: string;
+  createdAt: string;
+  closedAt: string | null;
 }
 
 export interface MaxFlowNonce {
@@ -74,8 +75,7 @@ export async function getCurrentEpoch(): Promise<MaxFlowEpoch> {
   if (!response.ok) {
     throw new Error('Failed to fetch current epoch');
   }
-  const data = await response.json();
-  return data.epoch;
+  return response.json();
 }
 
 /**

@@ -62,7 +62,7 @@ export default function Reputation() {
       
       // Get epoch and nonce
       const epoch = await getCurrentEpoch();
-      const nonce = await getNextNonce(address, epoch.id);
+      const nonce = await getNextNonce(address, epoch.epochId);
       
       // Prepare EIP-712 message
       const domain = {
@@ -85,7 +85,7 @@ export default function Reputation() {
       const message = {
         endorser: getAddress(address),
         endorsee: getAddress(endorseeAddress),
-        epoch: BigInt(epoch.id),
+        epoch: BigInt(epoch.epochId),
         nonce: BigInt(nonce),
         timestamp: BigInt(timestamp),
       };
@@ -149,7 +149,7 @@ export default function Reputation() {
   };
 
   const score = scoreData?.localHealth ?? 0;
-  const vouchCount = scoreData?.vouchCount ?? 0;
+  const vouchCount = scoreData?.metrics?.acceptedUsers ?? 0;
 
   return (
     <div className="flex flex-col h-screen max-w-[448px] mx-auto bg-background">
