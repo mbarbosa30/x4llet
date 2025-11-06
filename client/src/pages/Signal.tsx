@@ -241,6 +241,26 @@ export default function Signal() {
                 </p>
               )}
 
+              {!isLoading && scoreData?.metrics && (
+                <div className="pt-4 border-t space-y-2">
+                  <h3 className="text-xs font-semibold text-muted-foreground mb-3">Network Metrics</h3>
+                  <div className="grid grid-cols-1 gap-2 text-sm">
+                    <div className="flex justify-between items-center" data-testid="metric-redundancy">
+                      <span className="text-muted-foreground">Path Redundancy</span>
+                      <span className="font-mono font-medium">{scoreData.metrics.medianMinCut.toFixed(1)}</span>
+                    </div>
+                    <div className="flex justify-between items-center" data-testid="metric-maxflow">
+                      <span className="text-muted-foreground">Max Flow</span>
+                      <span className="font-mono font-medium">{scoreData.metrics.maxPossibleFlow.toFixed(1)}</span>
+                    </div>
+                    <div className="flex justify-between items-center" data-testid="metric-residual">
+                      <span className="text-muted-foreground">Avg Residual</span>
+                      <span className="font-mono font-medium">{scoreData.metrics.avgResidualFlow.toFixed(1)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <p className="text-xs text-muted-foreground">
                 MaxFlow measures your trust network health through flow-driven computation
               </p>
