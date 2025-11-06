@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Scan, Shield } from 'lucide-react';
-import { getWallet, getPrivateKey } from '@/lib/wallet';
+import { getWallet, getPrivateKey, getPreferences } from '@/lib/wallet';
 import { getMaxFlowScore, getCurrentEpoch, getNextNonce, submitVouch } from '@/lib/maxflow';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getAddress } from 'viem';
@@ -51,7 +51,7 @@ export default function Signal() {
   });
 
   const vouchMutation = useMutation({
-    mutationFn: async (endorseeAddress: string) => {
+    mutationFn: async (endorsedAddress: string) => {
       if (!address) throw new Error('No wallet found');
       
       const privateKey = await getPrivateKey();
@@ -59,21 +59,30 @@ export default function Signal() {
       
       const account = privateKeyToAccount(privateKey as `0x${string}`);
       
+      // Validate and normalize addresses
+      const validatedEndorser = getAddress(address);
+      const validatedEndorsed = getAddress(endorsedAddress);
+      
       // Get epoch and nonce
       const epoch = await getCurrentEpoch();
-      const nonce = await getNextNonce(address, epoch.id);
+      const nonce = await getNextNonce(validatedEndorser.toLowerCase(), epoch.id);
+      
+      // Get chainId from user's network preference
+      const prefs = await getPreferences();
+      if (!prefs) throw new Error('Failed to load preferences');
+      const chainId = prefs.network === 'celo' ? 42220 : 8453;
       
       // Prepare EIP-712 message
       const domain = {
         name: 'MaxFlow',
         version: '1',
-        chainId: 1,
+        chainId: chainId,
       };
 
       const types = {
         Endorsement: [
           { name: 'endorser', type: 'address' },
-          { name: 'endorsee', type: 'address' },
+          { name: 'endorsed', type: 'address' },
           { name: 'epoch', type: 'uint64' },
           { name: 'nonce', type: 'uint64' },
           { name: 'timestamp', type: 'uint64' },
@@ -81,12 +90,12 @@ export default function Signal() {
       };
 
       const timestamp = Math.floor(Date.now() / 1000);
-      const message = {
-        endorser: getAddress(address),
-        endorsee: getAddress(endorseeAddress),
-        epoch: BigInt(epoch.id),
-        nonce: BigInt(nonce),
-        timestamp: BigInt(timestamp),
+      const endorsement = {
+        endorser: validatedEndorser.toLowerCase(),
+        endorsed: validatedEndorsed.toLowerCase(),
+        epoch: epoch.id,
+        nonce: nonce,
+        timestamp: timestamp,
       };
 
       // Sign
@@ -94,18 +103,20 @@ export default function Signal() {
         domain,
         types,
         primaryType: 'Endorsement',
-        message,
+        message: {
+          endorser: endorsement.endorser,
+          endorsed: endorsement.endorsed,
+          epoch: BigInt(endorsement.epoch),
+          nonce: BigInt(endorsement.nonce),
+          timestamp: BigInt(endorsement.timestamp),
+        },
       });
 
       // Submit vouch
       return submitVouch({
-        endorser: message.endorser,
-        endorsee: message.endorsee,
-        epoch: message.epoch.toString(),
-        nonce: message.nonce.toString(),
-        timestamp: message.timestamp.toString(),
-        sig: signature,
-        chainId: 1,
+        endorsement,
+        signature,
+        chainId: chainId,
       });
     },
     onSuccess: (data) => {

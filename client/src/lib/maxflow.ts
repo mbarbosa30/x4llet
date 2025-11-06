@@ -34,14 +34,15 @@ export interface MaxFlowNonce {
 }
 
 export interface VouchRequest {
-  endorser: string;
-  endorsee: string;
-  epoch: string;
-  nonce: string;
-  timestamp: string;
-  sig: string;
+  endorsement: {
+    endorser: string;
+    endorsed: string;
+    epoch: number;
+    nonce: number;
+    timestamp: number;
+  };
+  signature: string;
   chainId: number;
-  note?: string;
 }
 
 export interface VouchResponse {
@@ -101,9 +102,7 @@ export async function submitVouch(vouchRequest: VouchRequest): Promise<VouchResp
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      endorsement: vouchRequest,
-    }),
+    body: JSON.stringify(vouchRequest),
   });
   
   if (!response.ok) {
