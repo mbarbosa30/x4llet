@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { Zap, Lock, WifiOff, Coins } from 'lucide-react';
+import { Zap, Lock, WifiOff, Coins, Network } from 'lucide-react';
 import { hasWallet, isWalletUnlocked } from '@/lib/wallet';
 import Footer from '@/components/Footer';
 
@@ -60,7 +60,7 @@ export default function Landing() {
               </div>
               <div className="flex items-center gap-3">
                 <Lock className="h-4 w-4 text-primary flex-shrink-0" />
-                <span className="text-sm">Secure encrypted keys</span>
+                <span className="text-sm">Keys stored locally, encrypted on your device</span>
               </div>
               <div className="flex items-center gap-3">
                 <WifiOff className="h-4 w-4 text-primary flex-shrink-0" />
@@ -68,7 +68,11 @@ export default function Landing() {
               </div>
               <div className="flex items-center gap-3">
                 <Coins className="h-4 w-4 text-primary flex-shrink-0" />
-                <span className="text-sm">Free gasless transfers</span>
+                <span className="text-sm">Gasless transfers powered by x402</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <Network className="h-4 w-4 text-primary flex-shrink-0" />
+                <span className="text-sm">Build network signal with MaxFlow's flow-driven computation</span>
               </div>
             </div>
           </div>

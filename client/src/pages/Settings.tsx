@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ChevronRight, Download, Upload, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Download, Upload, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import Footer from '@/components/Footer';
 import InstallPrompt from '@/components/InstallPrompt';
@@ -41,6 +41,8 @@ export default function Settings() {
   const [showPassword, setShowPassword] = useState(false);
   const [showPrivateKey, setShowPrivateKey] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [showTheme, setShowTheme] = useState(false);
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -49,6 +51,18 @@ export default function Settings() {
         setCurrency(prefs.currency);
         setLanguage(prefs.language);
         setNetwork(prefs.network);
+        
+        // Load theme from localStorage
+        const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+        const initialTheme = savedTheme || 'light';
+        setTheme(initialTheme);
+        
+        // Apply theme to document
+        if (initialTheme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
       } catch (error) {
         console.error('Failed to load preferences:', error);
       }
@@ -183,6 +197,24 @@ export default function Settings() {
     setLocation('/unlock');
   };
 
+  const handleThemeChange = (newTheme: 'light' | 'dark') => {
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    
+    // Apply theme to document
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    
+    toast({
+      title: "Theme Updated",
+      description: `Theme changed to ${newTheme} mode`,
+    });
+    setShowTheme(false);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="h-16 border-b flex items-center px-4">
@@ -281,6 +313,20 @@ export default function Settings() {
             Preferences
           </h2>
           <Card className="divide-y">
+            <button
+              onClick={() => setShowTheme(true)}
+              className="w-full flex items-center justify-between p-4 hover-elevate"
+              data-testid="button-theme"
+            >
+              <div className="flex items-center gap-3">
+                <Palette className="h-5 w-5 text-muted-foreground" />
+                <div className="text-left">
+                  <div className="text-sm font-medium">Theme</div>
+                  <div className="text-xs text-muted-foreground capitalize">{theme}</div>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </button>
             <button
               onClick={() => setShowCurrency(true)}
               className="w-full flex items-center justify-between p-4 hover-elevate"
@@ -481,6 +527,28 @@ export default function Settings() {
               <SelectContent>
                 <SelectItem value="base">Base</SelectItem>
                 <SelectItem value="celo">Celo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showTheme} onOpenChange={setShowTheme}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Select Theme</DialogTitle>
+            <DialogDescription>
+              Choose your preferred appearance
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Select value={theme} onValueChange={(v) => handleThemeChange(v as 'light' | 'dark')}>
+              <SelectTrigger data-testid="select-theme">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="light">Light</SelectItem>
+                <SelectItem value="dark">Dark</SelectItem>
               </SelectContent>
             </Select>
           </div>

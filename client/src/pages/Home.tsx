@@ -166,7 +166,7 @@ export default function Home() {
         
         {maxflowScore && (
           <button
-            onClick={() => setLocation('/reputation')}
+            onClick={() => setLocation('/signal')}
             className="flex items-center gap-2 hover-elevate active-elevate-2 px-3 py-1.5 rounded-full border bg-background/50"
             data-testid="badge-maxflow-score"
           >

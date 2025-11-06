@@ -12,7 +12,7 @@ import Send from "@/pages/Send";
 import Receive from "@/pages/Receive";
 import Pay from "@/pages/Pay";
 import Settings from "@/pages/Settings";
-import Reputation from "@/pages/Reputation";
+import Signal from "@/pages/Signal";
 import HowItWorks from "@/pages/HowItWorks";
 import Faqs from "@/pages/Faqs";
 import Context from "@/pages/Context";
@@ -47,9 +47,9 @@ function Router() {
           <Settings />
         </ProtectedRoute>
       </Route>
-      <Route path="/reputation">
+      <Route path="/signal">
         <ProtectedRoute>
-          <Reputation />
+          <Signal />
         </ProtectedRoute>
       </Route>
       <Route path="/how-it-works" component={HowItWorks} />

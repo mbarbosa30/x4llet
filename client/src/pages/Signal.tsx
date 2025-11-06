@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import QRScanner from '@/components/QRScanner';
 import Footer from '@/components/Footer';
 
-export default function Reputation() {
+export default function Signal() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -162,7 +162,7 @@ export default function Reputation() {
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-lg font-semibold">Reputation</h1>
+        <h1 className="text-lg font-semibold">Signal</h1>
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 space-y-6">
@@ -198,7 +198,7 @@ export default function Reputation() {
             )}
 
             <p className="text-xs text-muted-foreground">
-              Your trust score based on community endorsements
+              MaxFlow measures your trust network health through flow-driven computation
             </p>
           </div>
 
