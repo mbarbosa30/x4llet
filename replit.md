@@ -3,6 +3,12 @@
 ## Overview
 offPay is a minimalist Progressive Web App (PWA) for managing cryptocurrency wallets with gasless USDC transfers. It prioritizes performance, accessibility, and offline-first functionality for users in low-bandwidth environments. Key capabilities include wallet creation with local key storage, encrypted cloud backups, and gasless transactions using EIP-3009 authorization on Base and Celo networks. The project aims to provide a robust and accessible crypto wallet solution with a focus on usability and efficiency.
 
+## Recent Changes (November 6, 2025)
+- **Landing page messaging**: Updated bullet points to explicitly mention local key storage ("Keys stored locally, encrypted on your device"), x402 protocol ("Gasless transfers powered by x402"), and MaxFlow's flow-driven computation ("Build network signal with MaxFlow's flow-driven computation")
+- **Reputation → Signal rename**: Renamed "Reputation" page to "Signal" to accurately reflect MaxFlow's flow-driven network health computation (not a trust score or community ranking)
+- **Signal page description**: Updated from "community endorsements" to "MaxFlow measures your trust network health through flow-driven computation"
+- **Theme toggle**: Added light/dark mode toggle in Settings page with localStorage persistence
+
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
