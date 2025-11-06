@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ArrowUpRight, ArrowDownLeft, Settings, QrCode, RefreshCw } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ArrowUpRight, ArrowDownLeft, Settings, QrCode, RefreshCw, Shield } from 'lucide-react';
 import BalanceCard from '@/components/BalanceCard';
 import TransactionList from '@/components/TransactionList';
 import AddressDisplay from '@/components/AddressDisplay';
 import QRScanner from '@/components/QRScanner';
 import Footer from '@/components/Footer';
 import { getWallet, getPreferences } from '@/lib/wallet';
+import { getMaxFlowScore } from '@/lib/maxflow';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient } from '@/lib/queryClient';
 import type { BalanceResponse, PaymentRequest } from '@shared/schema';
@@ -63,6 +65,13 @@ export default function Home() {
   const { data: exchangeRate } = useQuery<{ currency: string; rate: number }>({
     queryKey: ['/api/exchange-rate', currency],
     enabled: !!currency,
+  });
+
+  const { data: maxflowScore } = useQuery({
+    queryKey: ['/maxflow/score', address],
+    queryFn: () => getMaxFlowScore(address!),
+    enabled: !!address,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   const balance = balanceData?.balance || '0.00';
@@ -154,6 +163,19 @@ export default function Home() {
 
       <main className="max-w-md mx-auto p-4 space-y-6">
         <AddressDisplay address={address} />
+        
+        {maxflowScore && (
+          <button
+            onClick={() => setLocation('/reputation')}
+            className="flex items-center gap-2 hover-elevate active-elevate-2 px-3 py-1.5 rounded-full border bg-background/50"
+            data-testid="badge-maxflow-score"
+          >
+            <Shield className="h-3.5 w-3.5 text-primary" />
+            <span className="text-xs font-medium">
+              MaxFlow: {Math.round(maxflowScore.localHealth)}
+            </span>
+          </button>
+        )}
         
         {isLoading ? (
           <div className="animate-pulse">
