@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Shield, Eye, EyeOff, Copy, Check, AlertTriangle, Zap, Lock, WifiOff, Coins } from 'lucide-react';
+import { Shield, Eye, EyeOff, Copy, Check, AlertTriangle } from 'lucide-react';
 import { createWallet } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 import Footer from '@/components/Footer';
@@ -230,36 +230,9 @@ export default function CreateWallet() {
     <div className="min-h-screen flex flex-col bg-background">
       <div className="flex-1 flex items-center justify-center p-4 pb-24">
         <div className="w-full max-w-md space-y-8">
-          <div className="text-center space-y-6">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">offPay</h1>
-              <p className="text-muted-foreground">
-                Your lightweight crypto wallet
-              </p>
-            </div>
-
-            <div className="space-y-2 text-left max-w-xs mx-auto">
-              <div className="flex items-center gap-3">
-                <Zap className="h-4 w-4 text-primary flex-shrink-0" />
-                <span className="text-sm">Lightweight & fast</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Lock className="h-4 w-4 text-primary flex-shrink-0" />
-                <span className="text-sm">Secure encrypted keys</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <WifiOff className="h-4 w-4 text-primary flex-shrink-0" />
-                <span className="text-sm">Works offline</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Coins className="h-4 w-4 text-primary flex-shrink-0" />
-                <span className="text-sm">Free gasless transfers</span>
-              </div>
-            </div>
-          </div>
-
           <div className="text-center">
-            <h2 className="text-2xl font-semibold mb-2">Create Your Wallet</h2>
+            <Shield className="h-16 w-16 mx-auto mb-4 text-primary" />
+            <h1 className="text-2xl font-semibold mb-2">Create Your Wallet</h1>
             <p className="text-sm text-muted-foreground">
               Choose a strong password to secure your wallet
             </p>
