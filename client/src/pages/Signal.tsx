@@ -61,7 +61,7 @@ export default function Signal() {
       
       // Get epoch and nonce
       const epoch = await getCurrentEpoch();
-      const nonce = await getNextNonce(address, epoch.epochId);
+      const nonce = await getNextNonce(address, epoch.id);
       
       // Prepare EIP-712 message
       const domain = {
@@ -84,7 +84,7 @@ export default function Signal() {
       const message = {
         endorser: getAddress(address),
         endorsee: getAddress(endorseeAddress),
-        epoch: BigInt(epoch.epochId),
+        epoch: BigInt(epoch.id),
         nonce: BigInt(nonce),
         timestamp: BigInt(timestamp),
       };
@@ -148,7 +148,7 @@ export default function Signal() {
   };
 
   const score = scoreData?.localHealth ?? 0;
-  const vouchCount = scoreData?.metrics?.acceptedUsers ?? 0;
+  const vouchCount = scoreData?.vouchCount ?? 0;
 
   return (
     <div className="flex flex-col h-screen max-w-[448px] mx-auto bg-background">
@@ -231,21 +231,21 @@ export default function Signal() {
                 </p>
               )}
 
-              {!isLoading && scoreData?.metrics && (
+              {!isLoading && scoreData?.details && (
                 <div className="pt-4 border-t space-y-2">
-                  <h3 className="text-xs font-semibold text-muted-foreground mb-3">Network Metrics</h3>
+                  <h3 className="text-xs font-semibold text-muted-foreground mb-3">Score Breakdown</h3>
                   <div className="grid grid-cols-1 gap-2 text-sm">
+                    <div className="flex justify-between items-center" data-testid="metric-flow">
+                      <span className="text-muted-foreground">Flow Component</span>
+                      <span className="font-mono font-medium">{scoreData.details.flowComponent.toFixed(1)}</span>
+                    </div>
                     <div className="flex justify-between items-center" data-testid="metric-redundancy">
-                      <span className="text-muted-foreground">Path Redundancy</span>
-                      <span className="font-mono font-medium">{scoreData.metrics.medianMinCut.toFixed(1)}</span>
+                      <span className="text-muted-foreground">Redundancy</span>
+                      <span className="font-mono font-medium">{scoreData.details.redundancyComponent.toFixed(1)}</span>
                     </div>
-                    <div className="flex justify-between items-center" data-testid="metric-maxflow">
-                      <span className="text-muted-foreground">Max Flow</span>
-                      <span className="font-mono font-medium">{scoreData.metrics.maxPossibleFlow.toFixed(1)}</span>
-                    </div>
-                    <div className="flex justify-between items-center" data-testid="metric-residual">
-                      <span className="text-muted-foreground">Avg Residual</span>
-                      <span className="font-mono font-medium">{scoreData.metrics.avgResidualFlow.toFixed(1)}</span>
+                    <div className="flex justify-between items-center" data-testid="metric-quality">
+                      <span className="text-muted-foreground">Vouch Quality</span>
+                      <span className="font-mono font-medium">{(scoreData.details.vouchQualityFactor * 100).toFixed(0)}%</span>
                     </div>
                   </div>
                 </div>

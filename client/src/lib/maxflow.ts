@@ -10,20 +10,20 @@ const MAXFLOW_API = '/api/maxflow';
 
 export interface MaxFlowScore {
   ownerAddress: string;
+  egoContextId: number;
   localHealth: number;
-  seedAddresses: string[];
-  metrics: {
-    totalNodes: number;
-    acceptedUsers: number;
-    avgResidualFlow: number;
-    medianMinCut: number;
-    maxPossibleFlow: number;
+  vouchCount: number;
+  details: {
+    flowComponent: number;
+    redundancyComponent: number;
+    vouchQualityFactor: number;
+    kudosBoost: number;
+    mode: string;
   };
-  nodeDetails: any[];
 }
 
 export interface MaxFlowEpoch {
-  epochId: number;
+  id: number;
   status: string;
   createdAt: string;
   closedAt: string | null;
