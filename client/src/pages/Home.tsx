@@ -3,12 +3,12 @@ import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowUpRight, ArrowDownLeft, Settings, QrCode, RefreshCw, Shield } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, QrCode, RefreshCw, Shield } from 'lucide-react';
 import BalanceCard from '@/components/BalanceCard';
 import TransactionList from '@/components/TransactionList';
 import AddressDisplay from '@/components/AddressDisplay';
 import QRScanner from '@/components/QRScanner';
-import Footer from '@/components/Footer';
+import BottomNav from '@/components/BottomNav';
 import { getWallet, getPreferences } from '@/lib/wallet';
 import { getMaxFlowScore } from '@/lib/maxflow';
 import { useToast } from '@/hooks/use-toast';
@@ -129,7 +129,10 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div 
+      className="min-h-screen bg-background"
+      style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
+    >
       <header className="h-16 border-b flex items-center justify-between px-4">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold">offPay</h1>
@@ -163,14 +166,6 @@ export default function Home() {
             data-testid="button-scan"
           >
             <QrCode className="h-5 w-5" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => setLocation('/settings')}
-            data-testid="button-settings"
-          >
-            <Settings className="h-5 w-5" />
           </Button>
         </div>
       </header>
@@ -233,7 +228,7 @@ export default function Home() {
         </div>
       </main>
 
-      <Footer />
+      <BottomNav />
 
       {showScanner && (
         <QRScanner

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ChevronRight, Download, Upload, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette } from 'lucide-react';
+import { ChevronRight, Download, Upload, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import Footer from '@/components/Footer';
+import BottomNav from '@/components/BottomNav';
 import InstallPrompt from '@/components/InstallPrompt';
 import { getPreferences, savePreferences, exportWalletBackup, getPrivateKey, lockWallet } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
@@ -216,17 +216,12 @@ export default function Settings() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div 
+      className="min-h-screen bg-background"
+      style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
+    >
       <header className="h-16 border-b flex items-center px-4">
-        <Button 
-          variant="ghost" 
-          size="icon"
-          onClick={() => setLocation('/home')}
-          data-testid="button-back"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-lg font-semibold ml-2">Settings</h1>
+        <h1 className="text-lg font-semibold">Settings</h1>
       </header>
 
       <main className="max-w-md mx-auto p-4 space-y-8">
@@ -362,7 +357,7 @@ export default function Settings() {
         </div>
       </main>
 
-      <Footer />
+      <BottomNav />
 
       <Dialog open={showExportPrivateKey} onOpenChange={handleClosePrivateKeyDialog}>
         <DialogContent>

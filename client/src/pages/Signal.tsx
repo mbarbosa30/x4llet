@@ -5,14 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Shield, Scan } from 'lucide-react';
+import { Shield, Scan } from 'lucide-react';
 import { getWallet, getPrivateKey } from '@/lib/wallet';
 import { getMaxFlowScore, getCurrentEpoch, getNextNonce, submitVouch } from '@/lib/maxflow';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getAddress } from 'viem';
 import { useToast } from '@/hooks/use-toast';
 import QRScanner from '@/components/QRScanner';
-import Footer from '@/components/Footer';
+import BottomNav from '@/components/BottomNav';
 
 export default function Signal() {
   const [, setLocation] = useLocation();
@@ -154,18 +154,13 @@ export default function Signal() {
   return (
     <div className="flex flex-col h-screen max-w-[448px] mx-auto bg-background">
       <header className="flex-shrink-0 flex items-center gap-3 p-4 border-b">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setLocation('/home')}
-          data-testid="button-back"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
         <h1 className="text-lg font-semibold">Signal</h1>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-4 space-y-6">
+      <main 
+        className="flex-1 overflow-y-auto p-4 space-y-6"
+        style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
+      >
         <Card className="p-6 space-y-6">
           {!isLoading && score === 0 ? (
             <div className="space-y-6">
@@ -328,7 +323,7 @@ export default function Signal() {
         </Card>
       </main>
 
-      <Footer />
+      <BottomNav />
 
       {showScanner && (
         <QRScanner
