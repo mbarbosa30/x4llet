@@ -49,7 +49,7 @@ export default function AppHeader({ onScanClick }: AppHeaderProps) {
   return (
     <header className="fixed top-0 left-0 right-0 h-16 bg-background border-b flex items-center justify-between px-4 z-50">
       <div className="flex items-center gap-3">
-        <h1 className="text-lg font-semibold">offPay</h1>
+        <h1 className="text-lg font-semibold">nanoPay</h1>
         {maxflowScore && (
           <button
             onClick={() => setLocation('/signal')}

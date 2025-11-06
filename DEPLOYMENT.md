@@ -1,10 +1,10 @@
-# Deploying offPay to Production
+# Deploying nanoPay to Production
 
-This guide explains how to deploy offPay to production and configure the custom domain.
+This guide explains how to deploy nanoPay to production and configure the custom domain.
 
 ## Prerequisites
 
-- Replit project with offPay application
+- Replit project with nanoPay application
 - Access to domain registrar (for DNS configuration)
 - Application is working correctly in development mode
 

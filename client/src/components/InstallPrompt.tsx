@@ -38,7 +38,7 @@ export default function InstallPrompt() {
       setDeferredPrompt(null);
       toast({
         title: "App Installed!",
-        description: "offPay has been added to your home screen",
+        description: "nanoPay has been added to your home screen",
       });
     };
 
@@ -87,7 +87,7 @@ export default function InstallPrompt() {
       <Card data-testid="card-install-ios">
         <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-2">
           <div className="flex-1 min-w-0">
-            <CardTitle className="text-base">Install offPay</CardTitle>
+            <CardTitle className="text-base">Install nanoPay</CardTitle>
             <CardDescription className="text-sm mt-1">
               Add to your home screen for the best experience
             </CardDescription>
@@ -132,7 +132,7 @@ export default function InstallPrompt() {
       <Card data-testid="card-install-android">
         <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-2">
           <div className="flex-1 min-w-0">
-            <CardTitle className="text-base">Install offPay</CardTitle>
+            <CardTitle className="text-base">Install nanoPay</CardTitle>
             <CardDescription className="text-sm mt-1">
               Access offline, faster loading, and native app experience
             </CardDescription>

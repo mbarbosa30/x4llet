@@ -1,4 +1,4 @@
-# Design Guidelines: offPay - Lightweight Crypto Wallet PWA
+# Design Guidelines: nanoPay - Lightweight Crypto Wallet PWA
 
 ## Design Approach: Minimal Utility-First System
 
