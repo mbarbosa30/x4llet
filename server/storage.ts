@@ -86,6 +86,12 @@ async function fetchTransactionsFromEtherscan(address: string, chainId: number):
       const isSend = tx.from.toLowerCase() === address.toLowerCase();
       const amount = formatUsdcAmount(tx.value);
 
+      console.log(`[Transaction Type Detection] TX ${tx.hash.slice(0, 10)}...`);
+      console.log(`  Wallet: ${address.toLowerCase()}`);
+      console.log(`  From:   ${tx.from.toLowerCase()}`);
+      console.log(`  To:     ${tx.to.toLowerCase()}`);
+      console.log(`  Type:   ${isSend ? 'SEND' : 'RECEIVE'}`);
+
       return {
         id: tx.hash,
         type: isSend ? 'send' : 'receive',
