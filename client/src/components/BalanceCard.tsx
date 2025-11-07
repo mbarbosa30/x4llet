@@ -33,12 +33,12 @@ export default function BalanceCard({
 }: BalanceCardProps) {
   const [animatedFiatValue, setAnimatedFiatValue] = useState<number | null>(null);
 
-  // Fetch balance history for chart
+  // Fetch balance history for chart (90 days)
   const { data: balanceHistory } = useQuery<BalanceHistoryPoint[]>({
     queryKey: ['/api/balance-history', address, chainId],
     enabled: !!address && !!chainId,
     queryFn: async () => {
-      const res = await fetch(`/api/balance-history/${address}?chainId=${chainId}`);
+      const res = await fetch(`/api/balance-history/${address}?chainId=${chainId}&days=90`);
       if (!res.ok) throw new Error('Failed to fetch balance history');
       return res.json();
     },
