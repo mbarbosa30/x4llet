@@ -901,16 +901,23 @@ export class DbStorage extends MemStorage {
       const startDateStr = startDate.toISOString().split('T')[0];
       const endDateStr = endDate.toISOString().split('T')[0];
 
+      const apiUrl = `https://api.frankfurter.dev/v1/${startDateStr}..${endDateStr}?base=USD&symbols=${currencies.join(',')}`;
+      console.log(`[Admin] Fetching from: ${apiUrl}`);
+      console.log(`[Admin] Date range: ${startDateStr} to ${endDateStr}`);
+
       // Fetch time series data from Frankfurter
-      const response = await fetch(
-        `https://api.frankfurter.dev/v1/${startDateStr}..${endDateStr}?base=USD&symbols=${currencies.join(',')}`
-      );
+      const response = await fetch(apiUrl);
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[Admin] Frankfurter API error: ${response.status} ${errorText}`);
         throw new Error(`Frankfurter API returned status ${response.status}`);
       }
 
       const data = await response.json();
+      console.log(`[Admin] Frankfurter API response keys:`, Object.keys(data));
+      console.log(`[Admin] Number of dates in response:`, Object.keys(data.rates || {}).length);
+      
       const rates = data.rates || {};
 
       // Insert each date's rates
@@ -928,13 +935,15 @@ export class DbStorage extends MemStorage {
               
               ratesAdded++;
             } catch (error) {
-              console.log(`[Admin] Skipping existing rate for ${currency} on ${date}`);
+              console.log(`[Admin] Error inserting rate for ${currency} on ${date}:`, error);
             }
+          } else {
+            console.log(`[Admin] Missing rate for ${currency} on ${date}`);
           }
         }
       }
 
-      console.log(`[Admin] Backfilled ${ratesAdded} exchange rate snapshots`);
+      console.log(`[Admin] Backfilled ${ratesAdded} exchange rate snapshots from ${Object.keys(rates).length} dates`);
 
       return {
         ratesAdded,
