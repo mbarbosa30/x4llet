@@ -325,7 +325,7 @@ export default function Signal() {
         </Card>
 
         <p className="text-xs text-muted-foreground text-center px-4 leading-relaxed">
-          MaxFlow.one models trust graphs like current, where Maximum Flow is the amperage of signal, Path Redundancy is parallel (concurrent/diverse) wiring for reliability, and Average Residual is energy lost as heat — noise minimization for higher confidence.
+          MaxFlow.one models trust graphs like standardized current, where Maximum Flow is the signal's amperage, Path Redundancy is parallel (concurrent/diverse) wiring for reliability, and Average Residual is energy lost as heat — noise minimization for higher confidence.
         </p>
       </main>
 
