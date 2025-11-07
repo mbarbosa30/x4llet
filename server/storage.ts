@@ -164,6 +164,11 @@ export interface IStorage {
   getBalanceHistory(address: string, chainId: number, days?: number): Promise<BalanceHistoryPoint[]>;
   saveBalanceSnapshot(address: string, chainId: number, balance: string): Promise<void>;
   getInflationRate(currency: string): Promise<InflationData | null>;
+  
+  // Admin methods
+  clearAllCaches(): Promise<void>;
+  clearCachedBalances(): Promise<void>;
+  clearBalanceHistory(): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -412,6 +417,21 @@ export class MemStorage implements IStorage {
   async getInflationRate(currency: string): Promise<InflationData | null> {
     // MemStorage doesn't track inflation rates
     return null;
+  }
+
+  async clearAllCaches(): Promise<void> {
+    // Clear in-memory caches
+    this.balances.clear();
+    this.authorizations.clear();
+  }
+
+  async clearCachedBalances(): Promise<void> {
+    // Clear in-memory balance cache
+    this.balances.clear();
+  }
+
+  async clearBalanceHistory(): Promise<void> {
+    // MemStorage doesn't track balance history, no-op
   }
 }
 
@@ -1010,6 +1030,28 @@ export class DbStorage extends MemStorage {
       console.log('[Admin] All caches cleared successfully');
     } catch (error) {
       console.error('[Admin] Error clearing caches:', error);
+      throw error;
+    }
+  }
+
+  async clearCachedBalances(): Promise<void> {
+    try {
+      console.log('[Admin] Clearing cached balances');
+      await db.delete(cachedBalances);
+      console.log('[Admin] Cached balances cleared successfully');
+    } catch (error) {
+      console.error('[Admin] Error clearing cached balances:', error);
+      throw error;
+    }
+  }
+
+  async clearBalanceHistory(): Promise<void> {
+    try {
+      console.log('[Admin] Clearing balance history');
+      await db.delete(balanceHistory);
+      console.log('[Admin] Balance history cleared successfully');
+    } catch (error) {
+      console.error('[Admin] Error clearing balance history:', error);
       throw error;
     }
   }

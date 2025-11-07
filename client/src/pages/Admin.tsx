@@ -63,6 +63,8 @@ export default function Admin() {
   const [isBackfillingBalances, setIsBackfillingBalances] = useState(false);
   const [isBackfillingRates, setIsBackfillingRates] = useState(false);
   const [isClearingCaches, setIsClearingCaches] = useState(false);
+  const [isClearingBalances, setIsClearingBalances] = useState(false);
+  const [isClearingHistory, setIsClearingHistory] = useState(false);
   const [isPruning, setIsPruning] = useState(false);
   const [walletAddress, setWalletAddress] = useState('');
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -189,6 +191,58 @@ export default function Admin() {
       });
     } finally {
       setIsClearingCaches(false);
+    }
+  };
+
+  const handleClearCachedBalances = async () => {
+    if (!confirm('Clear cached balances? They will be refetched from the blockchain on next balance check.')) {
+      return;
+    }
+
+    setIsClearingBalances(true);
+    try {
+      await authenticatedRequest('POST', '/api/admin/clear-cached-balances', authHeader);
+
+      toast({
+        title: 'Cached Balances Cleared',
+        description: 'Balances will be refetched from blockchain',
+      });
+
+      loadDashboardData(authHeader);
+    } catch (error: any) {
+      toast({
+        title: 'Clear Failed',
+        description: error.message || 'Failed to clear cached balances',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsClearingBalances(false);
+    }
+  };
+
+  const handleClearBalanceHistory = async () => {
+    if (!confirm('Clear all balance history? This can be reconstructed from cached transactions using the backfill tool.')) {
+      return;
+    }
+
+    setIsClearingHistory(true);
+    try {
+      await authenticatedRequest('POST', '/api/admin/clear-balance-history', authHeader);
+
+      toast({
+        title: 'Balance History Cleared',
+        description: 'Use backfill to reconstruct from transactions',
+      });
+
+      loadDashboardData(authHeader);
+    } catch (error: any) {
+      toast({
+        title: 'Clear Failed',
+        description: error.message || 'Failed to clear balance history',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsClearingHistory(false);
     }
   };
 
@@ -519,6 +573,54 @@ export default function Admin() {
               >
                 {isPruning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Prune Old Snapshots
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trash2 className="h-5 w-5" />
+                Clear Cached Balances
+              </CardTitle>
+              <CardDescription>
+                Remove cached balances only (will refetch from blockchain)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={handleClearCachedBalances}
+                disabled={isClearingBalances}
+                variant="outline"
+                className="w-full"
+                data-testid="button-clear-balances"
+              >
+                {isClearingBalances && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Clear Cached Balances
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trash2 className="h-5 w-5" />
+                Clear Balance History
+              </CardTitle>
+              <CardDescription>
+                Remove all balance snapshots (can reconstruct from transactions)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={handleClearBalanceHistory}
+                disabled={isClearingHistory}
+                variant="outline"
+                className="w-full"
+                data-testid="button-clear-history"
+              >
+                {isClearingHistory && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Clear Balance History
               </Button>
             </CardContent>
           </Card>

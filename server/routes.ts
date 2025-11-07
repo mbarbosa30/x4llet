@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { transferRequestSchema, transferResponseSchema, paymentRequestSchema, submitAuthorizationSchema, authorizationSchema, type Authorization } from "@shared/schema";
@@ -681,7 +681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  function adminAuthMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
+  function adminAuthMiddleware(req: Request, res: Response, next: NextFunction) {
     const authHeader = req.headers.authorization;
     
     if (!authHeader || !authHeader.startsWith('Basic ')) {
@@ -747,6 +747,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error clearing caches:', error);
       res.status(500).json({ error: 'Failed to clear caches' });
+    }
+  });
+
+  app.post('/api/admin/clear-cached-balances', adminAuthMiddleware, async (req, res) => {
+    try {
+      await storage.clearCachedBalances();
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error clearing cached balances:', error);
+      res.status(500).json({ error: 'Failed to clear cached balances' });
+    }
+  });
+
+  app.post('/api/admin/clear-balance-history', adminAuthMiddleware, async (req, res) => {
+    try {
+      await storage.clearBalanceHistory();
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error clearing balance history:', error);
+      res.status(500).json({ error: 'Failed to clear balance history' });
     }
   });
 
@@ -823,7 +843,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   async function checkRpcHealth(chainId: number): Promise<boolean> {
     try {
-      const config = getNetworkConfig(chainId);
+      const network = chainId === 8453 ? 'base' : 'celo';
+      const config = getNetworkConfig(network);
       const viemChain = chainId === 8453 ? base : celo;
       const client = createPublicClient({
         chain: viemChain,
