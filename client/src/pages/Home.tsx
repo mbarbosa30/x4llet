@@ -189,24 +189,24 @@ export default function Home() {
           </DialogHeader>
 
           {selectedTransaction && (
-            <div className="space-y-4 py-4">
-              <div className="space-y-3">
+            <div className="space-y-2 py-2">
+              <div className="space-y-2">
                 <div>
-                  <div className="text-xs text-muted-foreground mb-1">From</div>
-                  <div className="font-mono text-sm break-all bg-muted p-2 rounded-md">
+                  <div className="text-xs text-muted-foreground mb-0.5">From</div>
+                  <div className="font-mono text-xs break-all bg-muted p-1.5 rounded-md">
                     {selectedTransaction.from}
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-xs text-muted-foreground mb-1">To</div>
-                  <div className="font-mono text-sm break-all bg-muted p-2 rounded-md">
+                  <div className="text-xs text-muted-foreground mb-0.5">To</div>
+                  <div className="font-mono text-xs break-all bg-muted p-1.5 rounded-md">
                     {selectedTransaction.to}
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-xs text-muted-foreground mb-1">Amount</div>
+                  <div className="text-xs text-muted-foreground mb-0.5">Amount</div>
                   <div className="text-sm font-medium">
                     {formatAmount(selectedTransaction.amount)} USDC
                     {exchangeRate && (
@@ -218,22 +218,22 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <div className="text-xs text-muted-foreground mb-1">Timestamp</div>
+                  <div className="text-xs text-muted-foreground mb-0.5">Timestamp</div>
                   <div className="text-sm">
                     {new Date(selectedTransaction.timestamp).toLocaleString()}
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-xs text-muted-foreground mb-1">Status</div>
+                  <div className="text-xs text-muted-foreground mb-0.5">Status</div>
                   <div className="text-sm capitalize">{selectedTransaction.status}</div>
                 </div>
 
                 {selectedTransaction.txHash && (
                   <div>
-                    <div className="text-xs text-muted-foreground mb-1">Transaction Hash</div>
+                    <div className="text-xs text-muted-foreground mb-0.5">Transaction Hash</div>
                     <div className="flex items-center gap-2">
-                      <div className="font-mono text-xs break-all bg-muted p-2 rounded-md flex-1">
+                      <div className="font-mono text-xs break-all bg-muted p-1.5 rounded-md flex-1">
                         {selectedTransaction.txHash}
                       </div>
                       <Button
