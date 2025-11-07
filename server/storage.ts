@@ -543,8 +543,8 @@ export class DbStorage extends MemStorage {
         },
       });
 
-      // Save balance snapshot for history tracking
-      await this.saveBalanceSnapshot(address, chainId, balance.balance);
+      // Save balance snapshot for history tracking (using micro-USDC for precision)
+      await this.saveBalanceSnapshot(address, chainId, balance.balanceMicro);
     } catch (error) {
       console.error('[DB] Error caching balance:', error);
     }
@@ -819,15 +819,41 @@ export class DbStorage extends MemStorage {
     }
   }
 
+  /**
+   * Saves a balance snapshot to the history table. Only creates a new entry if the balance has changed.
+   * @param balance - The balance in micro-USDC format (e.g., "1000000" = 1 USDC)
+   */
   async saveBalanceSnapshot(address: string, chainId: number, balance: string): Promise<void> {
     try {
+      // Check the most recent balance snapshot for this address/chain
+      const recentSnapshot = await db
+        .select()
+        .from(balanceHistory)
+        .where(
+          and(
+            eq(balanceHistory.address, address),
+            eq(balanceHistory.chainId, chainId)
+          )
+        )
+        .orderBy(desc(balanceHistory.timestamp))
+        .limit(1);
+
+      // Only save if balance has changed (or if this is the first snapshot)
+      if (recentSnapshot.length > 0 && recentSnapshot[0].balance === balance) {
+        console.log(`[DB] Balance unchanged for ${address}, skipping snapshot`);
+        return;
+      }
+
       await db.insert(balanceHistory).values({
         address,
         chainId,
         balance,
         timestamp: new Date(),
       });
-      console.log(`[DB] Saved balance snapshot for ${address}: ${balance} USDC`);
+      
+      // Format for display (micro-USDC to USDC)
+      const displayBalance = (parseFloat(balance) / 1e6).toFixed(2);
+      console.log(`[DB] Saved balance snapshot for ${address}: ${displayBalance} USDC (${balance} micro-USDC)`);
     } catch (error) {
       console.error('[DB] Error saving balance snapshot:', error);
     }
