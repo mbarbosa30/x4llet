@@ -14,6 +14,7 @@ import Receive from "@/pages/Receive";
 import Pay from "@/pages/Pay";
 import Settings from "@/pages/Settings";
 import Signal from "@/pages/Signal";
+import Admin from "@/pages/Admin";
 import HowItWorks from "@/pages/HowItWorks";
 import Faqs from "@/pages/Faqs";
 import Context from "@/pages/Context";
@@ -58,6 +59,7 @@ function Router() {
           <Signal />
         </ProtectedRoute>
       </Route>
+      <Route path="/admin" component={Admin} />
       <Route path="/how-it-works" component={HowItWorks} />
       <Route path="/faqs" component={Faqs} />
       <Route path="/context" component={Context} />
