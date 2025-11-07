@@ -12,21 +12,23 @@ export default function Faqs() {
   const [, setLocation] = useLocation();
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="h-16 border-b flex items-center justify-between px-4">
-        <Button 
-          variant="ghost" 
-          size="icon"
-          onClick={() => setLocation('/home')}
-          data-testid="button-back"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-lg font-semibold">FAQs</h1>
-        <div className="w-10"></div>
+    <div className="min-h-screen flex flex-col bg-background">
+      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex h-14 items-center px-4 max-w-md mx-auto">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => setLocation('/')}
+            data-testid="button-back"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="ml-2 text-lg font-semibold">FAQs</h1>
+        </div>
       </header>
 
-      <main className="max-w-md mx-auto p-4 pb-20">
+      <main className="flex-1 overflow-y-auto pb-6">
+        <div className="max-w-md mx-auto p-4">
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="x402">
             <AccordionTrigger data-testid="faq-x402">
@@ -195,7 +197,79 @@ export default function Faqs() {
               </p>
             </AccordionContent>
           </AccordionItem>
+
+          <AccordionItem value="maxflow">
+            <AccordionTrigger data-testid="faq-maxflow">
+              What is MaxFlow network signal?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground mb-2">
+                MaxFlow measures your trust network health through flow-driven computation. It's not a reputation score — it's based on 
+                how well you're connected through authentic vouches.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Your signal score is calculated using network flow properties including path redundancy, maximum flow capacity, and 
+                average residual flow. The stronger and more authentic your connections, the higher your signal.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="vouching">
+            <AccordionTrigger data-testid="faq-vouching">
+              How does vouching work?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground mb-2">
+                When you vouch for someone, you add them to your trust network. But here's the key: <span className="font-medium">who you 
+                vouch for affects your own score</span>.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Vouching indiscriminately dilutes your network quality. This creates an anti-sybil mechanism — it becomes costly to vouch 
+                for fake accounts because doing so hurts your own signal. This incentivizes people to vouch only for genuine connections 
+                they actually trust.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="signal-score">
+            <AccordionTrigger data-testid="faq-signal-score">
+              What affects my signal score?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground mb-2">
+                Your MaxFlow signal is influenced by:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-2">
+                <li><span className="font-medium">Who vouches for you:</span> More authentic vouches from well-connected people strengthen your signal</li>
+                <li><span className="font-medium">Who you vouch for:</span> Vouching for authentic people helps; vouching for fake accounts hurts your score</li>
+                <li><span className="font-medium">Network structure:</span> How many independent paths exist in your trust network (path redundancy)</li>
+                <li><span className="font-medium">Flow capacity:</span> The overall strength and depth of your network connections</li>
+              </ul>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="anti-sybil">
+            <AccordionTrigger data-testid="faq-anti-sybil">
+              What is anti-sybil and why does it matter?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground mb-2">
+                Anti-sybil mechanisms prevent one person from creating many fake accounts to gain unfair advantages or resources. 
+                MaxFlow's vouching system makes this difficult because:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-2">
+                <li>Creating fake accounts doesn't help unless real people vouch for them</li>
+                <li>Real people are disincentivized to vouch for fakes because it hurts their own score</li>
+                <li>The flow-based computation detects weak or artificial network structures</li>
+              </ul>
+              <p className="text-sm text-muted-foreground mt-2">
+                This makes MaxFlow signal useful for community coordination, resource allocation, and proving authenticity without 
+                centralized verification.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
         </Accordion>
+        </div>
       </main>
     </div>
   );

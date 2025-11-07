@@ -31,6 +31,9 @@ export default function Context() {
               A lightweight, no-install wallet built as a PWA for the real world—unreliable data, budget phones, shared devices. It sends and receives stablecoins gaslessly (you sign off-chain; we relay on-chain) and supports execute-by-link so a trusted person with internet can finalize a transfer for you. It also speaks HTTP 402 ("Payment Required"), letting websites, services, and agents charge per use without accounts.
             </p>
             <p className="text-muted-foreground leading-relaxed">
+              Beyond payments, nanoPay integrates MaxFlow network signal—a flow-driven computation that measures your trust network health. This creates verifiable network identity that's resistant to sybil attacks, useful for community coordination, resource allocation, and proving authenticity without centralized verification.
+            </p>
+            <p className="text-muted-foreground leading-relaxed">
               Our aim is simple: cash-like digital payments that work for everyone—refugees, informal workers, community programs, and partners who need safer, faster rails for aid and commerce.
             </p>
           </div>
@@ -43,8 +46,8 @@ export default function Context() {
               <div className="space-y-2">
                 <h3 className="font-semibold">Who benefits</h3>
                 <ul className="space-y-1.5 text-sm text-muted-foreground">
-                  <li><strong>Individuals in low-connectivity settings:</strong> quick setup, readable balances, pay/receive without handling gas or jargon.</li>
-                  <li><strong>Communities & NGOs:</strong> safer disbursements via short-lived claim links; auditable, lower leakage than paper vouchers.</li>
+                  <li><strong>Individuals in low-connectivity settings:</strong> quick setup, readable balances, pay/receive without handling gas or jargon. MaxFlow signal provides verifiable identity without documents.</li>
+                  <li><strong>Communities & NGOs:</strong> safer disbursements via short-lived claim links; auditable, lower leakage than paper vouchers. MaxFlow helps identify authentic community members for resource allocation.</li>
                   <li><strong>Vendors & local services:</strong> charge per use (Wi-Fi minutes, charging, printing, rides) via x402, settle instantly in stablecoins.</li>
                   <li><strong>Browsers/telcos/fintechs:</strong> a drop-in Wallet-as-a-Service layer (relayer + x402 + link execution) to power gasless stablecoin UX.</li>
                 </ul>

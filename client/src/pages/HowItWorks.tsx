@@ -6,21 +6,23 @@ export default function HowItWorks() {
   const [, setLocation] = useLocation();
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="h-16 border-b flex items-center justify-between px-4">
-        <Button 
-          variant="ghost" 
-          size="icon"
-          onClick={() => setLocation('/home')}
-          data-testid="button-back"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-lg font-semibold">How It Works</h1>
-        <div className="w-10"></div>
+    <div className="min-h-screen flex flex-col bg-background">
+      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex h-14 items-center px-4 max-w-md mx-auto">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => setLocation('/')}
+            data-testid="button-back"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="ml-2 text-lg font-semibold">How It Works</h1>
+        </div>
       </header>
 
-      <main className="max-w-md mx-auto p-4 pb-20">
+      <main className="flex-1 overflow-y-auto pb-6">
+        <div className="max-w-md mx-auto p-4 space-y-8">
         <section className="space-y-4 mb-8">
           <h2 className="text-xl font-semibold">What is x402?</h2>
           <p className="text-sm text-muted-foreground">
@@ -90,6 +92,23 @@ export default function HowItWorks() {
         </section>
 
         <section className="space-y-4">
+          <h2 className="text-xl font-semibold">MaxFlow Network Signal</h2>
+          <p className="text-sm text-muted-foreground">
+            Your wallet includes a MaxFlow signal score that measures your trust network health through flow-driven computation. 
+            It's not a reputation score — it's based on how well you're connected through authentic vouches.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium">How vouching works:</span> When someone vouches for you, they add you to their trust network. 
+            But here's the key: <span className="font-medium">who you vouch for affects your own score</span>. Vouching indiscriminately 
+            dilutes your network quality, creating an anti-sybil mechanism that makes it costly to vouch for fake accounts.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Your score is calculated based on network flow properties including path redundancy, maximum flow capacity, and average residual flow. 
+            The stronger and more authentic your network connections, the higher your signal.
+          </p>
+        </section>
+
+        <section className="space-y-4">
           <h2 className="text-xl font-semibold">Networks</h2>
           <p className="text-sm text-muted-foreground">
             The wallet supports two networks:
@@ -102,6 +121,7 @@ export default function HowItWorks() {
             You can switch networks in Settings. Your wallet address is the same on both networks.
           </p>
         </section>
+        </div>
       </main>
     </div>
   );
