@@ -240,7 +240,7 @@ export default function Signal() {
 
               {!isLoading && scoreData?.metrics && (
                 <div className="pt-4 border-t space-y-2">
-                  <h3 className="text-xs font-semibold text-muted-foreground mb-3">Network Metrics</h3>
+                  <h3 className="text-xs font-semibold text-muted-foreground mb-3">Your Network Metrics</h3>
                   <div className="grid grid-cols-1 gap-2 text-sm">
                     <div className="flex justify-between items-center" data-testid="metric-redundancy">
                       <span className="text-muted-foreground">Path Redundancy</span>
