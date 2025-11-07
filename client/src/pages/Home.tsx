@@ -134,6 +134,8 @@ export default function Home() {
             currency="USDC"
             fiatValue={fiatValue}
             fiatCurrency={currency}
+            address={address}
+            chainId={chainId}
           />
         )}
 
