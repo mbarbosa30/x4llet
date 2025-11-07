@@ -259,7 +259,7 @@ export default function Signal() {
               )}
 
               <p className="text-xs text-muted-foreground">
-                MaxFlow measures your trust network health through flow-driven computation
+                This score is a neutral signal of your trust-network health — computed via max-flow/min-cut.
               </p>
             </div>
           )}
@@ -323,6 +323,10 @@ export default function Signal() {
             </div>
           )}
         </Card>
+
+        <p className="text-xs text-muted-foreground text-center px-4 leading-relaxed">
+          MaxFlow.one models trust graphs like current, where Maximum Flow is the amperage of signal, Path Redundancy is parallel (concurrent/diverse) wiring for reliability, and Average Residual is energy lost as heat — noise minimization for higher confidence.
+        </p>
       </main>
 
       {showScanner && (
