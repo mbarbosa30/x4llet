@@ -2,12 +2,20 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import BalanceCard from '@/components/BalanceCard';
 import TransactionList from '@/components/TransactionList';
 import AddressDisplay from '@/components/AddressDisplay';
 import { getWallet, getPreferences } from '@/lib/wallet';
-import type { BalanceResponse } from '@shared/schema';
+import { formatAmount } from '@/lib/formatAmount';
+import type { BalanceResponse, Transaction as SchemaTransaction } from '@shared/schema';
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -15,6 +23,8 @@ export default function Home() {
   const [currency, setCurrency] = useState('USD');
   const [chainId, setChainId] = useState(42220); // Default to Celo
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
+  const [selectedTransaction, setSelectedTransaction] = useState<SchemaTransaction | null>(null);
+  const [copiedHash, setCopiedHash] = useState(false);
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -64,6 +74,32 @@ export default function Home() {
     : balance;
 
   const transactions = balanceData?.transactions || [];
+  
+  const getExplorerUrl = (txHash: string) => {
+    const network = chainId === 42220 ? 'celo' : 'base';
+    if (network === 'celo') {
+      return `https://celoscan.io/tx/${txHash}`;
+    } else {
+      return `https://basescan.org/tx/${txHash}`;
+    }
+  };
+  
+  const handleCopyHash = async (hash: string) => {
+    try {
+      await navigator.clipboard.writeText(hash);
+      setCopiedHash(true);
+      setTimeout(() => setCopiedHash(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy hash:', error);
+    }
+  };
+  
+  const handleTransactionClick = (txData: any) => {
+    const fullTransaction = transactions.find(tx => tx.id === txData.id);
+    if (fullTransaction) {
+      setSelectedTransaction(fullTransaction);
+    }
+  };
 
   if (isLoadingWallet) {
     return (
@@ -138,10 +174,100 @@ export default function Home() {
                 fiatCurrency: currency !== 'USD' ? currency : undefined,
               };
             })}
-            onTransactionClick={(tx) => console.log('Transaction clicked:', tx)}
+            onTransactionClick={handleTransactionClick}
           />
         </div>
       </main>
+
+      <Dialog open={!!selectedTransaction} onOpenChange={() => setSelectedTransaction(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Transaction Details</DialogTitle>
+            <DialogDescription>
+              {selectedTransaction?.type === 'send' ? 'Sent' : 'Received'} {formatAmount(selectedTransaction?.amount || '0')} USDC
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedTransaction && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-3">
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">From</div>
+                  <div className="font-mono text-sm break-all bg-muted p-2 rounded-md">
+                    {selectedTransaction.from}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">To</div>
+                  <div className="font-mono text-sm break-all bg-muted p-2 rounded-md">
+                    {selectedTransaction.to}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Amount</div>
+                  <div className="text-sm font-medium">
+                    {formatAmount(selectedTransaction.amount)} USDC
+                    {exchangeRate && (
+                      <span className="text-xs text-muted-foreground ml-2">
+                        ≈ {(parseFloat(selectedTransaction.amount) * exchangeRate.rate).toFixed(2)} {currency}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Timestamp</div>
+                  <div className="text-sm">
+                    {new Date(selectedTransaction.timestamp).toLocaleString()}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Status</div>
+                  <div className="text-sm capitalize">{selectedTransaction.status}</div>
+                </div>
+
+                {selectedTransaction.txHash && (
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">Transaction Hash</div>
+                    <div className="flex items-center gap-2">
+                      <div className="font-mono text-xs break-all bg-muted p-2 rounded-md flex-1">
+                        {selectedTransaction.txHash}
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={() => handleCopyHash(selectedTransaction.txHash!)}
+                        data-testid="button-copy-tx-hash"
+                      >
+                        {copiedHash ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {selectedTransaction.txHash && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => window.open(getExplorerUrl(selectedTransaction.txHash!), '_blank', 'noopener,noreferrer')}
+                  data-testid="button-view-explorer"
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  View on {chainId === 42220 ? 'Celoscan' : 'Basescan'}
+                </Button>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

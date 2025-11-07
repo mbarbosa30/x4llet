@@ -1,4 +1,6 @@
-import { ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowUpRight, ArrowDownLeft, ChevronDown, ChevronUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { formatAmount } from '@/lib/formatAmount';
 
 export interface Transaction {
@@ -18,6 +20,8 @@ interface TransactionListProps {
 }
 
 export default function TransactionList({ transactions, onTransactionClick }: TransactionListProps) {
+  const [showAll, setShowAll] = useState(false);
+  
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -37,14 +41,17 @@ export default function TransactionList({ transactions, onTransactionClick }: Tr
     );
   }
 
+  const displayedTransactions = showAll ? transactions : transactions.slice(0, 10);
+  const hasMore = transactions.length > 10;
+
   return (
     <div className="space-y-0">
-      {transactions.map((tx, index) => (
+      {displayedTransactions.map((tx, index) => (
         <div
           key={tx.id}
           onClick={() => onTransactionClick?.(tx)}
           className={`flex items-center gap-4 py-4 ${
-            index !== transactions.length - 1 ? 'border-b' : ''
+            index !== displayedTransactions.length - 1 ? 'border-b' : ''
           } ${onTransactionClick ? 'hover-elevate cursor-pointer' : ''}`}
           data-testid={`transaction-item-${tx.id}`}
         >
@@ -79,6 +86,29 @@ export default function TransactionList({ transactions, onTransactionClick }: Tr
           </div>
         </div>
       ))}
+      
+      {hasMore && (
+        <div className="pt-4">
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => setShowAll(!showAll)}
+            data-testid="button-toggle-transactions"
+          >
+            {showAll ? (
+              <>
+                <ChevronUp className="h-4 w-4 mr-2" />
+                Show Less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-4 w-4 mr-2" />
+                Show All ({transactions.length} total)
+              </>
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
