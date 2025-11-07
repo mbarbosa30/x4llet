@@ -382,7 +382,7 @@ export default function Admin() {
                   </div>
                 </>
               ) : null}
-              <Button onClick={fetchStats} variant="outline" className="w-full" data-testid="button-fetch-stats">
+              <Button onClick={() => loadDashboardData(authHeader)} variant="outline" className="w-full" data-testid="button-fetch-stats">
                 {stats ? 'Refresh Stats' : 'Load Stats'}
               </Button>
             </CardContent>
@@ -433,7 +433,7 @@ export default function Admin() {
                   </div>
                 </>
               ) : null}
-              <Button onClick={checkApiHealth} variant="outline" className="w-full" data-testid="button-check-health">
+              <Button onClick={() => loadDashboardData(authHeader)} variant="outline" className="w-full" data-testid="button-check-health">
                 {apiHealth ? 'Recheck Health' : 'Check Health'}
               </Button>
             </CardContent>
@@ -467,7 +467,7 @@ export default function Admin() {
                 ))}
               </div>
             ) : null}
-            <Button onClick={fetchRecentActivity} variant="outline" className="w-full" data-testid="button-fetch-activity">
+            <Button onClick={() => loadDashboardData(authHeader)} variant="outline" className="w-full" data-testid="button-fetch-activity">
               {recentActivity.length > 0 ? 'Refresh Activity' : 'Load Recent Activity'}
             </Button>
           </CardContent>
