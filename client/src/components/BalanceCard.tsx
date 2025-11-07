@@ -199,8 +199,9 @@ export default function BalanceCard({
       {/* Content overlay */}
       <div className="relative z-10">
         <div className="text-sm text-muted-foreground mb-2">{currency} Balance</div>
-        <div className="text-5xl font-medium tabular-nums mb-2" data-testid="text-balance">
-          {balance}
+        <div className="text-5xl font-medium tabular-nums mb-2 flex items-center justify-center" data-testid="text-balance">
+          <span className="text-4xl opacity-40">$</span>
+          <span>{balance}</span>
         </div>
         {balanceMicro && exchangeRate && (
           <div className="text-sm" data-testid="text-fiat-value">
