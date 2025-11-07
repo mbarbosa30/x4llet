@@ -832,49 +832,87 @@ export class DbStorage extends MemStorage {
     try {
       console.log(`[Admin] Starting balance history reconstruction for ${address} on chain ${chainId}`);
       
+      // Get current on-chain balance first
+      const currentBalanceResult = await this.getBalance(address, chainId);
+      if (!currentBalanceResult) {
+        throw new Error('Failed to fetch current on-chain balance');
+      }
+      
+      // Parse current balance correctly: split on decimal, pad fractional part to 6 digits
+      const balanceParts = currentBalanceResult.balance.split('.');
+      const balanceWhole = balanceParts[0] || '0';
+      const balanceFraction = (balanceParts[1] || '0').padEnd(6, '0').slice(0, 6);
+      const currentBalanceMicro = BigInt(balanceWhole + balanceFraction);
+      console.log(`[Admin] Current on-chain balance: ${currentBalanceResult.balance} USDC (${currentBalanceMicro} micro-USDC)`);
+      
       // Get all cached transactions for this address
       const transactions = await this.getTransactions(address, chainId);
       
       if (transactions.length === 0) {
         console.log(`[Admin] No transactions found for ${address}`);
-        return { snapshotsCreated: 0, finalBalance: '0' };
+        return { 
+          snapshotsCreated: 0, 
+          finalBalance: currentBalanceResult.balance 
+        };
       }
 
-      // Sort transactions by timestamp (oldest first)
-      transactions.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      // Sort transactions by timestamp (newest first for backwards replay)
+      const completedTxs = transactions
+        .filter(tx => tx.status === 'completed')
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-      let runningBalance = BigInt(0);
+      console.log(`[Admin] Processing ${completedTxs.length} completed transactions backwards from current balance`);
+
+      let runningBalance = currentBalanceMicro;
+      const snapshots: Array<{ balance: string; timestamp: Date }> = [];
+
+      // Work backwards: for each transaction, calculate what the balance was BEFORE it
+      for (const tx of completedTxs) {
+        // Parse amount correctly: split on decimal, pad fractional part to 6 digits
+        const parts = tx.amount.split('.');
+        const whole = parts[0] || '0';
+        const fraction = (parts[1] || '0').padEnd(6, '0').slice(0, 6);
+        const amount = BigInt(whole + fraction);
+
+        // Record balance AFTER this transaction (before going backwards)
+        snapshots.push({
+          balance: runningBalance.toString(),
+          timestamp: new Date(tx.timestamp),
+        });
+
+        // Calculate balance BEFORE this transaction by reversing it
+        if (tx.type === 'receive') {
+          runningBalance -= amount; // Was lower before receiving
+        } else if (tx.type === 'send') {
+          runningBalance += amount; // Was higher before sending
+        }
+      }
+
+      // Now insert snapshots in chronological order (oldest first)
+      snapshots.reverse();
       let snapshotsCreated = 0;
 
-      // Process each transaction and create balance snapshots
-      for (const tx of transactions) {
-        if (tx.status !== 'completed') continue;
-
-        const amount = BigInt(tx.amount.replace('.', '').padEnd(7, '0'));
-
-        if (tx.type === 'receive') {
-          runningBalance += amount;
-        } else if (tx.type === 'send') {
-          runningBalance -= amount;
-        }
-
-        // Insert balance snapshot at transaction time
+      for (const snapshot of snapshots) {
         try {
           await db.insert(balanceHistory).values({
             address,
             chainId,
-            balance: runningBalance.toString(),
-            timestamp: new Date(tx.timestamp),
+            balance: snapshot.balance,
+            timestamp: snapshot.timestamp,
           });
           snapshotsCreated++;
         } catch (error) {
           // Skip duplicates
-          console.log(`[Admin] Skipping duplicate snapshot for ${tx.txHash}`);
         }
       }
 
-      const finalBalance = (Number(runningBalance) / 1e6).toFixed(6);
+      const finalBalance = (Number(currentBalanceMicro) / 1e6).toFixed(6);
       console.log(`[Admin] Created ${snapshotsCreated} balance snapshots. Final balance: ${finalBalance} USDC`);
+
+      // Validation: the oldest reconstructed balance should make sense
+      if (runningBalance < 0) {
+        console.warn(`[Admin] WARNING: Reconstructed oldest balance is negative (${runningBalance}). Transaction history may be incomplete.`);
+      }
 
       return {
         snapshotsCreated,
