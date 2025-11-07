@@ -681,7 +681,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/admin/backfill-balances/:address', async (req, res) => {
+  function adminAuthMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Basic ')) {
+      res.setHeader('WWW-Authenticate', 'Basic realm="Admin Area"');
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const base64Credentials = authHeader.slice(6);
+    const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
+    const [username, password] = credentials.split(':');
+
+    const expectedUsername = process.env.ADMIN_USERNAME;
+    const expectedPassword = process.env.ADMIN_PASSWORD;
+
+    if (!expectedUsername || !expectedPassword) {
+      console.error('[Admin] ADMIN_USERNAME or ADMIN_PASSWORD not configured');
+      return res.status(500).json({ error: 'Admin authentication not configured' });
+    }
+
+    if (username !== expectedUsername || password !== expectedPassword) {
+      res.setHeader('WWW-Authenticate', 'Basic realm="Admin Area"');
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    next();
+  }
+
+  app.post('/api/admin/backfill-balances/:address', adminAuthMiddleware, async (req, res) => {
     try {
       const { address } = req.params;
       const chainId = parseInt(req.query.chainId as string) || 42220;
@@ -698,7 +726,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/admin/backfill-exchange-rates', async (req, res) => {
+  app.post('/api/admin/backfill-exchange-rates', adminAuthMiddleware, async (req, res) => {
     try {
       const result = await storage.backfillExchangeRates();
       
@@ -712,7 +740,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/admin/clear-caches', async (req, res) => {
+  app.post('/api/admin/clear-caches', adminAuthMiddleware, async (req, res) => {
     try {
       await storage.clearAllCaches();
       res.json({ success: true });
@@ -722,7 +750,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/admin/prune-old-data', async (req, res) => {
+  app.post('/api/admin/prune-old-data', adminAuthMiddleware, async (req, res) => {
     try {
       const result = await storage.pruneOldBalanceHistory();
       
@@ -735,7 +763,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin/stats', async (req, res) => {
+  app.get('/api/admin/stats', adminAuthMiddleware, async (req, res) => {
     try {
       const stats = await storage.getAdminStats();
       res.json(stats);
@@ -745,7 +773,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin/health', async (req, res) => {
+  app.get('/api/admin/health', adminAuthMiddleware, async (req, res) => {
     try {
       const health = {
         maxflowApi: await checkMaxFlowHealth(),
@@ -761,7 +789,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin/recent-activity', async (req, res) => {
+  app.get('/api/admin/recent-activity', adminAuthMiddleware, async (req, res) => {
     try {
       const activity = await storage.getRecentActivity();
       res.json(activity);

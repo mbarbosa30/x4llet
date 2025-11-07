@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 
 interface AdminStats {
@@ -30,8 +30,36 @@ interface RecentTransaction {
   timestamp: string;
 }
 
+function createAuthHeader(username: string, password: string): string {
+  const credentials = btoa(`${username}:${password}`);
+  return `Basic ${credentials}`;
+}
+
+async function authenticatedRequest(method: string, url: string, authHeader: string) {
+  const response = await fetch(url, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': authHeader,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Request failed' }));
+    throw new Error(errorData.error || `Request failed with status ${response.status}`);
+  }
+
+  return response;
+}
+
 export default function Admin() {
   const { toast } = useToast();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [authHeader, setAuthHeader] = useState('');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  
   const [isBackfillingBalances, setIsBackfillingBalances] = useState(false);
   const [isBackfillingRates, setIsBackfillingRates] = useState(false);
   const [isClearingCaches, setIsClearingCaches] = useState(false);
@@ -40,6 +68,52 @@ export default function Admin() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [apiHealth, setApiHealth] = useState<ApiHealthStatus | null>(null);
   const [recentActivity, setRecentActivity] = useState<RecentTransaction[]>([]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsAuthenticating(true);
+
+    const authHeaderValue = createAuthHeader(username, password);
+
+    try {
+      await authenticatedRequest('GET', '/api/admin/stats', authHeaderValue);
+      
+      setAuthHeader(authHeaderValue);
+      setIsAuthenticated(true);
+      setPassword('');
+      
+      toast({
+        title: 'Authenticated',
+        description: 'Welcome to the admin dashboard',
+      });
+
+      loadDashboardData(authHeaderValue);
+    } catch (error: any) {
+      toast({
+        title: 'Authentication Failed',
+        description: error.message || 'Invalid credentials',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const loadDashboardData = async (auth: string) => {
+    try {
+      const [statsRes, healthRes, activityRes] = await Promise.all([
+        authenticatedRequest('GET', '/api/admin/stats', auth),
+        authenticatedRequest('GET', '/api/admin/health', auth),
+        authenticatedRequest('GET', '/api/admin/recent-activity', auth),
+      ]);
+
+      setStats(await statsRes.json());
+      setApiHealth(await healthRes.json());
+      setRecentActivity(await activityRes.json());
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+    }
+  };
 
   const handleBackfillBalances = async () => {
     if (!walletAddress) {
@@ -53,7 +127,7 @@ export default function Admin() {
 
     setIsBackfillingBalances(true);
     try {
-      const res = await apiRequest('POST', `/api/admin/backfill-balances/${walletAddress}`);
+      const res = await authenticatedRequest('POST', `/api/admin/backfill-balances/${walletAddress}`, authHeader);
       const result = await res.json();
 
       toast({
@@ -74,7 +148,7 @@ export default function Admin() {
   const handleBackfillRates = async () => {
     setIsBackfillingRates(true);
     try {
-      const res = await apiRequest('POST', '/api/admin/backfill-exchange-rates');
+      const res = await authenticatedRequest('POST', '/api/admin/backfill-exchange-rates', authHeader);
       const result = await res.json();
 
       toast({
@@ -99,12 +173,14 @@ export default function Admin() {
 
     setIsClearingCaches(true);
     try {
-      await apiRequest('POST', '/api/admin/clear-caches');
+      await authenticatedRequest('POST', '/api/admin/clear-caches', authHeader);
 
       toast({
         title: 'Caches Cleared',
         description: 'All cached data has been removed',
       });
+
+      loadDashboardData(authHeader);
     } catch (error: any) {
       toast({
         title: 'Clear Failed',
@@ -123,13 +199,15 @@ export default function Admin() {
 
     setIsPruning(true);
     try {
-      const res = await apiRequest('POST', '/api/admin/prune-old-data');
+      const res = await authenticatedRequest('POST', '/api/admin/prune-old-data', authHeader);
       const result = await res.json();
 
       toast({
         title: 'Data Pruned',
         description: `Removed ${result.deletedSnapshots} old balance snapshots`,
       });
+
+      loadDashboardData(authHeader);
     } catch (error: any) {
       toast({
         title: 'Prune Failed',
@@ -141,47 +219,66 @@ export default function Admin() {
     }
   };
 
-  const fetchStats = async () => {
-    try {
-      const res = await apiRequest('GET', '/api/admin/stats');
-      const data = await res.json();
-      setStats(data);
-    } catch (error) {
-      toast({
-        title: 'Failed to Load Stats',
-        description: 'Could not fetch database statistics',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const checkApiHealth = async () => {
-    try {
-      const res = await apiRequest('GET', '/api/admin/health');
-      const data = await res.json();
-      setApiHealth(data);
-    } catch (error) {
-      toast({
-        title: 'Health Check Failed',
-        description: 'Could not check API health',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const fetchRecentActivity = async () => {
-    try {
-      const res = await apiRequest('GET', '/api/admin/recent-activity');
-      const data = await res.json();
-      setRecentActivity(data);
-    } catch (error) {
-      toast({
-        title: 'Failed to Load Activity',
-        description: 'Could not fetch recent transactions',
-        variant: 'destructive',
-      });
-    }
-  };
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <div className="flex items-center gap-2 mb-2">
+              <Lock className="w-6 h-6 text-primary" />
+              <CardTitle>Admin Login</CardTitle>
+            </div>
+            <CardDescription>
+              Enter your credentials to access the admin dashboard
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  autoComplete="username"
+                  data-testid="input-admin-username"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  data-testid="input-admin-password"
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isAuthenticating}
+                data-testid="button-admin-login"
+              >
+                {isAuthenticating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Authenticating...
+                  </>
+                ) : (
+                  'Login'
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-8">
