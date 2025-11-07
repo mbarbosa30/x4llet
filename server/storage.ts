@@ -835,10 +835,10 @@ export class DbStorage extends MemStorage {
 
   async getInflationRate(currency: string): Promise<InflationData | null> {
     try {
-      // Get exchange rates from the last 30 days
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
+      // Get exchange rates from the last 90 days for better accuracy
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      const ninetyDaysAgoStr = ninetyDaysAgo.toISOString().split('T')[0];
 
       const results = await db
         .select()
@@ -846,7 +846,7 @@ export class DbStorage extends MemStorage {
         .where(eq(exchangeRates.currency, currency.toUpperCase()))
         .orderBy(exchangeRates.date);
 
-      const filteredResults = results.filter(r => r.date >= thirtyDaysAgoStr);
+      const filteredResults = results.filter(r => r.date >= ninetyDaysAgoStr);
 
       if (filteredResults.length < 2) {
         console.log(`[Inflation] Not enough data to calculate inflation rate for ${currency}`);
@@ -868,7 +868,7 @@ export class DbStorage extends MemStorage {
       // Convert to monthly rate (compound)
       const monthlyRate = Math.pow(1 + avgDailyRate, 30) - 1;
 
-      console.log(`[Inflation] ${currency}: Daily ${(avgDailyRate * 100).toFixed(4)}%, Monthly ${(monthlyRate * 100).toFixed(2)}%`);
+      console.log(`[Inflation] ${currency}: Daily ${(avgDailyRate * 100).toFixed(4)}%, Monthly ${(monthlyRate * 100).toFixed(2)}% (based on ${filteredResults.length} days of data)`);
 
       return {
         currency: currency.toUpperCase(),
