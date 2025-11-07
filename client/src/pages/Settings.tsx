@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette } from 'lucide-react';
+import { ChevronRight, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette, BookOpen, HelpCircle, MessageCircleQuestion } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import InstallPrompt from '@/components/InstallPrompt';
 import { getWallet, getPreferences, savePreferences, getPrivateKey, lockWallet } from '@/lib/wallet';
@@ -270,6 +270,47 @@ export default function Settings() {
                   <div className="text-sm font-medium">Display Currency</div>
                   <div className="text-xs text-muted-foreground">{currency}</div>
                 </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </button>
+          </Card>
+        </div>
+
+        <div className="space-y-2">
+          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-2">
+            Help & Resources
+          </h2>
+          <Card className="divide-y">
+            <button
+              onClick={() => setLocation('/context')}
+              className="w-full flex items-center justify-between p-4 hover-elevate"
+              data-testid="button-context"
+            >
+              <div className="flex items-center gap-3">
+                <HelpCircle className="h-5 w-5 text-muted-foreground" />
+                <span className="text-sm font-medium">Context</span>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </button>
+            <button
+              onClick={() => setLocation('/how-it-works')}
+              className="w-full flex items-center justify-between p-4 hover-elevate"
+              data-testid="button-how-it-works"
+            >
+              <div className="flex items-center gap-3">
+                <BookOpen className="h-5 w-5 text-muted-foreground" />
+                <span className="text-sm font-medium">How It Works</span>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </button>
+            <button
+              onClick={() => setLocation('/faqs')}
+              className="w-full flex items-center justify-between p-4 hover-elevate"
+              data-testid="button-faqs"
+            >
+              <div className="flex items-center gap-3">
+                <MessageCircleQuestion className="h-5 w-5 text-muted-foreground" />
+                <span className="text-sm font-medium">FAQs</span>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
