@@ -70,11 +70,15 @@ export default function Receive() {
       return res.json() as Promise<TransferResponse>;
     },
     onSuccess: (data: TransferResponse) => {
+      if (!address) return;
+      
       toast({
         title: "Payment Received!",
         description: `Transaction: ${data.txHash.slice(0, 10)}...`,
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/balance'] });
+      const currentChainId = network === 'celo' ? 42220 : 8453;
+      queryClient.invalidateQueries({ queryKey: ['/api/balance', address, currentChainId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/balance-history', address, currentChainId] });
     },
     onError: (error: any) => {
       toast({

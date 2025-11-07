@@ -165,11 +165,14 @@ export default function Send() {
       return await res.json() as TransferResponse;
     },
     onSuccess: (data: TransferResponse) => {
+      if (!address) return;
+      
       toast({
         title: "Transaction Sent!",
         description: `Your USDC has been sent. Hash: ${data.txHash.slice(0, 10)}...`,
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/balance', address] });
+      queryClient.invalidateQueries({ queryKey: ['/api/balance', address, chainId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/balance-history', address, chainId] });
       setLocation('/home');
     },
     onError: (error) => {

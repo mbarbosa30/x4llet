@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Shield, RefreshCw, QrCode, ScanLine } from 'lucide-react';
-import { getWallet } from '@/lib/wallet';
+import { getWallet, getPreferences } from '@/lib/wallet';
 import { getMaxFlowScore } from '@/lib/maxflow';
 import { queryClient } from '@/lib/queryClient';
 
@@ -14,6 +14,7 @@ interface AppHeaderProps {
 export default function AppHeader({ onScanClick }: AppHeaderProps) {
   const [, setLocation] = useLocation();
   const [address, setAddress] = useState<string | null>(null);
+  const [chainId, setChainId] = useState<number | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
@@ -23,6 +24,8 @@ export default function AppHeader({ onScanClick }: AppHeaderProps) {
         if (wallet) {
           setAddress(wallet.address);
         }
+        const prefs = await getPreferences();
+        setChainId(prefs.network === 'celo' ? 42220 : 8453);
       } catch (error) {
         // Wallet not loaded, ignore
       }
@@ -38,12 +41,15 @@ export default function AppHeader({ onScanClick }: AppHeaderProps) {
   });
 
   const handleRefresh = async () => {
+    if (!address || !chainId) return;
+    
     setIsRefreshing(true);
     try {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['/api/balance'] }),
-        queryClient.invalidateQueries({ queryKey: ['/api/transactions'] }),
-        queryClient.invalidateQueries({ queryKey: ['/maxflow/score'] }),
+        queryClient.invalidateQueries({ queryKey: ['/api/balance', address, chainId] }),
+        queryClient.invalidateQueries({ queryKey: ['/api/balance-history', address, chainId] }),
+        queryClient.invalidateQueries({ queryKey: ['/api/transactions', address, chainId] }),
+        queryClient.invalidateQueries({ queryKey: ['/maxflow/score', address] }),
       ]);
     } finally {
       setTimeout(() => setIsRefreshing(false), 500);
