@@ -61,9 +61,20 @@ export const cachedTransactions = pgTable("cached_transactions", {
 
 export const exchangeRates = pgTable("exchange_rates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  currency: text("currency").notNull().unique(),
+  currency: text("currency").notNull(),
   rate: text("rate").notNull(),
+  date: text("date").notNull(), // YYYY-MM-DD format
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  currencyDateUnique: unique().on(table.currency, table.date),
+}));
+
+export const balanceHistory = pgTable("balance_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  address: text("address").notNull(),
+  chainId: integer("chain_id").notNull(),
+  balance: text("balance").notNull(),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
 });
 
 export const cachedMaxflowScores = pgTable("cached_maxflow_scores", {

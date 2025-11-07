@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, cachedMaxflowScores } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo } from 'viem/chains';
@@ -131,6 +131,17 @@ export interface MaxFlowScore {
   nodeDetails: any[];
 }
 
+export interface BalanceHistoryPoint {
+  timestamp: string;
+  balance: string;
+}
+
+export interface InflationData {
+  currency: string;
+  dailyRate: number; // average daily inflation/deflation rate
+  monthlyRate: number; // average monthly rate for display
+}
+
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -147,6 +158,10 @@ export interface IStorage {
   
   getMaxFlowScore(address: string): Promise<MaxFlowScore | null>;
   saveMaxFlowScore(address: string, scoreData: MaxFlowScore): Promise<void>;
+  
+  getBalanceHistory(address: string, chainId: number, days?: number): Promise<BalanceHistoryPoint[]>;
+  saveBalanceSnapshot(address: string, chainId: number, balance: string): Promise<void>;
+  getInflationRate(currency: string): Promise<InflationData | null>;
 }
 
 export class MemStorage implements IStorage {
@@ -382,6 +397,20 @@ export class MemStorage implements IStorage {
   async saveMaxFlowScore(address: string, scoreData: MaxFlowScore): Promise<void> {
     // MemStorage doesn't cache MaxFlow scores
   }
+
+  async getBalanceHistory(address: string, chainId: number, days: number = 30): Promise<BalanceHistoryPoint[]> {
+    // MemStorage doesn't track balance history
+    return [];
+  }
+
+  async saveBalanceSnapshot(address: string, chainId: number, balance: string): Promise<void> {
+    // MemStorage doesn't track balance history
+  }
+
+  async getInflationRate(currency: string): Promise<InflationData | null> {
+    // MemStorage doesn't track inflation rates
+    return null;
+  }
 }
 
 // Database storage with PostgreSQL for all data
@@ -460,6 +489,9 @@ export class DbStorage extends MemStorage {
           updatedAt: new Date(),
         },
       });
+
+      // Save balance snapshot for history tracking
+      await this.saveBalanceSnapshot(address, chainId, balance.balance);
     } catch (error) {
       console.error('[DB] Error caching balance:', error);
     }
@@ -527,10 +559,11 @@ export class DbStorage extends MemStorage {
   }
 
   async getExchangeRate(currency: string): Promise<number | null> {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
     const cached = await db
       .select()
       .from(exchangeRates)
-      .where(eq(exchangeRates.currency, currency.toUpperCase()))
+      .where(and(eq(exchangeRates.currency, currency.toUpperCase()), eq(exchangeRates.date, today)))
       .limit(1);
 
     if (cached[0]) {
@@ -546,12 +579,14 @@ export class DbStorage extends MemStorage {
 
   async cacheExchangeRate(currency: string, rate: number): Promise<void> {
     try {
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
       await db.insert(exchangeRates).values({
         currency: currency.toUpperCase(),
         rate: rate.toString(),
+        date: today,
         updatedAt: new Date(),
       }).onConflictDoUpdate({
-        target: exchangeRates.currency,
+        target: [exchangeRates.currency, exchangeRates.date],
         set: {
           rate: rate.toString(),
           updatedAt: new Date(),
@@ -700,6 +735,96 @@ export class DbStorage extends MemStorage {
       console.log(`[DB Cache] Saved MaxFlow score for ${address}`);
     } catch (error) {
       console.error('[DB] Error saving MaxFlow score:', error);
+    }
+  }
+
+  async getBalanceHistory(address: string, chainId: number, days: number = 30): Promise<BalanceHistoryPoint[]> {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - days);
+
+      const results = await db
+        .select()
+        .from(balanceHistory)
+        .where(
+          and(
+            eq(balanceHistory.address, address),
+            eq(balanceHistory.chainId, chainId)
+          )
+        )
+        .orderBy(balanceHistory.timestamp);
+
+      return results
+        .filter(r => r.timestamp >= cutoffDate)
+        .map(r => ({
+          timestamp: r.timestamp.toISOString(),
+          balance: r.balance,
+        }));
+    } catch (error) {
+      console.error('[DB] Error fetching balance history:', error);
+      return [];
+    }
+  }
+
+  async saveBalanceSnapshot(address: string, chainId: number, balance: string): Promise<void> {
+    try {
+      await db.insert(balanceHistory).values({
+        address,
+        chainId,
+        balance,
+        timestamp: new Date(),
+      });
+      console.log(`[DB] Saved balance snapshot for ${address}: ${balance} USDC`);
+    } catch (error) {
+      console.error('[DB] Error saving balance snapshot:', error);
+    }
+  }
+
+  async getInflationRate(currency: string): Promise<InflationData | null> {
+    try {
+      // Get exchange rates from the last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
+
+      const results = await db
+        .select()
+        .from(exchangeRates)
+        .where(eq(exchangeRates.currency, currency.toUpperCase()))
+        .orderBy(exchangeRates.date);
+
+      const filteredResults = results.filter(r => r.date >= thirtyDaysAgoStr);
+
+      if (filteredResults.length < 2) {
+        console.log(`[Inflation] Not enough data to calculate inflation rate for ${currency}`);
+        return null;
+      }
+
+      // Calculate daily changes
+      const dailyChanges: number[] = [];
+      for (let i = 1; i < filteredResults.length; i++) {
+        const prevRate = parseFloat(filteredResults[i - 1].rate);
+        const currentRate = parseFloat(filteredResults[i].rate);
+        const change = ((currentRate - prevRate) / prevRate);
+        dailyChanges.push(change);
+      }
+
+      // Calculate average daily rate
+      const avgDailyRate = dailyChanges.reduce((sum, change) => sum + change, 0) / dailyChanges.length;
+      
+      // Convert to monthly rate (compound)
+      const monthlyRate = Math.pow(1 + avgDailyRate, 30) - 1;
+
+      console.log(`[Inflation] ${currency}: Daily ${(avgDailyRate * 100).toFixed(4)}%, Monthly ${(monthlyRate * 100).toFixed(2)}%`);
+
+      return {
+        currency: currency.toUpperCase(),
+        dailyRate: avgDailyRate,
+        monthlyRate,
+      };
+    } catch (error) {
+      console.error('[DB] Error calculating inflation rate:', error);
+      return null;
     }
   }
 }

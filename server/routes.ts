@@ -325,6 +325,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/balance-history/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      const chainId = parseInt(req.query.chainId as string) || 42220;
+      const days = parseInt(req.query.days as string) || 30;
+      
+      const history = await storage.getBalanceHistory(address, chainId, days);
+      res.json(history);
+    } catch (error) {
+      console.error('Error fetching balance history:', error);
+      res.status(500).json({ error: 'Failed to fetch balance history' });
+    }
+  });
+
+  app.get('/api/inflation-rate/:currency', async (req, res) => {
+    try {
+      const { currency } = req.params;
+      
+      const inflationData = await storage.getInflationRate(currency);
+      
+      if (!inflationData) {
+        return res.json({
+          currency: currency.toUpperCase(),
+          dailyRate: 0,
+          monthlyRate: 0,
+        });
+      }
+      
+      res.json(inflationData);
+    } catch (error) {
+      console.error('Error calculating inflation rate:', error);
+      res.status(500).json({ error: 'Failed to calculate inflation rate' });
+    }
+  });
+
   app.get('/api/authorization/:nonce', async (req, res) => {
     try {
       const { nonce } = req.params;
