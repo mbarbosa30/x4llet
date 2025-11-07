@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo } from 'viem/chains';
 import { db } from "./db";
-import { eq, and, or, desc } from "drizzle-orm";
+import { eq, and, or, desc, sql } from "drizzle-orm";
 
 const USDC_ABI = [
   {
@@ -825,6 +825,216 @@ export class DbStorage extends MemStorage {
     } catch (error) {
       console.error('[DB] Error calculating inflation rate:', error);
       return null;
+    }
+  }
+
+  async backfillBalanceHistory(address: string, chainId: number): Promise<{ snapshotsCreated: number; finalBalance: string }> {
+    try {
+      console.log(`[Admin] Starting balance history reconstruction for ${address} on chain ${chainId}`);
+      
+      // Get all cached transactions for this address
+      const transactions = await this.getTransactions(address, chainId);
+      
+      if (transactions.length === 0) {
+        console.log(`[Admin] No transactions found for ${address}`);
+        return { snapshotsCreated: 0, finalBalance: '0' };
+      }
+
+      // Sort transactions by timestamp (oldest first)
+      transactions.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+      let runningBalance = BigInt(0);
+      let snapshotsCreated = 0;
+
+      // Process each transaction and create balance snapshots
+      for (const tx of transactions) {
+        if (tx.status !== 'completed') continue;
+
+        const amount = BigInt(tx.amount.replace('.', '').padEnd(7, '0'));
+
+        if (tx.type === 'receive') {
+          runningBalance += amount;
+        } else if (tx.type === 'send') {
+          runningBalance -= amount;
+        }
+
+        // Insert balance snapshot at transaction time
+        try {
+          await db.insert(balanceHistory).values({
+            address,
+            chainId,
+            balance: runningBalance.toString(),
+            timestamp: new Date(tx.timestamp),
+          });
+          snapshotsCreated++;
+        } catch (error) {
+          // Skip duplicates
+          console.log(`[Admin] Skipping duplicate snapshot for ${tx.txHash}`);
+        }
+      }
+
+      const finalBalance = (Number(runningBalance) / 1e6).toFixed(6);
+      console.log(`[Admin] Created ${snapshotsCreated} balance snapshots. Final balance: ${finalBalance} USDC`);
+
+      return {
+        snapshotsCreated,
+        finalBalance,
+      };
+    } catch (error) {
+      console.error('[Admin] Error backfilling balance history:', error);
+      throw error;
+    }
+  }
+
+  async backfillExchangeRates(): Promise<{ ratesAdded: number; currencies: string[] }> {
+    try {
+      console.log('[Admin] Starting exchange rate backfill from Frankfurter API');
+      
+      const currencies = ['EUR', 'GBP', 'JPY', 'ARS', 'BRL', 'MXN', 'NGN', 'KES'];
+      let ratesAdded = 0;
+
+      // Fetch rates for the past 90 days
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 90);
+
+      const startDateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = endDate.toISOString().split('T')[0];
+
+      // Fetch time series data from Frankfurter
+      const response = await fetch(
+        `https://api.frankfurter.dev/v1/${startDateStr}..${endDateStr}?base=USD&symbols=${currencies.join(',')}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Frankfurter API returned status ${response.status}`);
+      }
+
+      const data = await response.json();
+      const rates = data.rates || {};
+
+      // Insert each date's rates
+      for (const [date, dateRates] of Object.entries(rates)) {
+        for (const currency of currencies) {
+          const rate = (dateRates as any)[currency];
+          if (rate) {
+            try {
+              await db.insert(exchangeRates).values({
+                currency: currency.toUpperCase(),
+                rate: rate.toString(),
+                date: date as string,
+                updatedAt: new Date(),
+              }).onConflictDoNothing();
+              
+              ratesAdded++;
+            } catch (error) {
+              console.log(`[Admin] Skipping existing rate for ${currency} on ${date}`);
+            }
+          }
+        }
+      }
+
+      console.log(`[Admin] Backfilled ${ratesAdded} exchange rate snapshots`);
+
+      return {
+        ratesAdded,
+        currencies,
+      };
+    } catch (error) {
+      console.error('[Admin] Error backfilling exchange rates:', error);
+      throw error;
+    }
+  }
+
+  async clearAllCaches(): Promise<void> {
+    try {
+      console.log('[Admin] Clearing all caches');
+      
+      await db.delete(cachedBalances);
+      await db.delete(cachedTransactions);
+      await db.delete(cachedMaxflowScores);
+      
+      console.log('[Admin] All caches cleared successfully');
+    } catch (error) {
+      console.error('[Admin] Error clearing caches:', error);
+      throw error;
+    }
+  }
+
+  async pruneOldBalanceHistory(): Promise<{ deletedSnapshots: number }> {
+    try {
+      console.log('[Admin] Pruning old balance history');
+      
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+      const result = await db
+        .delete(balanceHistory)
+        .where(sql`${balanceHistory.timestamp} < ${ninetyDaysAgo}`);
+      
+      // Drizzle doesn't return row count, so we'll return 0 for now
+      console.log('[Admin] Old balance history pruned');
+
+      return {
+        deletedSnapshots: 0,
+      };
+    } catch (error) {
+      console.error('[Admin] Error pruning old data:', error);
+      throw error;
+    }
+  }
+
+  async getAdminStats(): Promise<{
+    totalWallets: number;
+    totalTransactions: number;
+    cachedBalances: number;
+    exchangeRateSnapshots: number;
+    balanceHistoryPoints: number;
+  }> {
+    try {
+      const [walletsResult] = await db.select({ count: sql<number>`count(*)` }).from(wallets);
+      const [txResult] = await db.select({ count: sql<number>`count(*)` }).from(cachedTransactions);
+      const [balancesResult] = await db.select({ count: sql<number>`count(*)` }).from(cachedBalances);
+      const [ratesResult] = await db.select({ count: sql<number>`count(*)` }).from(exchangeRates);
+      const [historyResult] = await db.select({ count: sql<number>`count(*)` }).from(balanceHistory);
+
+      return {
+        totalWallets: Number(walletsResult.count),
+        totalTransactions: Number(txResult.count),
+        cachedBalances: Number(balancesResult.count),
+        exchangeRateSnapshots: Number(ratesResult.count),
+        balanceHistoryPoints: Number(historyResult.count),
+      };
+    } catch (error) {
+      console.error('[Admin] Error fetching stats:', error);
+      throw error;
+    }
+  }
+
+  async getRecentActivity(): Promise<Array<{
+    txHash: string;
+    from: string;
+    to: string;
+    amount: string;
+    timestamp: string;
+  }>> {
+    try {
+      const results = await db
+        .select()
+        .from(cachedTransactions)
+        .orderBy(desc(cachedTransactions.timestamp))
+        .limit(20);
+
+      return results.map(tx => ({
+        txHash: tx.txHash,
+        from: tx.from,
+        to: tx.to,
+        amount: tx.amount,
+        timestamp: tx.timestamp.toISOString(),
+      }));
+    } catch (error) {
+      console.error('[Admin] Error fetching recent activity:', error);
+      throw error;
     }
   }
 }

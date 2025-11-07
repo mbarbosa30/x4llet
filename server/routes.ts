@@ -681,6 +681,134 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/admin/backfill-balances/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      const chainId = parseInt(req.query.chainId as string) || 42220;
+      
+      const result = await storage.backfillBalanceHistory(address, chainId);
+      
+      res.json({
+        snapshotsCreated: result.snapshotsCreated,
+        finalBalance: result.finalBalance,
+      });
+    } catch (error) {
+      console.error('Error backfilling balance history:', error);
+      res.status(500).json({ error: 'Failed to backfill balance history' });
+    }
+  });
+
+  app.post('/api/admin/backfill-exchange-rates', async (req, res) => {
+    try {
+      const result = await storage.backfillExchangeRates();
+      
+      res.json({
+        ratesAdded: result.ratesAdded,
+        currencies: result.currencies,
+      });
+    } catch (error) {
+      console.error('Error backfilling exchange rates:', error);
+      res.status(500).json({ error: 'Failed to backfill exchange rates' });
+    }
+  });
+
+  app.post('/api/admin/clear-caches', async (req, res) => {
+    try {
+      await storage.clearAllCaches();
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error clearing caches:', error);
+      res.status(500).json({ error: 'Failed to clear caches' });
+    }
+  });
+
+  app.post('/api/admin/prune-old-data', async (req, res) => {
+    try {
+      const result = await storage.pruneOldBalanceHistory();
+      
+      res.json({
+        deletedSnapshots: result.deletedSnapshots,
+      });
+    } catch (error) {
+      console.error('Error pruning old data:', error);
+      res.status(500).json({ error: 'Failed to prune old data' });
+    }
+  });
+
+  app.get('/api/admin/stats', async (req, res) => {
+    try {
+      const stats = await storage.getAdminStats();
+      res.json(stats);
+    } catch (error) {
+      console.error('Error fetching admin stats:', error);
+      res.status(500).json({ error: 'Failed to fetch admin stats' });
+    }
+  });
+
+  app.get('/api/admin/health', async (req, res) => {
+    try {
+      const health = {
+        maxflowApi: await checkMaxFlowHealth(),
+        frankfurterApi: await checkFrankfurterHealth(),
+        baseRpc: await checkRpcHealth(8453),
+        celoRpc: await checkRpcHealth(42220),
+      };
+      
+      res.json(health);
+    } catch (error) {
+      console.error('Error checking API health:', error);
+      res.status(500).json({ error: 'Failed to check API health' });
+    }
+  });
+
+  app.get('/api/admin/recent-activity', async (req, res) => {
+    try {
+      const activity = await storage.getRecentActivity();
+      res.json(activity);
+    } catch (error) {
+      console.error('Error fetching recent activity:', error);
+      res.status(500).json({ error: 'Failed to fetch recent activity' });
+    }
+  });
+
+  async function checkMaxFlowHealth(): Promise<boolean> {
+    try {
+      const response = await fetch('https://maxflow.one/api/epoch/current', {
+        signal: AbortSignal.timeout(5000),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async function checkFrankfurterHealth(): Promise<boolean> {
+    try {
+      const response = await fetch('https://api.frankfurter.dev/v1/latest?base=USD', {
+        signal: AbortSignal.timeout(5000),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async function checkRpcHealth(chainId: number): Promise<boolean> {
+    try {
+      const config = getNetworkConfig(chainId);
+      const viemChain = chainId === 8453 ? base : celo;
+      const client = createPublicClient({
+        chain: viemChain,
+        transport: http(config.rpcUrl),
+      });
+      
+      await client.getBlockNumber();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   const httpServer = createServer(app);
   return httpServer;
 }
