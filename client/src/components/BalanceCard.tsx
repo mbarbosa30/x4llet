@@ -85,6 +85,20 @@ export default function BalanceCard({
     value: parseFloat(point.balance) / 1e6, // Convert to USDC units
   })) || [];
 
+  // Calculate Y-axis domain with 10% padding for better framing
+  const getYDomain = (): [number | string, number | string] => {
+    if (chartData.length === 0) return ['dataMin', 'dataMax'];
+    
+    const values = chartData.map(d => d.value);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min;
+    
+    // Add 10% padding to top and bottom
+    const padding = range * 0.1;
+    return [min - padding, max + padding];
+  };
+
   const displayFiatValue = animatedFiatValue !== null
     ? animatedFiatValue.toFixed(2)
     : fiatValue;
@@ -96,7 +110,7 @@ export default function BalanceCard({
         <div className="absolute inset-0 opacity-10">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-              <YAxis domain={['dataMin', 'dataMax']} hide />
+              <YAxis domain={getYDomain()} hide />
               <Line 
                 type="monotone" 
                 dataKey="value" 
