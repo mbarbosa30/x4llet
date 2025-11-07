@@ -2,17 +2,22 @@
  * Smart amount formatter that shows clean amounts for readability
  * while preserving precision for very small values
  * 
+ * Accepts micro-USDC integers (6 decimals) as strings or numbers and formats for display
+ * 
  * Rules:
  * - Amounts >= 0.01: Show 2 decimals (e.g., "5.12", "100.50")
  * - Amounts < 0.01: Show up to 6 significant decimals (e.g., "0.000123", "0.0000056")
  * - Strips trailing zeros after decimal point
  */
 export function formatAmount(amount: string | number, currency: string = 'USDC'): string {
-  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  // Convert micro-USDC to USDC (divide by 1e6)
+  const microAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
   
-  if (isNaN(numAmount)) {
+  if (isNaN(microAmount)) {
     return '0.00';
   }
+  
+  const numAmount = microAmount / 1e6;
   
   // For amounts >= 0.01, show 2 decimals
   if (numAmount >= 0.01) {

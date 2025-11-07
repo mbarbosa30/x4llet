@@ -89,13 +89,15 @@ async function fetchTransactionsFromEtherscan(address: string, chainId: number):
       const normalizedTo = tx.to.toLowerCase();
       
       const isSend = normalizedFrom === normalizedWallet;
-      const amount = formatUsdcAmount(tx.value);
+      // Store raw micro-USDC value to preserve full 6-decimal precision
+      const amount = tx.value;
 
       console.log(`[Transaction Type Detection] TX ${tx.hash.slice(0, 10)}...`);
       console.log(`  Wallet: ${normalizedWallet}`);
       console.log(`  From:   ${normalizedFrom}`);
       console.log(`  To:     ${normalizedTo}`);
       console.log(`  Type:   ${isSend ? 'SEND' : 'RECEIVE'}`);
+      console.log(`  Amount: ${amount} micro-USDC`);
 
       return {
         id: tx.hash,
@@ -868,11 +870,8 @@ export class DbStorage extends MemStorage {
 
       // Work backwards: for each transaction, calculate what the balance was BEFORE it
       for (const tx of completedTxs) {
-        // Parse amount correctly: split on decimal, pad fractional part to 6 digits
-        const parts = tx.amount.split('.');
-        const whole = parts[0] || '0';
-        const fraction = (parts[1] || '0').padEnd(6, '0').slice(0, 6);
-        const amount = BigInt(whole + fraction);
+        // Parse amount as micro-USDC integer (stored as string)
+        const amount = BigInt(tx.amount);
 
         // Record balance AFTER this transaction (before going backwards)
         snapshots.push({
@@ -964,16 +963,23 @@ export class DbStorage extends MemStorage {
           const rate = (dateRates as any)[currency];
           if (rate) {
             try {
-              await db.insert(exchangeRates).values({
+              const result = await db.insert(exchangeRates).values({
                 currency: currency.toUpperCase(),
                 rate: rate.toString(),
                 date: date as string,
                 updatedAt: new Date(),
-              }).onConflictDoNothing();
+              }).onConflictDoUpdate({
+                target: [exchangeRates.currency, exchangeRates.date],
+                set: {
+                  rate: rate.toString(),
+                  updatedAt: new Date(),
+                },
+              });
               
               ratesAdded++;
             } catch (error) {
-              console.log(`[Admin] Error inserting rate for ${currency} on ${date}:`, error);
+              console.error(`[Admin] Error inserting rate for ${currency} on ${date}:`, error);
+              throw error;
             }
           } else {
             console.log(`[Admin] Missing rate for ${currency} on ${date}`);

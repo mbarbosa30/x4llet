@@ -166,7 +166,7 @@ export default function Home() {
           <TransactionList 
             transactions={transactions.map(tx => {
               const fiatAmount = exchangeRate 
-                ? (parseFloat(tx.amount) * exchangeRate.rate).toFixed(2)
+                ? ((parseFloat(tx.amount) / 1e6) * exchangeRate.rate).toFixed(2)
                 : null;
               
               return {

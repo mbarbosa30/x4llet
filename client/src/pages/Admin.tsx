@@ -455,7 +455,7 @@ export default function Admin() {
                 {recentActivity.map((tx) => (
                   <div key={tx.txHash} className="text-xs p-2 bg-muted rounded-md">
                     <div className="flex justify-between mb-1">
-                      <span className="font-mono">{tx.amount} USDC</span>
+                      <span className="font-mono">{(parseFloat(tx.amount) / 1e6).toFixed(6)} USDC</span>
                       <span className="text-muted-foreground">
                         {new Date(tx.timestamp).toLocaleString()}
                       </span>
