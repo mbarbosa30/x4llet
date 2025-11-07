@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
+import { formatAmount } from '@/lib/formatAmount';
 
 interface AdminStats {
   totalWallets: number;
@@ -509,7 +510,7 @@ export default function Admin() {
                 {recentActivity.map((tx) => (
                   <div key={tx.txHash} className="text-xs p-2 bg-muted rounded-md">
                     <div className="flex justify-between mb-1">
-                      <span className="font-mono">{(parseFloat(tx.amount) / 1e6).toFixed(6)} USDC</span>
+                      <span className="font-mono">{formatAmount(tx.amount)}</span>
                       <span className="text-muted-foreground">
                         {new Date(tx.timestamp).toLocaleString()}
                       </span>

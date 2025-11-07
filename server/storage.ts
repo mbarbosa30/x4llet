@@ -192,7 +192,7 @@ export class MemStorage implements IStorage {
         type: 'receive',
         from: '0x9f8a26F2C9F90C4E3c8b12D7E3A4B5C6D7E8F9A0',
         to: mockAddress,
-        amount: '250.00',
+        amount: '250000000', // 250.00 USDC in micro-USDC
         timestamp: new Date(Date.now() - 5 * 60000).toISOString(),
         status: 'completed',
         txHash: '0xabc123...',
@@ -202,7 +202,7 @@ export class MemStorage implements IStorage {
         type: 'send',
         from: mockAddress,
         to: '0x1234567890abcdef1234567890abcdef12345678',
-        amount: '50.00',
+        amount: '50000000', // 50.00 USDC in micro-USDC
         timestamp: new Date(Date.now() - 120 * 60000).toISOString(),
         status: 'completed',
         txHash: '0xdef456...',
@@ -212,7 +212,7 @@ export class MemStorage implements IStorage {
         type: 'receive',
         from: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
         to: mockAddress,
-        amount: '1000.00',
+        amount: '1000000000', // 1000.00 USDC in micro-USDC
         timestamp: new Date(Date.now() - 24 * 60 * 60000).toISOString(),
         status: 'completed',
         txHash: '0x789ghi...',
@@ -221,6 +221,7 @@ export class MemStorage implements IStorage {
 
     this.balances.set(`${mockAddress}-8453`, {
       balance: '1250.00',
+      balanceMicro: '1250000000', // 1250.00 USDC in micro-USDC
       decimals: 6,
       nonce: randomUUID().replace(/-/g, '').slice(0, 32),
       transactions: mockTransactions,
@@ -274,9 +275,12 @@ export class MemStorage implements IStorage {
       
       console.log(`[Balance API] Raw balance from blockchain: ${balance.toString()}`);
       
-      // Convert from 6 decimals to human readable (using BigInt to preserve precision)
+      // Store canonical micro-USDC integer
+      const balanceMicro = balance.toString();
+      
+      // Convert to human readable for display (using BigInt to preserve precision)
       const balanceInUsdc = formatUsdcAmount(balance);
-      console.log(`[Balance API] Converted balance: ${balanceInUsdc} USDC`);
+      console.log(`[Balance API] Balance: ${balanceInUsdc} USDC (${balanceMicro} micro-USDC)`);
       
       // Fetch on-chain transactions using Etherscan v2 unified API
       console.log('[Balance API] Fetching on-chain transaction history...');
@@ -312,6 +316,7 @@ export class MemStorage implements IStorage {
       
       const response: BalanceResponse = {
         balance: balanceInUsdc,
+        balanceMicro,
         decimals: 6,
         nonce: randomUUID().replace(/-/g, '').slice(0, 32),
         transactions,
@@ -338,6 +343,7 @@ export class MemStorage implements IStorage {
       console.log('[Balance API] No cache available, returning zero balance');
       const fallback: BalanceResponse = {
         balance: '0.00',
+        balanceMicro: '0',
         decimals: 6,
         nonce: randomUUID().replace(/-/g, '').slice(0, 32),
         transactions: [],
@@ -359,14 +365,31 @@ export class MemStorage implements IStorage {
     if (existing) {
       existing.transactions.unshift(tx);
       
-      const txAmount = parseFloat(tx.amount);
-      const currentBalance = parseFloat(existing.balance);
-      
-      if (tx.type === 'receive') {
-        existing.balance = (currentBalance + txAmount).toFixed(2);
+      // Convert amount to micro-USDC if it's in legacy decimal format
+      let txAmountMicro: bigint;
+      if (tx.amount.includes('.')) {
+        // Legacy decimal format (e.g., "50.00") - convert to micro-USDC
+        const parts = tx.amount.split('.');
+        const whole = parts[0] || '0';
+        const fraction = (parts[1] || '0').padEnd(6, '0').slice(0, 6);
+        txAmountMicro = BigInt(whole + fraction);
       } else {
-        existing.balance = (currentBalance - txAmount).toFixed(2);
+        // Already in micro-USDC format (e.g., "50000000")
+        txAmountMicro = BigInt(tx.amount);
       }
+      
+      const currentBalanceMicro = BigInt(existing.balanceMicro);
+      
+      let newBalanceMicro: bigint;
+      if (tx.type === 'receive') {
+        newBalanceMicro = currentBalanceMicro + txAmountMicro;
+      } else {
+        newBalanceMicro = currentBalanceMicro - txAmountMicro;
+      }
+      
+      // Update both micro and display formats
+      existing.balanceMicro = newBalanceMicro.toString();
+      existing.balance = (Number(newBalanceMicro) / 1e6).toFixed(2);
     }
   }
 
@@ -475,8 +498,16 @@ export class DbStorage extends MemStorage {
       
       const transactions = await this.getTransactions(address, chainId);
       
+      // Parse cached balance to get micro-USDC
+      // Cached balance is stored as decimal string (legacy format)
+      const balanceParts = cached[0].balance.split('.');
+      const balanceWhole = balanceParts[0] || '0';
+      const balanceFraction = (balanceParts[1] || '0').padEnd(6, '0').slice(0, 6);
+      const balanceMicro = balanceWhole + balanceFraction;
+      
       return {
         balance: cached[0].balance,
+        balanceMicro,
         decimals: cached[0].decimals,
         nonce: cached[0].nonce,
         transactions,
@@ -860,11 +891,8 @@ export class DbStorage extends MemStorage {
         throw new Error('Failed to fetch current on-chain balance');
       }
       
-      // Parse current balance correctly: split on decimal, pad fractional part to 6 digits
-      const balanceParts = currentBalanceResult.balance.split('.');
-      const balanceWhole = balanceParts[0] || '0';
-      const balanceFraction = (balanceParts[1] || '0').padEnd(6, '0').slice(0, 6);
-      const currentBalanceMicro = BigInt(balanceWhole + balanceFraction);
+      // Use the canonical micro-USDC integer directly
+      const currentBalanceMicro = BigInt(currentBalanceResult.balanceMicro);
       console.log(`[Admin] Current on-chain balance: ${currentBalanceResult.balance} USDC (${currentBalanceMicro} micro-USDC)`);
       
       // Get all cached transactions for this address
@@ -890,8 +918,19 @@ export class DbStorage extends MemStorage {
 
       // Work backwards: for each transaction, calculate what the balance was BEFORE it
       for (const tx of completedTxs) {
-        // Parse amount as micro-USDC integer (stored as string)
-        const amount = BigInt(tx.amount);
+        // Parse amount as micro-USDC integer, converting from legacy decimal if needed
+        let amount: bigint;
+        if (tx.amount.includes('.')) {
+          // Legacy decimal format - convert to micro-USDC
+          const parts = tx.amount.split('.');
+          const whole = parts[0] || '0';
+          const fraction = (parts[1] || '0').padEnd(6, '0').slice(0, 6);
+          amount = BigInt(whole + fraction);
+          console.log(`[Admin] Converted legacy amount "${tx.amount}" to micro-USDC: ${amount}`);
+        } else {
+          // Already in micro-USDC format
+          amount = BigInt(tx.amount);
+        }
 
         // Record balance AFTER this transaction (before going backwards)
         snapshots.push({

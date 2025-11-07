@@ -122,7 +122,8 @@ export interface UserPreferences {
 }
 
 export const balanceResponseSchema = z.object({
-  balance: z.string(),
+  balance: z.string(), // Display format (e.g., "5.12")
+  balanceMicro: z.string(), // Canonical micro-USDC integer (e.g., "5120000")
   decimals: z.number(),
   nonce: z.string(),
   transactions: z.array(z.object({
@@ -130,7 +131,7 @@ export const balanceResponseSchema = z.object({
     type: z.enum(['send', 'receive']),
     from: z.string(),
     to: z.string(),
-    amount: z.string(),
+    amount: z.string(), // micro-USDC integer (e.g., "1000000" = 1 USDC)
     timestamp: z.string(),
     status: z.enum(['pending', 'completed', 'failed']),
     txHash: z.string().optional(),
