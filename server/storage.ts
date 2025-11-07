@@ -984,73 +984,90 @@ export class DbStorage extends MemStorage {
 
   async backfillExchangeRates(): Promise<{ ratesAdded: number; currencies: string[] }> {
     try {
-      console.log('[Admin] Starting exchange rate backfill from Frankfurter API');
+      console.log('[Admin] Starting exchange rate backfill from Currency API');
       
-      const currencies = ['EUR', 'GBP', 'JPY', 'ARS', 'BRL', 'MXN', 'NGN', 'KES'];
+      const currencies = ['eur', 'gbp', 'jpy', 'ars', 'brl', 'mxn', 'ngn', 'kes', 'inr', 'cad', 'aud'];
       let ratesAdded = 0;
 
       // Fetch rates for the past 90 days
       const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 90);
-
-      const startDateStr = startDate.toISOString().split('T')[0];
-      const endDateStr = endDate.toISOString().split('T')[0];
-
-      const apiUrl = `https://api.frankfurter.dev/v1/${startDateStr}..${endDateStr}?base=USD&symbols=${currencies.join(',')}`;
-      console.log(`[Admin] Fetching from: ${apiUrl}`);
-      console.log(`[Admin] Date range: ${startDateStr} to ${endDateStr}`);
-
-      // Fetch time series data from Frankfurter
-      const response = await fetch(apiUrl);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[Admin] Frankfurter API error: ${response.status} ${errorText}`);
-        throw new Error(`Frankfurter API returned status ${response.status}`);
+      const dates: string[] = [];
+      
+      for (let i = 0; i <= 90; i++) {
+        const date = new Date(endDate);
+        date.setDate(date.getDate() - i);
+        dates.push(date.toISOString().split('T')[0]);
       }
 
-      const data = await response.json();
-      console.log(`[Admin] Frankfurter API response keys:`, Object.keys(data));
-      console.log(`[Admin] Number of dates in response:`, Object.keys(data.rates || {}).length);
-      
-      const rates = data.rates || {};
+      console.log(`[Admin] Fetching exchange rates for ${dates.length} days`);
+      console.log(`[Admin] Date range: ${dates[dates.length - 1]} to ${dates[0]}`);
 
-      // Insert each date's rates
-      for (const [date, dateRates] of Object.entries(rates)) {
-        for (const currency of currencies) {
-          const rate = (dateRates as any)[currency];
-          if (rate) {
+      // CDN URLs for fallback
+      const getCdnUrls = (dateStr: string) => [
+        `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${dateStr}/v1/currencies/usd.json`,
+        `https://${dateStr}.currency-api.pages.dev/v1/currencies/usd.json`
+      ];
+
+      // Fetch data for each date
+      for (const dateStr of dates) {
+        try {
+          let data = null;
+          
+          // Try both CDN endpoints
+          for (const apiUrl of getCdnUrls(dateStr)) {
             try {
-              const result = await db.insert(exchangeRates).values({
-                currency: currency.toUpperCase(),
-                rate: rate.toString(),
-                date: date as string,
-                updatedAt: new Date(),
-              }).onConflictDoUpdate({
-                target: [exchangeRates.currency, exchangeRates.date],
-                set: {
-                  rate: rate.toString(),
-                  updatedAt: new Date(),
-                },
-              });
-              
-              ratesAdded++;
-            } catch (error) {
-              console.error(`[Admin] Error inserting rate for ${currency} on ${date}:`, error);
-              throw error;
+              const response = await fetch(apiUrl);
+              if (response.ok) {
+                data = await response.json();
+                break;
+              }
+            } catch (e) {
+              continue;
             }
-          } else {
-            console.log(`[Admin] Missing rate for ${currency} on ${date}`);
           }
+
+          if (!data || !data.usd) {
+            console.warn(`[Admin] No data available for ${dateStr}, skipping`);
+            continue;
+          }
+
+          // Insert rates for each currency
+          for (const currency of currencies) {
+            const rate = data.usd[currency];
+            if (rate) {
+              try {
+                await db.insert(exchangeRates).values({
+                  currency: currency.toUpperCase(),
+                  rate: rate.toString(),
+                  date: dateStr,
+                  updatedAt: new Date(),
+                }).onConflictDoUpdate({
+                  target: [exchangeRates.currency, exchangeRates.date],
+                  set: {
+                    rate: rate.toString(),
+                    updatedAt: new Date(),
+                  },
+                });
+                
+                ratesAdded++;
+              } catch (error) {
+                console.error(`[Admin] Error inserting rate for ${currency} on ${dateStr}:`, error);
+              }
+            }
+          }
+          
+          // Small delay to avoid overwhelming the CDN
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (error) {
+          console.error(`[Admin] Error fetching data for ${dateStr}:`, error);
         }
       }
 
-      console.log(`[Admin] Backfilled ${ratesAdded} exchange rate snapshots from ${Object.keys(rates).length} dates`);
+      console.log(`[Admin] Backfilled ${ratesAdded} exchange rate snapshots across ${dates.length} dates`);
 
       return {
         ratesAdded,
-        currencies,
+        currencies: currencies.map(c => c.toUpperCase()),
       };
     } catch (error) {
       console.error('[Admin] Error backfilling exchange rates:', error);
