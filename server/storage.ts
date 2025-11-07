@@ -142,6 +142,7 @@ export interface InflationData {
   currency: string;
   dailyRate: number; // average daily inflation/deflation rate
   monthlyRate: number; // average monthly rate for display
+  annualRate: number; // annualized rate for animations
 }
 
 export interface IStorage {
@@ -891,15 +892,17 @@ export class DbStorage extends MemStorage {
       // Calculate average daily rate
       const avgDailyRate = dailyChanges.reduce((sum, change) => sum + change, 0) / dailyChanges.length;
       
-      // Convert to monthly rate (compound)
+      // Convert to monthly and annual rates (compound)
       const monthlyRate = Math.pow(1 + avgDailyRate, 30) - 1;
+      const annualRate = Math.pow(1 + avgDailyRate, 365) - 1;
 
-      console.log(`[Inflation] ${currency}: Daily ${(avgDailyRate * 100).toFixed(4)}%, Monthly ${(monthlyRate * 100).toFixed(2)}% (based on ${filteredResults.length} days of data)`);
+      console.log(`[Inflation] ${currency}: Daily ${(avgDailyRate * 100).toFixed(4)}%, Monthly ${(monthlyRate * 100).toFixed(2)}%, Annual ${(annualRate * 100).toFixed(2)}% (based on ${filteredResults.length} days of data)`);
 
       return {
         currency: currency.toUpperCase(),
         dailyRate: avgDailyRate,
         monthlyRate,
+        annualRate,
       };
     } catch (error) {
       console.error('[DB] Error calculating inflation rate:', error);

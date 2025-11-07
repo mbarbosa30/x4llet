@@ -47,20 +47,29 @@ export function useInflationAnimation({
     // Per-second decay rate (continuous compounding)
     const secondlyRate = inflationRate / (365 * 24 * 60 * 60);
     
-    // Calculate absolute change in value per second
-    const changePerSecond = baseValue * secondlyRate;
+    // Calculate absolute change in value per second (handle both inflation and deflation)
+    const changePerSecond = Math.abs(baseValue * secondlyRate);
     
-    // Find minimum precision where change is visible (≥ 1 full unit at that decimal place)
+    // Find minimum precision where change is visible (at least 1 unit change per second)
+    // For precision p, one unit is 10^-p
+    // We need: changePerSecond >= 10^-p
+    // Therefore: p <= -log10(changePerSecond)
     let requiredPrecision = 2;
-    for (let p = 3; p <= 5; p++) {
-      const threshold = 1 / Math.pow(10, p); // One full unit at this decimal place
-      if (changePerSecond >= threshold) {
-        requiredPrecision = p;
-        break;
+    
+    if (changePerSecond > 0) {
+      // Use ceil to ensure change is always >= one unit at this precision
+      // Example: changePerSecond = 0.0003, ceil(-log10(0.0003)) = ceil(3.52) = 4
+      // At precision 4, one unit = 0.0001, so 0.0003 >= 0.0001 ✓
+      const minPrecision = Math.ceil(-Math.log10(changePerSecond));
+      
+      // Only show extra decimals if we can achieve per-second visibility within 5 decimals
+      // If required precision > 5, inflation is too low to show per-second changes
+      if (minPrecision >= 3 && minPrecision <= 5) {
+        requiredPrecision = minPrecision;
       }
+      // Otherwise stick with 2 decimals (no extra decimals shown)
     }
     
-    // Only show extra decimals if change is visible beyond 2 decimals
     setPrecision(requiredPrecision);
   }, [baseValue, inflationRate, enabled]);
 

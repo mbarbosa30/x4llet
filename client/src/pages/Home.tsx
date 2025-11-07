@@ -132,7 +132,8 @@ export default function Home() {
           <BalanceCard 
             balance={balance}
             currency="USDC"
-            fiatValue={fiatValue}
+            balanceMicro={balanceData?.balanceMicro}
+            exchangeRate={exchangeRate?.rate}
             fiatCurrency={currency}
             address={address}
             chainId={chainId}

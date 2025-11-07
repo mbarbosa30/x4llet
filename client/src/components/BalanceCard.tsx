@@ -1,12 +1,14 @@
 import { Card } from '@/components/ui/card';
 import { useQuery } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
+import { useInflationAnimation } from '@/hooks/use-inflation-animation';
+import AnimatedBalance from './AnimatedBalance';
 
 interface BalanceCardProps {
   balance: string;
   currency: string;
-  fiatValue?: string;
+  balanceMicro?: string; // Micro-USDC balance for animation
+  exchangeRate?: number; // Exchange rate for local currency
   fiatCurrency?: string;
   address?: string;
   chainId?: number;
@@ -21,17 +23,18 @@ interface InflationData {
   currency: string;
   dailyRate: number;
   monthlyRate: number;
+  annualRate: number;
 }
 
 export default function BalanceCard({ 
   balance, 
   currency, 
-  fiatValue, 
+  balanceMicro,
+  exchangeRate,
   fiatCurrency = 'USD',
   address,
   chainId,
 }: BalanceCardProps) {
-  const [animatedFiatValue, setAnimatedFiatValue] = useState<number | null>(null);
 
   // Fetch balance history for chart (90 days)
   const { data: balanceHistory } = useQuery<BalanceHistoryPoint[]>({
@@ -47,7 +50,7 @@ export default function BalanceCard({
   // Fetch inflation rate for animation
   const { data: inflationData } = useQuery<InflationData>({
     queryKey: ['/api/inflation-rate', fiatCurrency],
-    enabled: !!fiatValue,
+    enabled: !!balanceMicro && !!exchangeRate,
     queryFn: async () => {
       const res = await fetch(`/api/inflation-rate/${fiatCurrency}`);
       if (!res.ok) throw new Error('Failed to fetch inflation rate');
@@ -55,30 +58,13 @@ export default function BalanceCard({
     },
   });
 
-  // Initialize animated value when fiatValue changes
-  useEffect(() => {
-    if (fiatValue) {
-      setAnimatedFiatValue(parseFloat(fiatValue));
-    }
-  }, [fiatValue]);
-
-  // Animate fiat value based on inflation rate
-  useEffect(() => {
-    if (!inflationData || animatedFiatValue === null || inflationData.dailyRate === 0) {
-      return;
-    }
-
-    const secondlyRate = inflationData.dailyRate / (24 * 60 * 60);
-    
-    const interval = setInterval(() => {
-      setAnimatedFiatValue((prev) => {
-        if (prev === null) return prev;
-        return prev * (1 + secondlyRate);
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [inflationData, animatedFiatValue]);
+  // Animate fiat value with inflation effect
+  const animation = useInflationAnimation({
+    usdcMicro: balanceMicro || '0',
+    exchangeRate: exchangeRate || 1,
+    inflationRate: inflationData?.annualRate || 0,
+    enabled: !!balanceMicro && !!exchangeRate && !!inflationData,
+  });
 
   // Prepare chart data
   const chartData = balanceHistory?.map((point) => ({
@@ -98,10 +84,6 @@ export default function BalanceCard({
     const padding = range * 0.1;
     return [min - padding, max + padding];
   };
-
-  const displayFiatValue = animatedFiatValue !== null
-    ? animatedFiatValue.toFixed(2)
-    : fiatValue;
 
   return (
     <Card className="p-8 text-center relative overflow-hidden" data-testid="card-balance">
@@ -130,13 +112,22 @@ export default function BalanceCard({
         <div className="text-5xl font-medium tabular-nums mb-2" data-testid="text-balance">
           {balance}
         </div>
-        {displayFiatValue && (
-          <div className="text-sm text-muted-foreground" data-testid="text-fiat-value">
-            ≈ {fiatCurrency} {displayFiatValue}
-            {inflationData && inflationData.dailyRate !== 0 && (
-              <span className="ml-1 text-xs opacity-60">
-                ({inflationData.dailyRate > 0 ? '+' : ''}{(inflationData.monthlyRate * 100).toFixed(2)}%/mo)
-              </span>
+        {balanceMicro && exchangeRate && (
+          <div className="text-sm" data-testid="text-fiat-value">
+            <div className="flex items-center justify-center">
+              <span className="text-muted-foreground mr-2">≈</span>
+              <AnimatedBalance
+                value={animation.animatedValue}
+                mainDecimals={animation.mainDecimals}
+                extraDecimals={animation.extraDecimals}
+                currency={fiatCurrency}
+                className="text-muted-foreground"
+              />
+            </div>
+            {inflationData && inflationData.monthlyRate !== 0 && (
+              <div className="text-xs opacity-60 mt-1">
+                ({inflationData.monthlyRate > 0 ? '+' : ''}{(inflationData.monthlyRate * 100).toFixed(2)}%/mo inflation)
+              </div>
             )}
           </div>
         )}

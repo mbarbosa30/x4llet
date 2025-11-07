@@ -365,6 +365,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           currency: currency.toUpperCase(),
           dailyRate: 0,
           monthlyRate: 0,
+          annualRate: 0,
         });
       }
       
