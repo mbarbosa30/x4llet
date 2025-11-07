@@ -288,31 +288,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      // Cache miss - fetch fresh rates from ExchangeRate-API
+      // Cache miss - fetch fresh rates from fawazahmed0 Currency API
       let rate = fallbackRates[currency.toUpperCase()] || 1.00;
 
       try {
-        console.log('[Exchange Rate] Fetching fresh rates from ExchangeRate-API...');
-        const apiResponse = await fetch('https://open.er-api.com/v6/latest/USD');
+        console.log('[Exchange Rate] Fetching fresh rates from Currency API...');
         
-        if (!apiResponse.ok) {
-          console.warn(`[Exchange Rate] API returned status ${apiResponse.status}, using fallback rate`);
-        } else {
-          const data = await apiResponse.json();
-          
-          if (data.result === 'success' && data.rates) {
-            const fetchedRate = data.rates[currency.toUpperCase()];
-            if (fetchedRate) {
-              rate = fetchedRate;
-              
-              // Cache the fresh rate in database
-              await storage.cacheExchangeRate(currency, rate);
-              
-              console.log(`[Exchange Rate] Fresh rate for ${currency} cached: ${rate}`);
+        // Try primary CDN first, fallback to secondary
+        const apiUrls = [
+          'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json',
+          'https://latest.currency-api.pages.dev/v1/currencies/usd.json'
+        ];
+        
+        let data = null;
+        for (const apiUrl of apiUrls) {
+          try {
+            const apiResponse = await fetch(apiUrl);
+            if (apiResponse.ok) {
+              data = await apiResponse.json();
+              break;
             }
-          } else {
-            console.warn('[Exchange Rate] API returned unexpected format, using fallback rate');
+          } catch (e) {
+            continue;
           }
+        }
+        
+        if (data && data.usd) {
+          const fetchedRate = data.usd[currency.toLowerCase()];
+          if (fetchedRate) {
+            rate = fetchedRate;
+            
+            // Cache the fresh rate in database
+            await storage.cacheExchangeRate(currency, rate);
+            
+            console.log(`[Exchange Rate] Fresh rate for ${currency} cached: ${rate}`);
+          }
+        } else {
+          console.warn('[Exchange Rate] API returned unexpected format, using fallback rate');
         }
       } catch (apiError) {
         console.error('[Exchange Rate] Failed to fetch from API, using fallback rate:', apiError);
