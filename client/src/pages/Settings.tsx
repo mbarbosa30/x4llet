@@ -457,6 +457,11 @@ export default function Settings() {
                 <SelectItem value="ARS">ARS - Argentine Peso</SelectItem>
                 <SelectItem value="BRL">BRL - Brazilian Real</SelectItem>
                 <SelectItem value="MXN">MXN - Mexican Peso</SelectItem>
+                <SelectItem value="NGN">NGN - Nigerian Naira</SelectItem>
+                <SelectItem value="KES">KES - Kenyan Shilling</SelectItem>
+                <SelectItem value="INR">INR - Indian Rupee</SelectItem>
+                <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
+                <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
               </SelectContent>
             </Select>
           </div>

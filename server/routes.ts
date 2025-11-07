@@ -276,8 +276,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'ARS': 1000.00,
         'BRL': 4.97,
         'MXN': 17.20,
-        'NGN': 1500.00,
-        'KES': 129.00,
+        'NGN': 1590.00,
+        'KES': 144.00,
+        'INR': 83.50,
+        'CAD': 1.36,
+        'AUD': 1.52,
       };
 
       // Check database cache first
