@@ -20,12 +20,13 @@ export default function AnimatedBalance({
   testId,
 }: AnimatedBalanceProps) {
   const wholePart = Math.floor(value);
+  const formattedWholePart = wholePart.toLocaleString('en-US');
 
   return (
     <div className={`flex items-baseline ${className}`} data-testid={testId}>
       <span className="text-inherit tabular-nums mr-1">{currency}</span>
       <span className="inline-flex items-baseline text-inherit tabular-nums">
-        {wholePart}.{mainDecimals}
+        {formattedWholePart}.{mainDecimals}
         {extraDecimals && (
           <span className="text-[0.5em] text-muted-foreground opacity-70 tabular-nums relative ml-[0.2em]" style={{ top: '-0.5em' }}>
             {extraDecimals}
