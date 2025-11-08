@@ -13,18 +13,24 @@ import {
 import BalanceCard from '@/components/BalanceCard';
 import TransactionList from '@/components/TransactionList';
 import AddressDisplay from '@/components/AddressDisplay';
+import VouchConfirmation from '@/components/VouchConfirmation';
 import { getWallet, getPreferences } from '@/lib/wallet';
 import { formatAmount } from '@/lib/formatAmount';
+import { vouchFor } from '@/lib/maxflow';
+import { useToast } from '@/hooks/use-toast';
 import type { BalanceResponse, Transaction as SchemaTransaction } from '@shared/schema';
 
 export default function Home() {
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const [address, setAddress] = useState<string | null>(null);
   const [currency, setCurrency] = useState('USD');
   const [chainId, setChainId] = useState(42220); // Default to Celo
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
   const [selectedTransaction, setSelectedTransaction] = useState<SchemaTransaction | null>(null);
   const [copiedHash, setCopiedHash] = useState(false);
+  const [pendingReferral, setPendingReferral] = useState<string | null>(null);
+  const [showVouchConfirmation, setShowVouchConfirmation] = useState(false);
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -39,6 +45,13 @@ export default function Home() {
         const prefs = await getPreferences();
         setCurrency(prefs.currency);
         setChainId(prefs.network === 'celo' ? 42220 : 8453);
+        
+        // Check for pending referral
+        const storedReferral = sessionStorage.getItem('pending_referral');
+        if (storedReferral && storedReferral.toLowerCase() !== wallet.address.toLowerCase()) {
+          setPendingReferral(storedReferral);
+          setShowVouchConfirmation(true);
+        }
       } catch (error: any) {
         if (error.message === 'RECOVERY_CODE_REQUIRED') {
           setLocation('/unlock');
@@ -99,6 +112,36 @@ export default function Home() {
     if (fullTransaction) {
       setSelectedTransaction(fullTransaction);
     }
+  };
+
+  const handleConfirmVouch = async () => {
+    if (!pendingReferral) return;
+
+    try {
+      await vouchFor(pendingReferral);
+      toast({
+        title: "Vouch Submitted",
+        description: "You're now vouching for this person in the trust network.",
+      });
+      // Only clear on success
+      sessionStorage.removeItem('pending_referral');
+      setPendingReferral(null);
+      setShowVouchConfirmation(false);
+    } catch (error) {
+      console.error('Failed to vouch for referrer:', error);
+      toast({
+        title: "Vouch Failed",
+        description: "Unable to submit vouch. Please try again or dismiss this request.",
+        variant: "destructive",
+      });
+      // Keep dialog open so user can retry immediately
+    }
+  };
+
+  const handleDismissVouch = () => {
+    sessionStorage.removeItem('pending_referral');
+    setPendingReferral(null);
+    setShowVouchConfirmation(false);
   };
 
   if (isLoadingWallet) {
@@ -274,6 +317,15 @@ export default function Home() {
           )}
         </DialogContent>
       </Dialog>
+
+      {pendingReferral && (
+        <VouchConfirmation
+          referrerAddress={pendingReferral}
+          onConfirm={handleConfirmVouch}
+          onDismiss={handleDismissVouch}
+          open={showVouchConfirmation}
+        />
+      )}
     </div>
   );
 }

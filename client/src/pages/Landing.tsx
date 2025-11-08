@@ -21,6 +21,12 @@ export default function Landing() {
 
         // Auto-redirect unlocked users to home
         if (exists && unlocked) {
+          // Check for referral parameter and persist it
+          const params = new URLSearchParams(window.location.search);
+          const ref = params.get('ref');
+          if (ref) {
+            sessionStorage.setItem('pending_referral', ref);
+          }
           setLocation('/home');
           return;
         }
