@@ -60,8 +60,6 @@ export default function Send() {
         setAddress(wallet.address);
         
         const prefs = await getPreferences();
-        setNetwork(prefs.network);
-        setChainId(prefs.network === 'celo' ? 42220 : 8453);
         setCurrency(prefs.currency);
         
         const storedRequest = sessionStorage.getItem('payment_request');
@@ -69,22 +67,18 @@ export default function Send() {
           try {
             const request: PaymentRequest = JSON.parse(storedRequest);
             const requestNetwork = request.chainId === 42220 ? 'celo' : 'base';
+            const requestChainId = request.chainId;
             
-            if (requestNetwork !== prefs.network) {
-              toast({
-                title: "Wrong Network",
-                description: "Payment request is for a different network",
-                variant: "destructive",
-              });
-            } else {
-              setPaymentRequest(request);
-              setRecipient(request.to);
-              const usdcValue = (parseInt(request.amount) / 1000000).toFixed(6);
-              setUsdcAmount(usdcValue);
-              setInputValue(usdcValue);
-              setMode('online');
-              setStep('input');
-            }
+            // Set network to match payment request
+            setNetwork(requestNetwork);
+            setChainId(requestChainId);
+            setPaymentRequest(request);
+            setRecipient(request.to);
+            const usdcValue = (parseInt(request.amount) / 1000000).toFixed(6);
+            setUsdcAmount(usdcValue);
+            setInputValue(usdcValue);
+            setMode('online');
+            setStep('input');
             sessionStorage.removeItem('payment_request');
           } catch (error) {
             console.error('Failed to parse payment request:', error);
@@ -536,15 +530,20 @@ export default function Send() {
           <h1 className="text-lg font-semibold">Send USDC</h1>
         </div>
         <div className="flex items-center gap-2">
-          <Button 
-            variant="outline"
-            size="sm"
-            onClick={handleNetworkToggle}
-            className="text-xs h-7"
-            data-testid="button-toggle-network"
-          >
-            {network === 'base' ? 'Base' : 'Celo'}
-          </Button>
+          {/* Only show network toggle if user has balance on both chains */}
+          {balanceData?.chains && 
+           BigInt(balanceData.chains.base.balanceMicro) > 0n && 
+           BigInt(balanceData.chains.celo.balanceMicro) > 0n && (
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={handleNetworkToggle}
+              className="text-xs h-7"
+              data-testid="button-toggle-network"
+            >
+              {network === 'base' ? 'Base' : 'Celo'}
+            </Button>
+          )}
           <div className="text-sm text-muted-foreground" data-testid="text-balance">
             {balance} USDC
           </div>
