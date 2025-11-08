@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Shield, Eye, EyeOff, Copy, Check, AlertTriangle } from 'lucide-react';
-import { createWallet } from '@/lib/wallet';
+import { createWallet, detectCurrencyFromLocale, savePreferences } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 import { vouchFor } from '@/lib/maxflow';
 import Footer from '@/components/Footer';
@@ -102,6 +102,16 @@ export default function CreateWallet() {
         variant: "destructive",
       });
       return;
+    }
+    
+    // Auto-detect and save currency preference based on browser locale
+    try {
+      const detectedCurrency = detectCurrencyFromLocale();
+      await savePreferences({ currency: detectedCurrency, language: 'en' });
+      console.log(`Auto-detected currency: ${detectedCurrency}`);
+    } catch (error) {
+      console.error('Failed to save currency preference:', error);
+      // Continue anyway with default USD
     }
     
     // If there's a referrer, create a vouch automatically
