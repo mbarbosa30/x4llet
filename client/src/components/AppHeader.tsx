@@ -85,10 +85,12 @@ export default function AppHeader({ onScanClick }: AppHeaderProps) {
 
   return (
     <header 
-      className="fixed top-0 left-0 right-0 bg-background border-b z-50"
+      className="fixed top-0 left-0 right-0 bg-background border-b"
       style={{ 
         paddingTop: 'env(safe-area-inset-top)',
-        height: 'calc(4rem + env(safe-area-inset-top))'
+        height: 'calc(4rem + env(safe-area-inset-top))',
+        position: 'fixed',
+        zIndex: 9999
       }}
     >
       <div className="flex items-center justify-between px-4 h-16">

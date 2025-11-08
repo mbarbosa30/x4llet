@@ -9,8 +9,12 @@ export default function BottomNav() {
 
   return (
     <nav 
-      className="fixed bottom-0 left-0 right-0 bg-background border-t z-50"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      className="fixed bottom-0 left-0 right-0 bg-background border-t"
+      style={{ 
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        position: 'fixed',
+        zIndex: 9999
+      }}
       data-testid="bottom-nav"
     >
       <div className="max-w-md mx-auto h-16 flex items-center px-2">
