@@ -200,7 +200,7 @@ export default function BalanceCard({
       <div className="relative z-10">
         <div className="text-sm text-muted-foreground mb-2">{currency} Balance</div>
         <div className="text-5xl font-medium tabular-nums mb-2 flex items-center justify-center" data-testid="text-balance">
-          <span className="text-3xl opacity-70 mr-1.5">$</span>
+          <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
           <span>{balance}</span>
         </div>
         {balanceMicro && exchangeRate && (
