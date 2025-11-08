@@ -6,7 +6,7 @@ import { Shield, Eye, EyeOff } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { importFromPrivateKey, detectCurrencyFromLocale, savePreferences } from '@/lib/wallet';
+import { importFromPrivateKey, detectCurrencyFromLocale, savePreferences, getPreferences } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 import { vouchFor } from '@/lib/maxflow';
 
@@ -57,7 +57,8 @@ export default function RestoreWallet() {
       // Auto-detect and save currency preference based on browser locale
       try {
         const detectedCurrency = detectCurrencyFromLocale();
-        await savePreferences({ currency: detectedCurrency, language: 'en' });
+        const currentPrefs = await getPreferences();
+        await savePreferences({ ...currentPrefs, currency: detectedCurrency });
         console.log(`Auto-detected currency: ${detectedCurrency}`);
       } catch (error) {
         console.error('Failed to save currency preference:', error);
