@@ -468,6 +468,7 @@ export class MemStorage implements IStorage {
 // Database storage with PostgreSQL for all data
 export class DbStorage extends MemStorage {
   private readonly CACHE_TTL_MS = 30000; // 30 seconds for balance cache
+  private readonly TRANSACTION_CACHE_TTL_MS = 300000; // 5 minutes for transaction cache
   private readonly RATE_TTL_MS = 300000; // 5 minutes for exchange rates
 
   async registerWallet(address: string): Promise<void> {
@@ -558,6 +559,7 @@ export class DbStorage extends MemStorage {
   }
 
   private async cacheTransactions(address: string, chainId: number, transactions: Transaction[]): Promise<void> {
+    const now = new Date();
     for (const tx of transactions) {
       try {
         if (!tx.txHash) continue;
@@ -571,7 +573,13 @@ export class DbStorage extends MemStorage {
           amount: tx.amount,
           timestamp: new Date(tx.timestamp),
           status: tx.status,
-        }).onConflictDoNothing();
+          cachedAt: now,
+        }).onConflictDoUpdate({
+          target: cachedTransactions.txHash,
+          set: {
+            cachedAt: now,
+          },
+        });
       } catch (error) {
         console.error(`[DB] Error caching transaction ${tx.txHash}:`, error);
       }
@@ -594,7 +602,35 @@ export class DbStorage extends MemStorage {
       )
       .orderBy(desc(cachedTransactions.timestamp));
 
-    const cached = cachedResults.map(tx => ({
+    // Calculate cache age from the most recently cached transaction
+    const now = new Date();
+    const cacheAge = cachedResults[0]?.cachedAt 
+      ? now.getTime() - cachedResults[0].cachedAt.getTime() 
+      : Infinity;
+
+    // Return cached transactions if fresh enough
+    if (cachedResults.length > 0 && cacheAge < this.TRANSACTION_CACHE_TTL_MS) {
+      console.log(`[DB Cache] Returning cached transactions for ${address} on chain ${chainId} (age: ${Math.round(cacheAge / 1000)}s)`);
+      return cachedResults.map(tx => ({
+        id: tx.txHash,
+        type: tx.type as 'send' | 'receive',
+        from: tx.from,
+        to: tx.to,
+        amount: tx.amount,
+        timestamp: tx.timestamp.toISOString(),
+        status: tx.status as 'pending' | 'completed' | 'failed',
+        txHash: tx.txHash,
+      }));
+    }
+
+    // Cache miss or stale - fetch fresh transactions from Etherscan
+    console.log(`[DB Cache] Transaction cache ${cachedResults.length === 0 ? 'miss' : 'stale'} for ${address} on chain ${chainId}, fetching fresh data`);
+    const freshTransactions = await fetchTransactionsFromEtherscan(address, chainId);
+    
+    // Merge fresh transactions with cached ones (by txHash) to preserve history
+    // This handles cases where API returns partial data (e.g., only sends, rate limits, etc.)
+    const freshTxHashes = new Set(freshTransactions.map(tx => tx.txHash));
+    const cachedTxs = cachedResults.map(tx => ({
       id: tx.txHash,
       type: tx.type as 'send' | 'receive',
       from: tx.from,
@@ -604,22 +640,43 @@ export class DbStorage extends MemStorage {
       status: tx.status as 'pending' | 'completed' | 'failed',
       txHash: tx.txHash,
     }));
-
-    // If cache is empty, fetch fresh transactions from Etherscan
-    // This handles the case where transactions were added after initial empty cache
-    if (cached.length === 0) {
-      console.log(`[DB Cache] No cached transactions for ${address} on chain ${chainId}, fetching fresh data`);
-      const freshTransactions = await fetchTransactionsFromEtherscan(address, chainId);
+    
+    // Keep cached transactions that aren't in the fresh fetch (preserve old data)
+    const preservedTxs = cachedTxs.filter(tx => tx.txHash && !freshTxHashes.has(tx.txHash));
+    
+    // Merge fresh + preserved transactions and sort by timestamp descending
+    const mergedTransactions = [...freshTransactions, ...preservedTxs].sort((a, b) => {
+      const timeDiff = new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      // Tiebreaker: use txHash for deterministic ordering
+      return (a.txHash || '').localeCompare(b.txHash || '');
+    });
+    
+    // Update cache freshness for ALL transactions (fresh + preserved) after successful fetch
+    if (freshTransactions.length > 0) {
+      console.log(`[DB Cache] Fetched ${freshTransactions.length} fresh transactions, preserving ${preservedTxs.length} cached transactions`);
       
-      // Cache the fresh transactions
-      if (freshTransactions.length > 0) {
-        await this.cacheTransactions(address, chainId, freshTransactions);
+      // Cache fresh transactions (upsert updates cachedAt)
+      await this.cacheTransactions(address, chainId, freshTransactions);
+      
+      // Update cachedAt for preserved transactions to maintain unified freshness
+      const now = new Date();
+      for (const tx of preservedTxs) {
+        if (!tx.txHash) continue;
+        try {
+          await db
+            .update(cachedTransactions)
+            .set({ cachedAt: now })
+            .where(eq(cachedTransactions.txHash, tx.txHash));
+        } catch (error) {
+          console.error(`[DB] Error updating cachedAt for preserved transaction ${tx.txHash}:`, error);
+        }
       }
-      
-      return freshTransactions;
+    } else if (cachedResults.length > 0) {
+      console.log(`[DB Cache] Fresh fetch returned no transactions, returning ${cachedResults.length} cached transactions`);
     }
-
-    return cached;
+    
+    return mergedTransactions;
   }
 
   async addTransaction(address: string, chainId: number, tx: Transaction): Promise<void> {

@@ -57,6 +57,7 @@ export const cachedTransactions = pgTable("cached_transactions", {
   timestamp: timestamp("timestamp").notNull(),
   status: text("status").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  cachedAt: timestamp("cached_at").notNull().defaultNow(),
 });
 
 export const exchangeRates = pgTable("exchange_rates", {
