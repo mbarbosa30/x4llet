@@ -25,10 +25,10 @@ The application supports Base (chainId: 8453) and Celo (chainId: 42220) networks
 
 **Network Support Status:**
 - **Celo (42220)**: ✅ Fully operational. Facilitator has 4.9 CELO for gas fees.
-- **Base (8453)**: ⚠️ **Currently disabled**. Infrastructure ready, but facilitator wallet has 0 ETH. All Base transfers will fail until the facilitator is funded with ETH for gas fees.
+- **Base (8453)**: ✅ Fully operational. Facilitator has 0.001 ETH for gas fees (~100+ transactions).
 
 **Facilitator Wallet:** `0x2c696E742e07d92D9ae574865267C54B13930363`
-- To enable Base transfers: Send at least 0.01 ETH to the facilitator address on Base mainnet.
+- Monitor Base ETH balance and top up when below 0.0005 ETH to maintain service availability.
 
 ### PWA Features
 The application is designed as an offline-first PWA, featuring a service worker for asset caching, IndexedDB for local data, and a manifest file. It includes mobile optimizations like viewport configuration, Apple mobile web app meta tags, safe area padding, and a touch-optimized UI.

@@ -114,7 +114,7 @@ export default function Landing() {
 
           <div className="text-center max-w-md mx-auto pt-8 text-sm text-muted-foreground leading-relaxed">
             <p>
-              Designed for everyone, everywhere. It works in low-bandwidth environments and functions completely offline. Your wallet holds USDC on Celo (and soon Base) for payments and a MaxFlow signal score that proves your legitimacy and measures your trust network strength — building both financial and reputation capital.
+              Designed for everyone, everywhere. It works in low-bandwidth environments and functions completely offline. Your wallet holds USDC on Base and Celo networks for payments and a MaxFlow signal score that proves your legitimacy and measures your trust network strength — building both financial and reputation capital.
             </p>
           </div>
         </div>
