@@ -284,6 +284,60 @@ export function lockWallet(): void {
   clearSessionPassword();
 }
 
+// Country code to currency mapping
+const COUNTRY_CURRENCY_MAP: Record<string, string> = {
+  // North America
+  'US': 'USD', 'CA': 'CAD', 'MX': 'MXN',
+  // Europe (Euro zone)
+  'AT': 'EUR', 'BE': 'EUR', 'CY': 'EUR', 'EE': 'EUR', 'FI': 'EUR',
+  'FR': 'EUR', 'DE': 'EUR', 'GR': 'EUR', 'IE': 'EUR', 'IT': 'EUR',
+  'LV': 'EUR', 'LT': 'EUR', 'LU': 'EUR', 'MT': 'EUR', 'NL': 'EUR',
+  'PT': 'EUR', 'SK': 'EUR', 'SI': 'EUR', 'ES': 'EUR',
+  // Europe (non-Euro)
+  'GB': 'GBP', 'CH': 'CHF', 'NO': 'NOK', 'SE': 'SEK', 'DK': 'DKK',
+  'PL': 'PLN', 'CZ': 'CZK', 'HU': 'HUF', 'RO': 'RON', 'BG': 'BGN',
+  'HR': 'HRK', 'IS': 'ISK', 'TR': 'TRY', 'RU': 'RUB', 'UA': 'UAH',
+  // Asia
+  'JP': 'JPY', 'CN': 'CNY', 'KR': 'KRW', 'IN': 'INR', 'ID': 'IDR',
+  'TH': 'THB', 'MY': 'MYR', 'SG': 'SGD', 'PH': 'PHP', 'VN': 'VND',
+  'HK': 'HKD', 'TW': 'TWD', 'BD': 'BDT', 'PK': 'PKR', 'LK': 'LKR',
+  'IL': 'ILS', 'SA': 'SAR', 'AE': 'AED', 'KW': 'KWD', 'QA': 'QAR',
+  // Oceania
+  'AU': 'AUD', 'NZ': 'NZD',
+  // South America
+  'BR': 'BRL', 'AR': 'ARS', 'CL': 'CLP', 'CO': 'COP', 'PE': 'PEN',
+  'UY': 'UYU', 'VE': 'VES', 'BO': 'BOB', 'PY': 'PYG', 'EC': 'USD',
+  // Africa
+  'ZA': 'ZAR', 'NG': 'NGN', 'EG': 'EGP', 'KE': 'KES', 'GH': 'GHS',
+  'MA': 'MAD', 'TN': 'TND', 'UG': 'UGX', 'TZ': 'TZS', 'ET': 'ETB',
+};
+
+/**
+ * Detects the user's preferred currency based on their browser locale
+ * @returns Currency code (e.g., 'USD', 'EUR', 'GBP') or 'USD' as fallback
+ */
+export function detectCurrencyFromLocale(): string {
+  if (typeof navigator === 'undefined') return 'USD';
+  
+  try {
+    // Get browser locale (e.g., "en-US", "fr-FR", "ja-JP")
+    const locale = navigator.language || 'en-US';
+    
+    // Extract country code (last 2 characters after dash)
+    const countryCode = locale.split('-')[1]?.toUpperCase();
+    
+    if (countryCode && COUNTRY_CURRENCY_MAP[countryCode]) {
+      return COUNTRY_CURRENCY_MAP[countryCode];
+    }
+    
+    // Fallback to USD
+    return 'USD';
+  } catch (error) {
+    console.error('Failed to detect currency from locale:', error);
+    return 'USD';
+  }
+}
+
 export async function getPreferences(): Promise<UserPreferences> {
   const prefs = await get<UserPreferences>(PREFERENCES_KEY);
   return prefs || {
