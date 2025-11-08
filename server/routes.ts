@@ -280,7 +280,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('[Facilitator] Transaction submitted! Hash:', txHash);
       
-      // Store transaction records
+      // Store transaction records (amounts in micro-USDC)
       await storage.addTransaction(
         from,
         validatedData.chainId,
@@ -289,7 +289,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           type: 'send',
           from,
           to,
-          amount: (parseInt(value) / 1000000).toFixed(6),
+          amount: value,
           timestamp: new Date().toISOString(),
           status: 'completed',
           txHash,
@@ -304,7 +304,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           type: 'receive',
           from,
           to,
-          amount: (parseInt(value) / 1000000).toFixed(6),
+          amount: value,
           timestamp: new Date().toISOString(),
           status: 'completed',
           txHash,
@@ -624,7 +624,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           type: 'send',
           from,
           to,
-          amount: (parseInt(value) / 1000000).toFixed(6),
+          amount: value,
           timestamp: new Date().toISOString(),
           status: 'completed',
           txHash,
@@ -639,7 +639,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           type: 'receive',
           from,
           to,
-          amount: (parseInt(value) / 1000000).toFixed(6),
+          amount: value,
           timestamp: new Date().toISOString(),
           status: 'completed',
           txHash,
