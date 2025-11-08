@@ -95,7 +95,7 @@ export default function Settings() {
   };
 
   const handleExportPrivateKey = async () => {
-    if (!password || password.length < 8) {
+    if (!password || password.length < 6) {
       toast({
         title: "Invalid Password",
         description: "Please enter your password",

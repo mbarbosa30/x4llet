@@ -34,17 +34,8 @@ export default function CreateWallet() {
   }, []);
 
   const validatePassword = () => {
-    if (password.length < 8) {
-      return 'Password must be at least 8 characters';
-    }
-    if (!/[a-z]/.test(password)) {
-      return 'Password must contain at least one lowercase letter';
-    }
-    if (!/[A-Z]/.test(password)) {
-      return 'Password must contain at least one uppercase letter';
-    }
-    if (!/[0-9]/.test(password)) {
-      return 'Password must contain at least one number';
+    if (password.length < 6) {
+      return 'Password must be at least 6 characters';
     }
     if (password !== confirmPassword) {
       return 'Passwords do not match';
@@ -54,17 +45,8 @@ export default function CreateWallet() {
 
   const getPasswordStrength = () => {
     if (password.length === 0) return null;
-    if (password.length < 8) return 'weak';
-    
-    let strength = 0;
-    if (password.length >= 12) strength++;
-    if (/[a-z]/.test(password)) strength++;
-    if (/[A-Z]/.test(password)) strength++;
-    if (/[0-9]/.test(password)) strength++;
-    if (/[^a-zA-Z0-9]/.test(password)) strength++;
-    
-    if (strength <= 2) return 'weak';
-    if (strength <= 3) return 'medium';
+    if (password.length < 6) return 'weak';
+    if (password.length < 10) return 'medium';
     return 'strong';
   };
 
@@ -325,13 +307,13 @@ export default function CreateWallet() {
             </div>
 
             <div className="pt-2 space-y-2 text-xs text-muted-foreground">
-              <p className="font-medium">Password requirements:</p>
+              <p className="font-medium">Password requirement:</p>
               <ul className="space-y-1 list-disc list-inside">
-                <li>At least 8 characters</li>
-                <li>One uppercase letter (A-Z)</li>
-                <li>One lowercase letter (a-z)</li>
-                <li>One number (0-9)</li>
+                <li>At least 6 characters</li>
               </ul>
+              <p className="text-muted-foreground mt-2">
+                Tip: Longer passwords (10+ characters) are more secure
+              </p>
             </div>
           </Card>
 

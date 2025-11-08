@@ -30,10 +30,7 @@ export default function RestoreWallet() {
   }, []);
 
   const validatePassword = (pwd: string): string => {
-    if (pwd.length < 8) return 'Password must be at least 8 characters';
-    if (!/[a-z]/.test(pwd)) return 'Must include lowercase letter';
-    if (!/[A-Z]/.test(pwd)) return 'Must include uppercase letter';
-    if (!/[0-9]/.test(pwd)) return 'Must include number';
+    if (pwd.length < 6) return 'Password must be at least 6 characters';
     return '';
   };
 
