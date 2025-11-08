@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Shield, RefreshCw, QrCode, ScanLine } from 'lucide-react';
+import { Shield, RefreshCw, QrCode, ScanLine, Share2 } from 'lucide-react';
 import { getWallet, getPreferences } from '@/lib/wallet';
 import { getMaxFlowScore } from '@/lib/maxflow';
 import { queryClient } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 
 interface AppHeaderProps {
   onScanClick: () => void;
@@ -16,6 +17,7 @@ export default function AppHeader({ onScanClick }: AppHeaderProps) {
   const [address, setAddress] = useState<string | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -56,6 +58,31 @@ export default function AppHeader({ onScanClick }: AppHeaderProps) {
     }
   };
 
+  const handleShare = async () => {
+    if (!address) return;
+
+    const baseUrl = window.location.origin;
+    const referralLink = `${baseUrl}/?ref=${address}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'Join nanoPay',
+          text: 'Join me on nanoPay - a lightweight crypto wallet',
+          url: referralLink,
+        });
+      } else {
+        await navigator.clipboard.writeText(referralLink);
+        toast({
+          title: "Link Copied!",
+          description: "Referral link copied to clipboard",
+        });
+      }
+    } catch (error) {
+      console.error('Failed to share:', error);
+    }
+  };
+
   return (
     <header 
       className="fixed top-0 left-0 right-0 bg-background border-b z-50"
@@ -81,6 +108,15 @@ export default function AppHeader({ onScanClick }: AppHeaderProps) {
         )}
       </div>
       <div className="flex gap-2">
+        <Button 
+          variant="ghost" 
+          size="icon"
+          onClick={handleShare}
+          data-testid="button-share"
+          title="Share nanoPay"
+        >
+          <Share2 className="h-5 w-5" />
+        </Button>
         <Button 
           variant="ghost" 
           size="icon"

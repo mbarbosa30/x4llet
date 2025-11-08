@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -8,16 +8,26 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { importFromPrivateKey } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
+import { vouchFor } from '@/lib/maxflow';
 
 export default function RestoreWallet() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [referrerAddress, setReferrerAddress] = useState<string | null>(null);
   
   const [privateKey, setPrivateKey] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) {
+      setReferrerAddress(ref);
+    }
+  }, []);
 
   const validatePassword = (pwd: string): string => {
     if (pwd.length < 8) return 'Password must be at least 8 characters';
@@ -47,10 +57,28 @@ export default function RestoreWallet() {
       setIsImporting(true);
       const wallet = await importFromPrivateKey(privateKey, newPassword);
       
-      toast({
-        title: "Wallet Recovered!",
-        description: `Successfully recovered wallet: ${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`,
-      });
+      // If there's a referrer, create a vouch automatically
+      if (referrerAddress) {
+        try {
+          await vouchFor(referrerAddress);
+          toast({
+            title: "Wallet Recovered!",
+            description: "You're now vouching for the person who referred you.",
+          });
+        } catch (error) {
+          console.error('Failed to vouch for referrer:', error);
+          toast({
+            title: "Wallet Recovered!",
+            description: "Your wallet is restored, but the referral vouch failed. You can vouch manually from the Signal page.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Wallet Recovered!",
+          description: `Successfully recovered wallet: ${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`,
+        });
+      }
       
       setLocation('/home');
     } catch (error: any) {

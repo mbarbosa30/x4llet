@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -8,11 +8,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Shield, Eye, EyeOff, Copy, Check, AlertTriangle } from 'lucide-react';
 import { createWallet } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
+import { vouchFor } from '@/lib/maxflow';
 import Footer from '@/components/Footer';
 
 export default function CreateWallet() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [referrerAddress, setReferrerAddress] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -22,6 +24,14 @@ export default function CreateWallet() {
   const [privateKey, setPrivateKey] = useState('');
   const [backupConfirmed, setBackupConfirmed] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) {
+      setReferrerAddress(ref);
+    }
+  }, []);
 
   const validatePassword = () => {
     if (password.length < 8) {
@@ -102,7 +112,7 @@ export default function CreateWallet() {
     }
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!backupConfirmed) {
       toast({
         title: "Backup Required",
@@ -112,10 +122,29 @@ export default function CreateWallet() {
       return;
     }
     
-    toast({
-      title: "Wallet Created!",
-      description: "Your wallet is ready to use.",
-    });
+    // If there's a referrer, create a vouch automatically
+    if (referrerAddress) {
+      try {
+        await vouchFor(referrerAddress);
+        toast({
+          title: "Wallet Created!",
+          description: "You're now vouching for the person who referred you.",
+        });
+      } catch (error) {
+        console.error('Failed to vouch for referrer:', error);
+        toast({
+          title: "Wallet Created!",
+          description: "Your wallet is ready, but the referral vouch failed. You can vouch manually from the Signal page.",
+          variant: "destructive",
+        });
+      }
+    } else {
+      toast({
+        title: "Wallet Created!",
+        description: "Your wallet is ready to use.",
+      });
+    }
+    
     setLocation('/home');
   };
 

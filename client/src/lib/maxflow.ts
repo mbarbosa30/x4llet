@@ -112,3 +112,79 @@ export async function submitVouch(vouchRequest: VouchRequest): Promise<VouchResp
   
   return response.json();
 }
+
+/**
+ * Helper function to vouch for an address
+ * Handles all the signing and submission automatically
+ */
+export async function vouchFor(endorsedAddress: string): Promise<VouchResponse> {
+  const { getWallet, getPrivateKey, getPreferences } = await import('./wallet');
+  const { privateKeyToAccount } = await import('viem/accounts');
+  const { getAddress } = await import('viem');
+  
+  const wallet = await getWallet();
+  if (!wallet) throw new Error('No wallet found');
+  
+  const privateKey = await getPrivateKey();
+  if (!privateKey) throw new Error('No private key found');
+  
+  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  
+  // Validate and normalize addresses
+  const validatedEndorser = getAddress(wallet.address);
+  const validatedEndorsed = getAddress(endorsedAddress);
+  
+  // Get epoch and nonce
+  const epoch = await getCurrentEpoch();
+  const nonce = await getNextNonce(validatedEndorser.toLowerCase(), epoch.epochId);
+  
+  // Get chainId from user's network preference
+  const prefs = await getPreferences();
+  if (!prefs) throw new Error('Failed to load preferences');
+  const chainId = prefs.network === 'celo' ? 42220 : 8453;
+  
+  // Prepare EIP-712 message
+  const domain = {
+    name: 'MaxFlow',
+    version: '1',
+    chainId: chainId,
+  };
+
+  const types = {
+    Endorsement: [
+      { name: 'endorser', type: 'address' },
+      { name: 'endorsee', type: 'address' },
+      { name: 'epoch', type: 'uint64' },
+      { name: 'nonce', type: 'uint64' },
+    ],
+  };
+
+  const message = {
+    endorser: validatedEndorser.toLowerCase(),
+    endorsee: validatedEndorsed.toLowerCase(),
+    epoch: BigInt(epoch.epochId),
+    nonce: BigInt(nonce),
+  };
+
+  // Sign
+  const signature = await account.signTypedData({
+    domain,
+    types,
+    primaryType: 'Endorsement',
+    message,
+  });
+
+  // Submit vouch
+  const vouchRequest: VouchRequest = {
+    endorsement: {
+      endorser: validatedEndorser.toLowerCase(),
+      endorsee: validatedEndorsed.toLowerCase(),
+      epoch: epoch.epochId.toString(),
+      nonce: nonce.toString(),
+      sig: signature,
+      chainId: chainId,
+    },
+  };
+
+  return submitVouch(vouchRequest);
+}
