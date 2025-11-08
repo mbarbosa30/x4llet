@@ -43,10 +43,8 @@ export default function Settings() {
   const [address, setAddress] = useState<string | null>(null);
   const [currency, setCurrency] = useState('USD');
   const [language, setLanguage] = useState('en');
-  const [network, setNetwork] = useState<'base' | 'celo'>('base');
   const [showExportPrivateKey, setShowExportPrivateKey] = useState(false);
   const [showCurrency, setShowCurrency] = useState(false);
-  const [showNetwork, setShowNetwork] = useState(false);
   const [password, setPassword] = useState('');
   const [privateKey, setPrivateKey] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -66,7 +64,6 @@ export default function Settings() {
         const prefs = await getPreferences();
         setCurrency(prefs.currency);
         setLanguage(prefs.language);
-        setNetwork(prefs.network);
         
         // Load theme from localStorage
         const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
@@ -89,22 +86,12 @@ export default function Settings() {
 
   const handleCurrencyChange = async (newCurrency: string) => {
     setCurrency(newCurrency);
-    await savePreferences({ currency: newCurrency, language, network });
+    await savePreferences({ currency: newCurrency, language });
     toast({
       title: "Currency Updated",
       description: `Display currency changed to ${newCurrency}`,
     });
     setShowCurrency(false);
-  };
-
-  const handleNetworkChange = async (newNetwork: 'base' | 'celo') => {
-    setNetwork(newNetwork);
-    await savePreferences({ currency, language, network: newNetwork });
-    toast({
-      title: "Network Updated",
-      description: `Network changed to ${newNetwork === 'base' ? 'Base' : 'Celo'}`,
-    });
-    setShowNetwork(false);
   };
 
   const handleExportPrivateKey = async () => {
@@ -247,30 +234,6 @@ export default function Settings() {
               <div className="flex items-center gap-3">
                 <Lock className="h-5 w-5 text-muted-foreground" />
                 <span className="text-sm font-medium">Lock Wallet</span>
-              </div>
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
-            </button>
-          </Card>
-        </div>
-
-        <div className="space-y-2">
-          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-2">
-            Network
-          </h2>
-          <Card>
-            <button
-              onClick={() => setShowNetwork(true)}
-              className="w-full flex items-center justify-between p-4 hover-elevate"
-              data-testid="button-network"
-            >
-              <div className="flex items-center gap-3">
-                <Globe className="h-5 w-5 text-muted-foreground" />
-                <div className="text-left">
-                  <div className="text-sm font-medium">Network</div>
-                  <div className="text-xs text-muted-foreground">
-                    {network === 'base' ? 'Base' : 'Celo'}
-                  </div>
-                </div>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
@@ -541,28 +504,6 @@ export default function Settings() {
                 <SelectItem value="INR">INR - Indian Rupee</SelectItem>
                 <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
                 <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showNetwork} onOpenChange={setShowNetwork}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Select Network</DialogTitle>
-            <DialogDescription>
-              Choose which blockchain network to use
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Select value={network} onValueChange={(v) => handleNetworkChange(v as 'base' | 'celo')}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="base">Base</SelectItem>
-                <SelectItem value="celo">Celo</SelectItem>
               </SelectContent>
             </Select>
           </div>

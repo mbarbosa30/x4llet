@@ -118,7 +118,6 @@ export interface Transaction {
 export interface UserPreferences {
   currency: string;
   language: string;
-  network: 'base' | 'celo';
 }
 
 export const balanceResponseSchema = z.object({

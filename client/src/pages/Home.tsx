@@ -25,7 +25,6 @@ export default function Home() {
   const { toast } = useToast();
   const [address, setAddress] = useState<string | null>(null);
   const [currency, setCurrency] = useState('USD');
-  const [chainId, setChainId] = useState(42220); // Default to Celo
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
   const [selectedTransaction, setSelectedTransaction] = useState<SchemaTransaction | null>(null);
   const [copiedHash, setCopiedHash] = useState(false);
@@ -44,7 +43,6 @@ export default function Home() {
         
         const prefs = await getPreferences();
         setCurrency(prefs.currency);
-        setChainId(prefs.network === 'celo' ? 42220 : 8453);
         
         // Check for pending referral
         const storedReferral = sessionStorage.getItem('pending_referral');
@@ -104,8 +102,8 @@ export default function Home() {
   const transactions = allTransactions || [];
   
   const getExplorerUrl = (txHash: string, txChainId?: number) => {
-    // Use transaction's chainId if available, otherwise fall back to user preference
-    const effectiveChainId = txChainId || chainId;
+    // Use transaction's chainId to determine explorer
+    const effectiveChainId = txChainId || 42220; // Default to Celo if not specified
     const network = effectiveChainId === 42220 ? 'celo' : 'base';
     if (network === 'celo') {
       return `https://celoscan.io/tx/${txHash}`;
@@ -199,7 +197,6 @@ export default function Home() {
             exchangeRate={exchangeRate?.rate}
             fiatCurrency={currency}
             address={address}
-            chainId={chainId}
             chains={chains}
           />
         )}
@@ -328,7 +325,7 @@ export default function Home() {
                   data-testid="button-view-explorer"
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
-                  View on {((selectedTransaction as any).chainId || chainId) === 42220 ? 'Celoscan' : 'Basescan'}
+                  View on {((selectedTransaction as any).chainId || 42220) === 42220 ? 'Celoscan' : 'Basescan'}
                 </Button>
               )}
             </div>
