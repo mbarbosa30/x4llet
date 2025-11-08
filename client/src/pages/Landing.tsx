@@ -56,7 +56,7 @@ export default function Landing() {
             <div className="space-y-2 text-left max-w-xs mx-auto">
               <div className="flex items-center gap-3">
                 <Zap className="h-4 w-4 text-primary flex-shrink-0" />
-                <span className="text-sm">Lightweight & fast</span>
+                <span className="text-sm">Lightweight, Free & Fast</span>
               </div>
               <div className="flex items-center gap-3">
                 <Lock className="h-4 w-4 text-primary flex-shrink-0" />
@@ -64,7 +64,7 @@ export default function Landing() {
               </div>
               <div className="flex items-center gap-3">
                 <WifiOff className="h-4 w-4 text-primary flex-shrink-0" />
-                <span className="text-sm">Works offline</span>
+                <span className="text-sm">Works / Transfers onchain even if Offline</span>
               </div>
               <div className="flex items-center gap-3">
                 <Coins className="h-4 w-4 text-primary flex-shrink-0" />
@@ -72,7 +72,7 @@ export default function Landing() {
               </div>
               <div className="flex items-center gap-3">
                 <Network className="h-4 w-4 text-primary flex-shrink-0" />
-                <span className="text-sm">Network signal with max flow computation</span>
+                <span className="text-sm">Trust signal from max flow computation</span>
               </div>
             </div>
           </div>
