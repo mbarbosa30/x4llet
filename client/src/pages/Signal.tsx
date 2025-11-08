@@ -67,10 +67,8 @@ export default function Signal() {
       const epoch = await getCurrentEpoch();
       const nonce = await getNextNonce(validatedEndorser.toLowerCase(), epoch.epochId);
       
-      // Get chainId from user's network preference
-      const prefs = await getPreferences();
-      if (!prefs) throw new Error('Failed to load preferences');
-      const chainId = prefs.network === 'celo' ? 42220 : 8453;
+      // Default to Celo network for MaxFlow vouching
+      const chainId = 42220;
       
       // Prepare EIP-712 message
       const domain = {
@@ -158,11 +156,14 @@ export default function Signal() {
   const vouchCount = scoreData?.metrics?.acceptedUsers ?? 0;
 
   return (
-    <div className="flex flex-col h-screen max-w-[448px] mx-auto bg-background">
-      <main 
-        className="flex-1 overflow-y-auto p-4 pt-20 space-y-6"
-        style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
-      >
+    <div 
+      className="min-h-screen bg-background"
+      style={{ 
+        paddingTop: 'calc(4rem + env(safe-area-inset-top))',
+        paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' 
+      }}
+    >
+      <main className="max-w-md mx-auto p-4 space-y-6">
         <Card className="p-6 space-y-6">
           {!isLoading && score === 0 ? (
             <div className="space-y-6">

@@ -7,7 +7,6 @@ import { ArrowLeft, QrCode, Scan, Clipboard, MessageSquare, Repeat } from 'lucid
 import NumericKeypad from '@/components/NumericKeypad';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import QRScanner from '@/components/QRScanner';
-import Footer from '@/components/Footer';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getWallet, getPrivateKey, getPreferences } from '@/lib/wallet';
@@ -508,49 +507,55 @@ export default function Send() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="h-16 border-b flex items-center justify-between px-4">
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => {
-              if (step !== 'input') {
-                setStep('input');
-                setPaymentRequest(null);
-                setAuthorizationQR(null);
-              } else {
-                setLocation('/home');
-              }
-            }}
-            data-testid="button-back"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-lg font-semibold">Send USDC</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Only show network toggle if user has balance on both chains */}
-          {balanceData?.chains && 
-           BigInt(balanceData.chains.base.balanceMicro) > 0n && 
-           BigInt(balanceData.chains.celo.balanceMicro) > 0n && (
+    <div 
+      className="min-h-screen bg-background"
+      style={{ 
+        paddingTop: 'calc(4rem + env(safe-area-inset-top))',
+        paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' 
+      }}
+    >
+      <main className="max-w-md mx-auto p-4 space-y-6">
+        {/* Page subheader */}
+        <div className="flex items-center justify-between -mx-4 px-4 -mt-4 pt-4 pb-4 border-b">
+          <div className="flex items-center gap-2">
             <Button 
-              variant="outline"
-              size="sm"
-              onClick={handleNetworkToggle}
-              className="text-xs h-7"
-              data-testid="button-toggle-network"
+              variant="ghost" 
+              size="icon"
+              onClick={() => {
+                if (step !== 'input') {
+                  setStep('input');
+                  setPaymentRequest(null);
+                  setAuthorizationQR(null);
+                } else {
+                  setLocation('/home');
+                }
+              }}
+              data-testid="button-back"
             >
-              {network === 'base' ? 'Base' : 'Celo'}
+              <ArrowLeft className="h-5 w-5" />
             </Button>
-          )}
-          <div className="text-sm text-muted-foreground" data-testid="text-balance">
-            {balance} USDC
+            <h1 className="text-lg font-semibold">Send USDC</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Only show network toggle if user has balance on both chains */}
+            {balanceData?.chains && 
+             BigInt(balanceData.chains.base.balanceMicro) > 0n && 
+             BigInt(balanceData.chains.celo.balanceMicro) > 0n && (
+              <Button 
+                variant="outline"
+                size="sm"
+                onClick={handleNetworkToggle}
+                className="text-xs h-7"
+                data-testid="button-toggle-network"
+              >
+                {network === 'base' ? 'Base' : 'Celo'}
+              </Button>
+            )}
+            <div className="text-sm text-muted-foreground" data-testid="text-balance">
+              {balance} USDC
+            </div>
           </div>
         </div>
-      </header>
-
-      <main className="max-w-md mx-auto p-4 space-y-6">
         {step === 'input' && (
           <>
             <Tabs value={mode} onValueChange={(v) => setMode(v as 'online' | 'offline')} className="w-full">
@@ -803,8 +808,6 @@ export default function Send() {
           </div>
         )}
       </main>
-
-      <Footer />
 
       {showScanner && (
         <QRScanner

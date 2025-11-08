@@ -26,8 +26,8 @@ export default function AppHeader({ onScanClick }: AppHeaderProps) {
         if (wallet) {
           setAddress(wallet.address);
         }
-        const prefs = await getPreferences();
-        setChainId(prefs.network === 'celo' ? 42220 : 8453);
+        // Default to Celo network
+        setChainId(42220);
       } catch (error) {
         // Wallet not loaded, ignore
       }

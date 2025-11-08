@@ -6,7 +6,6 @@ import { ArrowLeft, Share2, QrCode, Scan } from 'lucide-react';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import QRScanner from '@/components/QRScanner';
 import AddressDisplay from '@/components/AddressDisplay';
-import Footer from '@/components/Footer';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
@@ -53,9 +52,7 @@ export default function Receive() {
           return;
         }
         setAddress(wallet.address);
-        
-        const prefs = await getPreferences();
-        setNetwork(prefs.network);
+        // Network defaults to 'celo' from state initialization
       } catch (error: any) {
         if (error.message === 'RECOVERY_CODE_REQUIRED') {
           setLocation('/unlock');
@@ -194,32 +191,38 @@ export default function Receive() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="h-16 border-b flex items-center justify-between px-4">
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => setLocation('/home')}
-            data-testid="button-back"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-lg font-semibold">Receive USDC</h1>
-        </div>
-        <Button 
-          variant="outline"
-          size="sm"
-          onClick={handleNetworkToggle}
-          className="text-xs h-7"
-          data-testid="button-toggle-network"
-          disabled={submitAuthMutation.isPending}
-        >
-          {network === 'base' ? 'Base' : 'Celo'}
-        </Button>
-      </header>
-
+    <div 
+      className="min-h-screen bg-background"
+      style={{ 
+        paddingTop: 'calc(4rem + env(safe-area-inset-top))',
+        paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' 
+      }}
+    >
       <main className="max-w-md mx-auto p-4 space-y-6">
+        {/* Page subheader */}
+        <div className="flex items-center justify-between -mx-4 px-4 -mt-4 pt-4 pb-4 border-b">
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => setLocation('/home')}
+              data-testid="button-back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-lg font-semibold">Receive USDC</h1>
+          </div>
+          <Button 
+            variant="outline"
+            size="sm"
+            onClick={handleNetworkToggle}
+            className="text-xs h-7"
+            data-testid="button-toggle-network"
+            disabled={submitAuthMutation.isPending}
+          >
+            {network === 'base' ? 'Base' : 'Celo'}
+          </Button>
+        </div>
         <Tabs defaultValue="simple" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="simple" data-testid="tab-simple">Simple</TabsTrigger>
@@ -367,8 +370,6 @@ export default function Receive() {
           </div>
         )}
       </main>
-
-      <Footer />
 
       {showScanner && (
         <QRScanner
