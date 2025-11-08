@@ -32,7 +32,7 @@ export default function AddressDisplay({ address, truncate = true }: AddressDisp
 
   return (
     <div className="flex items-center gap-2">
-      <code className="font-mono text-sm bg-muted px-3 py-2 rounded-md flex-1 text-center" data-testid="text-address">
+      <code className="font-mono text-sm bg-muted px-3 py-2 rounded-md flex-1 text-center break-all" data-testid="text-address">
         {displayAddress}
       </code>
       <Button 
