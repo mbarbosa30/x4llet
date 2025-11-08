@@ -47,6 +47,7 @@ export default function Send() {
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
   const isTogglingRef = useRef(false);
   const lastConvertedRef = useRef<{value: string; currency: 'USDC' | 'fiat'}>({value: '', currency: 'USDC'});
+  const hasAutoSelectedRef = useRef(false); // Track if we've auto-selected network
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -102,25 +103,54 @@ export default function Send() {
     loadWallet();
   }, [setLocation, toast]);
 
-  const { data: balanceData } = useQuery<BalanceResponse>({
-    queryKey: ['/api/balance', address, chainId],
+  // Fetch aggregated balance from all chains
+  const { data: balanceData } = useQuery<BalanceResponse & { chains?: any }>({
+    queryKey: ['/api/balance', address],
     enabled: !!address,
     refetchInterval: 10000,
     queryFn: async () => {
-      const res = await fetch(`/api/balance/${address}?chainId=${chainId}`);
+      const res = await fetch(`/api/balance/${address}`);
       if (!res.ok) throw new Error('Failed to fetch balance');
       return res.json();
     },
   });
+
+  // Auto-select chain with highest balance only once on first load
+  useEffect(() => {
+    if (!balanceData?.chains || hasAutoSelectedRef.current) return;
+    
+    const baseBalance = BigInt(balanceData.chains.base.balanceMicro);
+    const celoBalance = BigInt(balanceData.chains.celo.balanceMicro);
+    
+    // Select chain with more USDC
+    const selectedNetwork = baseBalance > celoBalance ? 'base' : 'celo';
+    const selectedChainId = baseBalance > celoBalance ? 8453 : 42220;
+    
+    setNetwork(selectedNetwork);
+    setChainId(selectedChainId);
+    hasAutoSelectedRef.current = true; // Mark as auto-selected, won't run again
+  }, [balanceData?.chains]);
 
   const { data: exchangeRate } = useQuery<{ currency: string; rate: number }>({
     queryKey: ['/api/exchange-rate', currency],
     enabled: !!currency && currency !== 'USD',
   });
 
-  const balance = balanceData?.balance || '0.00';
+  // Get balance for selected chain
+  const selectedChainBalance = balanceData?.chains 
+    ? (chainId === 8453 ? balanceData.chains.base.balance : balanceData.chains.celo.balance)
+    : '0.00';
+  const balance = selectedChainBalance;
+  
   const rate = exchangeRate?.rate || 1;
   const rateLoaded = currency === 'USD' || !!exchangeRate;
+
+  const handleNetworkToggle = () => {
+    const newNetwork = network === 'base' ? 'celo' : 'base';
+    const newChainId = newNetwork === 'base' ? 8453 : 42220;
+    setNetwork(newNetwork);
+    setChainId(newChainId);
+  };
 
   // Convert input to canonical USDC only when USER changes input (not when rate updates)
   useEffect(() => {
@@ -171,7 +201,8 @@ export default function Send() {
         title: "Transaction Sent!",
         description: `Your USDC has been sent. Hash: ${data.txHash.slice(0, 10)}...`,
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/balance', address, chainId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/balance', address] });
+      queryClient.invalidateQueries({ queryKey: ['/api/transactions', address] });
       queryClient.invalidateQueries({ queryKey: ['/api/balance-history', address, chainId] });
       setLocation('/home');
     },
@@ -504,8 +535,19 @@ export default function Send() {
           </Button>
           <h1 className="text-lg font-semibold">Send USDC</h1>
         </div>
-        <div className="text-sm text-muted-foreground" data-testid="text-balance">
-          {balance} USDC
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline"
+            size="sm"
+            onClick={handleNetworkToggle}
+            className="text-xs h-7"
+            data-testid="button-toggle-network"
+          >
+            {network === 'base' ? 'Base' : 'Celo'}
+          </Button>
+          <div className="text-sm text-muted-foreground" data-testid="text-balance">
+            {balance} USDC
+          </div>
         </div>
       </header>
 

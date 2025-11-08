@@ -37,6 +37,13 @@ export default function Receive() {
   const [showScanner, setShowScanner] = useState(false);
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
 
+  const handleNetworkToggle = async () => {
+    const newNetwork = network === 'base' ? 'celo' : 'base';
+    setNetwork(newNetwork);
+    // Clear payment request when switching networks
+    setPaymentRequest(null);
+  };
+
   useEffect(() => {
     const loadWallet = async () => {
       try {
@@ -77,7 +84,8 @@ export default function Receive() {
         description: `Transaction: ${data.txHash.slice(0, 10)}...`,
       });
       const currentChainId = network === 'celo' ? 42220 : 8453;
-      queryClient.invalidateQueries({ queryKey: ['/api/balance', address, currentChainId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/balance', address] });
+      queryClient.invalidateQueries({ queryKey: ['/api/transactions', address] });
       queryClient.invalidateQueries({ queryKey: ['/api/balance-history', address, currentChainId] });
     },
     onError: (error: any) => {
@@ -187,16 +195,28 @@ export default function Receive() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="h-16 border-b flex items-center px-4">
+      <header className="h-16 border-b flex items-center justify-between px-4">
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => setLocation('/home')}
+            data-testid="button-back"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-semibold">Receive USDC</h1>
+        </div>
         <Button 
-          variant="ghost" 
-          size="icon"
-          onClick={() => setLocation('/home')}
-          data-testid="button-back"
+          variant="outline"
+          size="sm"
+          onClick={handleNetworkToggle}
+          className="text-xs h-7"
+          data-testid="button-toggle-network"
+          disabled={submitAuthMutation.isPending}
         >
-          <ArrowLeft className="h-5 w-5" />
+          {network === 'base' ? 'Base' : 'Celo'}
         </Button>
-        <h1 className="text-lg font-semibold ml-2">Receive USDC</h1>
       </header>
 
       <main className="max-w-md mx-auto p-4 space-y-6">

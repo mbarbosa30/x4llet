@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowUpRight, ArrowDownLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { formatAmount } from '@/lib/formatAmount';
 
 export interface Transaction {
@@ -12,6 +13,7 @@ export interface Transaction {
   status?: 'pending' | 'completed' | 'failed';
   fiatAmount?: string;
   fiatCurrency?: string;
+  chainId?: number;
 }
 
 interface TransactionListProps {
@@ -65,8 +67,15 @@ export default function TransactionList({ transactions, onTransactionClick }: Tr
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium">
-              {tx.type === 'send' ? 'Sent to' : 'Received from'}
+            <div className="flex items-center gap-2">
+              <div className="text-sm font-medium">
+                {tx.type === 'send' ? 'Sent to' : 'Received from'}
+              </div>
+              {tx.chainId && (
+                <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4" data-testid={`badge-chain-${tx.chainId === 8453 ? 'base' : 'celo'}`}>
+                  {tx.chainId === 8453 ? 'Base' : 'Celo'}
+                </Badge>
+              )}
             </div>
             <div className="text-xs text-muted-foreground font-mono truncate">
               {tx.address.slice(0, 6)}...{tx.address.slice(-4)} • {formatTime(tx.timestamp)}

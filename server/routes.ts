@@ -61,10 +61,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/balance/:address', async (req, res) => {
     try {
       const { address } = req.params;
-      const chainId = parseInt(req.query.chainId as string) || 8453;
+      const chainId = req.query.chainId ? parseInt(req.query.chainId as string) : undefined;
       
-      const balance = await storage.getBalance(address, chainId);
-      res.json(balance);
+      // If chainId provided, return single chain balance (legacy support)
+      if (chainId !== undefined) {
+        const balance = await storage.getBalance(address, chainId);
+        return res.json(balance);
+      }
+      
+      // Otherwise, fetch balances from all chains in parallel
+      const [baseBalance, celoBalance] = await Promise.all([
+        storage.getBalance(address, 8453),
+        storage.getBalance(address, 42220),
+      ]);
+      
+      // Calculate total balance (sum of micro-USDC) - keep as BigInt for precision
+      const totalMicroUsdc = BigInt(baseBalance.balanceMicro) + BigInt(celoBalance.balanceMicro);
+      
+      // Format total for display using BigInt division to preserve precision
+      // Add 5000 for rounding to nearest cent (0.005 USDC = 5000 micro-USDC)
+      const roundedMicroUsdc = totalMicroUsdc + 5000n;
+      const integerPart = roundedMicroUsdc / 1000000n;
+      const fractionalPart = (roundedMicroUsdc % 1000000n) / 10000n; // Get cents
+      const totalFormatted = `${integerPart}.${fractionalPart.toString().padStart(2, '0')}`;
+      
+      res.json({
+        balance: totalFormatted,
+        balanceMicro: totalMicroUsdc.toString(),
+        decimals: 6,
+        nonce: baseBalance.nonce, // Use Base nonce (not critical for aggregated view)
+        transactions: [], // Will be fetched separately via /api/transactions
+        chains: {
+          base: {
+            chainId: 8453,
+            balance: baseBalance.balance,
+            balanceMicro: baseBalance.balanceMicro,
+          },
+          celo: {
+            chainId: 42220,
+            balance: celoBalance.balance,
+            balanceMicro: celoBalance.balanceMicro,
+          },
+        },
+      });
     } catch (error) {
       console.error('Error fetching balance:', error);
       res.status(500).json({ error: 'Failed to fetch balance' });
@@ -74,10 +113,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/transactions/:address', async (req, res) => {
     try {
       const { address } = req.params;
-      const chainId = parseInt(req.query.chainId as string) || 8453;
+      const chainId = req.query.chainId ? parseInt(req.query.chainId as string) : undefined;
       
-      const transactions = await storage.getTransactions(address, chainId);
-      res.json(transactions);
+      // If chainId provided, return single chain transactions (legacy support)
+      if (chainId !== undefined) {
+        const transactions = await storage.getTransactions(address, chainId);
+        return res.json(transactions);
+      }
+      
+      // Otherwise, fetch transactions from all chains in parallel
+      const [baseTransactions, celoTransactions] = await Promise.all([
+        storage.getTransactions(address, 8453),
+        storage.getTransactions(address, 42220),
+      ]);
+      
+      // Add chainId to each transaction and merge
+      const baseTxsWithChain = baseTransactions.map(tx => ({ ...tx, chainId: 8453 }));
+      const celoTxsWithChain = celoTransactions.map(tx => ({ ...tx, chainId: 42220 }));
+      
+      // Merge and sort by timestamp (most recent first), with txHash as tiebreaker for deterministic ordering
+      const allTransactions = [...baseTxsWithChain, ...celoTxsWithChain]
+        .sort((a, b) => {
+          const timeDiff = new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+          if (timeDiff !== 0) return timeDiff;
+          // Tiebreaker: use txHash for deterministic ordering
+          return a.id.localeCompare(b.id);
+        });
+      
+      res.json(allTransactions);
     } catch (error) {
       console.error('Error fetching transactions:', error);
       res.status(500).json({ error: 'Failed to fetch transactions' });

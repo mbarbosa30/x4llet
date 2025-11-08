@@ -5,6 +5,12 @@ import { useInflationAnimation } from '@/hooks/use-inflation-animation';
 import AnimatedBalance from './AnimatedBalance';
 import { useState, useEffect } from 'react';
 
+interface ChainBalance {
+  chainId: number;
+  balance: string;
+  balanceMicro: string;
+}
+
 interface BalanceCardProps {
   balance: string;
   currency: string;
@@ -13,6 +19,10 @@ interface BalanceCardProps {
   fiatCurrency?: string;
   address?: string;
   chainId?: number;
+  chains?: {
+    base: ChainBalance;
+    celo: ChainBalance;
+  };
 }
 
 interface BalanceHistoryPoint {
@@ -98,6 +108,7 @@ export default function BalanceCard({
   fiatCurrency = 'USD',
   address,
   chainId,
+  chains,
 }: BalanceCardProps) {
 
   // Fetch balance history for chart (90 days)
@@ -203,6 +214,16 @@ export default function BalanceCard({
           <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
           <span>{balance}</span>
         </div>
+        
+        {/* Chain breakdown */}
+        {chains && (
+          <div className="text-xs text-muted-foreground mb-3 flex items-center justify-center gap-3">
+            <span data-testid="text-base-balance">${chains.base.balance} Base</span>
+            <span className="opacity-50">+</span>
+            <span data-testid="text-celo-balance">${chains.celo.balance} Celo</span>
+          </div>
+        )}
+        
         {balanceMicro && exchangeRate && (
           <div className="text-base" data-testid="text-fiat-value">
             <div className="flex items-center justify-center">

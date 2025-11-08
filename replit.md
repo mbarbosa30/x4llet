@@ -9,10 +9,10 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Frontend Architecture
-The frontend is built with React 18, TypeScript, Vite, Wouter for routing, TanStack Query for server state management, Shadcn UI (Radix UI-based) for components, and Tailwind CSS for styling. It features a performance-first, mobile-optimized design with a fixed header/footer and content limited to a max-width of 448px. State management leverages IndexedDB for local key storage and TanStack Query for API data caching. Dark mode contrast has been improved for better readability.
+The frontend is built with React 18, TypeScript, Vite, Wouter for routing, TanStack Query for server state management, Shadcn UI (Radix UI-based) for components, and Tailwind CSS for styling. It features a performance-first, mobile-optimized design with a fixed header/footer and content limited to a max-width of 448px. State management leverages IndexedDB for local key storage and TanStack Query for API data caching. Dark mode contrast has been improved for better readability. Multi-chain balance aggregation displays total USDC across Base and Celo networks with per-chain breakdown, and transactions are merged chronologically with chain badges.
 
 ### Backend Architecture
-The backend uses Express.js (TypeScript), Drizzle ORM, and PostgreSQL (via Neon serverless adapter). It provides APIs for balance and transaction history and includes a production-ready EIP-3009 facilitator for gasless USDC transfers. Transaction history is retrieved using the Etherscan v2 unified API, supporting over 60 EVM chains. All USDC amounts are handled with BigInt for precision. An admin dashboard with HTTP Basic Auth is available for backfill operations, cache management, database statistics, and API health checks.
+The backend uses Express.js (TypeScript), Drizzle ORM, and PostgreSQL (via Neon serverless adapter). It provides APIs for balance and transaction history with multi-chain aggregation support. When called without a chainId parameter, balance and transaction endpoints fetch data from both Base and Celo in parallel, returning aggregated totals with per-chain breakdowns. The production-ready EIP-3009 facilitator handles gasless USDC transfers on both networks. Transaction history is retrieved using the Etherscan v2 unified API, supporting over 60 EVM chains. All USDC amounts are handled with BigInt for precision to avoid floating-point errors. Balance formatting uses BigInt division to maintain precision for large amounts. Transaction merging uses deterministic timestamp-based sorting with txHash as tiebreaker. An admin dashboard with HTTP Basic Auth is available for backfill operations, cache management, database statistics, and API health checks.
 
 ### Cryptographic Architecture
 Wallet generation employs `viem` for secp256k1 private key creation. Private keys are encrypted with WebCrypto API (AES-GCM with PBKDF2) and stored in IndexedDB, protected by a user-defined password. EIP-712 typed data signing is used for gasless transfers, compatible with USDC's EIP-3009. The application correctly handles EIP-712 domain differences for "USDC" vs. "USD Coin" across different networks.
@@ -35,6 +35,13 @@ The application is designed as an offline-first PWA, featuring a service worker 
 
 ### UI/UX Decisions
 The application features a unified fixed header and bottom navigation across all pages. The header displays branding, MaxFlow score, and distinct QR (receive) and Scan (send) icons. The bottom navigation provides mobile-first access to Signal, Wallet, and Settings. The "Reputation" page was renamed to "Signal" to better reflect MaxFlow's network health computation.
+
+**Multi-Chain UX:**
+- Home page displays aggregated USDC balance from both Base and Celo with per-chain breakdown (e.g., "$15.00 USDC" with "$10.00 Base + $5.00 Celo" below)
+- Transaction list shows chain badges (Base/Celo) for each transaction
+- Send page auto-selects the chain with the highest USDC balance on first load, with manual network toggle available in header
+- Receive page allows network selection to specify which chain to receive payments on
+- Explorer links dynamically use the correct block explorer (Basescan/Celoscan) based on transaction's chainId
 
 ## External Dependencies
 

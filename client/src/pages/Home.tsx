@@ -65,13 +65,26 @@ export default function Home() {
     loadWallet();
   }, [setLocation]);
 
-  const { data: balanceData, isLoading } = useQuery<BalanceResponse>({
-    queryKey: ['/api/balance', address, chainId],
+  // Fetch aggregated balance from all chains
+  const { data: balanceData, isLoading } = useQuery<BalanceResponse & { chains?: any }>({
+    queryKey: ['/api/balance', address],
     enabled: !!address,
     refetchInterval: 30000,
     queryFn: async () => {
-      const res = await fetch(`/api/balance/${address}?chainId=${chainId}`);
+      const res = await fetch(`/api/balance/${address}`);
       if (!res.ok) throw new Error('Failed to fetch balance');
+      return res.json();
+    },
+  });
+
+  // Fetch aggregated transactions from all chains
+  const { data: allTransactions } = useQuery<(SchemaTransaction & { chainId?: number })[]>({
+    queryKey: ['/api/transactions', address],
+    enabled: !!address,
+    refetchInterval: 30000,
+    queryFn: async () => {
+      const res = await fetch(`/api/transactions/${address}`);
+      if (!res.ok) throw new Error('Failed to fetch transactions');
       return res.json();
     },
   });
@@ -82,14 +95,18 @@ export default function Home() {
   });
 
   const balance = balanceData?.balance || '0.00';
+  const balanceMicro = balanceData?.balanceMicro;
+  const chains = balanceData?.chains;
   const fiatValue = exchangeRate 
     ? (parseFloat(balance) * exchangeRate.rate).toFixed(2)
     : balance;
 
-  const transactions = balanceData?.transactions || [];
+  const transactions = allTransactions || [];
   
-  const getExplorerUrl = (txHash: string) => {
-    const network = chainId === 42220 ? 'celo' : 'base';
+  const getExplorerUrl = (txHash: string, txChainId?: number) => {
+    // Use transaction's chainId if available, otherwise fall back to user preference
+    const effectiveChainId = txChainId || chainId;
+    const network = effectiveChainId === 42220 ? 'celo' : 'base';
     if (network === 'celo') {
       return `https://celoscan.io/tx/${txHash}`;
     } else {
@@ -178,11 +195,12 @@ export default function Home() {
           <BalanceCard 
             balance={balance}
             currency="USDC"
-            balanceMicro={balanceData?.balanceMicro}
+            balanceMicro={balanceMicro}
             exchangeRate={exchangeRate?.rate}
             fiatCurrency={currency}
             address={address}
             chainId={chainId}
+            chains={chains}
           />
         )}
 
@@ -306,11 +324,11 @@ export default function Home() {
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={() => window.open(getExplorerUrl(selectedTransaction.txHash!), '_blank', 'noopener,noreferrer')}
+                  onClick={() => window.open(getExplorerUrl(selectedTransaction.txHash!, (selectedTransaction as any).chainId), '_blank', 'noopener,noreferrer')}
                   data-testid="button-view-explorer"
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
-                  View on {chainId === 42220 ? 'Celoscan' : 'Basescan'}
+                  View on {((selectedTransaction as any).chainId || chainId) === 42220 ? 'Celoscan' : 'Basescan'}
                 </Button>
               )}
             </div>
