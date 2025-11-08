@@ -209,7 +209,7 @@ export default function BalanceCard({
                 cursor={{ stroke: 'currentColor', strokeWidth: 1, strokeDasharray: '5 5' }}
               />
               <Line 
-                type="monotone" 
+                type="natural" 
                 dataKey="value" 
                 stroke="currentColor" 
                 strokeWidth={2}
