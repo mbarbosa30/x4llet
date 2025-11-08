@@ -862,6 +862,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/admin/migrate-to-micro-usdc', adminAuthMiddleware, async (req, res) => {
+    try {
+      const result = await storage.migrateToMicroUsdc();
+      
+      res.json({
+        migratedTransactions: result.migratedTransactions,
+        migratedBalances: result.migratedBalances,
+      });
+    } catch (error) {
+      console.error('Error migrating to micro-USDC:', error);
+      res.status(500).json({ error: 'Failed to migrate to micro-USDC' });
+    }
+  });
+
   app.get('/api/admin/stats', adminAuthMiddleware, async (req, res) => {
     try {
       const stats = await storage.getAdminStats();

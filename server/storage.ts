@@ -170,6 +170,7 @@ export interface IStorage {
   clearAllCaches(): Promise<void>;
   clearCachedBalances(): Promise<void>;
   clearBalanceHistory(): Promise<void>;
+  migrateToMicroUsdc(): Promise<{ migratedTransactions: number; migratedBalances: number }>;
 }
 
 export class MemStorage implements IStorage {
@@ -456,6 +457,11 @@ export class MemStorage implements IStorage {
 
   async clearBalanceHistory(): Promise<void> {
     // MemStorage doesn't track balance history, no-op
+  }
+
+  async migrateToMicroUsdc(): Promise<{ migratedTransactions: number; migratedBalances: number }> {
+    // MemStorage doesn't use database, no-op
+    return { migratedTransactions: 0, migratedBalances: 0 };
   }
 }
 
@@ -1154,6 +1160,41 @@ export class DbStorage extends MemStorage {
       console.log('[Admin] Balance history cleared successfully');
     } catch (error) {
       console.error('[Admin] Error clearing balance history:', error);
+      throw error;
+    }
+  }
+
+  async migrateToMicroUsdc(): Promise<{ migratedTransactions: number; migratedBalances: number }> {
+    try {
+      console.log('[Admin] Starting micro-USDC migration');
+      
+      // Migrate cached_transactions: convert decimal amounts to micro-USDC integers
+      const txResult = await db.execute(sql`
+        UPDATE cached_transactions
+        SET amount = CAST(CAST(amount AS NUMERIC) * 1000000 AS TEXT)
+        WHERE amount ~ '^[0-9]+\.[0-9]+$'
+          AND CAST(amount AS NUMERIC) < 1000
+      `);
+      
+      // Migrate cached_balances: convert decimal balances to micro-USDC integers  
+      const balanceResult = await db.execute(sql`
+        UPDATE cached_balances
+        SET balance = CAST(CAST(balance AS NUMERIC) * 1000000 AS TEXT)
+        WHERE balance ~ '^[0-9]+\.[0-9]+$'
+          AND CAST(balance AS NUMERIC) < 1000
+      `);
+      
+      const migratedTransactions = txResult.rowCount ?? 0;
+      const migratedBalances = balanceResult.rowCount ?? 0;
+      
+      console.log(`[Admin] Migration complete: ${migratedTransactions} transactions, ${migratedBalances} balances`);
+      
+      return {
+        migratedTransactions,
+        migratedBalances,
+      };
+    } catch (error) {
+      console.error('[Admin] Error during micro-USDC migration:', error);
       throw error;
     }
   }

@@ -67,6 +67,7 @@ export default function Admin() {
   const [isClearingBalances, setIsClearingBalances] = useState(false);
   const [isClearingHistory, setIsClearingHistory] = useState(false);
   const [isPruning, setIsPruning] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
   const [walletAddress, setWalletAddress] = useState('');
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [apiHealth, setApiHealth] = useState<ApiHealthStatus | null>(null);
@@ -271,6 +272,33 @@ export default function Admin() {
       });
     } finally {
       setIsPruning(false);
+    }
+  };
+
+  const handleMigrateToMicroUsdc = async () => {
+    if (!confirm('This will convert decimal amounts (e.g., "1.000000") to micro-USDC integers (e.g., "1000000") in cached_transactions and cached_balances. Only amounts < 1000 will be migrated. Continue?')) {
+      return;
+    }
+
+    setIsMigrating(true);
+    try {
+      const res = await authenticatedRequest('POST', '/api/admin/migrate-to-micro-usdc', authHeader);
+      const result = await res.json();
+
+      toast({
+        title: 'Migration Complete',
+        description: `Migrated ${result.migratedTransactions} transactions and ${result.migratedBalances} balances`,
+      });
+
+      loadDashboardData(authHeader);
+    } catch (error: any) {
+      toast({
+        title: 'Migration Failed',
+        description: error.message || 'Failed to migrate to micro-USDC',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsMigrating(false);
     }
   };
 
@@ -622,6 +650,30 @@ export default function Admin() {
               >
                 {isClearingHistory && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Clear Balance History
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                Migrate to Micro-USDC
+              </CardTitle>
+              <CardDescription>
+                Convert decimal amounts to micro-USDC integers (one-time migration)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={handleMigrateToMicroUsdc}
+                disabled={isMigrating}
+                variant="outline"
+                className="w-full"
+                data-testid="button-migrate-usdc"
+              >
+                {isMigrating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Migrate to Micro-USDC
               </Button>
             </CardContent>
           </Card>
