@@ -573,7 +573,8 @@ export class DbStorage extends MemStorage {
   }
 
   async getTransactions(address: string, chainId: number): Promise<Transaction[]> {
-    const results = await db
+    // Check cache first
+    const cachedResults = await db
       .select()
       .from(cachedTransactions)
       .where(
@@ -587,7 +588,7 @@ export class DbStorage extends MemStorage {
       )
       .orderBy(desc(cachedTransactions.timestamp));
 
-    return results.map(tx => ({
+    const cached = cachedResults.map(tx => ({
       id: tx.txHash,
       type: tx.type as 'send' | 'receive',
       from: tx.from,
@@ -597,6 +598,22 @@ export class DbStorage extends MemStorage {
       status: tx.status as 'pending' | 'completed' | 'failed',
       txHash: tx.txHash,
     }));
+
+    // If cache is empty, fetch fresh transactions from Etherscan
+    // This handles the case where transactions were added after initial empty cache
+    if (cached.length === 0) {
+      console.log(`[DB Cache] No cached transactions for ${address} on chain ${chainId}, fetching fresh data`);
+      const freshTransactions = await fetchTransactionsFromEtherscan(address, chainId);
+      
+      // Cache the fresh transactions
+      if (freshTransactions.length > 0) {
+        await this.cacheTransactions(address, chainId, freshTransactions);
+      }
+      
+      return freshTransactions;
+    }
+
+    return cached;
   }
 
   async addTransaction(address: string, chainId: number, tx: Transaction): Promise<void> {
