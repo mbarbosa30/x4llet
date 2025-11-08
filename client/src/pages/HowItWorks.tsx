@@ -7,7 +7,13 @@ export default function HowItWorks() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header 
+        className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+        style={{ 
+          paddingTop: 'env(safe-area-inset-top)',
+          height: 'calc(3.5rem + env(safe-area-inset-top))'
+        }}
+      >
         <div className="flex h-14 items-center px-4 max-w-md mx-auto">
           <Button 
             variant="ghost" 

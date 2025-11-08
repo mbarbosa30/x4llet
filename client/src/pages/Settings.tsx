@@ -214,8 +214,11 @@ export default function Settings() {
 
   return (
     <div 
-      className="min-h-screen bg-background pt-16"
-      style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
+      className="min-h-screen bg-background"
+      style={{ 
+        paddingTop: 'calc(4rem + env(safe-area-inset-top))',
+        paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' 
+      }}
     >
       <main className="max-w-md mx-auto p-4 space-y-8">
         <InstallPrompt />

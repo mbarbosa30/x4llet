@@ -57,7 +57,14 @@ export default function AppHeader({ onScanClick }: AppHeaderProps) {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-background border-b flex items-center justify-between px-4 z-50">
+    <header 
+      className="fixed top-0 left-0 right-0 bg-background border-b z-50"
+      style={{ 
+        paddingTop: 'env(safe-area-inset-top)',
+        height: 'calc(4rem + env(safe-area-inset-top))'
+      }}
+    >
+      <div className="flex items-center justify-between px-4 h-16">
       <div className="flex items-center gap-3">
         <h1 className="text-lg font-semibold">nanoPay</h1>
         {maxflowScore && (
@@ -101,6 +108,7 @@ export default function AppHeader({ onScanClick }: AppHeaderProps) {
         >
           <ScanLine className="h-5 w-5" />
         </Button>
+      </div>
       </div>
     </header>
   );
