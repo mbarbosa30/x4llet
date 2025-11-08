@@ -50,15 +50,19 @@ export function useInflationAnimation({
     // Calculate change in value per second
     const changePerSecond = baseValue * secondlyRate;
     
-    // Determine precision to show meaningful changes
-    // Show enough decimals to see inflation movement naturally
+    // Only show extra decimals if they change at least once per second
+    // For precision p, one unit is 10^-p
+    // We need: changePerSecond >= 10^-p (at least 1 unit change per second)
+    // Therefore: p >= -log10(changePerSecond), so p = ceil(-log10(changePerSecond))
     let requiredPrecision = 2;
     
     if (changePerSecond > 0) {
-      // Calculate how many decimals needed to show the change
-      const magnitude = Math.floor(-Math.log10(changePerSecond));
-      // Add 1 extra decimal to show smooth movement
-      requiredPrecision = Math.min(Math.max(magnitude + 1, 2), 5);
+      const minPrecision = Math.ceil(-Math.log10(changePerSecond));
+      // Only show extra decimals (3-5) if they genuinely change once per second
+      // Otherwise stick with 2 decimals
+      if (minPrecision >= 3 && minPrecision <= 5) {
+        requiredPrecision = minPrecision;
+      }
     }
     
     setPrecision(requiredPrecision);

@@ -200,11 +200,11 @@ export default function BalanceCard({
       <div className="relative z-10">
         <div className="text-sm text-muted-foreground mb-2">{currency} Balance</div>
         <div className="text-5xl font-medium tabular-nums mb-2 flex items-center justify-center" data-testid="text-balance">
-          <span className="text-4xl opacity-40">$</span>
+          <span className="text-3xl opacity-70 mr-1.5">$</span>
           <span>{balance}</span>
         </div>
         {balanceMicro && exchangeRate && (
-          <div className="text-sm" data-testid="text-fiat-value">
+          <div className="text-lg" data-testid="text-fiat-value">
             <div className="flex items-center justify-center">
               <span className="text-muted-foreground mr-2">≈</span>
               <AnimatedBalance
@@ -215,11 +215,6 @@ export default function BalanceCard({
                 className="text-muted-foreground"
               />
             </div>
-            {inflationData && inflationData.monthlyRate !== 0 && (
-              <div className="text-xs opacity-60 mt-1">
-                ({inflationData.monthlyRate > 0 ? '+' : ''}{(inflationData.monthlyRate * 100).toFixed(2)}%/mo inflation)
-              </div>
-            )}
           </div>
         )}
       </div>
