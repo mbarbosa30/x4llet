@@ -1,14 +1,14 @@
 /**
  * Smart amount formatter that shows clean amounts for readability
- * while preserving precision for very small values
+ * while preserving full precision
  * 
  * Accepts micro-USDC integers (6 decimals) as strings or numbers and formats for display
  * Also handles legacy decimal format for backward compatibility
  * 
  * Rules:
- * - Amounts >= 0.01: Show 2 decimals (e.g., "5.12", "100.50")
- * - Amounts < 0.01: Show up to 6 significant decimals (e.g., "0.000123", "0.0000056")
- * - Strips trailing zeros after decimal point
+ * - Shows up to 6 decimals (full precision for micro-USDC)
+ * - Strips trailing zeros for cleaner display
+ * - Examples: "10.00" → "10", "1.50" → "1.5", "0.339800" → "0.3398", "0.000123" → "0.000123"
  */
 export function formatAmount(amount: string | number, currency: string = 'USDC'): string {
   let numAmount: number;
@@ -27,21 +27,11 @@ export function formatAmount(amount: string | number, currency: string = 'USDC')
     numAmount = amount / 1e6;
   }
   
-  if (isNaN(numAmount)) {
-    return `0.00 ${currency}`;
+  if (isNaN(numAmount) || numAmount === 0) {
+    return `0 ${currency}`;
   }
   
-  // For amounts >= 0.01, show 2 decimals
-  if (numAmount >= 0.01) {
-    return `${numAmount.toFixed(2)} ${currency}`;
-  }
-  
-  // For very small amounts, show up to 6 decimals but strip trailing zeros
-  if (numAmount > 0) {
-    const formatted = numAmount.toFixed(6).replace(/\.?0+$/, '');
-    return `${formatted} ${currency}`;
-  }
-  
-  // Zero
-  return `0.00 ${currency}`;
+  // Show up to 6 decimals (full precision) and strip trailing zeros
+  const formatted = numAmount.toFixed(6).replace(/\.?0+$/, '');
+  return `${formatted} ${currency}`;
 }
