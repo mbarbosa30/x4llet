@@ -64,9 +64,11 @@ export default function Admin() {
   
   const [isBackfillingBalances, setIsBackfillingBalances] = useState(false);
   const [isBackfillingRates, setIsBackfillingRates] = useState(false);
+  const [isBackfillingAllWallets, setIsBackfillingAllWallets] = useState(false);
   const [isClearingCaches, setIsClearingCaches] = useState(false);
   const [isClearingBalances, setIsClearingBalances] = useState(false);
   const [isClearingHistory, setIsClearingHistory] = useState(false);
+  const [isClearingTransactionsAndBalances, setIsClearingTransactionsAndBalances] = useState(false);
   const [isPruning, setIsPruning] = useState(false);
   const [isMigrating, setIsMigrating] = useState(false);
   const [walletAddress, setWalletAddress] = useState('');
@@ -168,6 +170,67 @@ export default function Admin() {
       });
     } finally {
       setIsBackfillingRates(false);
+    }
+  };
+
+  const handleBackfillAllWallets = async () => {
+    if (!confirm('This will backfill balance history for ALL wallets in the database on both Base and Celo. This may take a while. Continue?')) {
+      return;
+    }
+
+    setIsBackfillingAllWallets(true);
+    try {
+      const res = await authenticatedRequest('POST', '/api/admin/backfill-all-wallets', authHeader);
+      const result = await res.json();
+
+      const errorMsg = (result.errors && result.errors.length > 0)
+        ? ` (${result.errors.length} errors)`
+        : '';
+
+      toast({
+        title: 'Bulk Backfill Complete',
+        description: `Processed ${result.walletsProcessed || 0} wallets, created ${result.totalSnapshots || 0} snapshots${errorMsg}`,
+      });
+
+      if (result.errors && result.errors.length > 0) {
+        console.error('Backfill errors:', result.errors);
+      }
+
+      loadDashboardData(authHeader);
+    } catch (error: any) {
+      toast({
+        title: 'Bulk Backfill Failed',
+        description: error.message || 'Failed to backfill all wallets',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsBackfillingAllWallets(false);
+    }
+  };
+
+  const handleClearTransactionsAndBalances = async () => {
+    if (!confirm('This will clear cached transactions and balances but preserve MaxFlow scores. They will be refetched from the blockchain. Continue?')) {
+      return;
+    }
+
+    setIsClearingTransactionsAndBalances(true);
+    try {
+      await authenticatedRequest('POST', '/api/admin/clear-transactions-and-balances', authHeader);
+
+      toast({
+        title: 'Transactions & Balances Cleared',
+        description: 'Data will be refetched from blockchain (MaxFlow scores preserved)',
+      });
+
+      loadDashboardData(authHeader);
+    } catch (error: any) {
+      toast({
+        title: 'Clear Failed',
+        description: error.message || 'Failed to clear transactions and balances',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsClearingTransactionsAndBalances(false);
     }
   };
 
@@ -429,6 +492,29 @@ export default function Admin() {
               </Button>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                Backfill All Wallets
+              </CardTitle>
+              <CardDescription>
+                Reconstruct balance history for ALL wallets on both Base and Celo
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={handleBackfillAllWallets}
+                disabled={isBackfillingAllWallets}
+                className="w-full"
+                data-testid="button-backfill-all-wallets"
+              >
+                {isBackfillingAllWallets && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Backfill All Wallets
+              </Button>
+            </CardContent>
+          </Card>
         </div>
 
         {/* System Health Section */}
@@ -584,6 +670,30 @@ export default function Admin() {
               >
                 {isClearingCaches && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Clear All Caches
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trash2 className="h-5 w-5" />
+                Clear Transactions & Balances
+              </CardTitle>
+              <CardDescription>
+                Clear cached transactions and balances (preserves MaxFlow scores)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={handleClearTransactionsAndBalances}
+                disabled={isClearingTransactionsAndBalances}
+                variant="outline"
+                className="w-full"
+                data-testid="button-clear-transactions-balances"
+              >
+                {isClearingTransactionsAndBalances && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Clear Transactions & Balances
               </Button>
             </CardContent>
           </Card>

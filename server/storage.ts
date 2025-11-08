@@ -170,6 +170,8 @@ export interface IStorage {
   clearAllCaches(): Promise<void>;
   clearCachedBalances(): Promise<void>;
   clearBalanceHistory(): Promise<void>;
+  clearTransactionsAndBalances(): Promise<void>;
+  backfillAllWallets(): Promise<{ walletsProcessed: number; totalSnapshots: number; errors: string[] }>;
   migrateToMicroUsdc(): Promise<{ migratedTransactions: number; migratedBalances: number }>;
 }
 
@@ -457,6 +459,16 @@ export class MemStorage implements IStorage {
 
   async clearBalanceHistory(): Promise<void> {
     // MemStorage doesn't track balance history, no-op
+  }
+
+  async clearTransactionsAndBalances(): Promise<void> {
+    // Clear in-memory caches (preserve authorizations which could include MaxFlow-like data)
+    this.balances.clear();
+  }
+
+  async backfillAllWallets(): Promise<{ walletsProcessed: number; totalSnapshots: number; errors: string[] }> {
+    // MemStorage doesn't track balance history, no-op
+    return { walletsProcessed: 0, totalSnapshots: 0, errors: [] };
   }
 
   async migrateToMicroUsdc(): Promise<{ migratedTransactions: number; migratedBalances: number }> {
@@ -1217,6 +1229,72 @@ export class DbStorage extends MemStorage {
       console.log('[Admin] Balance history cleared successfully');
     } catch (error) {
       console.error('[Admin] Error clearing balance history:', error);
+      throw error;
+    }
+  }
+
+  async clearTransactionsAndBalances(): Promise<void> {
+    try {
+      console.log('[Admin] Clearing transactions and balances (preserving MaxFlow scores)');
+      
+      await db.delete(cachedBalances);
+      await db.delete(cachedTransactions);
+      
+      console.log('[Admin] Transactions and balances cleared successfully');
+    } catch (error) {
+      console.error('[Admin] Error clearing transactions and balances:', error);
+      throw error;
+    }
+  }
+
+  async backfillAllWallets(): Promise<{ walletsProcessed: number; totalSnapshots: number; errors: string[] }> {
+    try {
+      console.log('[Admin] Starting backfill for all wallets');
+      
+      // Get all unique wallet addresses from the database
+      const walletRecords = await db
+        .select({ address: wallets.address })
+        .from(wallets);
+      
+      console.log(`[Admin] Found ${walletRecords.length} wallets in database`);
+      
+      let walletsProcessed = 0;
+      let totalSnapshots = 0;
+      const errors: string[] = [];
+      const chains = [42220, 8453]; // Celo and Base
+      
+      for (const wallet of walletRecords) {
+        const address = wallet.address;
+        console.log(`[Admin] Processing wallet ${address}`);
+        
+        let walletSucceeded = false;
+        for (const chainId of chains) {
+          try {
+            const result = await this.backfillBalanceHistory(address, chainId);
+            totalSnapshots += result.snapshotsCreated;
+            walletSucceeded = true;
+            console.log(`[Admin] ${address} on chain ${chainId}: ${result.snapshotsCreated} snapshots, final balance: ${result.finalBalance}`);
+          } catch (error: any) {
+            const errorMsg = `${address} on chain ${chainId}: ${error.message}`;
+            console.error(`[Admin] Error: ${errorMsg}`);
+            errors.push(errorMsg);
+          }
+        }
+        
+        if (walletSucceeded) {
+          walletsProcessed++;
+        }
+      }
+      
+      console.log(`[Admin] Backfill complete: ${walletsProcessed} wallets, ${totalSnapshots} total snapshots, ${errors.length} errors`);
+      
+      return {
+        walletsProcessed,
+        totalSnapshots,
+        errors,
+      };
+    } catch (error) {
+      console.error('[Admin] Error during bulk backfill:', error);
       throw error;
     }
   }

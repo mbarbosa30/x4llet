@@ -849,6 +849,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/admin/clear-transactions-and-balances', adminAuthMiddleware, async (req, res) => {
+    try {
+      await storage.clearTransactionsAndBalances();
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error clearing transactions and balances:', error);
+      res.status(500).json({ error: 'Failed to clear transactions and balances' });
+    }
+  });
+
+  app.post('/api/admin/backfill-all-wallets', adminAuthMiddleware, async (req, res) => {
+    try {
+      const result = await storage.backfillAllWallets();
+      
+      res.json({
+        walletsProcessed: result.walletsProcessed,
+        totalSnapshots: result.totalSnapshots,
+        errors: result.errors,
+      });
+    } catch (error) {
+      console.error('Error backfilling all wallets:', error);
+      res.status(500).json({ error: 'Failed to backfill all wallets' });
+    }
+  });
+
   app.post('/api/admin/prune-old-data', adminAuthMiddleware, async (req, res) => {
     try {
       const result = await storage.pruneOldBalanceHistory();
