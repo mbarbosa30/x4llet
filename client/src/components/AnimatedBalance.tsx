@@ -24,14 +24,17 @@ export default function AnimatedBalance({
   return (
     <div className={`flex items-baseline ${className}`} data-testid={testId}>
       <span className="text-inherit tabular-nums mr-1">{currency}</span>
-      <span className="text-inherit tabular-nums">
+      <span className="inline-flex items-baseline text-inherit tabular-nums">
         {wholePart}.{mainDecimals}
-      </span>
-      <span className="inline-block w-[2.5ch] text-left">
         {extraDecimals && (
-          <sup className="text-[0.5em] text-muted-foreground opacity-70 tabular-nums">
+          <span className="text-[0.5em] text-muted-foreground opacity-70 tabular-nums relative" style={{ top: '-0.5em' }}>
             {extraDecimals}
-          </sup>
+          </span>
+        )}
+        {!extraDecimals && (
+          <span className="invisible text-[0.5em] tabular-nums" style={{ width: '2.5ch' }} aria-hidden="true">
+            000
+          </span>
         )}
       </span>
     </div>
