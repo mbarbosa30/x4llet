@@ -215,8 +215,8 @@ export default function BalanceCard({
           <span>{balance}</span>
         </div>
         
-        {/* Chain breakdown */}
-        {chains && (
+        {/* Chain breakdown - only show if balance exists on both chains */}
+        {chains && BigInt(chains.base.balanceMicro) > 0n && BigInt(chains.celo.balanceMicro) > 0n && (
           <div className="text-xs text-muted-foreground mb-3 flex items-center justify-center gap-3">
             <span data-testid="text-base-balance">${chains.base.balance} Base</span>
             <span className="opacity-50">+</span>
