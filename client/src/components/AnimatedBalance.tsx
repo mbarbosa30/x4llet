@@ -27,12 +27,12 @@ export default function AnimatedBalance({
       <span className="inline-flex items-baseline text-inherit tabular-nums">
         {wholePart}.{mainDecimals}
         {extraDecimals && (
-          <span className="text-[0.5em] text-muted-foreground opacity-70 tabular-nums relative ml-[0.1em]" style={{ top: '-0.5em' }}>
+          <span className="text-[0.5em] text-muted-foreground opacity-70 tabular-nums relative ml-[0.2em]" style={{ top: '-0.5em' }}>
             {extraDecimals}
           </span>
         )}
         {!extraDecimals && (
-          <span className="invisible text-[0.5em] tabular-nums ml-[0.1em]" style={{ width: '2.5ch' }} aria-hidden="true">
+          <span className="invisible text-[0.5em] tabular-nums ml-[0.2em]" style={{ width: '2.5ch' }} aria-hidden="true">
             000
           </span>
         )}
