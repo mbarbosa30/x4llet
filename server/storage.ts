@@ -518,15 +518,25 @@ export class DbStorage extends MemStorage {
       
       const transactions = await this.getTransactions(address, chainId);
       
-      // Parse cached balance to get micro-USDC
-      // Cached balance is stored as decimal string (legacy format)
-      const balanceParts = cached[0].balance.split('.');
-      const balanceWhole = balanceParts[0] || '0';
-      const balanceFraction = (balanceParts[1] || '0').padEnd(6, '0').slice(0, 6);
-      const balanceMicro = balanceWhole + balanceFraction;
+      // Cached balance should be stored as micro-USDC integer
+      // Handle legacy decimal format if migration hasn't run yet
+      let balanceMicro: string;
+      if (cached[0].balance.includes('.')) {
+        // Legacy decimal format - convert to micro-USDC
+        console.warn(`[DB Cache] Found legacy decimal balance "${cached[0].balance}" - converting to micro-USDC`);
+        const balanceParts = cached[0].balance.split('.');
+        const balanceWhole = balanceParts[0] || '0';
+        const balanceFraction = (balanceParts[1] || '0').padEnd(6, '0').slice(0, 6);
+        balanceMicro = balanceWhole + balanceFraction;
+      } else {
+        // Already in micro-USDC format
+        balanceMicro = cached[0].balance;
+      }
+      
+      const balanceFormatted = formatUsdcAmount(balanceMicro);
       
       return {
-        balance: cached[0].balance,
+        balance: balanceFormatted,
         balanceMicro,
         decimals: cached[0].decimals,
         nonce: cached[0].nonce,
@@ -550,14 +560,14 @@ export class DbStorage extends MemStorage {
       await db.insert(cachedBalances).values({
         address,
         chainId,
-        balance: balance.balance,
+        balance: balance.balanceMicro,
         decimals: balance.decimals,
         nonce: balance.nonce,
         updatedAt: new Date(),
       }).onConflictDoUpdate({
         target: [cachedBalances.address, cachedBalances.chainId],
         set: {
-          balance: balance.balance,
+          balance: balance.balanceMicro,
           nonce: balance.nonce,
           updatedAt: new Date(),
         },
@@ -1304,19 +1314,19 @@ export class DbStorage extends MemStorage {
       console.log('[Admin] Starting micro-USDC migration');
       
       // Migrate cached_transactions: convert decimal amounts to micro-USDC integers
+      // Only convert values that look like decimals (contain a decimal point)
       const txResult = await db.execute(sql`
         UPDATE cached_transactions
         SET amount = CAST(CAST(amount AS NUMERIC) * 1000000 AS TEXT)
         WHERE amount ~ '^[0-9]+\.[0-9]+$'
-          AND CAST(amount AS NUMERIC) < 1000
       `);
       
-      // Migrate cached_balances: convert decimal balances to micro-USDC integers  
+      // Migrate cached_balances: convert decimal balances to micro-USDC integers
+      // Only convert values that look like decimals (contain a decimal point)
       const balanceResult = await db.execute(sql`
         UPDATE cached_balances
         SET balance = CAST(CAST(balance AS NUMERIC) * 1000000 AS TEXT)
         WHERE balance ~ '^[0-9]+\.[0-9]+$'
-          AND CAST(balance AS NUMERIC) < 1000
       `);
       
       const migratedTransactions = txResult.rowCount ?? 0;
