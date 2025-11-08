@@ -21,7 +21,14 @@ Wallet generation employs `viem` for secp256k1 private key creation. Private key
 A PostgreSQL database managed with Drizzle ORM is used for intelligent caching. Tables include `users`, `wallets`, `authorizations`, `cached_balances`, `cached_transactions`, `cached_maxflow_scores`, and `exchange_rates`. This caching strategy reduces blockchain RPC calls and external API requests, enhancing performance and enabling offline balance display. USDC amounts are standardized to micro-USDC integers (6 decimals) for precision. Balance history is generated through automatic snapshots and historical exchange rates are fetched and stored.
 
 ### Network Configuration
-The application supports Base (chainId: 8453) and Celo (chainId: 42220) networks, with Celo as the default. Users can switch networks via settings.
+The application supports Base (chainId: 8453) and Celo (chainId: 42220) networks, with Celo as the default. Users can switch networks via the Settings page.
+
+**Network Support Status:**
+- **Celo (42220)**: ✅ Fully operational. Facilitator has 4.9 CELO for gas fees.
+- **Base (8453)**: ⚠️ **Currently disabled**. Infrastructure ready, but facilitator wallet has 0 ETH. All Base transfers will fail until the facilitator is funded with ETH for gas fees.
+
+**Facilitator Wallet:** `0x2c696E742e07d92D9ae574865267C54B13930363`
+- To enable Base transfers: Send at least 0.01 ETH to the facilitator address on Base mainnet.
 
 ### PWA Features
 The application is designed as an offline-first PWA, featuring a service worker for asset caching, IndexedDB for local data, and a manifest file. It includes mobile optimizations like viewport configuration, Apple mobile web app meta tags, safe area padding, and a touch-optimized UI.
