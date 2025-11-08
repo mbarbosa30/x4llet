@@ -1255,6 +1255,7 @@ export class DbStorage extends MemStorage {
     to: string;
     amount: string;
     timestamp: string;
+    chainId: number;
   }>> {
     try {
       const results = await db
@@ -1269,6 +1270,7 @@ export class DbStorage extends MemStorage {
         to: tx.to,
         amount: tx.amount,
         timestamp: tx.timestamp.toISOString(),
+        chainId: tx.chainId,
       }));
     } catch (error) {
       console.error('[Admin] Error fetching recent activity:', error);

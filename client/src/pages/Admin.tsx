@@ -29,6 +29,7 @@ interface RecentTransaction {
   to: string;
   amount: string;
   timestamp: string;
+  chainId: number;
 }
 
 function createAuthHeader(username: string, password: string): string {
@@ -538,7 +539,12 @@ export default function Admin() {
                 {recentActivity.map((tx) => (
                   <div key={tx.txHash} className="text-xs p-2 bg-muted rounded-md">
                     <div className="flex justify-between mb-1">
-                      <span className="font-mono">{formatAmount(tx.amount)}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono">{formatAmount(tx.amount)}</span>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-background border">
+                          {tx.chainId === 8453 ? 'Base' : 'Celo'}
+                        </span>
+                      </div>
                       <span className="text-muted-foreground">
                         {new Date(tx.timestamp).toLocaleString()}
                       </span>

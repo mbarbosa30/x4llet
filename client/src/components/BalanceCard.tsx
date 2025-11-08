@@ -111,8 +111,30 @@ export default function BalanceCard({
   chains,
 }: BalanceCardProps) {
 
-  // Fetch balance history for chart (90 days)
-  const { data: balanceHistory } = useQuery<BalanceHistoryPoint[]>({
+  // Fetch balance history from Base
+  const { data: baseHistory } = useQuery<BalanceHistoryPoint[]>({
+    queryKey: ['/api/balance-history', address, 8453],
+    enabled: !!address && !chainId,
+    queryFn: async () => {
+      const res = await fetch(`/api/balance-history/${address}?chainId=8453&days=90`);
+      if (!res.ok) throw new Error('Failed to fetch Base balance history');
+      return res.json();
+    },
+  });
+
+  // Fetch balance history from Celo
+  const { data: celoHistory } = useQuery<BalanceHistoryPoint[]>({
+    queryKey: ['/api/balance-history', address, 42220],
+    enabled: !!address && !chainId,
+    queryFn: async () => {
+      const res = await fetch(`/api/balance-history/${address}?chainId=42220&days=90`);
+      if (!res.ok) throw new Error('Failed to fetch Celo balance history');
+      return res.json();
+    },
+  });
+
+  // Fetch single chain history when chainId is specified
+  const { data: singleChainHistory } = useQuery<BalanceHistoryPoint[]>({
     queryKey: ['/api/balance-history', address, chainId],
     enabled: !!address && !!chainId,
     queryFn: async () => {
@@ -121,6 +143,36 @@ export default function BalanceCard({
       return res.json();
     },
   });
+
+  // Aggregate balance history from both chains when no specific chain selected
+  const balanceHistory = chainId 
+    ? singleChainHistory 
+    : (() => {
+        if (!baseHistory && !celoHistory) return undefined;
+        
+        // Create a map of timestamp -> total balance
+        const aggregatedMap = new Map<string, bigint>();
+        
+        // Add Base balances
+        baseHistory?.forEach(point => {
+          const existing = aggregatedMap.get(point.timestamp) || 0n;
+          aggregatedMap.set(point.timestamp, existing + BigInt(point.balance));
+        });
+        
+        // Add Celo balances
+        celoHistory?.forEach(point => {
+          const existing = aggregatedMap.get(point.timestamp) || 0n;
+          aggregatedMap.set(point.timestamp, existing + BigInt(point.balance));
+        });
+        
+        // Convert map to sorted array
+        return Array.from(aggregatedMap.entries())
+          .map(([timestamp, balance]) => ({
+            timestamp,
+            balance: balance.toString(),
+          }))
+          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      })();
 
   // Fetch inflation rate for animation
   const { data: inflationData } = useQuery<InflationData>({
@@ -217,7 +269,7 @@ export default function BalanceCard({
         
         {/* Chain breakdown - always show when chains data is available */}
         {chains && (
-          <div className="text-xs text-muted-foreground mb-3 flex items-center justify-center gap-3">
+          <div className="text-xs text-muted-foreground mb-3 flex items-center justify-center gap-3 opacity-40">
             <span data-testid="text-base-balance">${chains.base.balance} Base</span>
             <span className="opacity-50">+</span>
             <span data-testid="text-celo-balance">${chains.celo.balance} Celo</span>
