@@ -204,7 +204,7 @@ export default function BalanceCard({
           <span>{balance}</span>
         </div>
         {balanceMicro && exchangeRate && (
-          <div className="text-lg" data-testid="text-fiat-value">
+          <div className="text-base" data-testid="text-fiat-value">
             <div className="flex items-center justify-center">
               <span className="text-muted-foreground mr-2">≈</span>
               <AnimatedBalance
