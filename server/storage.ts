@@ -573,10 +573,37 @@ export class DbStorage extends MemStorage {
         },
       });
 
-      // Save balance snapshot for history tracking (using micro-USDC for precision)
+      // Save per-chain balance snapshot for history tracking
       await this.saveBalanceSnapshot(address, chainId, balance.balanceMicro);
+
+      // Also save aggregated snapshot (chainId=0) with total balance across all chains
+      await this.saveAggregatedBalanceSnapshot(address, chainId, balance.balanceMicro);
     } catch (error) {
       console.error('[DB] Error caching balance:', error);
+    }
+  }
+
+  private async saveAggregatedBalanceSnapshot(address: string, updatedChainId: number, updatedBalance: string): Promise<void> {
+    try {
+      // Fetch the balance from the OTHER chain to calculate total
+      const otherChainId = updatedChainId === 8453 ? 42220 : 8453;
+      
+      const otherChainCached = await db
+        .select()
+        .from(cachedBalances)
+        .where(and(eq(cachedBalances.address, address), eq(cachedBalances.chainId, otherChainId)))
+        .limit(1);
+
+      // Calculate total balance (current chain + other chain, or just current if other doesn't exist)
+      const otherChainBalance = otherChainCached[0]?.balance || '0';
+      const totalBalance = (BigInt(updatedBalance) + BigInt(otherChainBalance)).toString();
+
+      // Save aggregated snapshot with chainId=0 to indicate "all chains"
+      await this.saveBalanceSnapshot(address, 0, totalBalance);
+      
+      console.log(`[DB] Saved aggregated snapshot: ${totalBalance} micro-USDC (${updatedChainId}: ${updatedBalance}, ${otherChainId}: ${otherChainBalance})`);
+    } catch (error) {
+      console.error('[DB] Error saving aggregated balance snapshot:', error);
     }
   }
 
@@ -1291,7 +1318,17 @@ export class DbStorage extends MemStorage {
           }
         }
         
+        // After processing both chains, reconstruct aggregated snapshots
         if (walletSucceeded) {
+          try {
+            const aggregatedCount = await this.reconstructAggregatedHistory(address);
+            totalSnapshots += aggregatedCount;
+            console.log(`[Admin] ${address}: Created ${aggregatedCount} aggregated snapshots`);
+          } catch (error: any) {
+            const errorMsg = `${address} aggregation: ${error.message}`;
+            console.error(`[Admin] Error: ${errorMsg}`);
+            errors.push(errorMsg);
+          }
           walletsProcessed++;
         }
       }
@@ -1305,6 +1342,77 @@ export class DbStorage extends MemStorage {
       };
     } catch (error) {
       console.error('[Admin] Error during bulk backfill:', error);
+      throw error;
+    }
+  }
+
+  private async reconstructAggregatedHistory(address: string): Promise<number> {
+    try {
+      console.log(`[Admin] Reconstructing aggregated balance history for ${address}`);
+      
+      // Get all unique timestamps from both chains
+      const baseSnapshots = await db
+        .select()
+        .from(balanceHistory)
+        .where(and(eq(balanceHistory.address, address), eq(balanceHistory.chainId, 8453)))
+        .orderBy(balanceHistory.timestamp);
+      
+      const celoSnapshots = await db
+        .select()
+        .from(balanceHistory)
+        .where(and(eq(balanceHistory.address, address), eq(balanceHistory.chainId, 42220)))
+        .orderBy(balanceHistory.timestamp);
+      
+      // Collect all unique timestamps
+      const timestampSet = new Set<number>();
+      baseSnapshots.forEach(s => timestampSet.add(s.timestamp.getTime()));
+      celoSnapshots.forEach(s => timestampSet.add(s.timestamp.getTime()));
+      
+      const timestamps = Array.from(timestampSet).sort((a, b) => a - b);
+      
+      if (timestamps.length === 0) {
+        console.log(`[Admin] No snapshots found for ${address}`);
+        return 0;
+      }
+      
+      // Create maps for quick lookup
+      const baseMap = new Map(baseSnapshots.map(s => [s.timestamp.getTime(), BigInt(s.balance)]));
+      const celoMap = new Map(celoSnapshots.map(s => [s.timestamp.getTime(), BigInt(s.balance)]));
+      
+      // For each timestamp, calculate the total balance using forward-fill
+      let lastBaseBalance = 0n;
+      let lastCeloBalance = 0n;
+      let snapshotsCreated = 0;
+      
+      for (const ts of timestamps) {
+        // Update balances if we have new data at this timestamp
+        if (baseMap.has(ts)) {
+          lastBaseBalance = baseMap.get(ts)!;
+        }
+        if (celoMap.has(ts)) {
+          lastCeloBalance = celoMap.get(ts)!;
+        }
+        
+        const totalBalance = lastBaseBalance + lastCeloBalance;
+        
+        // Save aggregated snapshot (chainId=0)
+        try {
+          await db.insert(balanceHistory).values({
+            address,
+            chainId: 0,
+            balance: totalBalance.toString(),
+            timestamp: new Date(ts),
+          });
+          snapshotsCreated++;
+        } catch (error) {
+          // Skip duplicates
+        }
+      }
+      
+      console.log(`[Admin] Created ${snapshotsCreated} aggregated snapshots for ${address}`);
+      return snapshotsCreated;
+    } catch (error) {
+      console.error('[Admin] Error reconstructing aggregated history:', error);
       throw error;
     }
   }
