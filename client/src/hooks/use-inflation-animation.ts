@@ -37,72 +37,70 @@ export function useInflationAnimation({
     setAnimatedValue(baseValue);
   }, [baseValue]);
 
-  // Calculate required decimal precision for visible changes
+  // Calculate required decimal precision based on inflation magnitude
   useEffect(() => {
     if (!enabled || inflationRate === 0) {
       setPrecision(2);
       return;
     }
 
-    // Per-second decay rate (continuous compounding)
-    const secondlyRate = inflationRate / (365 * 24 * 60 * 60);
+    // Per-second growth rate (continuous compounding)
+    const secondlyRate = Math.abs(inflationRate) / (365 * 24 * 60 * 60);
     
-    // Calculate absolute change in value per second (handle both inflation and deflation)
-    const changePerSecond = Math.abs(baseValue * secondlyRate);
+    // Calculate change in value per second
+    const changePerSecond = baseValue * secondlyRate;
     
-    // Find minimum precision where change is visible (at least 1 unit change per second)
-    // For precision p, one unit is 10^-p
-    // We need: changePerSecond >= 10^-p
-    // Therefore: p <= -log10(changePerSecond)
+    // Determine precision to show meaningful changes
+    // Show enough decimals to see inflation movement naturally
     let requiredPrecision = 2;
     
     if (changePerSecond > 0) {
-      // Use ceil to ensure change is always >= one unit at this precision
-      // Example: changePerSecond = 0.0003, ceil(-log10(0.0003)) = ceil(3.52) = 4
-      // At precision 4, one unit = 0.0001, so 0.0003 >= 0.0001 ✓
-      const minPrecision = Math.ceil(-Math.log10(changePerSecond));
-      
-      // Only show extra decimals if we can achieve per-second visibility within 5 decimals
-      // If required precision > 5, inflation is too low to show per-second changes
-      if (minPrecision >= 3 && minPrecision <= 5) {
-        requiredPrecision = minPrecision;
-      }
-      // Otherwise stick with 2 decimals (no extra decimals shown)
+      // Calculate how many decimals needed to show the change
+      const magnitude = Math.floor(-Math.log10(changePerSecond));
+      // Add 1 extra decimal to show smooth movement
+      requiredPrecision = Math.min(Math.max(magnitude + 1, 2), 5);
     }
     
     setPrecision(requiredPrecision);
   }, [baseValue, inflationRate, enabled]);
 
-  // Animate value based on elapsed time
+  // Animate value based on elapsed time using requestAnimationFrame
   useEffect(() => {
     if (!enabled || inflationRate === 0) {
       setAnimatedValue(baseValue);
       return;
     }
 
-    // Per-second decay rate
-    const secondlyDecayFactor = Math.exp(-inflationRate / (365 * 24 * 60 * 60));
-
-    const interval = setInterval(() => {
+    let animationFrameId: number;
+    
+    const animate = () => {
       const elapsedSeconds = (Date.now() - mountTimeRef.current) / 1000;
       
-      // Apply decay: value × e^(-rate × time)
-      const decayedValue = baseValue * Math.pow(secondlyDecayFactor, elapsedSeconds);
-      setAnimatedValue(decayedValue);
-    }, 1000);
-
-    return () => clearInterval(interval);
+      // Apply GROWTH for inflation: value × e^(+rate × time)
+      // Local currency devalues, so it takes MORE local currency to equal same USD
+      const rate = inflationRate / (365 * 24 * 60 * 60); // Per-second rate
+      const inflatedValue = baseValue * Math.exp(rate * elapsedSeconds);
+      
+      setAnimatedValue(inflatedValue);
+      animationFrameId = requestAnimationFrame(animate);
+    };
+    
+    animationFrameId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationFrameId);
   }, [baseValue, inflationRate, enabled]);
 
   // Split into main (2) and extra decimals (up to 3)
-  // Only show extra decimals if precision > 2 (inflation is visible)
-  const formattedValue = animatedValue.toFixed(precision);
+  // Use Math.ceil for upward movement to ensure monotonic increase
+  const scaleFactor = Math.pow(10, precision);
+  const ceiledValue = Math.ceil(animatedValue * scaleFactor) / scaleFactor;
+  
+  const formattedValue = ceiledValue.toFixed(precision);
   const parts = formattedValue.split('.');
   const mainDecimals = parts[1]?.slice(0, 2) || '00';
   const extraDecimals = precision > 2 ? (parts[1]?.slice(2) || '') : '';
 
   return {
-    animatedValue,
+    animatedValue: ceiledValue,
     precision,
     mainDecimals,
     extraDecimals,
