@@ -22,16 +22,18 @@ export default function AnimatedBalance({
   const wholePart = Math.floor(value);
 
   return (
-    <div className={`flex items-baseline gap-1 ${className}`} data-testid={testId}>
-      <span className="text-inherit">{currency}</span>
-      <span className="text-inherit">
+    <div className={`flex items-baseline ${className}`} data-testid={testId}>
+      <span className="text-inherit tabular-nums mr-1">{currency}</span>
+      <span className="text-inherit tabular-nums">
         {wholePart}.{mainDecimals}
       </span>
-      {extraDecimals && (
-        <sup className="text-[0.5em] text-muted-foreground opacity-70">
-          {extraDecimals}
-        </sup>
-      )}
+      <span className="inline-block w-[2.5ch] text-left">
+        {extraDecimals && (
+          <sup className="text-[0.5em] text-muted-foreground opacity-70 tabular-nums">
+            {extraDecimals}
+          </sup>
+        )}
+      </span>
     </div>
   );
 }

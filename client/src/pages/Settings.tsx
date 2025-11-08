@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette, BookOpen, HelpCircle, MessageCircleQuestion } from 'lucide-react';
+import { ChevronRight, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette, BookOpen, HelpCircle, MessageCircleQuestion, TrendingDown, TrendingUp } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import InstallPrompt from '@/components/InstallPrompt';
 import { getWallet, getPreferences, savePreferences, getPrivateKey, lockWallet } from '@/lib/wallet';
@@ -24,6 +24,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+
+interface ExchangeRateData {
+  currency: string;
+  rate: number;
+}
+
+interface InflationData {
+  currency: string;
+  dailyRate: number;
+  monthlyRate: number;
+  annualRate: number;
+}
 
 export default function Settings() {
   const [, setLocation] = useLocation();
@@ -178,6 +190,28 @@ export default function Settings() {
     setShowTheme(false);
   };
 
+  // Fetch exchange rate for selected currency
+  const { data: exchangeRate } = useQuery<ExchangeRateData>({
+    queryKey: ['/api/exchange-rate', currency],
+    enabled: currency !== 'USD',
+    queryFn: async () => {
+      const res = await fetch(`/api/exchange-rate/${currency}`);
+      if (!res.ok) throw new Error('Failed to fetch exchange rate');
+      return res.json();
+    },
+  });
+
+  // Fetch inflation data for selected currency
+  const { data: inflationData } = useQuery<InflationData>({
+    queryKey: ['/api/inflation-rate', currency],
+    enabled: currency !== 'USD',
+    queryFn: async () => {
+      const res = await fetch(`/api/inflation-rate/${currency}`);
+      if (!res.ok) throw new Error('Failed to fetch inflation rate');
+      return res.json();
+    },
+  });
+
   return (
     <div 
       className="min-h-screen bg-background pt-16"
@@ -274,6 +308,48 @@ export default function Settings() {
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
           </Card>
+
+          {currency !== 'USD' && (exchangeRate || inflationData) && (
+            <Card className="p-4" data-testid="card-currency-info">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-medium">{currency} vs USD</h3>
+                </div>
+                
+                {exchangeRate && (
+                  <div className="space-y-1">
+                    <div className="text-xs text-muted-foreground">Exchange Rate</div>
+                    <div className="text-base font-medium tabular-nums">
+                      1 USD = {exchangeRate.rate.toLocaleString(undefined, { 
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 6 
+                      })} {currency}
+                    </div>
+                  </div>
+                )}
+
+                {inflationData && inflationData.monthlyRate !== 0 && (
+                  <div className="space-y-1">
+                    <div className="text-xs text-muted-foreground">Inflation Rate</div>
+                    <div className="flex items-center gap-2">
+                      {inflationData.monthlyRate > 0 ? (
+                        <TrendingDown className="h-4 w-4 text-destructive" />
+                      ) : (
+                        <TrendingUp className="h-4 w-4 text-green-600" />
+                      )}
+                      <div className="text-base font-medium tabular-nums">
+                        {inflationData.monthlyRate > 0 ? '+' : ''}{(inflationData.monthlyRate * 100).toFixed(2)}% /month
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {inflationData.annualRate > 0 ? '+' : ''}{(inflationData.annualRate * 100).toFixed(2)}% /year
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
         </div>
 
         <div className="space-y-2">
