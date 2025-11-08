@@ -23,6 +23,7 @@ export default function AnimatedBalance({
 
   return (
     <div className={`flex items-baseline gap-1 ${className}`} data-testid={testId}>
+      <span className="text-inherit">{currency}</span>
       <span className="text-inherit">
         {wholePart}.{mainDecimals}
       </span>
@@ -31,7 +32,6 @@ export default function AnimatedBalance({
           {extraDecimals}
         </sup>
       )}
-      <span className="text-inherit ml-1">{currency}</span>
     </div>
   );
 }
