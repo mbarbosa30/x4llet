@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { Zap, Lock, WifiOff, Coins, Network } from 'lucide-react';
+import { Smartphone, Lock, WifiOff, Coins, Globe, Network } from 'lucide-react';
 import { hasWallet, isWalletUnlocked } from '@/lib/wallet';
 import Footer from '@/components/Footer';
 
@@ -53,32 +53,71 @@ export default function Landing() {
         <div className="w-full max-w-md space-y-8">
           <div className="text-center space-y-6">
             <div>
-              <h1 className="text-3xl font-bold mb-3 mt-12">nanoPay</h1>
-              <p className="text-muted-foreground mb-12">
-                Crypto wallet with built-in network strength
+              <h1 className="text-3xl font-bold mb-3 mt-12">Send money like a message.</h1>
+              <p className="text-muted-foreground mb-12 text-base">
+                A tiny, no-install wallet that just works—even on shaky internet.
               </p>
             </div>
 
-            <div className="space-y-2 text-left max-w-xs mx-auto">
-              <div className="flex items-center gap-3">
-                <Zap className="h-4 w-4 text-primary flex-shrink-0" />
-                <span className="text-sm">Lightweight, Free & Fast</span>
+            <div className="space-y-4 text-left max-w-sm mx-auto">
+              <div className="space-y-1">
+                <div className="flex items-start gap-3">
+                  <Smartphone className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-sm font-medium">Lightweight, free & fast</div>
+                    <div className="text-xs text-muted-foreground">Opens in your browser. No app store. Built for low-end phones.</div>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <Lock className="h-4 w-4 text-primary flex-shrink-0" />
-                <span className="text-sm">Keys stored locally, encrypted on your device</span>
+              
+              <div className="space-y-1">
+                <div className="flex items-start gap-3">
+                  <Lock className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-sm font-medium">Your keys stay with you</div>
+                    <div className="text-xs text-muted-foreground">Stored locally, encrypted on your device—never on our servers.</div>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <WifiOff className="h-4 w-4 text-primary flex-shrink-0" />
-                <span className="text-sm">Works / Transfers onchain even if Offline</span>
+              
+              <div className="space-y-1">
+                <div className="flex items-start gap-3">
+                  <WifiOff className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-sm font-medium">Low-signal friendly</div>
+                    <div className="text-xs text-muted-foreground">Create a short claim link offline; anyone online can execute it. Funds still go to the intended address.</div>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <Coins className="h-4 w-4 text-primary flex-shrink-0" />
-                <span className="text-sm">Gasless transfers powered by x402</span>
+              
+              <div className="space-y-1">
+                <div className="flex items-start gap-3">
+                  <Coins className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-sm font-medium">Gasless by default</div>
+                    <div className="text-xs text-muted-foreground">Standards-based (EIP-3009). You sign; our relayer pays gas.</div>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <Network className="h-4 w-4 text-primary flex-shrink-0" />
-                <span className="text-sm">Trust signal from max flow computation</span>
+              
+              <div className="space-y-1">
+                <div className="flex items-start gap-3">
+                  <Globe className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-sm font-medium">Pay over HTTP (x402)</div>
+                    <div className="text-xs text-muted-foreground">Account-free pay-per-use for sites, kiosks, p2p and APIs.</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-1">
+                <div className="flex items-start gap-3">
+                  <Network className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-sm font-medium">Trust, computed</div>
+                    <div className="text-xs text-muted-foreground">Your reputation scoring as signal through flow computation.</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -114,7 +153,7 @@ export default function Landing() {
 
           <div className="text-center max-w-md mx-auto pt-8 text-sm text-muted-foreground leading-relaxed">
             <p>
-              Designed for everyone, everywhere. It works in low-bandwidth environments and functions completely offline. Your wallet holds USDC on Base and Celo networks for payments and a MaxFlow signal score that proves your legitimacy and measures your trust network strength — building both financial and reputation capital.
+              Your wallet holds USDC on Base and Celo networks. Build both financial and reputation capital with every transaction.
             </p>
           </div>
         </div>
