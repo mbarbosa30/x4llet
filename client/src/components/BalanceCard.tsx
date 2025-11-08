@@ -278,7 +278,7 @@ export default function BalanceCard({
         
         {balanceMicro && exchangeRate && (
           <div className="text-base" data-testid="text-fiat-value">
-            <div className="flex items-center justify-center">
+            <div className="flex items-baseline justify-center">
               <span className="text-muted-foreground mr-2">≈</span>
               <AnimatedBalance
                 value={animation.animatedValue}
