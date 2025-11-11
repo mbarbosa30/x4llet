@@ -143,15 +143,11 @@ export default function Landing() {
               Restore Wallet
             </Button>
 
-            <Button
-              size="lg"
-              variant="outline"
-              className="w-full"
-              onClick={() => setLocation('/unlock')}
-              data-testid="button-unlock-wallet"
-            >
-              Unlock Wallet
-            </Button>
+            <div className="text-center pt-2">
+              <Link href="/unlock" className="text-sm text-muted-foreground hover:text-foreground" data-testid="link-unlock">
+                Already have a wallet? Unlock
+              </Link>
+            </div>
           </div>
 
         </div>
