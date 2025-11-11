@@ -54,9 +54,9 @@ export default function Landing() {
           <div className="text-center space-y-6">
             <div>
               <div className="text-sm font-semibold text-primary mb-2 mt-12">nanoPay</div>
-              <h1 className="text-3xl font-bold mb-3">Send money like a message.</h1>
+              <h1 className="text-3xl font-bold mb-3">Money, Simplified.</h1>
               <p className="text-muted-foreground mb-12 text-base">
-                Works in your browser, even offline. No app needed.
+                No internet? No gas? No problem.
               </p>
             </div>
 
@@ -86,7 +86,7 @@ export default function Landing() {
                   <WifiOff className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                   <div>
                     <div className="text-sm font-medium">Low-signal friendly</div>
-                    <div className="text-xs text-muted-foreground">Both sender and receiver can be offline. Transfers happen onchain.</div>
+                    <div className="text-xs text-muted-foreground">Onchain transfers, even if both sender and receiver are offline.</div>
                   </div>
                 </div>
               </div>
