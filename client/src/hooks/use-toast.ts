@@ -6,7 +6,8 @@ import type {
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_REMOVE_DELAY = 2000
+const TOAST_REMOVE_DELAY_ERROR = 6000
 
 type ToasterToast = ToastProps & {
   id: string
@@ -55,10 +56,15 @@ interface State {
 
 const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 
-const addToRemoveQueue = (toastId: string) => {
+const addToRemoveQueue = (toastId: string, toast?: ToasterToast) => {
   if (toastTimeouts.has(toastId)) {
     return
   }
+
+  // Use longer delay only for destructive/error toasts
+  const delay = toast?.variant === 'destructive'
+    ? TOAST_REMOVE_DELAY_ERROR 
+    : TOAST_REMOVE_DELAY
 
   const timeout = setTimeout(() => {
     toastTimeouts.delete(toastId)
@@ -66,7 +72,7 @@ const addToRemoveQueue = (toastId: string) => {
       type: "REMOVE_TOAST",
       toastId: toastId,
     })
-  }, TOAST_REMOVE_DELAY)
+  }, delay)
 
   toastTimeouts.set(toastId, timeout)
 }
@@ -93,10 +99,11 @@ export const reducer = (state: State, action: Action): State => {
       // ! Side effects ! - This could be extracted into a dismissToast() action,
       // but I'll keep it here for simplicity
       if (toastId) {
-        addToRemoveQueue(toastId)
+        const toast = state.toasts.find((t) => t.id === toastId)
+        addToRemoveQueue(toastId, toast)
       } else {
         state.toasts.forEach((toast) => {
-          addToRemoveQueue(toast.id)
+          addToRemoveQueue(toast.id, toast)
         })
       }
 
@@ -149,17 +156,28 @@ function toast({ ...props }: Toast) {
     })
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
 
+  const toastData = {
+    ...props,
+    id,
+    open: true,
+    onOpenChange: (open: boolean) => {
+      if (!open) dismiss()
+    },
+  }
+
   dispatch({
     type: "ADD_TOAST",
-    toast: {
-      ...props,
-      id,
-      open: true,
-      onOpenChange: (open) => {
-        if (!open) dismiss()
-      },
-    },
+    toast: toastData,
   })
+
+  // Automatically schedule dismiss after creation
+  const delay = props.variant === 'destructive'
+    ? TOAST_REMOVE_DELAY_ERROR 
+    : TOAST_REMOVE_DELAY
+  
+  setTimeout(() => {
+    dismiss()
+  }, delay)
 
   return {
     id: id,

@@ -37,8 +37,7 @@ export default function InstallPrompt() {
       setIsInstalled(true);
       setDeferredPrompt(null);
       toast({
-        title: "App Installed!",
-        description: "nanoPay has been added to your home screen",
+        title: "App installed",
       });
     };
 

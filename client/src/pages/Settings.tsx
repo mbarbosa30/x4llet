@@ -88,8 +88,7 @@ export default function Settings() {
     setCurrency(newCurrency);
     await savePreferences({ currency: newCurrency, language });
     toast({
-      title: "Currency Updated",
-      description: `Display currency changed to ${newCurrency}`,
+      title: "Currency updated",
     });
     setShowCurrency(false);
   };
@@ -132,8 +131,7 @@ export default function Settings() {
       await navigator.clipboard.writeText(privateKey);
       setCopied(true);
       toast({
-        title: "Copied!",
-        description: "Private key copied to clipboard",
+        title: "Copied",
       });
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -153,8 +151,7 @@ export default function Settings() {
   const handleLockWallet = () => {
     lockWallet();
     toast({
-      title: "Wallet Locked",
-      description: "Your wallet has been locked for security",
+      title: "Wallet locked",
     });
     setLocation('/unlock');
   };
@@ -171,8 +168,7 @@ export default function Settings() {
     }
     
     toast({
-      title: "Theme Updated",
-      description: `Theme changed to ${newTheme} mode`,
+      title: "Theme updated",
     });
     setShowTheme(false);
   };

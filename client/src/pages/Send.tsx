@@ -191,8 +191,7 @@ export default function Send() {
       if (!address) return;
       
       toast({
-        title: "Transaction Sent!",
-        description: `Your USDC has been sent. Hash: ${data.txHash.slice(0, 10)}...`,
+        title: "Transaction sent",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/balance', address] });
       queryClient.invalidateQueries({ queryKey: ['/api/transactions', address] });
@@ -288,8 +287,7 @@ export default function Send() {
       if (/^0x[a-fA-F0-9]{40}$/.test(trimmedData)) {
         setRecipient(trimmedData);
         toast({
-          title: "Address Scanned",
-          description: "Enter amount to continue",
+          title: "Address scanned",
         });
       } else {
         toast({
@@ -379,8 +377,7 @@ export default function Send() {
       setStep('qr');
       
       toast({
-        title: "Payment Link Created!",
-        description: "Anyone can execute this payment by scanning the QR or visiting the link",
+        title: "Payment link created",
       });
     } catch (error) {
       console.error('Error creating authorization:', error);
@@ -596,8 +593,7 @@ export default function Send() {
                         if (/^0x[a-fA-F0-9]{40}$/.test(text.trim())) {
                           setRecipient(text.trim());
                           toast({
-                            title: "Address Pasted",
-                            description: "Recipient address set from clipboard",
+                            title: "Address pasted",
                           });
                         } else {
                           toast({
@@ -759,8 +755,7 @@ export default function Send() {
                 onClick={() => {
                   navigator.clipboard.writeText(paymentLink);
                   toast({
-                    title: "Link Copied!",
-                    description: "Payment link copied to clipboard",
+                    title: "Link copied",
                   });
                 }}
                 className="w-full"
@@ -777,8 +772,7 @@ export default function Send() {
                   const smsUrl = `sms:?body=${encodeURIComponent(message)}`;
                   window.location.href = smsUrl;
                   toast({
-                    title: "Opening SMS App",
-                    description: "Share this link with someone to execute the payment",
+                    title: "Opening SMS",
                   });
                 }}
                 className="w-full"

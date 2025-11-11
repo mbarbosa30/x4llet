@@ -74,8 +74,7 @@ export default function AppHeader({ onScanClick }: AppHeaderProps) {
       } else {
         await navigator.clipboard.writeText(referralLink);
         toast({
-          title: "Link Copied!",
-          description: "Referral link copied to clipboard",
+          title: "Link copied",
         });
       }
     } catch (error) {

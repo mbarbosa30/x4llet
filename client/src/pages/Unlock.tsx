@@ -21,8 +21,7 @@ export default function Unlock() {
       
       if (wallet) {
         toast({
-          title: "Wallet Unlocked!",
-          description: "Welcome back",
+          title: "Wallet unlocked",
         });
         setLocation('/home');
       }
