@@ -1,13 +1,21 @@
 import { Link } from 'wouter';
 
-export default function Footer() {
+interface FooterProps {
+  hideSignal?: boolean;
+}
+
+export default function Footer({ hideSignal = false }: FooterProps) {
   return (
     <footer className="border-t py-4 text-center text-xs text-muted-foreground">
       <div className="flex items-center justify-center gap-4">
-        <Link href="/signal" className="hover-elevate px-2 py-1 rounded" data-testid="link-signal">
-          Signal
-        </Link>
-        <span className="text-border">•</span>
+        {!hideSignal && (
+          <>
+            <Link href="/signal" className="hover-elevate px-2 py-1 rounded" data-testid="link-signal">
+              Signal
+            </Link>
+            <span className="text-border">•</span>
+          </>
+        )}
         <Link href="/context" className="hover-elevate px-2 py-1 rounded" data-testid="link-context">
           Context
         </Link>

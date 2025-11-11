@@ -50,7 +50,7 @@ export default function Landing() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <div className="flex-1 flex items-center justify-center py-4 px-6 pb-24">
-        <div className="w-full max-w-md space-y-8">
+        <div className="w-full max-w-md space-y-12">
           <div className="text-center space-y-6">
             <div>
               <div className="text-sm font-semibold text-primary mb-2 mt-12">nanoPay</div>
@@ -152,7 +152,7 @@ export default function Landing() {
 
         </div>
       </div>
-      <Footer />
+      <Footer hideSignal />
     </div>
   );
 }
