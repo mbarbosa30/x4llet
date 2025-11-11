@@ -53,7 +53,8 @@ export default function Landing() {
         <div className="w-full max-w-md space-y-8">
           <div className="text-center space-y-6">
             <div>
-              <h1 className="text-3xl font-bold mb-3 mt-12">Send money like a message.</h1>
+              <div className="text-sm font-semibold text-primary mb-2 mt-12">nanoPay</div>
+              <h1 className="text-3xl font-bold mb-3">Send money like a message.</h1>
               <p className="text-muted-foreground mb-12 text-base">
                 Works in your browser, even offline. No app needed.
               </p>
@@ -142,13 +143,15 @@ export default function Landing() {
               Restore Wallet
             </Button>
 
-            {walletExists && (
-              <div className="text-center pt-2">
-                <Link href="/unlock" className="text-sm text-muted-foreground hover:text-foreground" data-testid="link-unlock">
-                  Already have a wallet? Unlock
-                </Link>
-              </div>
-            )}
+            <Button
+              size="lg"
+              variant="outline"
+              className="w-full"
+              onClick={() => setLocation('/unlock')}
+              data-testid="button-unlock-wallet"
+            >
+              Unlock Wallet
+            </Button>
           </div>
 
         </div>
