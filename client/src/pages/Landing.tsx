@@ -86,7 +86,7 @@ export default function Landing() {
                   <WifiOff className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                   <div>
                     <div className="text-sm font-medium">Low-signal friendly</div>
-                    <div className="text-xs text-muted-foreground">Onchain transfers, even if both sender and receiver are offline.</div>
+                    <div className="text-xs text-muted-foreground">Onchain transfers, even if both sender / receiver are offline.</div>
                   </div>
                 </div>
               </div>
