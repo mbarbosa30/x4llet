@@ -49,7 +49,7 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <div className="flex-1 flex items-center justify-center p-4 pb-24">
+      <div className="flex-1 flex items-center justify-center py-4 px-6 pb-24">
         <div className="w-full max-w-md space-y-8">
           <div className="text-center space-y-6">
             <div>
