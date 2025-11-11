@@ -55,7 +55,7 @@ export default function Landing() {
             <div>
               <h1 className="text-3xl font-bold mb-3 mt-12">Send money like a message.</h1>
               <p className="text-muted-foreground mb-12 text-base">
-                A tiny, no-install wallet that just works—even on shaky internet.
+                Works in your browser, even offline. No app needed.
               </p>
             </div>
 
@@ -65,7 +65,7 @@ export default function Landing() {
                   <Smartphone className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                   <div>
                     <div className="text-sm font-medium">Lightweight, free & fast</div>
-                    <div className="text-xs text-muted-foreground">Opens in your browser. No app store. Built for low-end phones.</div>
+                    <div className="text-xs text-muted-foreground">Opens in any browser. No download, no app store.</div>
                   </div>
                 </div>
               </div>
@@ -75,7 +75,7 @@ export default function Landing() {
                   <Lock className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                   <div>
                     <div className="text-sm font-medium">Your keys stay with you</div>
-                    <div className="text-xs text-muted-foreground">Stored locally, encrypted on your device—never on our servers.</div>
+                    <div className="text-xs text-muted-foreground">Encrypted on your device, not our servers.</div>
                   </div>
                 </div>
               </div>
@@ -85,7 +85,7 @@ export default function Landing() {
                   <WifiOff className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                   <div>
                     <div className="text-sm font-medium">Low-signal friendly</div>
-                    <div className="text-xs text-muted-foreground">Create a short claim link offline; anyone online can execute it. Funds still go to the intended address.</div>
+                    <div className="text-xs text-muted-foreground">Both sender and receiver can be offline. Transfers happen onchain.</div>
                   </div>
                 </div>
               </div>
@@ -95,7 +95,7 @@ export default function Landing() {
                   <Coins className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                   <div>
                     <div className="text-sm font-medium">Gasless by default</div>
-                    <div className="text-xs text-muted-foreground">Standards-based (EIP-3009). You sign; our relayer pays gas.</div>
+                    <div className="text-xs text-muted-foreground">You never pay network fees—we cover them.</div>
                   </div>
                 </div>
               </div>
@@ -105,7 +105,7 @@ export default function Landing() {
                   <Globe className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                   <div>
                     <div className="text-sm font-medium">Pay over HTTP (x402)</div>
-                    <div className="text-xs text-muted-foreground">Account-free pay-per-use for sites, kiosks, p2p and APIs.</div>
+                    <div className="text-xs text-muted-foreground">Transfer money over HTTP. Any amount, anywhere.</div>
                   </div>
                 </div>
               </div>
@@ -115,7 +115,7 @@ export default function Landing() {
                   <Network className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                   <div>
                     <div className="text-sm font-medium">Trust, computed</div>
-                    <div className="text-xs text-muted-foreground">Your reputation scoring as signal through flow computation.</div>
+                    <div className="text-xs text-muted-foreground">Build trust through your network, not transactions.</div>
                   </div>
                 </div>
               </div>
@@ -151,11 +151,6 @@ export default function Landing() {
             )}
           </div>
 
-          <div className="text-center max-w-md mx-auto pt-8 text-sm text-muted-foreground leading-relaxed">
-            <p>
-              Your wallet holds USDC on Base and Celo networks. Build both financial and reputation capital with every transaction.
-            </p>
-          </div>
         </div>
       </div>
       <Footer />
