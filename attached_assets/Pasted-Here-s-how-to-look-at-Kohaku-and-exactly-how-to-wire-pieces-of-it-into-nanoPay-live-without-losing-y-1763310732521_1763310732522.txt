@@ -1,0 +1,59 @@
+Here’s how to look at Kohaku and exactly how to wire pieces of it into nanoPay.live without losing your lightweight PWA vibe.
+
+What Kohaku actually is
+	•	A toolkit (SDK + reference wallet) to add privacy-by-default to wallets—not a consumer app you must replace yours with. The repo is work-in-progress and not production yet.  ￼
+	•	Current packages focus on privacy protocols (notably RAILGUN, plus a Privacy Pools lib) and a docs site; there’s also a separate Kohaku extension repo (Ambire fork) that shows the UI direction.  ￼
+	•	EF comms frame it as a modular, opt-in SDK to minimize metadata leaks (IP/RPC), enable private sends/receives, p2p broadcast, dapp-scoped accounts, and future recovery modules.  ￼
+
+Does it fit your wallet? Yes—make it a toggleable “Privacy Mode”
+
+Keep your default rail (EOA + EIP-3009 gasless + execute-by-link). Add Kohaku pieces as an optional rail the user can switch on when they need privacy. Concretely:
+
+Integration plan (incremental)
+	1.	Metadata minimization (no UX change)
+	•	Route reads through a privacy-friendly stack (light client / masked RPC per Kohaku guidance). Start with a proxy that strips IP/headers; later experiment with Helios/Waku style relays.  ￼
+	2.	Add a “Private” rail next to your 3009 rail
+	•	Use the RAILGUN library exposed in Kohaku’s packages to support private balances & transfers. Present an aggregated balance (Public + Private) in the UI; let users choose Send (Public | Private).  ￼
+	3.	Private execute-by-link (when both sides support privacy)
+	•	For recipients with a RAILGUN-capable wallet: generate a private transfer capsule (not plaintext note sharing) and submit via a privacy-aware relay; fall back to your current claim link (3009) if the recipient isn’t privacy-enabled. (Design matches Kohaku’s “composable, optional” ethos.)  ￼
+	4.	Private x402
+	•	When a site returns HTTP 402, show Public (3009) vs Private (RAILGUN) payment. If private path fails (unsupported token/chain), auto-fallback to 3009.  ￼
+	5.	Address isolation (advanced)
+	•	Offer per-dapp accounts (isolation) to reduce trivial correlation—mirrors Kohaku’s “one account per dapp” guidance from the roadmap posts.  ￼
+	6.	Optional AA “pro mode”
+	•	Where tokens lack 3009, pair privacy with ERC-4337 + paymaster for universal gasless + policy controls (daily caps, new-recipient cool-offs). Keep it opt-in to preserve your minimal bundle. (Ecosystem partners already building 4337 tooling flag compatibility.)  ￼
+
+Minimal code shape
+
+Add a second rail:
+
+interface Rail {
+  canPay(asset: Address, chainId: number): Promise<boolean>;
+  buildIntent(p: PayParams): Promise<SignedPayload>;
+  submit(payload: SignedPayload): Promise<TxResult>;
+}
+
+class Rail3009 implements Rail {/* existing */}
+class RailPrivateKohaku implements Rail {/* wraps @kohaku-eth/railgun */}
+
+Runtime chooses the first rail.canPay that returns true; the UI exposes Public | Private.
+
+Benefits you unlock
+	•	User safety: less metadata leakage (IP/RPC), private sends/receives when desired.  ￼
+	•	NGO/aid flows: on-chain auditability at the program level without spraying beneficiary graphs; aligns with EF’s privacy initiative.  ￼
+	•	Future-proof: EF-backed roadmap + modular SDK; you can adopt just the parts that work in a PWA.  ￼
+
+Issues & guardrails
+	•	Repo status: Kohaku is WIP; treat libs as experimental and pin versions behind a feature flag.  ￼
+	•	Performance: private proofs/relays add weight/latency—keep privacy opt-in and cache aggressively on device.  ￼
+	•	Counterparty support: private transfers require receiver support; always offer seamless fallback to 3009.  ￼
+	•	Compliance: privacy ≠ non-compliance—pair with program-level receipts/policies (you already have caps, expiries, cancelability).  ￼
+
+Suggested 30-day milestone
+	•	Ship Privacy Mode (beta) toggle in nanoPay.live:
+	•	Metadata-minimized reads
+	•	RAILGUN balance detection + Private Send for one chain (e.g., Base)
+	•	Fallback to 3009 when private rail unsupported
+	•	Add QA checks: private→public fallback, link execution parity, latency p95, and recipient-capability detection.
+
+If you want, I can sketch the exact React components (Send chooser, aggregated balance badge, capability detector) wired to @kohaku-eth/railgun and a privacy-aware RPC proxy, staying under your current PWA size budget.  ￼
