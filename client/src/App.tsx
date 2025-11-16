@@ -4,6 +4,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { RailProvider } from "@/contexts/RailContext";
 import Landing from "@/pages/Landing";
 import CreateWallet from "@/pages/CreateWallet";
 import Unlock from "@/pages/Unlock";
@@ -102,16 +103,18 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        {showLayout && <AppHeader onScanClick={() => setShowScanner(true)} />}
-        <Router />
-        {showLayout && <BottomNav />}
-        {showScanner && (
-          <QRScanner
-            onScan={handleScanPaymentRequest}
-            onClose={() => setShowScanner(false)}
-          />
-        )}
+        <RailProvider>
+          <Toaster />
+          {showLayout && <AppHeader onScanClick={() => setShowScanner(true)} />}
+          <Router />
+          {showLayout && <BottomNav />}
+          {showScanner && (
+            <QRScanner
+              onScan={handleScanPaymentRequest}
+              onClose={() => setShowScanner(false)}
+            />
+          )}
+        </RailProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette, BookOpen, HelpCircle, MessageCircleQuestion, TrendingDown, TrendingUp } from 'lucide-react';
+import { ChevronRight, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette, BookOpen, HelpCircle, MessageCircleQuestion, TrendingDown, TrendingUp, Shield } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 import InstallPrompt from '@/components/InstallPrompt';
 import { getWallet, getPreferences, savePreferences, getPrivateKey, lockWallet } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
+import { useRail } from '@/contexts/RailContext';
 import {
   Dialog,
   DialogContent,
@@ -40,6 +42,7 @@ interface InflationData {
 export default function Settings() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { privacyMode, setPrivacyMode } = useRail();
   const [address, setAddress] = useState<string | null>(null);
   const [currency, setCurrency] = useState('USD');
   const [language, setLanguage] = useState('en');
@@ -211,6 +214,27 @@ export default function Settings() {
             Security
           </h2>
           <Card className="divide-y">
+            <div className="flex items-center justify-between p-4">
+              <div className="flex items-center gap-3">
+                <Shield className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <div className="text-sm font-medium">Privacy Mode</div>
+                  <div className="text-xs text-muted-foreground">Experimental - Coming soon</div>
+                </div>
+              </div>
+              <Switch
+                checked={privacyMode}
+                onCheckedChange={(checked) => {
+                  setPrivacyMode(checked);
+                  toast({
+                    title: checked ? "Privacy Mode enabled" : "Privacy Mode disabled",
+                    description: checked ? "Private transfers are experimental" : undefined,
+                  });
+                }}
+                data-testid="switch-privacy-mode"
+                disabled
+              />
+            </div>
             <button
               onClick={() => setShowExportPrivateKey(true)}
               className="w-full flex items-center justify-between p-4 hover-elevate"
