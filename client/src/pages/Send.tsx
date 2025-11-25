@@ -44,6 +44,7 @@ export default function Send() {
   const [authorizationQR, setAuthorizationQR] = useState<AuthorizationQR | null>(null);
   const [paymentLink, setPaymentLink] = useState<string | null>(null);
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
+  const [earnMode, setEarnMode] = useState(false);
   const isTogglingRef = useRef(false);
   const lastConvertedRef = useRef<{value: string; currency: 'USDC' | 'fiat'}>({value: '', currency: 'USDC'});
   const hasAutoSelectedRef = useRef(false); // Track if we've auto-selected network
@@ -60,6 +61,7 @@ export default function Send() {
         
         const prefs = await getPreferences();
         setCurrency(prefs.currency);
+        setEarnMode(prefs.earnMode || false);
         
         const storedRequest = sessionStorage.getItem('payment_request');
         if (storedRequest) {
@@ -129,6 +131,17 @@ export default function Send() {
     enabled: !!currency && currency !== 'USD',
   });
 
+  // Fetch Aave balance when earn mode is enabled
+  const { data: aaveBalance } = useQuery<{ totalAUsdcBalance: string; chains: any }>({
+    queryKey: ['/api/aave/balance', address],
+    enabled: !!address && earnMode,
+    queryFn: async () => {
+      const res = await fetch(`/api/aave/balance/${address}`);
+      if (!res.ok) throw new Error('Failed to fetch Aave balance');
+      return res.json();
+    },
+  });
+
   // Get balance for selected chain
   const selectedChainBalance = balanceData?.chains 
     ? (chainId === 8453 ? balanceData.chains.base.balance : balanceData.chains.celo.balance)
@@ -137,6 +150,16 @@ export default function Send() {
   
   const rate = exchangeRate?.rate || 1;
   const rateLoaded = currency === 'USD' || !!exchangeRate;
+
+  // Check if trying to send more than available balance
+  const usdcAmountNum = parseFloat(usdcAmount) || 0;
+  const balanceNum = parseFloat(balance) || 0;
+  const isInsufficientBalance = usdcAmountNum > balanceNum && usdcAmountNum > 0;
+  
+  // Check if Aave funds could cover the difference
+  const aaveUsdcAmount = aaveBalance ? parseFloat(aaveBalance.totalAUsdcBalance) / 1e6 : 0;
+  const hasAaveFunds = aaveUsdcAmount > 0;
+  const aaveCouldCover = hasAaveFunds && (balanceNum + aaveUsdcAmount) >= usdcAmountNum;
 
   const handleNetworkToggle = () => {
     const newNetwork = network === 'base' ? 'celo' : 'base';
@@ -658,6 +681,32 @@ export default function Send() {
                 </div>
               </div>
 
+              {/* Insufficient balance warning */}
+              {isInsufficientBalance && (
+                <Card className="p-3 bg-destructive/10 border-destructive/20">
+                  <div className="text-sm">
+                    <span className="text-destructive font-medium">Insufficient balance</span>
+                    <span className="text-muted-foreground ml-1">
+                      on {network === 'base' ? 'Base' : 'Celo'}
+                    </span>
+                  </div>
+                  {earnMode && aaveCouldCover && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      You have ${aaveUsdcAmount.toFixed(2)} earning in Aave. Withdraw from Settings to use these funds.
+                    </p>
+                  )}
+                  {!aaveCouldCover && balanceData?.chains && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Available: ${balanceNum.toFixed(2)} on {network === 'base' ? 'Base' : 'Celo'}
+                      {network === 'base' && parseFloat(balanceData.chains.celo.balance) > 0 && 
+                        ` (${balanceData.chains.celo.balance} on Celo)`}
+                      {network === 'celo' && parseFloat(balanceData.chains.base.balance) > 0 && 
+                        ` (${balanceData.chains.base.balance} on Base)`}
+                    </p>
+                  )}
+                </Card>
+              )}
+
               <NumericKeypad
                 onNumberClick={handleNumberClick}
                 onBackspace={handleBackspace}
@@ -666,7 +715,7 @@ export default function Send() {
 
               <Button 
                 onClick={handleNext}
-                disabled={!recipient || !usdcAmount || parseFloat(usdcAmount) <= 0}
+                disabled={!recipient || !usdcAmount || parseFloat(usdcAmount) <= 0 || isInsufficientBalance}
                 className="w-full"
                 size="lg"
                 data-testid="button-next"
