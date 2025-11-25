@@ -18,13 +18,22 @@ import { getWallet, getPreferences } from '@/lib/wallet';
 import { formatAmount } from '@/lib/formatAmount';
 import { vouchFor } from '@/lib/maxflow';
 import { useToast } from '@/hooks/use-toast';
-import type { BalanceResponse, Transaction as SchemaTransaction } from '@shared/schema';
+import type { BalanceResponse, Transaction as SchemaTransaction, UserPreferences } from '@shared/schema';
+
+interface AaveBalanceResponse {
+  totalAUsdcBalance: string;
+  chains: {
+    base: { chainId: number; aUsdcBalance: string; apy: number };
+    celo: { chainId: number; aUsdcBalance: string; apy: number };
+  };
+}
 
 export default function Home() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [address, setAddress] = useState<string | null>(null);
   const [currency, setCurrency] = useState('USD');
+  const [earnMode, setEarnMode] = useState(false);
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
   const [selectedTransaction, setSelectedTransaction] = useState<SchemaTransaction | null>(null);
   const [copiedHash, setCopiedHash] = useState(false);
@@ -43,6 +52,7 @@ export default function Home() {
         
         const prefs = await getPreferences();
         setCurrency(prefs.currency);
+        setEarnMode(prefs.earnMode || false);
         
         // Check for pending referral
         const storedReferral = sessionStorage.getItem('pending_referral');
@@ -90,6 +100,18 @@ export default function Home() {
   const { data: exchangeRate } = useQuery<{ currency: string; rate: number }>({
     queryKey: ['/api/exchange-rate', currency],
     enabled: !!currency,
+  });
+
+  // Fetch Aave balance when earn mode is enabled
+  const { data: aaveBalance } = useQuery<AaveBalanceResponse>({
+    queryKey: ['/api/aave/balance', address],
+    enabled: !!address && earnMode,
+    refetchInterval: 60000, // Refresh every minute for aToken balance updates
+    queryFn: async () => {
+      const res = await fetch(`/api/aave/balance/${address}`);
+      if (!res.ok) throw new Error('Failed to fetch Aave balance');
+      return res.json();
+    },
   });
 
   const balance = balanceData?.balance || '0.00';
@@ -198,6 +220,8 @@ export default function Home() {
             fiatCurrency={currency}
             address={address}
             chains={chains}
+            aaveBalance={aaveBalance}
+            earnMode={earnMode}
           />
         )}
 

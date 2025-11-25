@@ -11,11 +11,25 @@ interface ChainBalance {
   balanceMicro: string;
 }
 
+interface AaveChainBalance {
+  chainId: number;
+  aUsdcBalance: string;
+  apy: number;
+}
+
+interface AaveBalance {
+  totalAUsdcBalance: string;
+  chains: {
+    base: AaveChainBalance;
+    celo: AaveChainBalance;
+  };
+}
+
 interface BalanceCardProps {
   balance: string;
   currency: string;
-  balanceMicro?: string; // Micro-USDC balance for animation
-  exchangeRate?: number; // Exchange rate for local currency
+  balanceMicro?: string;
+  exchangeRate?: number;
   fiatCurrency?: string;
   address?: string;
   chainId?: number;
@@ -23,6 +37,8 @@ interface BalanceCardProps {
     base: ChainBalance;
     celo: ChainBalance;
   };
+  aaveBalance?: AaveBalance;
+  earnMode?: boolean;
 }
 
 interface BalanceHistoryPoint {
@@ -109,6 +125,8 @@ export default function BalanceCard({
   address,
   chainId,
   chains,
+  aaveBalance,
+  earnMode,
 }: BalanceCardProps) {
 
   // Fetch aggregated balance history (chainId=0) when no specific chain selected
@@ -235,6 +253,22 @@ export default function BalanceCard({
             <span data-testid="text-base-balance">${chains.base.balance} Base</span>
             <span className="opacity-50">+</span>
             <span data-testid="text-celo-balance">${chains.celo.balance} Celo</span>
+          </div>
+        )}
+
+        {/* Aave earning indicator */}
+        {earnMode && aaveBalance && BigInt(aaveBalance.totalAUsdcBalance) > 0n && (
+          <div 
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-xs mb-3"
+            data-testid="badge-earning"
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
+            <span>
+              Earning {aaveBalance.chains.base.apy.toFixed(2)}% APY
+            </span>
           </div>
         )}
         
