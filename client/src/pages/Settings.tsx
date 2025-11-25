@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette, BookOpen, HelpCircle, MessageCircleQuestion, TrendingDown, TrendingUp } from 'lucide-react';
+import { ChevronRight, Globe, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette, BookOpen, HelpCircle, MessageCircleQuestion, TrendingDown, TrendingUp, Percent, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 import InstallPrompt from '@/components/InstallPrompt';
 import { getWallet, getPreferences, savePreferences, getPrivateKey, lockWallet } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
@@ -37,6 +38,13 @@ interface InflationData {
   annualRate: number;
 }
 
+interface AaveApyData {
+  chainId: number;
+  apy: number;
+  apyFormatted: string;
+  aTokenAddress: string;
+}
+
 export default function Settings() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -52,6 +60,8 @@ export default function Settings() {
   const [copied, setCopied] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [showTheme, setShowTheme] = useState(false);
+  const [earnMode, setEarnMode] = useState(false);
+  const [earnModeLoading, setEarnModeLoading] = useState(false);
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -64,6 +74,7 @@ export default function Settings() {
         const prefs = await getPreferences();
         setCurrency(prefs.currency);
         setLanguage(prefs.language);
+        setEarnMode(prefs.earnMode || false);
         
         // Load theme from localStorage
         const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
@@ -173,6 +184,40 @@ export default function Settings() {
     setShowTheme(false);
   };
 
+  const handleEarnModeChange = async (enabled: boolean) => {
+    setEarnModeLoading(true);
+    try {
+      setEarnMode(enabled);
+      await savePreferences({ currency, language, earnMode: enabled });
+      toast({
+        title: enabled ? "Earn Mode enabled" : "Earn Mode disabled",
+        description: enabled 
+          ? "Your idle USDC will now earn interest" 
+          : "Auto-deposit to Aave has been turned off",
+      });
+    } catch (error) {
+      console.error('Failed to update earn mode:', error);
+      setEarnMode(!enabled); // Revert on error
+      toast({
+        title: "Failed to update",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setEarnModeLoading(false);
+    }
+  };
+
+  // Fetch Aave APY for Base (default network for yield display)
+  const { data: aaveApy, isLoading: isApyLoading } = useQuery<AaveApyData>({
+    queryKey: ['/api/aave/apy', 8453],
+    queryFn: async () => {
+      const res = await fetch('/api/aave/apy/8453');
+      if (!res.ok) throw new Error('Failed to fetch APY');
+      return res.json();
+    },
+  });
+
   // Fetch exchange rate for selected currency
   const { data: exchangeRate } = useQuery<ExchangeRateData>({
     queryKey: ['/api/exchange-rate', currency],
@@ -241,6 +286,32 @@ export default function Settings() {
             Preferences
           </h2>
           <Card className="divide-y">
+            <div className="w-full flex items-center justify-between p-4">
+              <div className="flex items-center gap-3">
+                <Percent className="h-5 w-5 text-muted-foreground" />
+                <div className="text-left">
+                  <div className="text-sm font-medium">Earn Mode</div>
+                  <div className="text-xs text-muted-foreground">
+                    {isApyLoading ? (
+                      <span className="flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Loading APY...
+                      </span>
+                    ) : aaveApy ? (
+                      `Earn ${aaveApy.apyFormatted} APY via Aave`
+                    ) : (
+                      'Auto-deposit idle USDC to earn interest'
+                    )}
+                  </div>
+                </div>
+              </div>
+              <Switch
+                checked={earnMode}
+                onCheckedChange={handleEarnModeChange}
+                disabled={earnModeLoading}
+                data-testid="switch-earn-mode"
+              />
+            </div>
             <button
               onClick={() => setShowTheme(true)}
               className="w-full flex items-center justify-between p-4 hover-elevate"
