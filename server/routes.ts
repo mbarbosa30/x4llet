@@ -3,7 +3,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { transferRequestSchema, transferResponseSchema, paymentRequestSchema, submitAuthorizationSchema, authorizationSchema, type Authorization } from "@shared/schema";
 import { randomUUID } from "crypto";
-import { getNetworkConfig } from "@shared/networks";
+import { getNetworkConfig, getNetworkByChainId } from "@shared/networks";
+import { AAVE_POOL_ABI, ERC20_ABI, rayToPercent } from "@shared/aave";
 import { createPublicClient, createWalletClient, http, type Address, type Hex, hexToSignature, recoverAddress, hashTypedData } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, celo } from 'viem/chains';
@@ -436,6 +437,254 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error calculating inflation rate:', error);
       res.status(500).json({ error: 'Failed to calculate inflation rate' });
+    }
+  });
+
+  // ============================================
+  // AAVE YIELD ENDPOINTS
+  // ============================================
+
+  app.get('/api/aave/apy/:chainId', async (req, res) => {
+    try {
+      const chainId = parseInt(req.params.chainId);
+      const network = getNetworkByChainId(chainId);
+      
+      if (!network || !network.aavePoolAddress) {
+        return res.status(400).json({ error: 'Aave not supported on this network' });
+      }
+
+      const chain = chainId === 8453 ? base : celo;
+      const publicClient = createPublicClient({
+        chain,
+        transport: http(network.rpcUrl),
+      });
+
+      const reserveData = await publicClient.readContract({
+        address: network.aavePoolAddress as Address,
+        abi: AAVE_POOL_ABI,
+        functionName: 'getReserveData',
+        args: [network.usdcAddress as Address],
+      }) as any;
+
+      const currentLiquidityRate = reserveData.currentLiquidityRate;
+      const apyPercent = rayToPercent(currentLiquidityRate);
+
+      res.json({
+        chainId,
+        apy: apyPercent,
+        apyFormatted: `${apyPercent.toFixed(2)}%`,
+        aTokenAddress: reserveData.aTokenAddress,
+      });
+    } catch (error) {
+      console.error('Error fetching Aave APY:', error);
+      res.status(500).json({ error: 'Failed to fetch Aave APY' });
+    }
+  });
+
+  app.get('/api/aave/balance/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      const chainId = req.query.chainId ? parseInt(req.query.chainId as string) : undefined;
+
+      const fetchAaveBalance = async (cId: number) => {
+        const network = getNetworkByChainId(cId);
+        if (!network || !network.aavePoolAddress || !network.aUsdcAddress) {
+          return { chainId: cId, aUsdcBalance: '0', apy: 0 };
+        }
+
+        const chain = cId === 8453 ? base : celo;
+        const publicClient = createPublicClient({
+          chain,
+          transport: http(network.rpcUrl),
+        });
+
+        const [balance, reserveData] = await Promise.all([
+          publicClient.readContract({
+            address: network.aUsdcAddress as Address,
+            abi: ERC20_ABI,
+            functionName: 'balanceOf',
+            args: [address as Address],
+          }),
+          publicClient.readContract({
+            address: network.aavePoolAddress as Address,
+            abi: AAVE_POOL_ABI,
+            functionName: 'getReserveData',
+            args: [network.usdcAddress as Address],
+          }) as Promise<any>,
+        ]);
+
+        return {
+          chainId: cId,
+          aUsdcBalance: balance.toString(),
+          apy: rayToPercent(reserveData.currentLiquidityRate),
+        };
+      };
+
+      if (chainId !== undefined) {
+        const result = await fetchAaveBalance(chainId);
+        return res.json(result);
+      }
+
+      // Fetch from all chains
+      const [baseResult, celoResult] = await Promise.all([
+        fetchAaveBalance(8453).catch(() => ({ chainId: 8453, aUsdcBalance: '0', apy: 0 })),
+        fetchAaveBalance(42220).catch(() => ({ chainId: 42220, aUsdcBalance: '0', apy: 0 })),
+      ]);
+
+      const totalAUsdcMicro = BigInt(baseResult.aUsdcBalance) + BigInt(celoResult.aUsdcBalance);
+
+      res.json({
+        totalAUsdcBalance: totalAUsdcMicro.toString(),
+        chains: {
+          base: baseResult,
+          celo: celoResult,
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching Aave balance:', error);
+      res.status(500).json({ error: 'Failed to fetch Aave balance' });
+    }
+  });
+
+  app.post('/api/aave/supply', async (req, res) => {
+    try {
+      const { chainId, userAddress, amount, approvalSignature } = req.body;
+
+      if (!chainId || !userAddress || !amount) {
+        return res.status(400).json({ error: 'Missing required fields: chainId, userAddress, amount' });
+      }
+
+      const network = getNetworkByChainId(chainId);
+      if (!network || !network.aavePoolAddress) {
+        return res.status(400).json({ error: 'Aave not supported on this network' });
+      }
+
+      const chain = chainId === 8453 ? base : celo;
+      const facilitatorAccount = getFacilitatorAccount();
+
+      const walletClient = createWalletClient({
+        account: facilitatorAccount,
+        chain,
+        transport: http(network.rpcUrl),
+      });
+
+      const publicClient = createPublicClient({
+        chain,
+        transport: http(network.rpcUrl),
+      });
+
+      // Check user's USDC balance
+      const usdcBalance = await publicClient.readContract({
+        address: network.usdcAddress as Address,
+        abi: ERC20_ABI,
+        functionName: 'balanceOf',
+        args: [userAddress as Address],
+      });
+
+      if (BigInt(usdcBalance) < BigInt(amount)) {
+        return res.status(400).json({ error: 'Insufficient USDC balance' });
+      }
+
+      // Check if user has approved the pool
+      const allowance = await publicClient.readContract({
+        address: network.usdcAddress as Address,
+        abi: ERC20_ABI,
+        functionName: 'allowance',
+        args: [userAddress as Address, network.aavePoolAddress as Address],
+      });
+
+      if (BigInt(allowance) < BigInt(amount)) {
+        return res.status(400).json({ 
+          error: 'Insufficient allowance. User must approve Aave Pool to spend USDC.',
+          requiredAllowance: amount,
+          currentAllowance: allowance.toString(),
+          poolAddress: network.aavePoolAddress,
+        });
+      }
+
+      // Execute supply on behalf of user
+      // Note: This requires the user to have approved the facilitator to supply on their behalf
+      // In a real implementation, we'd use permit2 or similar for gasless approvals
+      const hash = await walletClient.writeContract({
+        address: network.aavePoolAddress as Address,
+        abi: AAVE_POOL_ABI,
+        functionName: 'supply',
+        args: [
+          network.usdcAddress as Address,
+          BigInt(amount),
+          userAddress as Address,
+          0, // referral code
+        ],
+      });
+
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+
+      res.json({
+        success: true,
+        txHash: hash,
+        blockNumber: receipt.blockNumber.toString(),
+        amount,
+        chainId,
+      });
+    } catch (error) {
+      console.error('Error supplying to Aave:', error);
+      res.status(500).json({ error: 'Failed to supply to Aave' });
+    }
+  });
+
+  app.post('/api/aave/withdraw', async (req, res) => {
+    try {
+      const { chainId, userAddress, amount } = req.body;
+
+      if (!chainId || !userAddress || !amount) {
+        return res.status(400).json({ error: 'Missing required fields: chainId, userAddress, amount' });
+      }
+
+      const network = getNetworkByChainId(chainId);
+      if (!network || !network.aavePoolAddress) {
+        return res.status(400).json({ error: 'Aave not supported on this network' });
+      }
+
+      const chain = chainId === 8453 ? base : celo;
+      const facilitatorAccount = getFacilitatorAccount();
+
+      const walletClient = createWalletClient({
+        account: facilitatorAccount,
+        chain,
+        transport: http(network.rpcUrl),
+      });
+
+      const publicClient = createPublicClient({
+        chain,
+        transport: http(network.rpcUrl),
+      });
+
+      // Note: Withdrawing requires the user to have aTokens
+      // The facilitator cannot withdraw on behalf of users without delegation
+      // This is a simplified implementation - real version needs delegation approval
+      const hash = await walletClient.writeContract({
+        address: network.aavePoolAddress as Address,
+        abi: AAVE_POOL_ABI,
+        functionName: 'withdraw',
+        args: [
+          network.usdcAddress as Address,
+          BigInt(amount),
+          userAddress as Address,
+        ],
+      });
+
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+
+      res.json({
+        success: true,
+        txHash: hash,
+        blockNumber: receipt.blockNumber.toString(),
+        amount,
+        chainId,
+      });
+    } catch (error) {
+      console.error('Error withdrawing from Aave:', error);
+      res.status(500).json({ error: 'Failed to withdraw from Aave' });
     }
   });
 
