@@ -2,6 +2,7 @@ import { Card } from '@/components/ui/card';
 import { useQuery } from '@tanstack/react-query';
 import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip, TooltipProps } from 'recharts';
 import { useInflationAnimation } from '@/hooks/use-inflation-animation';
+import { useEarningAnimation } from '@/hooks/use-earning-animation';
 import AnimatedBalance from './AnimatedBalance';
 import { useState, useEffect } from 'react';
 
@@ -173,6 +174,37 @@ export default function BalanceCard({
     enabled: !!balanceMicro && !!exchangeRate && !!inflationData,
   });
 
+  // Calculate balance-weighted APY across chains
+  const calculateWeightedApy = () => {
+    if (!aaveBalance) return 0;
+    
+    const baseBalance = parseFloat(aaveBalance.chains.base.aUsdcBalance);
+    const celoBalance = parseFloat(aaveBalance.chains.celo.aUsdcBalance);
+    const totalBalance = baseBalance + celoBalance;
+    
+    if (totalBalance === 0) return 0;
+    
+    // Weight APY by the actual balance distribution
+    const weightedApy = (
+      (aaveBalance.chains.base.apy * baseBalance) + 
+      (aaveBalance.chains.celo.apy * celoBalance)
+    ) / totalBalance;
+    
+    return weightedApy;
+  };
+  
+  const weightedApy = calculateWeightedApy();
+
+  // Animate USDC balance with earning effect when Earn Mode is active
+  const earningAnimation = useEarningAnimation({
+    usdcMicro: balanceMicro || '0',
+    aaveBalanceMicro: aaveBalance?.totalAUsdcBalance || '0',
+    apyRate: weightedApy / 100,
+    enabled: !!earnMode && !!aaveBalance && BigInt(aaveBalance.totalAUsdcBalance) > 0n,
+  });
+  
+  const isEarning = earnMode && aaveBalance && BigInt(aaveBalance.totalAUsdcBalance) > 0n;
+
   // Prepare chart data with enriched data for tooltip
   const chartData = balanceHistory?.map((point) => ({
     value: parseFloat(point.balance) / 1e6, // Convert to USDC units for chart
@@ -244,7 +276,19 @@ export default function BalanceCard({
         <div className="text-sm text-muted-foreground mb-2">{currency} Balance</div>
         <div className="text-5xl font-medium tabular-nums mb-2 flex items-center justify-center" data-testid="text-balance">
           <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
-          <span>{balance}</span>
+          {isEarning ? (
+            <span className="flex items-baseline">
+              <span>{Math.floor(earningAnimation.animatedValue)}</span>
+              <span className="opacity-90">.{earningAnimation.mainDecimals}</span>
+              {earningAnimation.extraDecimals && (
+                <span className="text-2xl opacity-50 text-green-500 dark:text-green-400">
+                  {earningAnimation.extraDecimals}
+                </span>
+              )}
+            </span>
+          ) : (
+            <span>{balance}</span>
+          )}
         </div>
         
         {/* Chain breakdown - always show when chains data is available */}
@@ -267,7 +311,7 @@ export default function BalanceCard({
               <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
             </span>
             <span>
-              Earning {aaveBalance.chains.base.apy.toFixed(2)}% APY
+              Earning {weightedApy.toFixed(2)}% APY
             </span>
           </div>
         )}
