@@ -71,3 +71,25 @@ The application features a unified fixed header and bottom navigation across all
 - **Vite**: Build tool.
 - **Tailwind CSS**: Utility-first CSS framework.
 - **TypeScript**: Strict typing.
+
+### Aave V3 Integration (Earn Mode)
+**Status:** Phase 1 (Informational UI) - Complete. Phase 2 (Supply/Withdraw Operations) - Pending.
+
+**Current Implementation:**
+- Settings page has Earn Mode toggle with live APY display from Aave protocol
+- Home page shows earning indicator when Aave balance exists
+- Send page shows insufficient balance warning with Aave fund info
+- Backend endpoints for APY, balance checking, and placeholder supply/withdraw
+
+**Architecture:**
+- Aave V3 Pool addresses: Base (`0xA238Dd80C259a72E81d7e4664a9801593F98d1c5`), Celo (`0x3E59A31363E2ad014dcbc521c4a0d5757d9f3402`)
+- aUSDC tokens: Users receive aUSDC (interest-bearing) when depositing USDC
+- Gasless model: Facilitator relays Aave supply/withdraw transactions (pending delegation)
+
+**Phase 2 Requirements (Not Yet Implemented):**
+1. Delegation/allowance management for facilitator to act on user's behalf
+2. Actual supply controls in Settings page
+3. Auto-withdraw orchestration in Send flow when liquid USDC is insufficient
+4. Celo aUSDC address verification (currently placeholder)
+5. Background sync for accrued interest display
+6. Failure handling and transaction logging for facilitator relays
