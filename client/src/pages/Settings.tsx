@@ -28,6 +28,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { NETWORKS, getNetworkByChainId } from '@shared/networks';
+import { AAVE_POOL_ABI, ERC20_ABI } from '@shared/aave';
+import { createWalletClient, createPublicClient, http, type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { base, celo } from 'viem/chains';
 
 interface ExchangeRateData {
   currency: string;
@@ -346,7 +350,7 @@ export default function Settings() {
     if (!address || !depositAmount || isOperating) return;
     
     setIsOperating(true);
-    const amountInMicroUsdc = BigInt(Math.floor(parseFloat(depositAmount) * 1000000)).toString();
+    const amountInMicroUsdc = BigInt(Math.floor(parseFloat(depositAmount) * 1000000));
     
     try {
       setAaveOperationStep('gas_check');
@@ -384,11 +388,99 @@ export default function Settings() {
       
       setAaveOperationStep('signing');
       
-      // For now, show success message - actual signing will be implemented
-      // when we add the frontend transaction execution
+      // Get private key from wallet
+      const pk = await getPrivateKey();
+      if (!pk) {
+        toast({
+          title: "Wallet Locked",
+          description: "Please unlock your wallet to continue.",
+          variant: "destructive",
+        });
+        setAaveOperationStep('input');
+        setIsOperating(false);
+        return;
+      }
+      
+      const network = getNetworkByChainId(selectedChain);
+      if (!network || !network.aavePoolAddress) {
+        toast({
+          title: "Network Error",
+          description: "Aave is not supported on this network.",
+          variant: "destructive",
+        });
+        setAaveOperationStep('input');
+        setIsOperating(false);
+        return;
+      }
+      
+      const chain = selectedChain === 8453 ? base : celo;
+      const account = privateKeyToAccount(pk as `0x${string}`);
+      
+      const walletClient = createWalletClient({
+        account,
+        chain,
+        transport: http(network.rpcUrl),
+      });
+      
+      const publicClient = createPublicClient({
+        chain,
+        transport: http(network.rpcUrl),
+      });
+      
+      // Check current allowance
+      const currentAllowance = await publicClient.readContract({
+        address: network.usdcAddress as Address,
+        abi: ERC20_ABI,
+        functionName: 'allowance',
+        args: [address as Address, network.aavePoolAddress as Address],
+      });
+      
+      // If allowance is insufficient, approve first
+      if (BigInt(currentAllowance) < amountInMicroUsdc) {
+        toast({
+          title: "Approving USDC",
+          description: "Please wait while we approve USDC spending...",
+        });
+        
+        const approveHash = await walletClient.writeContract({
+          address: network.usdcAddress as Address,
+          abi: ERC20_ABI,
+          functionName: 'approve',
+          args: [network.aavePoolAddress as Address, amountInMicroUsdc],
+        });
+        
+        await publicClient.waitForTransactionReceipt({ hash: approveHash });
+      }
+      
+      setAaveOperationStep('submitting');
+      
       toast({
-        title: "Deposit Initiated",
-        description: `Depositing ${depositAmount} USDC to Aave on ${getNetworkByChainId(selectedChain)?.name || 'Unknown'}. This feature is coming soon!`,
+        title: "Depositing to Aave",
+        description: "Please wait while we deposit your USDC...",
+      });
+      
+      // Call supply on Aave Pool
+      const supplyHash = await walletClient.writeContract({
+        address: network.aavePoolAddress as Address,
+        abi: AAVE_POOL_ABI,
+        functionName: 'supply',
+        args: [
+          network.usdcAddress as Address,
+          amountInMicroUsdc,
+          address as Address,
+          0, // referralCode
+        ],
+      });
+      
+      await publicClient.waitForTransactionReceipt({ hash: supplyHash });
+      
+      // Invalidate balance queries
+      queryClient.invalidateQueries({ queryKey: ['/api/balance'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/aave/balance'] });
+      
+      toast({
+        title: "Deposit Complete",
+        description: `Successfully deposited ${depositAmount} USDC to Aave!`,
       });
       
       setAaveOperationStep('complete');
@@ -417,6 +509,7 @@ export default function Settings() {
     if (!address || !withdrawAmount || isOperating) return;
     
     setIsOperating(true);
+    const amountInMicroUsdc = BigInt(Math.floor(parseFloat(withdrawAmount) * 1000000));
     
     try {
       setAaveOperationStep('gas_check');
@@ -453,9 +546,73 @@ export default function Settings() {
       
       setAaveOperationStep('signing');
       
+      // Get private key from wallet
+      const pk = await getPrivateKey();
+      if (!pk) {
+        toast({
+          title: "Wallet Locked",
+          description: "Please unlock your wallet to continue.",
+          variant: "destructive",
+        });
+        setAaveOperationStep('input');
+        setIsOperating(false);
+        return;
+      }
+      
+      const network = getNetworkByChainId(selectedChain);
+      if (!network || !network.aavePoolAddress) {
+        toast({
+          title: "Network Error",
+          description: "Aave is not supported on this network.",
+          variant: "destructive",
+        });
+        setAaveOperationStep('input');
+        setIsOperating(false);
+        return;
+      }
+      
+      const chain = selectedChain === 8453 ? base : celo;
+      const account = privateKeyToAccount(pk as `0x${string}`);
+      
+      const walletClient = createWalletClient({
+        account,
+        chain,
+        transport: http(network.rpcUrl),
+      });
+      
+      const publicClient = createPublicClient({
+        chain,
+        transport: http(network.rpcUrl),
+      });
+      
+      setAaveOperationStep('submitting');
+      
       toast({
-        title: "Withdrawal Initiated",
-        description: `Withdrawing ${withdrawAmount} USDC from Aave on ${getNetworkByChainId(selectedChain)?.name || 'Unknown'}. This feature is coming soon!`,
+        title: "Withdrawing from Aave",
+        description: "Please wait while we withdraw your USDC...",
+      });
+      
+      // Call withdraw on Aave Pool
+      const withdrawHash = await walletClient.writeContract({
+        address: network.aavePoolAddress as Address,
+        abi: AAVE_POOL_ABI,
+        functionName: 'withdraw',
+        args: [
+          network.usdcAddress as Address,
+          amountInMicroUsdc,
+          address as Address,
+        ],
+      });
+      
+      await publicClient.waitForTransactionReceipt({ hash: withdrawHash });
+      
+      // Invalidate balance queries
+      queryClient.invalidateQueries({ queryKey: ['/api/balance'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/aave/balance'] });
+      
+      toast({
+        title: "Withdrawal Complete",
+        description: `Successfully withdrew ${withdrawAmount} USDC from Aave!`,
       });
       
       setAaveOperationStep('complete');
