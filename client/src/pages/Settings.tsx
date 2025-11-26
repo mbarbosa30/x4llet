@@ -105,6 +105,10 @@ export default function Settings() {
     loadPreferences();
   }, []);
 
+  // Reset deposit amount when chain selection changes
+  useEffect(() => {
+    setDepositAmount('');
+  }, [selectedChain]);
 
   const handleCurrencyChange = async (newCurrency: string) => {
     setCurrency(newCurrency);
@@ -284,12 +288,23 @@ export default function Settings() {
     },
   });
 
-  // Fetch liquid USDC balances for deposit limits
-  const { data: liquidBalance } = useQuery<{ balance: string; balanceFormatted: string }>({
-    queryKey: ['/api/balance', address],
+  // Fetch chain-specific liquid USDC balances for deposit limits
+  const { data: liquidBalanceBase } = useQuery<{ balance: string; balanceFormatted: string }>({
+    queryKey: ['/api/balance', address, 8453],
     enabled: !!address && earnMode,
     queryFn: async () => {
-      const res = await fetch(`/api/balance/${address}`);
+      const res = await fetch(`/api/balance/${address}?chainId=8453`);
+      if (!res.ok) throw new Error('Failed to fetch balance');
+      return res.json();
+    },
+    refetchInterval: 30000,
+  });
+
+  const { data: liquidBalanceCelo } = useQuery<{ balance: string; balanceFormatted: string }>({
+    queryKey: ['/api/balance', address, 42220],
+    enabled: !!address && earnMode,
+    queryFn: async () => {
+      const res = await fetch(`/api/balance/${address}?chainId=42220`);
       if (!res.ok) throw new Error('Failed to fetch balance');
       return res.json();
     },
@@ -465,9 +480,10 @@ export default function Settings() {
   };
 
   const getMaxDepositAmount = (): string => {
-    if (!liquidBalance?.balance) return '0';
+    const balance = selectedChain === 8453 ? liquidBalanceBase : liquidBalanceCelo;
+    if (!balance?.balance) return '0.00';
     // Balance is in micro-USDC, convert to human readable
-    const balanceNum = parseFloat(liquidBalance.balance) / 1000000;
+    const balanceNum = parseFloat(balance.balance) / 1000000;
     return balanceNum.toFixed(2);
   };
 
@@ -965,6 +981,7 @@ export default function Settings() {
                   onChange={(e) => setDepositAmount(e.target.value)}
                   min="0"
                   step="0.01"
+                  autoComplete="off"
                   data-testid="input-deposit-amount"
                 />
               </div>
@@ -1092,6 +1109,7 @@ export default function Settings() {
                   onChange={(e) => setWithdrawAmount(e.target.value)}
                   min="0"
                   step="0.01"
+                  autoComplete="off"
                   data-testid="input-withdraw-amount"
                 />
               </div>
