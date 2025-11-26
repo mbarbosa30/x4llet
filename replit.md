@@ -83,13 +83,12 @@ The application features a unified fixed header and bottom navigation across all
 
 **Architecture:**
 - Aave V3 Pool addresses: Base (`0xA238Dd80C259a72E81d7e4664a9801593F98d1c5`), Celo (`0x3E59A31363E2ad014dcbc521c4a0d5757d9f3402`)
-- aUSDC tokens: Users receive aUSDC (interest-bearing) when depositing USDC
-- Gasless model: Facilitator relays Aave supply/withdraw transactions (pending delegation)
+- aUSDC tokens: Base (`0x4e65fE4DbA92790696d040aC24Aa414708F5c0AB`), Celo (`0xFF8309b9e99bfd2D4021bc71a362aBD93dBd4785`)
+- Users receive aUSDC (interest-bearing) when depositing USDC
+- Gas drip model: Facilitator sends small gas amounts (0.001 CELO or 0.0001 ETH) with 24-hour cooldown per chain
 
 **Phase 2 Requirements (Not Yet Implemented):**
-1. Delegation/allowance management for facilitator to act on user's behalf
-2. Actual supply controls in Settings page
-3. Auto-withdraw orchestration in Send flow when liquid USDC is insufficient
-4. Celo aUSDC address verification (currently placeholder)
-5. Background sync for accrued interest display
-6. Failure handling and transaction logging for facilitator relays
+1. Actual supply/withdraw transaction execution (currently shows "coming soon")
+2. Auto-withdraw orchestration in Send flow when liquid USDC is insufficient
+3. Background sync for accrued interest display
+4. Failure handling and transaction logging for facilitator relays

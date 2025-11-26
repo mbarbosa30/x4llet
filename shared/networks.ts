@@ -24,7 +24,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
     usdcAddress: getAddress('0xcebA9300f2b948710d2653dD7B07f33A8B32118C'),
     rpcUrl: 'https://forno.celo.org',
     aavePoolAddress: getAddress('0x3E59A31363E2ad014dcbc521c4a0d5757d9f3402'),
-    aUsdcAddress: undefined, // Will be populated when Celo aUSDC address is confirmed
+    aUsdcAddress: getAddress('0xFF8309b9e99bfd2D4021bc71a362aBD93dBd4785'),
   },
 };
 
