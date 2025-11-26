@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { Smartphone, Lock, WifiOff, Coins, Globe, Network } from 'lucide-react';
+import { Smartphone, Lock, WifiOff, Coins, Globe, Network, TrendingUp } from 'lucide-react';
 import { hasWallet, isWalletUnlocked } from '@/lib/wallet';
 import Footer from '@/components/Footer';
 
@@ -117,6 +117,16 @@ export default function Landing() {
                   <div>
                     <div className="text-sm font-medium">Trust, computed</div>
                     <div className="text-xs text-muted-foreground">Build trust through your network, not transactions.</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-1">
+                <div className="flex items-start gap-3">
+                  <TrendingUp className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-sm font-medium">Earn while you hold</div>
+                    <div className="text-xs text-muted-foreground">Optional auto-savings via Aave. Your USDC earns yield.</div>
                   </div>
                 </div>
               </div>
