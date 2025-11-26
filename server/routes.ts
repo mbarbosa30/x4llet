@@ -688,6 +688,191 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GAS DRIP ENDPOINTS
+  // Minimum gas thresholds for transactions
+  const GAS_THRESHOLDS = {
+    8453: BigInt('50000000000000'), // 0.00005 ETH for Base (~$0.15)
+    42220: BigInt('1000000000000000'), // 0.001 CELO for Celo (~$0.0005)
+  };
+
+  // Gas drip amounts (enough for 1-2 Aave transactions)
+  const GAS_DRIP_AMOUNTS = {
+    8453: BigInt('100000000000000'), // 0.0001 ETH for Base
+    42220: BigInt('2000000000000000'), // 0.002 CELO for Celo
+  };
+
+  // Check user's native gas balance
+  app.get('/api/gas-balance/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      const chainId = req.query.chainId ? parseInt(req.query.chainId as string) : undefined;
+
+      if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
+        return res.status(400).json({ error: 'Invalid address' });
+      }
+
+      const fetchGasBalance = async (cId: number) => {
+        const network = getNetworkByChainId(cId);
+        if (!network) {
+          return { chainId: cId, balance: '0', hasEnoughGas: false };
+        }
+
+        const chain = cId === 8453 ? base : celo;
+        const publicClient = createPublicClient({
+          chain,
+          transport: http(network.rpcUrl),
+        });
+
+        const balance = await publicClient.getBalance({ address: address as Address });
+        const threshold = GAS_THRESHOLDS[cId as keyof typeof GAS_THRESHOLDS] || BigInt(0);
+        
+        return {
+          chainId: cId,
+          balance: balance.toString(),
+          balanceFormatted: cId === 8453 
+            ? `${(Number(balance) / 1e18).toFixed(6)} ETH`
+            : `${(Number(balance) / 1e18).toFixed(4)} CELO`,
+          hasEnoughGas: balance >= threshold,
+          threshold: threshold.toString(),
+        };
+      };
+
+      if (chainId) {
+        const result = await fetchGasBalance(chainId);
+        return res.json(result);
+      }
+
+      // Fetch from all chains
+      const [baseResult, celoResult] = await Promise.all([
+        fetchGasBalance(8453).catch(() => ({ chainId: 8453, balance: '0', hasEnoughGas: false })),
+        fetchGasBalance(42220).catch(() => ({ chainId: 42220, balance: '0', hasEnoughGas: false })),
+      ]);
+
+      res.json({
+        chains: {
+          base: baseResult,
+          celo: celoResult,
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching gas balance:', error);
+      res.status(500).json({ error: 'Failed to fetch gas balance' });
+    }
+  });
+
+  // Drip gas to user if they don't have enough
+  app.post('/api/gas-drip', async (req, res) => {
+    try {
+      const { address, chainId } = req.body;
+
+      if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
+        return res.status(400).json({ error: 'Invalid address' });
+      }
+
+      if (!chainId || ![8453, 42220].includes(chainId)) {
+        return res.status(400).json({ error: 'Invalid chainId. Must be 8453 (Base) or 42220 (Celo)' });
+      }
+
+      const network = getNetworkByChainId(chainId);
+      if (!network) {
+        return res.status(400).json({ error: 'Network not supported' });
+      }
+
+      const chain = chainId === 8453 ? base : celo;
+      const facilitatorAccount = getFacilitatorAccount();
+
+      const publicClient = createPublicClient({
+        chain,
+        transport: http(network.rpcUrl),
+      });
+
+      // Check user's current gas balance
+      const userBalance = await publicClient.getBalance({ address: address as Address });
+      const threshold = GAS_THRESHOLDS[chainId as keyof typeof GAS_THRESHOLDS];
+
+      if (userBalance >= threshold) {
+        return res.json({
+          success: true,
+          alreadyHasGas: true,
+          balance: userBalance.toString(),
+          message: 'User already has sufficient gas',
+        });
+      }
+
+      // Check for recent drips (rate limiting - 1 per day per chain)
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recentDrips = await storage.getRecentGasDrips(address, chainId, oneDayAgo);
+      
+      if (recentDrips.length > 0) {
+        const lastDrip = recentDrips[0];
+        const nextDripTime = new Date(lastDrip.createdAt.getTime() + 24 * 60 * 60 * 1000);
+        return res.status(429).json({
+          error: 'Rate limited. You can request gas again in 24 hours.',
+          lastDripAt: lastDrip.createdAt.toISOString(),
+          nextDripAvailable: nextDripTime.toISOString(),
+        });
+      }
+
+      const dripAmount = GAS_DRIP_AMOUNTS[chainId as keyof typeof GAS_DRIP_AMOUNTS];
+
+      // Check facilitator has enough gas
+      const facilitatorBalance = await publicClient.getBalance({ address: facilitatorAccount.address });
+      if (facilitatorBalance < dripAmount * 2n) { // Keep buffer for facilitator's own transactions
+        console.error(`Facilitator low on gas for chain ${chainId}:`, facilitatorBalance.toString());
+        return res.status(503).json({ error: 'Service temporarily unavailable. Please try again later.' });
+      }
+
+      // Create drip record before sending
+      const dripRecord = await storage.createGasDrip({
+        address,
+        chainId,
+        amount: dripAmount.toString(),
+        status: 'pending',
+      });
+
+      // Send gas to user
+      const walletClient = createWalletClient({
+        account: facilitatorAccount,
+        chain,
+        transport: http(network.rpcUrl),
+      });
+
+      try {
+        const hash = await walletClient.sendTransaction({
+          to: address as Address,
+          value: dripAmount,
+        });
+
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+
+        // Update drip record with success
+        await storage.updateGasDrip(dripRecord.id, {
+          status: 'completed',
+          txHash: hash,
+        });
+
+        res.json({
+          success: true,
+          txHash: hash,
+          amount: dripAmount.toString(),
+          amountFormatted: chainId === 8453 
+            ? `${(Number(dripAmount) / 1e18).toFixed(6)} ETH`
+            : `${(Number(dripAmount) / 1e18).toFixed(4)} CELO`,
+          chainId,
+        });
+      } catch (txError) {
+        // Update drip record with failure
+        await storage.updateGasDrip(dripRecord.id, {
+          status: 'failed',
+        });
+        throw txError;
+      }
+    } catch (error) {
+      console.error('Error dripping gas:', error);
+      res.status(500).json({ error: 'Failed to drip gas' });
+    }
+  });
+
   app.get('/api/authorization/:nonce', async (req, res) => {
     try {
       const { nonce } = req.params;

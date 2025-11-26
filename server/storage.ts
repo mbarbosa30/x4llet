@@ -1,9 +1,9 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo } from 'viem/chains';
 import { db } from "./db";
-import { eq, and, or, desc, sql } from "drizzle-orm";
+import { eq, and, or, desc, sql, gte } from "drizzle-orm";
 
 const USDC_ABI = [
   {
@@ -173,6 +173,21 @@ export interface IStorage {
   clearTransactionsAndBalances(): Promise<void>;
   backfillAllWallets(): Promise<{ walletsProcessed: number; totalSnapshots: number; errors: string[] }>;
   migrateToMicroUsdc(): Promise<{ migratedTransactions: number; migratedBalances: number }>;
+  
+  // Gas drip methods
+  getRecentGasDrips(address: string, chainId: number, since: Date): Promise<GasDrip[]>;
+  createGasDrip(drip: { address: string; chainId: number; amount: string; status: string }): Promise<GasDrip>;
+  updateGasDrip(id: string, update: { status?: string; txHash?: string }): Promise<void>;
+}
+
+export interface GasDrip {
+  id: string;
+  address: string;
+  chainId: number;
+  amount: string;
+  txHash: string | null;
+  status: string;
+  createdAt: Date;
 }
 
 export class MemStorage implements IStorage {
@@ -474,6 +489,28 @@ export class MemStorage implements IStorage {
   async migrateToMicroUsdc(): Promise<{ migratedTransactions: number; migratedBalances: number }> {
     // MemStorage doesn't use database, no-op
     return { migratedTransactions: 0, migratedBalances: 0 };
+  }
+
+  async getRecentGasDrips(address: string, chainId: number, since: Date): Promise<GasDrip[]> {
+    // MemStorage doesn't track gas drips
+    return [];
+  }
+
+  async createGasDrip(drip: { address: string; chainId: number; amount: string; status: string }): Promise<GasDrip> {
+    // MemStorage doesn't track gas drips
+    return {
+      id: randomUUID(),
+      address: drip.address,
+      chainId: drip.chainId,
+      amount: drip.amount,
+      txHash: null,
+      status: drip.status,
+      createdAt: new Date(),
+    };
+  }
+
+  async updateGasDrip(id: string, update: { status?: string; txHash?: string }): Promise<void> {
+    // MemStorage doesn't track gas drips, no-op
   }
 }
 
@@ -1527,6 +1564,77 @@ export class DbStorage extends MemStorage {
       }));
     } catch (error) {
       console.error('[Admin] Error fetching recent activity:', error);
+      throw error;
+    }
+  }
+
+  async getRecentGasDrips(address: string, chainId: number, since: Date): Promise<GasDrip[]> {
+    try {
+      const results = await db
+        .select()
+        .from(gasDrips)
+        .where(
+          and(
+            eq(gasDrips.address, address.toLowerCase()),
+            eq(gasDrips.chainId, chainId),
+            gte(gasDrips.createdAt, since)
+          )
+        )
+        .orderBy(desc(gasDrips.createdAt));
+
+      return results.map(drip => ({
+        id: drip.id,
+        address: drip.address,
+        chainId: drip.chainId,
+        amount: drip.amount,
+        txHash: drip.txHash,
+        status: drip.status,
+        createdAt: drip.createdAt,
+      }));
+    } catch (error) {
+      console.error('[GasDrip] Error fetching recent drips:', error);
+      return [];
+    }
+  }
+
+  async createGasDrip(drip: { address: string; chainId: number; amount: string; status: string }): Promise<GasDrip> {
+    try {
+      const [result] = await db
+        .insert(gasDrips)
+        .values({
+          address: drip.address.toLowerCase(),
+          chainId: drip.chainId,
+          amount: drip.amount,
+          status: drip.status,
+        })
+        .returning();
+
+      return {
+        id: result.id,
+        address: result.address,
+        chainId: result.chainId,
+        amount: result.amount,
+        txHash: result.txHash,
+        status: result.status,
+        createdAt: result.createdAt,
+      };
+    } catch (error) {
+      console.error('[GasDrip] Error creating drip record:', error);
+      throw error;
+    }
+  }
+
+  async updateGasDrip(id: string, update: { status?: string; txHash?: string }): Promise<void> {
+    try {
+      await db
+        .update(gasDrips)
+        .set({
+          ...(update.status && { status: update.status }),
+          ...(update.txHash && { txHash: update.txHash }),
+        })
+        .where(eq(gasDrips.id, id));
+    } catch (error) {
+      console.error('[GasDrip] Error updating drip record:', error);
       throw error;
     }
   }

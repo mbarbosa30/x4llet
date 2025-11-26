@@ -85,6 +85,16 @@ export const cachedMaxflowScores = pgTable("cached_maxflow_scores", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const gasDrips = pgTable("gas_drips", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  address: text("address").notNull(),
+  chainId: integer("chain_id").notNull(),
+  amount: text("amount").notNull(), // Amount in wei
+  txHash: text("tx_hash"),
+  status: text("status").notNull().default('pending'), // pending, completed, failed
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
