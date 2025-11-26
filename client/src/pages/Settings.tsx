@@ -256,7 +256,7 @@ export default function Settings() {
   });
 
   // Fetch Aave balances for both chains
-  const { data: aaveBalanceBase, isLoading: isAaveBalanceBaseLoading } = useQuery<{ balance: string; balanceFormatted: string }>({
+  const { data: aaveBalanceBase, isLoading: isAaveBalanceBaseLoading } = useQuery<{ aUsdcBalance: string; apy: number }>({
     queryKey: ['/api/aave/balance', address, 8453],
     enabled: !!address && earnMode,
     queryFn: async () => {
@@ -267,7 +267,7 @@ export default function Settings() {
     refetchInterval: 30000,
   });
 
-  const { data: aaveBalanceCelo, isLoading: isAaveBalanceCeloLoading } = useQuery<{ balance: string; balanceFormatted: string }>({
+  const { data: aaveBalanceCelo, isLoading: isAaveBalanceCeloLoading } = useQuery<{ aUsdcBalance: string; apy: number }>({
     queryKey: ['/api/aave/balance', address, 42220],
     enabled: !!address && earnMode,
     queryFn: async () => {
@@ -289,7 +289,7 @@ export default function Settings() {
   });
 
   // Fetch chain-specific liquid USDC balances for deposit limits
-  const { data: liquidBalanceBase } = useQuery<{ balance: string; balanceFormatted: string }>({
+  const { data: liquidBalanceBase } = useQuery<{ balance: string; balanceMicro: string }>({
     queryKey: ['/api/balance', address, 8453],
     enabled: !!address && earnMode,
     queryFn: async () => {
@@ -300,7 +300,7 @@ export default function Settings() {
     refetchInterval: 30000,
   });
 
-  const { data: liquidBalanceCelo } = useQuery<{ balance: string; balanceFormatted: string }>({
+  const { data: liquidBalanceCelo } = useQuery<{ balance: string; balanceMicro: string }>({
     queryKey: ['/api/balance', address, 42220],
     enabled: !!address && earnMode,
     queryFn: async () => {
@@ -481,22 +481,22 @@ export default function Settings() {
 
   const getMaxDepositAmount = (): string => {
     const balance = selectedChain === 8453 ? liquidBalanceBase : liquidBalanceCelo;
-    if (!balance?.balance) return '0.00';
-    // Balance is in micro-USDC, convert to human readable
-    const balanceNum = parseFloat(balance.balance) / 1000000;
+    if (!balance?.balanceMicro) return '0.00';
+    // balanceMicro is the canonical micro-USDC integer, convert to human readable
+    const balanceNum = parseFloat(balance.balanceMicro) / 1000000;
     return balanceNum.toFixed(2);
   };
 
   const getMaxWithdrawAmount = (): string => {
     const balance = selectedChain === 8453 ? aaveBalanceBase : aaveBalanceCelo;
-    if (!balance?.balance) return '0';
-    const balanceNum = parseFloat(balance.balance) / 1000000;
+    if (!balance?.aUsdcBalance) return '0.00';
+    const balanceNum = parseFloat(balance.aUsdcBalance) / 1000000;
     return balanceNum.toFixed(2);
   };
 
   const getTotalAaveBalance = (): number => {
-    const baseBalance = aaveBalanceBase?.balance ? parseFloat(aaveBalanceBase.balance) : 0;
-    const celoBalance = aaveBalanceCelo?.balance ? parseFloat(aaveBalanceCelo.balance) : 0;
+    const baseBalance = aaveBalanceBase?.aUsdcBalance ? parseFloat(aaveBalanceBase.aUsdcBalance) : 0;
+    const celoBalance = aaveBalanceCelo?.aUsdcBalance ? parseFloat(aaveBalanceCelo.aUsdcBalance) : 0;
     return (baseBalance + celoBalance) / 1000000;
   };
 
@@ -598,19 +598,19 @@ export default function Settings() {
                   </div>
                 </div>
                 
-                {(aaveBalanceBase?.balance && parseFloat(aaveBalanceBase.balance) > 0) || 
-                 (aaveBalanceCelo?.balance && parseFloat(aaveBalanceCelo.balance) > 0) ? (
+                {(aaveBalanceBase?.aUsdcBalance && parseFloat(aaveBalanceBase.aUsdcBalance) > 0) || 
+                 (aaveBalanceCelo?.aUsdcBalance && parseFloat(aaveBalanceCelo.aUsdcBalance) > 0) ? (
                   <div className="space-y-1 text-xs text-muted-foreground">
-                    {aaveBalanceBase?.balance && parseFloat(aaveBalanceBase.balance) > 0 && (
+                    {aaveBalanceBase?.aUsdcBalance && parseFloat(aaveBalanceBase.aUsdcBalance) > 0 && (
                       <div className="flex items-center justify-between">
                         <span>Base ({aaveApy?.apyFormatted || '—'} APY)</span>
-                        <span className="tabular-nums">${(parseFloat(aaveBalanceBase.balance) / 1000000).toFixed(2)}</span>
+                        <span className="tabular-nums">${(parseFloat(aaveBalanceBase.aUsdcBalance) / 1000000).toFixed(2)}</span>
                       </div>
                     )}
-                    {aaveBalanceCelo?.balance && parseFloat(aaveBalanceCelo.balance) > 0 && (
+                    {aaveBalanceCelo?.aUsdcBalance && parseFloat(aaveBalanceCelo.aUsdcBalance) > 0 && (
                       <div className="flex items-center justify-between">
                         <span>Celo ({aaveApyCelo?.apyFormatted || '—'} APY)</span>
-                        <span className="tabular-nums">${(parseFloat(aaveBalanceCelo.balance) / 1000000).toFixed(2)}</span>
+                        <span className="tabular-nums">${(parseFloat(aaveBalanceCelo.aUsdcBalance) / 1000000).toFixed(2)}</span>
                       </div>
                     )}
                   </div>
@@ -1080,11 +1080,11 @@ export default function Settings() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="42220" disabled={!aaveBalanceCelo?.balance || parseFloat(aaveBalanceCelo.balance) === 0}>
-                      Celo (${aaveBalanceCelo?.balance ? (parseFloat(aaveBalanceCelo.balance) / 1000000).toFixed(2) : '0.00'} available)
+                    <SelectItem value="42220" disabled={!aaveBalanceCelo?.aUsdcBalance || parseFloat(aaveBalanceCelo.aUsdcBalance) === 0}>
+                      Celo (${aaveBalanceCelo?.aUsdcBalance ? (parseFloat(aaveBalanceCelo.aUsdcBalance) / 1000000).toFixed(2) : '0.00'} available)
                     </SelectItem>
-                    <SelectItem value="8453" disabled={!aaveBalanceBase?.balance || parseFloat(aaveBalanceBase.balance) === 0}>
-                      Base (${aaveBalanceBase?.balance ? (parseFloat(aaveBalanceBase.balance) / 1000000).toFixed(2) : '0.00'} available)
+                    <SelectItem value="8453" disabled={!aaveBalanceBase?.aUsdcBalance || parseFloat(aaveBalanceBase.aUsdcBalance) === 0}>
+                      Base (${aaveBalanceBase?.aUsdcBalance ? (parseFloat(aaveBalanceBase.aUsdcBalance) / 1000000).toFixed(2) : '0.00'} available)
                     </SelectItem>
                   </SelectContent>
                 </Select>
