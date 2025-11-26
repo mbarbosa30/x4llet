@@ -274,10 +274,9 @@ export default function Settings() {
     refetchInterval: 30000,
   });
 
-  // Fetch Celo APY
-  const { data: aaveApyCelo } = useQuery<AaveApyData>({
+  // Fetch Celo APY (always fetch for display in Earn Mode card)
+  const { data: aaveApyCelo, isLoading: isApyCeloLoading } = useQuery<AaveApyData>({
     queryKey: ['/api/aave/apy', 42220],
-    enabled: earnMode,
     queryFn: async () => {
       const res = await fetch('/api/aave/apy/42220');
       if (!res.ok) throw new Error('Failed to fetch APY');
@@ -545,13 +544,15 @@ export default function Settings() {
                 <div className="text-left">
                   <div className="text-sm font-medium">Earn Mode</div>
                   <div className="text-xs text-muted-foreground">
-                    {isApyLoading ? (
+                    {isApyLoading && isApyCeloLoading ? (
                       <span className="flex items-center gap-1">
                         <Loader2 className="h-3 w-3 animate-spin" />
                         Loading APY...
                       </span>
-                    ) : aaveApy ? (
-                      `Earn ${aaveApy.apyFormatted} APY via Aave`
+                    ) : aaveApy || aaveApyCelo ? (
+                      <span>
+                        Earn via Aave: Base {isApyLoading ? '...' : (aaveApy?.apyFormatted || '—')} · Celo {isApyCeloLoading ? '...' : (aaveApyCelo?.apyFormatted || '—')}
+                      </span>
                     ) : (
                       'Auto-deposit idle USDC to earn interest'
                     )}
