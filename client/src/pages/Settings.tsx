@@ -364,30 +364,15 @@ export default function Settings() {
         
         const dripResult = await requestGasDrip(selectedChain);
         
-        if (!dripResult.success) {
-          // Check gas balance again - user might have gas from another source
-          const recheckGas = await checkGasBalance(selectedChain);
-          if (!recheckGas.hasEnoughGas) {
-            toast({
-              title: "Insufficient Gas",
-              description: dripResult.error || "You need gas to complete this transaction. Please try again later.",
-              variant: "destructive",
-            });
-            setAaveOperationStep('input');
-            setGasDripPending(false);
-            setIsOperating(false);
-            return;
-          }
-          // User has gas now, continue
-        } else {
+        if (dripResult.success) {
           toast({
             title: "Gas Sent",
-            description: "A small amount of gas has been sent to your wallet. The deposit will complete automatically.",
+            description: "A small amount of gas has been sent to your wallet.",
           });
-          
           // Wait a bit for gas to arrive
           await new Promise(resolve => setTimeout(resolve, 5000));
         }
+        // If drip failed (rate limited), just continue anyway - transaction will fail if really no gas
         setGasDripPending(false);
       }
       
@@ -528,29 +513,14 @@ export default function Settings() {
         
         const dripResult = await requestGasDrip(selectedChain);
         
-        if (!dripResult.success) {
-          // Check gas balance again - user might have gas from another source
-          const recheckGas = await checkGasBalance(selectedChain);
-          if (!recheckGas.hasEnoughGas) {
-            toast({
-              title: "Insufficient Gas",
-              description: dripResult.error || "You need gas to complete this transaction. Please try again later.",
-              variant: "destructive",
-            });
-            setAaveOperationStep('input');
-            setGasDripPending(false);
-            setIsOperating(false);
-            return;
-          }
-          // User has gas now, continue
-        } else {
+        if (dripResult.success) {
           toast({
             title: "Gas Sent",
-            description: "A small amount of gas has been sent to your wallet. The withdrawal will complete automatically.",
+            description: "A small amount of gas has been sent to your wallet.",
           });
-          
           await new Promise(resolve => setTimeout(resolve, 5000));
         }
+        // If drip failed (rate limited), just continue anyway - transaction will fail if really no gas
         setGasDripPending(false);
       }
       
