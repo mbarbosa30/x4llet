@@ -1,0 +1,128 @@
+Yes—add one focused screen. Think of it as a “BoostPay” page (Savings-Backed Pay Later), with a tiny detail view per purchase. Without it, users won’t grok yield vs top-ups vs maturity.
+
+The BoostPay page (single screen)
+
+Header (at-a-glance strip)
+	•	Spendable limit (live)
+	•	Locked / Unlocked savings (tap to adjust lock)
+	•	Outstanding (sum of active purchases)
+	•	Next payment (date & amount)
+	•	Health: ✅ OK • ⚠️ Attention • 🔴 Action needed
+
+Module 1 — Active purchases
+List of cards, newest first. Each card shows:
+	•	Merchant • Item/Note • Amount
+	•	Progress bar split into colors: Yield / Top-ups / (Principal at maturity)
+	•	Maturity date • Days left • Health tag
+	•	Actions: Top up, Repay now, Adjust plan, Receipt
+
+Card microcopy (example):
+
+$150 to TelCo Shop • due in 10 mo
+Paid so far: $42 (Yield 31, Top-ups 11)
+
+Module 2 — Savings engine
+	•	“You’ve saved $1,000 USDC • est. APY 6%”
+	•	Lock slider: “Locked for BoostPay: $1,000” (edit → confirm)
+	•	Note: “With this setup you can cover ≈ $60/yr from yield.”
+
+Module 3 — Plan & safety
+	•	Top-up plan: Weekly / Monthly / None (shows $/period)
+	•	Max principal at maturity (cap slider, e.g., $0 → $150)
+	•	New-merchant cool-off (toggle)
+	•	Notifications: maintenance alerts, top-up reminders
+
+Module 4 — How it works (collapsible)
+	•	3 bullets, plain language:
+	1.	You keep savings invested.
+	2.	Future yield + top-ups repay purchases.
+	3.	If needed, we use up to your cap of principal at maturity.
+
+⸻
+
+Purchase detail view (tap any card)
+
+Header: Merchant • Amount • Maturity • Health
+Ring chart: Shares of Yield / Top-ups / Principal (cap)
+Timeline: Payments & yield credits by month (checkmarks)
+Controls:
+	•	Change top-up (picker)
+	•	Lock more savings (one-tap)
+	•	Repay now (full/partial)
+	•	Cancel (if within grace window)
+Receipts: pcNFT ID, on-chain tx, shareable PDF/QR
+
+Banners for edge cases
+	•	APY down: “Coverage short by $9 → Add $1.50/wk or lock +$150.”
+	•	Maintenance call: “Health 1.04 (< 1.10). Fix with Top-up $8 or Lock +$120.”
+
+⸻
+
+Home page hook (no extra screen bloat)
+
+Add a compact BoostPay card:
+	•	“Spendable: $200 • Outstanding: $150 • Next: $7.50 Tue”
+	•	Button: Open BoostPay
+
+⸻
+
+Copy you can ship (micro)
+	•	Health OK: “Your plan is on track.”
+	•	Attention: “APY fell—add $X or top-up $Y/wk.”
+	•	Action needed: “You’ll hit maturity short by $Z. Choose: Add funds • Increase top-ups • Allow principal (≤ cap).”
+
+Footnotes (tiny): “APY is variable. Principal use never exceeds your cap.”
+
+⸻
+
+Visual language (keeps it understandable)
+	•	Colors: Yield (one color), Top-ups (second), Principal at maturity (neutral).
+	•	Icons: 🌱 Yield, 🔒 Locked savings, ⏳ Maturity, 🛟 Health.
+	•	Numbers: big, monospaced amounts; always show network + token.
+
+⸻
+
+Offline & low-signal behavior
+	•	Cache the page; show last synced values with a “may be 10m old” badge.
+	•	Queue top-up changes and plan edits; show Pending until online.
+	•	Execute-by-link still works from detail view (share button).
+
+⸻
+
+Safety & guardrails surfaced in UI
+	•	Hard caps visible: “Max principal at maturity: $90.”
+	•	Withdrawals: block or warn if it harms health:
+“Withdrawing $100 would push Health to 0.96. Choose a fix.”
+	•	Tenor limits: select 2–12 months only; show payoff math instantly.
+
+⸻
+
+Data you need for this page
+	•	Vault: saved, locked, apy_est
+	•	Per-purchase: amount, maturity, paid_yield, paid_topups, principal_cap, health_ratio, next_due
+	•	Derived: spendable_limit, outstanding_total, suggested_fix (X to lock / Y to top-up)
+
+⸻
+
+Implementation sketch (React)
+	•	BoostPayPage
+	•	SummaryStrip
+	•	PurchaseList → PurchaseCard*
+	•	SavingsModule
+	•	PlanModule
+	•	HowItWorks
+	•	PurchaseDetail (route: /boostpay/:id)
+*Each card receives a small suggestFix() prop that returns the two best one-tap fixes.
+
+⸻
+
+QA checklist (v1)
+	•	Health calc matches contract math across edge APYs.
+	•	Changing top-up/lock updates Spendable and Health in real time.
+	•	Offline: actions queue; no silent failures.
+	•	Internationalization: long numbers, RTL, decimals.
+	•	Accessibility: 44px tap targets; high contrast; screen-reader labels.
+
+⸻
+
+Bottom line: yes—ship a single BoostPay page + per-purchase detail. It keeps the mental model crystal clear (yield vs top-ups vs principal), gives one-tap fixes when conditions change, and fits your lightweight PWA ethos.
