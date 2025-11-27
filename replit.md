@@ -92,3 +92,83 @@ The application features a unified fixed header and bottom navigation across all
 2. Auto-withdraw orchestration in Send flow when liquid USDC is insufficient
 3. Background sync for accrued interest display
 4. Failure handling and transaction logging for facilitator relays
+
+## Future Vision: Savings-Backed Pay Later
+
+### Core Concept
+Turn yield into credit without creating debt. Users lock savings in Aave, then spend their future yield on purchases today. Principal stays invested, only yield gets redirected to payments.
+
+**The Disruption:**
+- Traditional BNPL: "Borrow $100, pay back $115 over 4 months (debt + interest to Klarna/Affirm)"
+- nanoPay: "Your $1,000 savings earns $60/year. Spend that $60 now. Your $1,000 never moves."
+
+No debt. No credit check. No interest payments. Just your own money working for you before you receive it.
+
+### Key Formulas (from PRD)
+- **Spendable Limit**: `0.8 × Locked + 0.7 × (APY × Locked × Tenor) + TopUps - Outstanding`
+- **Health Ratio**: `(0.8 × Locked + YieldAccrued + TopUps) / Outstanding`
+- Health badges: OK ≥1.10, Attention 1.05–1.10, Action <1.05
+
+### Example Math
+- $1,000 locked @ 6% APY over 1 year
+- Spendable = 0.8 × $1,000 + 0.7 × ($60) = $800 + $42 = **$842**
+- User can make $842 in purchases while keeping $1,000 invested
+
+### Repayment Waterfall
+1. **Yield first**: Accrued yield from Aave pays off purchases
+2. **Top-ups second**: Optional user contributions
+3. **Principal last**: Capped amount at maturity (only if needed)
+
+### Merchant Settlement
+- **Instant**: Sell payment commitment (pcNFT) to settlement pool at 1.5% discount
+- **Hold to maturity**: Guaranteed on-chain claim backed by locked savings
+
+### Smart Contracts (Future)
+1. **SavingsVault.sol**: Wraps Aave, tracks locked/unlocked, handles yield accounting and settlement
+2. **PaymentCommitment.sol (pcNFT)**: ERC-721 representing payment claim {buyer, merchant, amount, maturity, principalCap}
+3. **InstantSettlementPool.sol**: LPs buy pcNFTs for immediate merchant liquidity
+
+### Wallet UI (Future)
+- `/paylater` page: Summary strip (Spendable, Locked, Outstanding, Health), active purchases list, lock slider
+- Home card: "Spendable: $X • Outstanding: $Y"
+- Checkout pay sheet: "Pay now" vs "Pay later" tabs with 3 adjustment levers
+
+## Future Vision: Yield Endowment for Communities
+
+### Core Concept
+Partners (NGOs, foundations, sponsors) deposit capital ($1M+), and only the yield flows to eligible community members weekly, weighted by MaxFlow trust scores.
+
+**Sustainable Aid**: Principal never moves. Only realized yield gets distributed. Funds concentrate where the network has real confidence.
+
+### Distribution Formula
+```
+Weekly Budget = Harvested Yield (EMA-smoothed, 80% distributed, 20% buffer)
+Per-wallet allocation = Floor + Trust-weighted share
+Trust weight = normalize(MaxFlow score) × (1 - dilution) × (1 + redundancy)
+```
+
+### Example Numbers
+- Partner deposits $1M @ 6% APY = $60k/year = ~$1,154/week
+- 2,000 eligible users (MaxFlow score ≥ threshold)
+- Floor (40%): ~$0.23 each guaranteed
+- Trust-weighted remainder: Top scores get $0.70–$1.20, median $0.30–$0.50
+
+### "Help Anyone" Features
+- **Boost next claim**: Donate to increase someone's weekly allocation
+- **Top-up Pay Later**: Donate directly to reduce someone's outstanding balance
+
+### Smart Contracts (Future)
+1. **PartnerYieldVault**: Tracks principal baseline, weekly harvest of realized yield
+2. **ClaimsTreasury**: Receives harvested USDC + donations
+3. **ClaimManager**: Merkle-based weekly claims with cooldown, gasless via relayer
+
+### Wallet UI (Future)
+- `/claim` page: "Claim weekly" button, next timer, expiry countdown
+- `/help` page: Choose beneficiary, boost their claim or top-up their Pay Later
+- Transparency card: "This week: Budget $1,154 • Eligible 2,000 • Median claim $0.42"
+
+### Safeguards
+- Anti-sybil: MaxFlow threshold, haircuts for low-redundancy clusters, new wallet warm-up
+- Smoothing: EMA APY, 20% buffer for APY dips
+- Fairness: 30-50% floor, per-wallet cap (≤ 0.5-1.0% of budget)
+- Partner controls: Pause, withdraw principal, cap weekly spend, community scoping
