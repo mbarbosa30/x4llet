@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { NETWORKS, getNetworkByChainId } from '@shared/networks';
-import { supplyToAave, withdrawFromAave } from '@/lib/aave';
+import { supplyToAave, withdrawFromAave, parseAmountToMicroUsdc } from '@/lib/aave';
 
 interface ExchangeRateData {
   currency: string;
@@ -347,7 +347,7 @@ export default function Settings() {
     if (!address || !depositAmount || isOperating) return;
     
     setIsOperating(true);
-    const amountInMicroUsdc = BigInt(Math.floor(parseFloat(depositAmount) * 1000000));
+    const amountInMicroUsdc = parseAmountToMicroUsdc(depositAmount);
     
     try {
       setAaveOperationStep('gas_check');
@@ -432,7 +432,7 @@ export default function Settings() {
     if (!address || !withdrawAmount || isOperating) return;
     
     setIsOperating(true);
-    const amountInMicroUsdc = BigInt(Math.floor(parseFloat(withdrawAmount) * 1000000));
+    const amountInMicroUsdc = parseAmountToMicroUsdc(withdrawAmount);
     
     try {
       setAaveOperationStep('gas_check');

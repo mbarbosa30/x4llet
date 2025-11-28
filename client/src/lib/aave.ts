@@ -1,4 +1,4 @@
-import { createWalletClient, createPublicClient, http, type Address, encodeFunctionData, parseAbi } from 'viem';
+import { createWalletClient, createPublicClient, http, type Address, parseAbi, type Chain } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, celo } from 'viem/chains';
 import { getNetworkByChainId } from '@shared/networks';
@@ -14,17 +14,33 @@ const ERC20_ABI = parseAbi([
   'function balanceOf(address account) external view returns (uint256)',
 ]);
 
+const CHAIN_MAP: Record<number, Chain> = {
+  8453: base,
+  42220: celo,
+};
+
 export interface AaveTransactionResult {
   success: boolean;
   txHash?: string;
   error?: string;
 }
 
+function parseAmountToMicroUsdc(amount: string): bigint {
+  const parts = amount.split('.');
+  const wholePart = parts[0] || '0';
+  let decimalPart = parts[1] || '';
+  
+  decimalPart = decimalPart.padEnd(6, '0').slice(0, 6);
+  
+  const microUsdcString = wholePart + decimalPart;
+  return BigInt(microUsdcString);
+}
+
 export async function supplyToAave(
   privateKey: string,
   chainId: number,
   amountMicroUsdc: bigint,
-  userAddress: string
+  _userAddress: string
 ): Promise<AaveTransactionResult> {
   try {
     const network = getNetworkByChainId(chainId);
@@ -32,8 +48,13 @@ export async function supplyToAave(
       return { success: false, error: 'Aave not supported on this network' };
     }
 
-    const chain = chainId === 8453 ? base : celo;
+    const chain = CHAIN_MAP[chainId];
+    if (!chain) {
+      return { success: false, error: `Unsupported chain ID: ${chainId}` };
+    }
+
     const account = privateKeyToAccount(privateKey as `0x${string}`);
+    const accountAddress = account.address;
 
     const walletClient = createWalletClient({
       account,
@@ -53,7 +74,7 @@ export async function supplyToAave(
       address: usdcAddress,
       abi: ERC20_ABI,
       functionName: 'allowance',
-      args: [userAddress as Address, poolAddress],
+      args: [accountAddress, poolAddress],
     });
 
     if (currentAllowance < amountMicroUsdc) {
@@ -79,13 +100,13 @@ export async function supplyToAave(
     console.log('Pool address:', poolAddress);
     console.log('USDC address:', usdcAddress);
     console.log('Amount:', amountMicroUsdc.toString());
-    console.log('User:', userAddress);
+    console.log('Account:', accountAddress);
 
     const supplyHash = await walletClient.writeContract({
       address: poolAddress,
       abi: AAVE_POOL_ABI,
       functionName: 'supply',
-      args: [usdcAddress, amountMicroUsdc, userAddress as Address, 0],
+      args: [usdcAddress, amountMicroUsdc, accountAddress, 0],
     });
 
     console.log('Supply tx hash:', supplyHash);
@@ -116,7 +137,7 @@ export async function withdrawFromAave(
   privateKey: string,
   chainId: number,
   amountMicroUsdc: bigint,
-  userAddress: string
+  _userAddress: string
 ): Promise<AaveTransactionResult> {
   try {
     const network = getNetworkByChainId(chainId);
@@ -124,8 +145,13 @@ export async function withdrawFromAave(
       return { success: false, error: 'Aave not supported on this network' };
     }
 
-    const chain = chainId === 8453 ? base : celo;
+    const chain = CHAIN_MAP[chainId];
+    if (!chain) {
+      return { success: false, error: `Unsupported chain ID: ${chainId}` };
+    }
+
     const account = privateKeyToAccount(privateKey as `0x${string}`);
+    const accountAddress = account.address;
 
     const walletClient = createWalletClient({
       account,
@@ -145,13 +171,13 @@ export async function withdrawFromAave(
     console.log('Pool address:', poolAddress);
     console.log('USDC address:', usdcAddress);
     console.log('Amount:', amountMicroUsdc.toString());
-    console.log('User:', userAddress);
+    console.log('Account:', accountAddress);
 
     const withdrawHash = await walletClient.writeContract({
       address: poolAddress,
       abi: AAVE_POOL_ABI,
       functionName: 'withdraw',
-      args: [usdcAddress, amountMicroUsdc, userAddress as Address],
+      args: [usdcAddress, amountMicroUsdc, accountAddress],
     });
 
     console.log('Withdraw tx hash:', withdrawHash);
@@ -177,3 +203,5 @@ export async function withdrawFromAave(
     return { success: false, error: errorMessage };
   }
 }
+
+export { parseAmountToMicroUsdc };
