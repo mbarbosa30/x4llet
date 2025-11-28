@@ -28,10 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { NETWORKS, getNetworkByChainId } from '@shared/networks';
-import { AAVE_POOL_ABI, ERC20_ABI } from '@shared/aave';
-import { createWalletClient, createPublicClient, http, type Address } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { base, celo } from 'viem/chains';
+import { supplyToAave, withdrawFromAave } from '@/lib/aave';
 
 interface ExchangeRateData {
   currency: string;
@@ -369,16 +366,13 @@ export default function Settings() {
             title: "Gas Sent",
             description: "A small amount of gas has been sent to your wallet.",
           });
-          // Wait a bit for gas to arrive
           await new Promise(resolve => setTimeout(resolve, 5000));
         }
-        // If drip failed (rate limited), just continue anyway - transaction will fail if really no gas
         setGasDripPending(false);
       }
       
       setAaveOperationStep('signing');
       
-      // Get private key from wallet
       const pk = await getPrivateKey();
       if (!pk) {
         toast({
@@ -391,57 +385,6 @@ export default function Settings() {
         return;
       }
       
-      const network = getNetworkByChainId(selectedChain);
-      if (!network || !network.aavePoolAddress) {
-        toast({
-          title: "Network Error",
-          description: "Aave is not supported on this network.",
-          variant: "destructive",
-        });
-        setAaveOperationStep('input');
-        setIsOperating(false);
-        return;
-      }
-      
-      const chain = selectedChain === 8453 ? base : celo;
-      const account = privateKeyToAccount(pk as `0x${string}`);
-      
-      const walletClient = createWalletClient({
-        account,
-        chain,
-        transport: http(network.rpcUrl),
-      });
-      
-      const publicClient = createPublicClient({
-        chain,
-        transport: http(network.rpcUrl),
-      });
-      
-      // Check current allowance
-      const currentAllowance = await publicClient.readContract({
-        address: network.usdcAddress as Address,
-        abi: ERC20_ABI,
-        functionName: 'allowance',
-        args: [address as Address, network.aavePoolAddress as Address],
-      });
-      
-      // If allowance is insufficient, approve first
-      if (BigInt(currentAllowance) < amountInMicroUsdc) {
-        toast({
-          title: "Approving USDC",
-          description: "Please wait while we approve USDC spending...",
-        });
-        
-        const approveHash = await walletClient.writeContract({
-          address: network.usdcAddress as Address,
-          abi: ERC20_ABI,
-          functionName: 'approve',
-          args: [network.aavePoolAddress as Address, amountInMicroUsdc],
-        });
-        
-        await publicClient.waitForTransactionReceipt({ hash: approveHash });
-      }
-      
       setAaveOperationStep('submitting');
       
       toast({
@@ -449,22 +392,12 @@ export default function Settings() {
         description: "Please wait while we deposit your USDC...",
       });
       
-      // Call supply on Aave Pool
-      const supplyHash = await walletClient.writeContract({
-        address: network.aavePoolAddress as Address,
-        abi: AAVE_POOL_ABI,
-        functionName: 'supply',
-        args: [
-          network.usdcAddress as Address,
-          amountInMicroUsdc,
-          address as Address,
-          0, // referralCode
-        ],
-      });
+      const result = await supplyToAave(pk, selectedChain, amountInMicroUsdc, address);
       
-      await publicClient.waitForTransactionReceipt({ hash: supplyHash });
+      if (!result.success) {
+        throw new Error(result.error || 'Deposit failed');
+      }
       
-      // Invalidate balance queries
       queryClient.invalidateQueries({ queryKey: ['/api/balance'] });
       queryClient.invalidateQueries({ queryKey: ['/api/aave/balance'] });
       
@@ -504,7 +437,6 @@ export default function Settings() {
     try {
       setAaveOperationStep('gas_check');
       
-      // Check gas balance
       const gasCheck = await checkGasBalance(selectedChain);
       
       if (!gasCheck.hasEnoughGas) {
@@ -520,13 +452,11 @@ export default function Settings() {
           });
           await new Promise(resolve => setTimeout(resolve, 5000));
         }
-        // If drip failed (rate limited), just continue anyway - transaction will fail if really no gas
         setGasDripPending(false);
       }
       
       setAaveOperationStep('signing');
       
-      // Get private key from wallet
       const pk = await getPrivateKey();
       if (!pk) {
         toast({
@@ -539,32 +469,6 @@ export default function Settings() {
         return;
       }
       
-      const network = getNetworkByChainId(selectedChain);
-      if (!network || !network.aavePoolAddress) {
-        toast({
-          title: "Network Error",
-          description: "Aave is not supported on this network.",
-          variant: "destructive",
-        });
-        setAaveOperationStep('input');
-        setIsOperating(false);
-        return;
-      }
-      
-      const chain = selectedChain === 8453 ? base : celo;
-      const account = privateKeyToAccount(pk as `0x${string}`);
-      
-      const walletClient = createWalletClient({
-        account,
-        chain,
-        transport: http(network.rpcUrl),
-      });
-      
-      const publicClient = createPublicClient({
-        chain,
-        transport: http(network.rpcUrl),
-      });
-      
       setAaveOperationStep('submitting');
       
       toast({
@@ -572,21 +476,12 @@ export default function Settings() {
         description: "Please wait while we withdraw your USDC...",
       });
       
-      // Call withdraw on Aave Pool
-      const withdrawHash = await walletClient.writeContract({
-        address: network.aavePoolAddress as Address,
-        abi: AAVE_POOL_ABI,
-        functionName: 'withdraw',
-        args: [
-          network.usdcAddress as Address,
-          amountInMicroUsdc,
-          address as Address,
-        ],
-      });
+      const result = await withdrawFromAave(pk, selectedChain, amountInMicroUsdc, address);
       
-      await publicClient.waitForTransactionReceipt({ hash: withdrawHash });
+      if (!result.success) {
+        throw new Error(result.error || 'Withdrawal failed');
+      }
       
-      // Invalidate balance queries
       queryClient.invalidateQueries({ queryKey: ['/api/balance'] });
       queryClient.invalidateQueries({ queryKey: ['/api/aave/balance'] });
       
