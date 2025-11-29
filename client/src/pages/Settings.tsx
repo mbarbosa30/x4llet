@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/select';
 import { NETWORKS, getNetworkByChainId } from '@shared/networks';
 import { supplyToAave, withdrawFromAave, parseAmountToMicroUsdc } from '@/lib/aave';
+import { formatPrecisionBalance } from '@/components/PrecisionBalance';
 
 interface ExchangeRateData {
   currency: string;
@@ -522,8 +523,8 @@ export default function Settings() {
   const getMaxWithdrawAmount = (): string => {
     const balance = selectedChain === 8453 ? aaveBalanceBase : aaveBalanceCelo;
     if (!balance?.aUsdcBalance) return '0.00';
-    const balanceNum = parseFloat(balance.aUsdcBalance) / 1000000;
-    return balanceNum.toFixed(2);
+    const { full } = formatPrecisionBalance(balance.aUsdcBalance);
+    return full;
   };
 
   const getTotalAaveBalance = (): number => {
@@ -624,27 +625,48 @@ export default function Settings() {
                   <div className="text-sm font-medium tabular-nums">
                     {isAaveBalanceBaseLoading || isAaveBalanceCeloLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      `$${getTotalAaveBalance().toFixed(2)} USDC`
-                    )}
+                    ) : (() => {
+                      const totalMicro = (aaveBalanceBase?.aUsdcBalance ? parseFloat(aaveBalanceBase.aUsdcBalance) : 0) + 
+                                        (aaveBalanceCelo?.aUsdcBalance ? parseFloat(aaveBalanceCelo.aUsdcBalance) : 0);
+                      const { main, precision } = formatPrecisionBalance(totalMicro);
+                      return (
+                        <span>
+                          ${main}
+                          {precision && <span className="text-[0.65em] align-super opacity-70">{precision}</span>}
+                          {' '}USDC
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
                 
                 {(aaveBalanceBase?.aUsdcBalance && parseFloat(aaveBalanceBase.aUsdcBalance) > 0) || 
                  (aaveBalanceCelo?.aUsdcBalance && parseFloat(aaveBalanceCelo.aUsdcBalance) > 0) ? (
                   <div className="space-y-1 text-xs text-muted-foreground">
-                    {aaveBalanceBase?.aUsdcBalance && parseFloat(aaveBalanceBase.aUsdcBalance) > 0 && (
-                      <div className="flex items-center justify-between">
-                        <span>Base ({aaveApy?.apyFormatted || '—'} APY)</span>
-                        <span className="tabular-nums">${(parseFloat(aaveBalanceBase.aUsdcBalance) / 1000000).toFixed(2)}</span>
-                      </div>
-                    )}
-                    {aaveBalanceCelo?.aUsdcBalance && parseFloat(aaveBalanceCelo.aUsdcBalance) > 0 && (
-                      <div className="flex items-center justify-between">
-                        <span>Celo ({aaveApyCelo?.apyFormatted || '—'} APY)</span>
-                        <span className="tabular-nums">${(parseFloat(aaveBalanceCelo.aUsdcBalance) / 1000000).toFixed(2)}</span>
-                      </div>
-                    )}
+                    {aaveBalanceBase?.aUsdcBalance && parseFloat(aaveBalanceBase.aUsdcBalance) > 0 && (() => {
+                      const { main, precision } = formatPrecisionBalance(aaveBalanceBase.aUsdcBalance);
+                      return (
+                        <div className="flex items-center justify-between">
+                          <span>Base ({aaveApy?.apyFormatted || '—'} APY)</span>
+                          <span className="tabular-nums">
+                            ${main}
+                            {precision && <span className="text-[0.65em] align-super opacity-70">{precision}</span>}
+                          </span>
+                        </div>
+                      );
+                    })()}
+                    {aaveBalanceCelo?.aUsdcBalance && parseFloat(aaveBalanceCelo.aUsdcBalance) > 0 && (() => {
+                      const { main, precision } = formatPrecisionBalance(aaveBalanceCelo.aUsdcBalance);
+                      return (
+                        <div className="flex items-center justify-between">
+                          <span>Celo ({aaveApyCelo?.apyFormatted || '—'} APY)</span>
+                          <span className="tabular-nums">
+                            ${main}
+                            {precision && <span className="text-[0.65em] align-super opacity-70">{precision}</span>}
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 ) : null}
                 
@@ -1113,10 +1135,28 @@ export default function Settings() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="42220" disabled={!aaveBalanceCelo?.aUsdcBalance || parseFloat(aaveBalanceCelo.aUsdcBalance) === 0}>
-                      Celo (${aaveBalanceCelo?.aUsdcBalance ? (parseFloat(aaveBalanceCelo.aUsdcBalance) / 1000000).toFixed(2) : '0.00'} available)
+                      {(() => {
+                        const { main, precision } = formatPrecisionBalance(aaveBalanceCelo?.aUsdcBalance || '0');
+                        return (
+                          <span>
+                            Celo (${main}
+                            {precision && <span className="text-[0.65em] align-super opacity-70">{precision}</span>}
+                            {' '}available)
+                          </span>
+                        );
+                      })()}
                     </SelectItem>
                     <SelectItem value="8453" disabled={!aaveBalanceBase?.aUsdcBalance || parseFloat(aaveBalanceBase.aUsdcBalance) === 0}>
-                      Base (${aaveBalanceBase?.aUsdcBalance ? (parseFloat(aaveBalanceBase.aUsdcBalance) / 1000000).toFixed(2) : '0.00'} available)
+                      {(() => {
+                        const { main, precision } = formatPrecisionBalance(aaveBalanceBase?.aUsdcBalance || '0');
+                        return (
+                          <span>
+                            Base (${main}
+                            {precision && <span className="text-[0.65em] align-super opacity-70">{precision}</span>}
+                            {' '}available)
+                          </span>
+                        );
+                      })()}
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -1131,7 +1171,16 @@ export default function Settings() {
                     onClick={() => setWithdrawAmount(getMaxWithdrawAmount())}
                     data-testid="button-withdraw-max"
                   >
-                    Max: ${getMaxWithdrawAmount()}
+                    {(() => {
+                      const balance = selectedChain === 8453 ? aaveBalanceBase : aaveBalanceCelo;
+                      const { main, precision } = formatPrecisionBalance(balance?.aUsdcBalance || '0');
+                      return (
+                        <span>
+                          Max: ${main}
+                          {precision && <span className="text-[0.65em] align-super opacity-70">{precision}</span>}
+                        </span>
+                      );
+                    })()}
                   </button>
                 </div>
                 <Input
