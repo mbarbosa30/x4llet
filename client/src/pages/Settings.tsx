@@ -30,6 +30,7 @@ import {
 import { NETWORKS, getNetworkByChainId } from '@shared/networks';
 import { supplyToAave, withdrawFromAave, parseAmountToMicroUsdc } from '@/lib/aave';
 import { formatPrecisionBalance } from '@/components/PrecisionBalance';
+import { useEarningAnimation } from '@/hooks/use-earning-animation';
 
 interface ExchangeRateData {
   currency: string;
@@ -278,6 +279,44 @@ export default function Settings() {
       return res.json();
     },
     refetchInterval: 30000,
+  });
+
+  const totalAaveBalanceMicro = String(
+    (aaveBalanceBase?.aUsdcBalance ? parseFloat(aaveBalanceBase.aUsdcBalance) : 0) +
+    (aaveBalanceCelo?.aUsdcBalance ? parseFloat(aaveBalanceCelo.aUsdcBalance) : 0)
+  );
+  
+  const calculateWeightedApy = () => {
+    const baseBalance = aaveBalanceBase?.aUsdcBalance ? parseFloat(aaveBalanceBase.aUsdcBalance) : 0;
+    const celoBalance = aaveBalanceCelo?.aUsdcBalance ? parseFloat(aaveBalanceCelo.aUsdcBalance) : 0;
+    const totalBalance = baseBalance + celoBalance;
+    if (totalBalance === 0) return 0;
+    const baseApy = aaveBalanceBase?.apy || 0;
+    const celoApy = aaveBalanceCelo?.apy || 0;
+    return ((baseApy * baseBalance) + (celoApy * celoBalance)) / totalBalance;
+  };
+  
+  const weightedApy = calculateWeightedApy();
+
+  const totalEarningAnimation = useEarningAnimation({
+    usdcMicro: '0',
+    aaveBalanceMicro: totalAaveBalanceMicro,
+    apyRate: weightedApy / 100,
+    enabled: earnMode && parseFloat(totalAaveBalanceMicro) > 0,
+  });
+
+  const baseEarningAnimation = useEarningAnimation({
+    usdcMicro: '0',
+    aaveBalanceMicro: aaveBalanceBase?.aUsdcBalance || '0',
+    apyRate: (aaveBalanceBase?.apy || 0) / 100,
+    enabled: earnMode && parseFloat(aaveBalanceBase?.aUsdcBalance || '0') > 0,
+  });
+
+  const celoEarningAnimation = useEarningAnimation({
+    usdcMicro: '0',
+    aaveBalanceMicro: aaveBalanceCelo?.aUsdcBalance || '0',
+    apyRate: (aaveBalanceCelo?.apy || 0) / 100,
+    enabled: earnMode && parseFloat(aaveBalanceCelo?.aUsdcBalance || '0') > 0,
   });
 
   // Fetch Celo APY (always fetch for display in Earn Mode card)
@@ -625,48 +664,54 @@ export default function Settings() {
                   <div className="text-sm font-medium tabular-nums">
                     {isAaveBalanceBaseLoading || isAaveBalanceCeloLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (() => {
-                      const totalMicro = (aaveBalanceBase?.aUsdcBalance ? parseFloat(aaveBalanceBase.aUsdcBalance) : 0) + 
-                                        (aaveBalanceCelo?.aUsdcBalance ? parseFloat(aaveBalanceCelo.aUsdcBalance) : 0);
-                      const { main, precision } = formatPrecisionBalance(totalMicro);
-                      return (
-                        <span>
-                          ${main}
-                          {precision && <span className="text-[0.65em] align-super opacity-70">{precision}</span>}
-                          {' '}USDC
-                        </span>
-                      );
-                    })()}
+                    ) : parseFloat(totalAaveBalanceMicro) > 0 ? (
+                      <span className="flex items-baseline">
+                        <span>${Math.floor(totalEarningAnimation.animatedValue)}</span>
+                        <span className="opacity-90">.{totalEarningAnimation.mainDecimals}</span>
+                        {totalEarningAnimation.extraDecimals && (
+                          <span className="text-[0.7em] opacity-50 text-green-500 dark:text-green-400">
+                            {totalEarningAnimation.extraDecimals}
+                          </span>
+                        )}
+                        <span className="ml-1">USDC</span>
+                      </span>
+                    ) : (
+                      <span>$0.00 USDC</span>
+                    )}
                   </div>
                 </div>
                 
                 {(aaveBalanceBase?.aUsdcBalance && parseFloat(aaveBalanceBase.aUsdcBalance) > 0) || 
                  (aaveBalanceCelo?.aUsdcBalance && parseFloat(aaveBalanceCelo.aUsdcBalance) > 0) ? (
                   <div className="space-y-1 text-xs text-muted-foreground">
-                    {aaveBalanceBase?.aUsdcBalance && parseFloat(aaveBalanceBase.aUsdcBalance) > 0 && (() => {
-                      const { main, precision } = formatPrecisionBalance(aaveBalanceBase.aUsdcBalance);
-                      return (
-                        <div className="flex items-center justify-between">
-                          <span>Base ({aaveApy?.apyFormatted || '—'} APY)</span>
-                          <span className="tabular-nums">
-                            ${main}
-                            {precision && <span className="text-[0.65em] align-super opacity-70">{precision}</span>}
-                          </span>
-                        </div>
-                      );
-                    })()}
-                    {aaveBalanceCelo?.aUsdcBalance && parseFloat(aaveBalanceCelo.aUsdcBalance) > 0 && (() => {
-                      const { main, precision } = formatPrecisionBalance(aaveBalanceCelo.aUsdcBalance);
-                      return (
-                        <div className="flex items-center justify-between">
-                          <span>Celo ({aaveApyCelo?.apyFormatted || '—'} APY)</span>
-                          <span className="tabular-nums">
-                            ${main}
-                            {precision && <span className="text-[0.65em] align-super opacity-70">{precision}</span>}
-                          </span>
-                        </div>
-                      );
-                    })()}
+                    {aaveBalanceBase?.aUsdcBalance && parseFloat(aaveBalanceBase.aUsdcBalance) > 0 && (
+                      <div className="flex items-center justify-between">
+                        <span>Base ({aaveApy?.apyFormatted || '—'} APY)</span>
+                        <span className="tabular-nums flex items-baseline">
+                          <span>${Math.floor(baseEarningAnimation.animatedValue)}</span>
+                          <span className="opacity-90">.{baseEarningAnimation.mainDecimals}</span>
+                          {baseEarningAnimation.extraDecimals && (
+                            <span className="text-[0.7em] opacity-50 text-green-500 dark:text-green-400">
+                              {baseEarningAnimation.extraDecimals}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    )}
+                    {aaveBalanceCelo?.aUsdcBalance && parseFloat(aaveBalanceCelo.aUsdcBalance) > 0 && (
+                      <div className="flex items-center justify-between">
+                        <span>Celo ({aaveApyCelo?.apyFormatted || '—'} APY)</span>
+                        <span className="tabular-nums flex items-baseline">
+                          <span>${Math.floor(celoEarningAnimation.animatedValue)}</span>
+                          <span className="opacity-90">.{celoEarningAnimation.mainDecimals}</span>
+                          {celoEarningAnimation.extraDecimals && (
+                            <span className="text-[0.7em] opacity-50 text-green-500 dark:text-green-400">
+                              {celoEarningAnimation.extraDecimals}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 ) : null}
                 
