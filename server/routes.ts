@@ -444,6 +444,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AAVE YIELD ENDPOINTS
   // ============================================
 
+  // Get facilitator address for gasless operations
+  app.get('/api/facilitator/address', async (_req, res) => {
+    try {
+      const facilitatorAccount = getFacilitatorAccount();
+      res.json({ address: facilitatorAccount.address });
+    } catch (error) {
+      console.error('Error getting facilitator address:', error);
+      res.status(500).json({ error: 'Failed to get facilitator address' });
+    }
+  });
+
   app.get('/api/aave/apy/:chainId', async (req, res) => {
     try {
       const chainId = parseInt(req.params.chainId);
@@ -546,12 +557,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Gasless Aave supply using EIP-3009 TransferWithAuthorization
+  // Flow: User signs auth to transfer USDC to facilitator -> Facilitator receives USDC -> 
+  //       Facilitator approves Aave -> Facilitator supplies on behalf of user
   app.post('/api/aave/supply', async (req, res) => {
     try {
-      const { chainId, userAddress, amount, approvalSignature } = req.body;
+      const { 
+        chainId, 
+        userAddress, 
+        amount,
+        // EIP-3009 authorization fields
+        validAfter,
+        validBefore,
+        nonce,
+        signature,
+      } = req.body;
 
-      if (!chainId || !userAddress || !amount) {
-        return res.status(400).json({ error: 'Missing required fields: chainId, userAddress, amount' });
+      console.log('[Aave Supply] Request received:', { chainId, userAddress, amount: amount?.slice(0, 10) + '...' });
+
+      if (!chainId || !userAddress || !amount || !validAfter || !validBefore || !nonce || !signature) {
+        return res.status(400).json({ 
+          error: 'Missing required fields',
+          required: ['chainId', 'userAddress', 'amount', 'validAfter', 'validBefore', 'nonce', 'signature']
+        });
       }
 
       const network = getNetworkByChainId(chainId);
@@ -561,6 +589,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const chain = chainId === 8453 ? base : celo;
       const facilitatorAccount = getFacilitatorAccount();
+      const facilitatorAddress = facilitatorAccount.address;
+
+      console.log('[Aave Supply] Facilitator address:', facilitatorAddress);
+      console.log('[Aave Supply] Network:', network.name, 'Chain ID:', chainId);
 
       const walletClient = createWalletClient({
         account: facilitatorAccount,
@@ -573,62 +605,168 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transport: http(network.rpcUrl),
       });
 
-      // Check user's USDC balance
-      const usdcBalance = await publicClient.readContract({
-        address: network.usdcAddress as Address,
-        abi: ERC20_ABI,
-        functionName: 'balanceOf',
-        args: [userAddress as Address],
-      });
-
-      if (BigInt(usdcBalance) < BigInt(amount)) {
-        return res.status(400).json({ error: 'Insufficient USDC balance' });
+      // Parse and validate signature
+      if (!signature || typeof signature !== 'string' || !signature.startsWith('0x')) {
+        return res.status(400).json({ error: 'Invalid signature format' });
+      }
+      
+      let signatureParts;
+      try {
+        signatureParts = hexToSignature(signature as Hex);
+      } catch (e) {
+        return res.status(400).json({ error: 'Failed to parse signature' });
+      }
+      
+      const { v, r, s } = signatureParts;
+      
+      if (v === undefined || r === undefined || s === undefined) {
+        return res.status(400).json({ error: 'Invalid signature components' });
       }
 
-      // Check if user has approved the pool
-      const allowance = await publicClient.readContract({
+      // Step 1: Execute transferWithAuthorization to receive USDC from user
+      console.log('[Aave Supply] Step 1: Executing transferWithAuthorization...');
+      
+      const transferHash = await walletClient.writeContract({
         address: network.usdcAddress as Address,
-        abi: ERC20_ABI,
-        functionName: 'allowance',
-        args: [userAddress as Address, network.aavePoolAddress as Address],
-      });
-
-      if (BigInt(allowance) < BigInt(amount)) {
-        return res.status(400).json({ 
-          error: 'Insufficient allowance. User must approve Aave Pool to spend USDC.',
-          requiredAllowance: amount,
-          currentAllowance: allowance.toString(),
-          poolAddress: network.aavePoolAddress,
-        });
-      }
-
-      // Execute supply on behalf of user
-      // Note: This requires the user to have approved the facilitator to supply on their behalf
-      // In a real implementation, we'd use permit2 or similar for gasless approvals
-      const hash = await walletClient.writeContract({
-        address: network.aavePoolAddress as Address,
-        abi: AAVE_POOL_ABI,
-        functionName: 'supply',
+        abi: USDC_ABI,
+        functionName: 'transferWithAuthorization',
         args: [
-          network.usdcAddress as Address,
-          BigInt(amount),
           userAddress as Address,
-          0, // referral code
+          facilitatorAddress,
+          BigInt(amount),
+          BigInt(validAfter),
+          BigInt(validBefore),
+          nonce as Hex,
+          Number(v),
+          r,
+          s,
         ],
       });
 
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      console.log('[Aave Supply] Transfer tx hash:', transferHash);
+      const transferReceipt = await publicClient.waitForTransactionReceipt({ hash: transferHash });
+      
+      if (transferReceipt.status !== 'success') {
+        return res.status(400).json({ error: 'Transfer authorization failed' });
+      }
+      console.log('[Aave Supply] Transfer confirmed');
+
+      // Helper to refund USDC to user if later steps fail
+      const refundUser = async (reason: string) => {
+        console.log(`[Aave Supply] Refunding user due to: ${reason}`);
+        try {
+          const refundHash = await walletClient.writeContract({
+            address: network.usdcAddress as Address,
+            abi: ERC20_ABI,
+            functionName: 'transfer',
+            args: [userAddress as Address, BigInt(amount)],
+          });
+          console.log('[Aave Supply] Refund tx hash:', refundHash);
+          await publicClient.waitForTransactionReceipt({ hash: refundHash });
+          console.log('[Aave Supply] Refund completed');
+          return true;
+        } catch (refundError) {
+          console.error('[Aave Supply] CRITICAL: Refund failed!', refundError);
+          return false;
+        }
+      };
+
+      // Step 2: Approve Aave Pool to spend the received USDC
+      console.log('[Aave Supply] Step 2: Approving Aave Pool...');
+      
+      let approveHash;
+      try {
+        approveHash = await walletClient.writeContract({
+          address: network.usdcAddress as Address,
+          abi: ERC20_ABI,
+          functionName: 'approve',
+          args: [network.aavePoolAddress as Address, BigInt(amount)],
+        });
+      } catch (approveError) {
+        console.error('[Aave Supply] Approve transaction failed:', approveError);
+        const refunded = await refundUser('Approval transaction failed');
+        return res.status(400).json({ 
+          error: 'Approval failed', 
+          refunded,
+          refundMessage: refunded ? 'USDC has been returned to your wallet' : 'CRITICAL: Could not refund - contact support'
+        });
+      }
+
+      console.log('[Aave Supply] Approve tx hash:', approveHash);
+      const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveHash });
+      
+      if (approveReceipt.status !== 'success') {
+        const refunded = await refundUser('Approval transaction reverted');
+        return res.status(400).json({ 
+          error: 'Approval failed',
+          refunded,
+          refundMessage: refunded ? 'USDC has been returned to your wallet' : 'CRITICAL: Could not refund - contact support'
+        });
+      }
+      console.log('[Aave Supply] Approval confirmed');
+
+      // Step 3: Supply to Aave on behalf of user (user receives aTokens)
+      console.log('[Aave Supply] Step 3: Supplying to Aave...');
+      
+      let supplyHash;
+      try {
+        supplyHash = await walletClient.writeContract({
+          address: network.aavePoolAddress as Address,
+          abi: AAVE_POOL_ABI,
+          functionName: 'supply',
+          args: [
+            network.usdcAddress as Address,
+            BigInt(amount),
+            userAddress as Address, // onBehalfOf: user receives aTokens
+            0, // referral code
+          ],
+        });
+      } catch (supplyError) {
+        console.error('[Aave Supply] Supply transaction failed:', supplyError);
+        const refunded = await refundUser('Supply transaction failed');
+        return res.status(400).json({ 
+          error: 'Supply failed',
+          refunded,
+          refundMessage: refunded ? 'USDC has been returned to your wallet' : 'CRITICAL: Could not refund - contact support'
+        });
+      }
+
+      console.log('[Aave Supply] Supply tx hash:', supplyHash);
+      const supplyReceipt = await publicClient.waitForTransactionReceipt({ hash: supplyHash });
+
+      if (supplyReceipt.status !== 'success') {
+        const refunded = await refundUser('Supply transaction reverted');
+        return res.status(400).json({ 
+          error: 'Supply failed',
+          refunded,
+          refundMessage: refunded ? 'USDC has been returned to your wallet' : 'CRITICAL: Could not refund - contact support'
+        });
+      }
+      console.log('[Aave Supply] Supply confirmed! User now has aTokens');
 
       res.json({
         success: true,
-        txHash: hash,
-        blockNumber: receipt.blockNumber.toString(),
+        txHash: supplyHash,
+        transferTxHash: transferHash,
+        approveTxHash: approveHash,
+        blockNumber: supplyReceipt.blockNumber.toString(),
         amount,
         chainId,
       });
     } catch (error) {
-      console.error('Error supplying to Aave:', error);
-      res.status(500).json({ error: 'Failed to supply to Aave' });
+      console.error('[Aave Supply] Error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Parse revert reason if available
+      if (errorMessage.includes('execution reverted')) {
+        return res.status(400).json({ 
+          error: 'Transaction reverted',
+          details: errorMessage,
+          hint: 'Check if the authorization signature is valid and not expired'
+        });
+      }
+      
+      res.status(500).json({ error: 'Failed to supply to Aave', details: errorMessage });
     }
   });
 

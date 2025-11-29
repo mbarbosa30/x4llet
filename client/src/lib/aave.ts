@@ -1,4 +1,4 @@
-import { createWalletClient, createPublicClient, http, type Address, parseAbi, type Chain } from 'viem';
+import { createPublicClient, http, type Address, type Hex, parseAbi, type Chain, keccak256, toHex, getAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, celo } from 'viem/chains';
 import { getNetworkByChainId } from '@shared/networks';
@@ -36,11 +36,26 @@ function parseAmountToMicroUsdc(amount: string): bigint {
   return BigInt(microUsdcString);
 }
 
-export async function supplyToAave(
+async function getFacilitatorAddress(): Promise<string> {
+  const response = await fetch('/api/facilitator/address');
+  if (!response.ok) {
+    throw new Error('Failed to get facilitator address');
+  }
+  const data = await response.json();
+  return data.address;
+}
+
+function generateNonce(): Hex {
+  const randomBytes = new Uint8Array(32);
+  crypto.getRandomValues(randomBytes);
+  return toHex(randomBytes);
+}
+
+export async function supplyToAaveGasless(
   privateKey: string,
   chainId: number,
   amountMicroUsdc: bigint,
-  _userAddress: string
+  userAddress: string
 ): Promise<AaveTransactionResult> {
   try {
     const network = getNetworkByChainId(chainId);
@@ -53,82 +68,81 @@ export async function supplyToAave(
       return { success: false, error: `Unsupported chain ID: ${chainId}` };
     }
 
+    console.log('[Aave Gasless Supply] Starting...');
+    console.log('[Aave Gasless Supply] Chain:', chainId, 'Amount:', amountMicroUsdc.toString());
+
     const account = privateKeyToAccount(privateKey as `0x${string}`);
-    const accountAddress = account.address;
+    const facilitatorAddress = await getFacilitatorAddress();
 
-    const walletClient = createWalletClient({
-      account,
-      chain,
-      transport: http(network.rpcUrl),
+    console.log('[Aave Gasless Supply] Facilitator:', facilitatorAddress);
+
+    const now = Math.floor(Date.now() / 1000);
+    const validAfter = 0;
+    const validBefore = now + 3600;
+    const nonce = generateNonce();
+
+    const domain = {
+      name: chainId === 8453 ? 'USD Coin' : 'USDC',
+      version: '2',
+      chainId: BigInt(chainId),
+      verifyingContract: getAddress(network.usdcAddress) as Address,
+    };
+
+    const message = {
+      from: account.address,
+      to: getAddress(facilitatorAddress) as Address,
+      value: amountMicroUsdc,
+      validAfter: BigInt(validAfter),
+      validBefore: BigInt(validBefore),
+      nonce: nonce as `0x${string}`,
+    };
+
+    console.log('[Aave Gasless Supply] Signing EIP-3009 authorization...');
+
+    const signature = await account.signTypedData({
+      domain,
+      types: {
+        TransferWithAuthorization: [
+          { name: 'from', type: 'address' },
+          { name: 'to', type: 'address' },
+          { name: 'value', type: 'uint256' },
+          { name: 'validAfter', type: 'uint256' },
+          { name: 'validBefore', type: 'uint256' },
+          { name: 'nonce', type: 'bytes32' },
+        ],
+      },
+      primaryType: 'TransferWithAuthorization',
+      message,
     });
 
-    const publicClient = createPublicClient({
-      chain,
-      transport: http(network.rpcUrl),
+    console.log('[Aave Gasless Supply] Signature created, sending to backend...');
+
+    const response = await fetch('/api/aave/supply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chainId,
+        userAddress: account.address,
+        amount: amountMicroUsdc.toString(),
+        validAfter: validAfter.toString(),
+        validBefore: validBefore.toString(),
+        nonce,
+        signature,
+      }),
     });
 
-    const usdcAddress = network.usdcAddress as Address;
-    const poolAddress = network.aavePoolAddress as Address;
+    const result = await response.json();
 
-    const currentAllowance = await publicClient.readContract({
-      address: usdcAddress,
-      abi: ERC20_ABI,
-      functionName: 'allowance',
-      args: [accountAddress, poolAddress],
-    });
-
-    if (currentAllowance < amountMicroUsdc) {
-      console.log('Approving USDC for Aave Pool...');
-      
-      const approveHash = await walletClient.writeContract({
-        address: usdcAddress,
-        abi: ERC20_ABI,
-        functionName: 'approve',
-        args: [poolAddress, amountMicroUsdc],
-      });
-
-      console.log('Approval tx hash:', approveHash);
-      const approvalReceipt = await publicClient.waitForTransactionReceipt({ hash: approveHash });
-      console.log('Approval confirmed, status:', approvalReceipt.status);
-      
-      if (approvalReceipt.status !== 'success') {
-        return { success: false, error: 'Approval transaction failed' };
-      }
+    if (!response.ok) {
+      console.error('[Aave Gasless Supply] Backend error:', result);
+      return { success: false, error: result.error || result.details || 'Supply failed' };
     }
 
-    console.log('Supplying to Aave Pool...');
-    console.log('Pool address:', poolAddress);
-    console.log('USDC address:', usdcAddress);
-    console.log('Amount:', amountMicroUsdc.toString());
-    console.log('Account:', accountAddress);
-
-    const supplyHash = await walletClient.writeContract({
-      address: poolAddress,
-      abi: AAVE_POOL_ABI,
-      functionName: 'supply',
-      args: [usdcAddress, amountMicroUsdc, accountAddress, 0],
-    });
-
-    console.log('Supply tx hash:', supplyHash);
-    const supplyReceipt = await publicClient.waitForTransactionReceipt({ hash: supplyHash });
-    console.log('Supply confirmed, status:', supplyReceipt.status);
-
-    if (supplyReceipt.status !== 'success') {
-      return { success: false, error: 'Supply transaction failed' };
-    }
-
-    return { success: true, txHash: supplyHash };
+    console.log('[Aave Gasless Supply] Success! TX:', result.txHash);
+    return { success: true, txHash: result.txHash };
   } catch (error) {
-    console.error('Aave supply error:', error);
+    console.error('[Aave Gasless Supply] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
-    if (errorMessage.includes('insufficient funds')) {
-      return { success: false, error: 'Insufficient gas for transaction' };
-    }
-    if (errorMessage.includes('execution reverted')) {
-      return { success: false, error: 'Transaction reverted - check USDC balance and approval' };
-    }
-    
     return { success: false, error: errorMessage };
   }
 }
@@ -153,12 +167,6 @@ export async function withdrawFromAave(
     const account = privateKeyToAccount(privateKey as `0x${string}`);
     const accountAddress = account.address;
 
-    const walletClient = createWalletClient({
-      account,
-      chain,
-      transport: http(network.rpcUrl),
-    });
-
     const publicClient = createPublicClient({
       chain,
       transport: http(network.rpcUrl),
@@ -167,11 +175,41 @@ export async function withdrawFromAave(
     const usdcAddress = network.usdcAddress as Address;
     const poolAddress = network.aavePoolAddress as Address;
 
-    console.log('Withdrawing from Aave Pool...');
-    console.log('Pool address:', poolAddress);
-    console.log('USDC address:', usdcAddress);
-    console.log('Amount:', amountMicroUsdc.toString());
-    console.log('Account:', accountAddress);
+    console.log('[Aave Withdraw] Checking gas balance...');
+
+    const gasBalance = await publicClient.getBalance({ address: accountAddress });
+    const minGasRequired = chainId === 42220 ? BigInt(1e15) : BigInt(1e14);
+
+    if (gasBalance < minGasRequired) {
+      console.log('[Aave Withdraw] Insufficient gas, requesting drip...');
+      
+      const dripResponse = await fetch('/api/gas-drip/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: accountAddress, chainId }),
+      });
+
+      if (!dripResponse.ok) {
+        const dripResult = await dripResponse.json();
+        if (!dripResult.alreadyHasSufficientGas) {
+          return { success: false, error: 'Need gas for withdrawal - please try again in a moment' };
+        }
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+    }
+
+    console.log('[Aave Withdraw] Calling withdraw on Aave Pool...');
+    console.log('[Aave Withdraw] Pool address:', poolAddress);
+    console.log('[Aave Withdraw] USDC address:', usdcAddress);
+    console.log('[Aave Withdraw] Amount:', amountMicroUsdc.toString());
+
+    const { createWalletClient } = await import('viem');
+    const walletClient = createWalletClient({
+      account,
+      chain,
+      transport: http(network.rpcUrl),
+    });
 
     const withdrawHash = await walletClient.writeContract({
       address: poolAddress,
@@ -180,9 +218,9 @@ export async function withdrawFromAave(
       args: [usdcAddress, amountMicroUsdc, accountAddress],
     });
 
-    console.log('Withdraw tx hash:', withdrawHash);
+    console.log('[Aave Withdraw] Withdraw tx hash:', withdrawHash);
     const withdrawReceipt = await publicClient.waitForTransactionReceipt({ hash: withdrawHash });
-    console.log('Withdraw confirmed, status:', withdrawReceipt.status);
+    console.log('[Aave Withdraw] Withdraw confirmed, status:', withdrawReceipt.status);
 
     if (withdrawReceipt.status !== 'success') {
       return { success: false, error: 'Withdraw transaction failed' };
@@ -190,7 +228,7 @@ export async function withdrawFromAave(
 
     return { success: true, txHash: withdrawHash };
   } catch (error) {
-    console.error('Aave withdraw error:', error);
+    console.error('[Aave Withdraw] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     
     if (errorMessage.includes('insufficient funds')) {
@@ -203,5 +241,7 @@ export async function withdrawFromAave(
     return { success: false, error: errorMessage };
   }
 }
+
+export const supplyToAave = supplyToAaveGasless;
 
 export { parseAmountToMicroUsdc };
