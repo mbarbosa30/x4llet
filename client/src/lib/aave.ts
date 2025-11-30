@@ -225,31 +225,55 @@ export async function withdrawFromAave(
     if (gasBalance < minGasRequired) {
       console.log('[Aave Withdraw] Insufficient gas, requesting drip...');
       
-      const dripResponse = await fetch('/api/gas-drip/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: accountAddress, chainId }),
-      });
+      try {
+        const dripResponse = await fetch('/api/gas-drip', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: accountAddress, chainId }),
+        });
 
-      if (!dripResponse.ok) {
-        const dripResult = await dripResponse.json();
-        console.log('[Aave Withdraw] Drip response:', dripResult);
-        if (!dripResult.alreadyHasSufficientGas) {
-          return { success: false, error: 'Need gas for withdrawal - please try again in a moment' };
+        let dripResult;
+        try {
+          dripResult = await dripResponse.json();
+        } catch (parseError) {
+          console.error('[Aave Withdraw] Failed to parse drip response:', parseError);
+          return { success: false, error: 'Gas drip service unavailable - please try again later' };
         }
-      } else {
-        const dripResult = await dripResponse.json();
-        console.log('[Aave Withdraw] Drip success:', dripResult);
-        // Wait for the gas transaction to confirm
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        
-        // Re-check gas balance
-        const newGasBalance = await publicClient.getBalance({ address: accountAddress });
-        console.log('[Aave Withdraw] New gas balance after drip:', newGasBalance.toString());
-        
-        if (newGasBalance < minGasRequired) {
-          return { success: false, error: 'Gas drip pending - please try again in a few seconds' };
+
+        console.log('[Aave Withdraw] Drip response:', dripResult, 'Status:', dripResponse.status);
+
+        if (!dripResponse.ok) {
+          if (dripResponse.status === 429) {
+            const nextDrip = dripResult.nextDripAvailable ? new Date(dripResult.nextDripAvailable) : null;
+            const hoursRemaining = nextDrip ? Math.max(1, Math.ceil((nextDrip.getTime() - Date.now()) / (1000 * 60 * 60))) : 24;
+            return { success: false, error: `Gas request limit reached. Try again in ${hoursRemaining} hour${hoursRemaining > 1 ? 's' : ''}.` };
+          }
+          if (dripResponse.status === 503) {
+            return { success: false, error: 'Gas service temporarily unavailable. Please try again in a few minutes.' };
+          }
+          if (dripResult.alreadyHasGas) {
+            console.log('[Aave Withdraw] User already has sufficient gas, proceeding...');
+          } else {
+            return { success: false, error: dripResult.error || 'Unable to provide gas at this time. Please try again.' };
+          }
+        } else {
+          if (dripResult.alreadyHasGas) {
+            console.log('[Aave Withdraw] User already has sufficient gas');
+          } else {
+            console.log('[Aave Withdraw] Gas drip sent:', dripResult.txHash);
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            
+            const newGasBalance = await publicClient.getBalance({ address: accountAddress });
+            console.log('[Aave Withdraw] New gas balance after drip:', newGasBalance.toString());
+            
+            if (newGasBalance < minGasRequired) {
+              return { success: false, error: 'Gas is being sent to your wallet. Please try again in a few seconds.' };
+            }
+          }
         }
+      } catch (dripError) {
+        console.error('[Aave Withdraw] Gas drip request failed:', dripError);
+        return { success: false, error: 'Gas service unavailable. Please try again shortly.' };
       }
     }
 
