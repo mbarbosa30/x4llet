@@ -71,7 +71,16 @@ export async function supplyToAaveGasless(
     console.log('[Aave Gasless Supply] Starting...');
     console.log('[Aave Gasless Supply] Chain:', chainId, 'Amount:', amountMicroUsdc.toString());
 
-    const account = privateKeyToAccount(privateKey as `0x${string}`);
+    // Ensure private key has 0x prefix
+    const formattedPrivateKey = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
+    
+    // Validate private key format (should be 0x + 64 hex chars)
+    if (!/^0x[0-9a-fA-F]{64}$/.test(formattedPrivateKey)) {
+      console.error('[Aave Gasless Supply] Invalid private key format');
+      return { success: false, error: 'Invalid wallet key format' };
+    }
+
+    const account = privateKeyToAccount(formattedPrivateKey as `0x${string}`);
     const facilitatorAddress = await getFacilitatorAddress();
 
     console.log('[Aave Gasless Supply] Facilitator:', facilitatorAddress);
@@ -164,7 +173,16 @@ export async function withdrawFromAave(
       return { success: false, error: `Unsupported chain ID: ${chainId}` };
     }
 
-    const account = privateKeyToAccount(privateKey as `0x${string}`);
+    // Ensure private key has 0x prefix
+    const formattedPrivateKey = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
+    
+    // Validate private key format (should be 0x + 64 hex chars)
+    if (!/^0x[0-9a-fA-F]{64}$/.test(formattedPrivateKey)) {
+      console.error('[Aave Withdraw] Invalid private key format');
+      return { success: false, error: 'Invalid wallet key format' };
+    }
+
+    const account = privateKeyToAccount(formattedPrivateKey as `0x${string}`);
     const accountAddress = account.address;
 
     const publicClient = createPublicClient({
