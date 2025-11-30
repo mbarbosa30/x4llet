@@ -155,7 +155,7 @@ export async function withdrawFromAave(
 ): Promise<AaveTransactionResult> {
   try {
     const network = getNetworkByChainId(chainId);
-    if (!network || !network.aavePoolAddress) {
+    if (!network || !network.aavePoolAddress || !network.aUsdcAddress) {
       return { success: false, error: 'Aave not supported on this network' };
     }
 
@@ -174,11 +174,35 @@ export async function withdrawFromAave(
 
     const usdcAddress = network.usdcAddress as Address;
     const poolAddress = network.aavePoolAddress as Address;
+    const aUsdcAddress = network.aUsdcAddress as Address;
+
+    // First check the user's actual aUSDC balance
+    console.log('[Aave Withdraw] Checking aUSDC balance...');
+    const aUsdcBalance = await publicClient.readContract({
+      address: aUsdcAddress,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [accountAddress],
+    }) as bigint;
+    
+    console.log('[Aave Withdraw] aUSDC balance:', aUsdcBalance.toString());
+    console.log('[Aave Withdraw] Requested amount:', amountMicroUsdc.toString());
+    
+    if (aUsdcBalance < amountMicroUsdc) {
+      const balanceFormatted = (Number(aUsdcBalance) / 1e6).toFixed(2);
+      const requestedFormatted = (Number(amountMicroUsdc) / 1e6).toFixed(2);
+      return { 
+        success: false, 
+        error: `Insufficient aUSDC balance. You have $${balanceFormatted} but requested $${requestedFormatted}` 
+      };
+    }
 
     console.log('[Aave Withdraw] Checking gas balance...');
 
     const gasBalance = await publicClient.getBalance({ address: accountAddress });
     const minGasRequired = chainId === 42220 ? BigInt(1e15) : BigInt(1e14);
+
+    console.log('[Aave Withdraw] Gas balance:', gasBalance.toString(), 'Required:', minGasRequired.toString());
 
     if (gasBalance < minGasRequired) {
       console.log('[Aave Withdraw] Insufficient gas, requesting drip...');
@@ -191,11 +215,23 @@ export async function withdrawFromAave(
 
       if (!dripResponse.ok) {
         const dripResult = await dripResponse.json();
+        console.log('[Aave Withdraw] Drip response:', dripResult);
         if (!dripResult.alreadyHasSufficientGas) {
           return { success: false, error: 'Need gas for withdrawal - please try again in a moment' };
         }
       } else {
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        const dripResult = await dripResponse.json();
+        console.log('[Aave Withdraw] Drip success:', dripResult);
+        // Wait for the gas transaction to confirm
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        // Re-check gas balance
+        const newGasBalance = await publicClient.getBalance({ address: accountAddress });
+        console.log('[Aave Withdraw] New gas balance after drip:', newGasBalance.toString());
+        
+        if (newGasBalance < minGasRequired) {
+          return { success: false, error: 'Gas drip pending - please try again in a few seconds' };
+        }
       }
     }
 
@@ -223,22 +259,38 @@ export async function withdrawFromAave(
     console.log('[Aave Withdraw] Withdraw confirmed, status:', withdrawReceipt.status);
 
     if (withdrawReceipt.status !== 'success') {
-      return { success: false, error: 'Withdraw transaction failed' };
+      return { success: false, error: 'Withdraw transaction failed on-chain' };
     }
 
     return { success: true, txHash: withdrawHash };
   } catch (error) {
     console.error('[Aave Withdraw] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorDetails = error instanceof Error ? JSON.stringify(error, Object.getOwnPropertyNames(error)) : '';
+    console.error('[Aave Withdraw] Error details:', errorDetails);
     
     if (errorMessage.includes('insufficient funds')) {
-      return { success: false, error: 'Insufficient gas for transaction' };
+      return { success: false, error: 'Insufficient gas for transaction - please try again in a moment' };
     }
     if (errorMessage.includes('execution reverted')) {
-      return { success: false, error: 'Transaction reverted - check aUSDC balance' };
+      // Try to extract more specific error if available
+      if (errorMessage.includes('INSUFFICIENT_BALANCE') || errorMessage.includes('insufficient balance')) {
+        return { success: false, error: 'Insufficient aUSDC balance for withdrawal' };
+      }
+      if (errorMessage.includes('NOT_ENOUGH_AVAILABLE_USER_BALANCE')) {
+        return { success: false, error: 'Not enough available balance in Aave pool' };
+      }
+      return { success: false, error: 'Transaction reverted by Aave contract. This may be a temporary issue - please try again.' };
+    }
+    if (errorMessage.includes('User rejected') || errorMessage.includes('user rejected')) {
+      return { success: false, error: 'Transaction cancelled' };
+    }
+    if (errorMessage.includes('nonce')) {
+      return { success: false, error: 'Transaction nonce error - please try again' };
     }
     
-    return { success: false, error: errorMessage };
+    // For unknown errors, provide a cleaner message
+    return { success: false, error: `Withdrawal failed: ${errorMessage.substring(0, 100)}` };
   }
 }
 
