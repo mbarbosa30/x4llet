@@ -14,6 +14,7 @@ import Receive from "@/pages/Receive";
 import Pay from "@/pages/Pay";
 import Settings from "@/pages/Settings";
 import Signal from "@/pages/Signal";
+import Earn from "@/pages/Earn";
 import Admin from "@/pages/Admin";
 import HowItWorks from "@/pages/HowItWorks";
 import Faqs from "@/pages/Faqs";
@@ -59,6 +60,11 @@ function Router() {
           <Signal />
         </ProtectedRoute>
       </Route>
+      <Route path="/earn">
+        <ProtectedRoute>
+          <Earn />
+        </ProtectedRoute>
+      </Route>
       <Route path="/admin" component={Admin} />
       <Route path="/how-it-works" component={HowItWorks} />
       <Route path="/faqs" component={Faqs} />
@@ -74,7 +80,7 @@ function App() {
   const { toast } = useToast();
 
   // Only show header and bottom nav on protected routes
-  const protectedRoutes = ['/home', '/send', '/receive', '/settings', '/signal'];
+  const protectedRoutes = ['/home', '/send', '/receive', '/settings', '/signal', '/earn'];
   const showLayout = protectedRoutes.includes(location);
 
   const handleScanPaymentRequest = (data: string) => {

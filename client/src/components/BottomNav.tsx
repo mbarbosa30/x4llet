@@ -1,6 +1,6 @@
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { Shield, Wallet, Settings } from 'lucide-react';
+import { Shield, Wallet, Settings, TrendingUp } from 'lucide-react';
 
 export default function BottomNav() {
   const [location, setLocation] = useLocation();
@@ -17,44 +17,57 @@ export default function BottomNav() {
       }}
       data-testid="bottom-nav"
     >
-      <div className="max-w-md mx-auto h-16 flex items-center px-2">
+      <div className="max-w-md mx-auto h-16 flex items-center px-1">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setLocation('/signal')}
-          className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-12 rounded-none ${
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-12 rounded-none px-1 ${
             isActive('/signal') ? 'text-primary' : 'text-muted-foreground'
           }`}
           data-testid="nav-signal"
         >
           <Shield className="h-5 w-5" />
-          <span className="text-xs">Signal</span>
+          <span className="text-[10px]">Signal</span>
         </Button>
 
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setLocation('/home')}
-          className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-12 rounded-none ${
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-12 rounded-none px-1 ${
             isActive('/home') ? 'text-primary' : 'text-muted-foreground'
           }`}
           data-testid="nav-wallet"
         >
           <Wallet className="h-5 w-5" />
-          <span className="text-xs">Wallet</span>
+          <span className="text-[10px]">Wallet</span>
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setLocation('/earn')}
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-12 rounded-none px-1 ${
+            isActive('/earn') ? 'text-primary' : 'text-muted-foreground'
+          }`}
+          data-testid="nav-earn"
+        >
+          <TrendingUp className="h-5 w-5" />
+          <span className="text-[10px]">Earn</span>
         </Button>
 
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setLocation('/settings')}
-          className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-12 rounded-none ${
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-12 rounded-none px-1 ${
             isActive('/settings') ? 'text-primary' : 'text-muted-foreground'
           }`}
           data-testid="nav-settings"
         >
           <Settings className="h-5 w-5" />
-          <span className="text-xs">Settings</span>
+          <span className="text-[10px]">Settings</span>
         </Button>
       </div>
     </nav>
