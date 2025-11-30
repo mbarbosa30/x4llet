@@ -266,8 +266,15 @@ export async function withdrawFromAave(
   } catch (error) {
     console.error('[Aave Withdraw] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorDetails = error instanceof Error ? JSON.stringify(error, Object.getOwnPropertyNames(error)) : '';
-    console.error('[Aave Withdraw] Error details:', errorDetails);
+    // Use BigInt-safe serialization for error details
+    try {
+      const errorDetails = error instanceof Error 
+        ? JSON.stringify(error, (_, v) => typeof v === 'bigint' ? v.toString() : v) 
+        : '';
+      console.error('[Aave Withdraw] Error details:', errorDetails);
+    } catch {
+      console.error('[Aave Withdraw] Could not serialize error details');
+    }
     
     if (errorMessage.includes('insufficient funds')) {
       return { success: false, error: 'Insufficient gas for transaction - please try again in a moment' };
