@@ -206,7 +206,18 @@ export async function withdrawFromAave(
     console.log('[Aave Withdraw] aUSDC balance:', aUsdcBalance.toString());
     console.log('[Aave Withdraw] Requested amount:', amountMicroUsdc.toString());
     
-    if (aUsdcBalance < amountMicroUsdc) {
+    // Check if user wants to withdraw full balance (within 1% tolerance for rounding)
+    const isFullWithdraw = amountMicroUsdc >= (aUsdcBalance * 99n / 100n);
+    
+    // Use max uint256 for full withdrawals to avoid dust/rounding issues
+    // This tells Aave to withdraw the entire balance
+    const MAX_UINT256 = 2n ** 256n - 1n;
+    const withdrawAmount = isFullWithdraw ? MAX_UINT256 : amountMicroUsdc;
+    
+    console.log('[Aave Withdraw] Is full withdraw:', isFullWithdraw);
+    console.log('[Aave Withdraw] Actual withdraw amount:', isFullWithdraw ? 'MAX_UINT256' : withdrawAmount.toString());
+    
+    if (!isFullWithdraw && aUsdcBalance < amountMicroUsdc) {
       const balanceFormatted = (Number(aUsdcBalance) / 1e6).toFixed(2);
       const requestedFormatted = (Number(amountMicroUsdc) / 1e6).toFixed(2);
       return { 
@@ -293,7 +304,7 @@ export async function withdrawFromAave(
       address: poolAddress,
       abi: AAVE_POOL_ABI,
       functionName: 'withdraw',
-      args: [usdcAddress, amountMicroUsdc, accountAddress],
+      args: [usdcAddress, withdrawAmount, accountAddress],
     });
 
     console.log('[Aave Withdraw] Withdraw tx hash:', withdrawHash);

@@ -160,10 +160,10 @@ export default function Earn() {
     refetchInterval: 30000,
   });
 
-  const totalAaveBalanceMicro = String(
-    (aaveBalanceBase?.aUsdcBalance ? parseFloat(aaveBalanceBase.aUsdcBalance) : 0) +
-    (aaveBalanceCelo?.aUsdcBalance ? parseFloat(aaveBalanceCelo.aUsdcBalance) : 0)
-  );
+  // Use BigInt for precise micro-USDC arithmetic
+  const baseAaveBalanceMicro = aaveBalanceBase?.aUsdcBalance ? BigInt(aaveBalanceBase.aUsdcBalance) : 0n;
+  const celoAaveBalanceMicro = aaveBalanceCelo?.aUsdcBalance ? BigInt(aaveBalanceCelo.aUsdcBalance) : 0n;
+  const totalAaveBalanceMicro = String(baseAaveBalanceMicro + celoAaveBalanceMicro);
 
   const calculateWeightedApy = () => {
     const baseBalance = aaveBalanceBase?.aUsdcBalance ? parseFloat(aaveBalanceBase.aUsdcBalance) : 0;
@@ -449,9 +449,10 @@ export default function Earn() {
     setIsOperating(false);
   };
 
-  const hasAaveBalance = getTotalAaveBalance() > 0;
-  const baseBalanceNum = aaveBalanceBase?.aUsdcBalance ? parseFloat(aaveBalanceBase.aUsdcBalance) / 1e6 : 0;
-  const celoBalanceNum = aaveBalanceCelo?.aUsdcBalance ? parseFloat(aaveBalanceCelo.aUsdcBalance) / 1e6 : 0;
+  const hasAaveBalance = baseAaveBalanceMicro > 0n || celoAaveBalanceMicro > 0n;
+  // Convert BigInt micro-USDC to number for display (safe for amounts up to ~9 trillion USDC)
+  const baseBalanceNum = Number(baseAaveBalanceMicro) / 1e6;
+  const celoBalanceNum = Number(celoAaveBalanceMicro) / 1e6;
 
   return (
     <div 
