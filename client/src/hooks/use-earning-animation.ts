@@ -47,12 +47,11 @@ export function useEarningAnimation({
     let requiredPrecision = minPrecision;
     
     if (changePerSecond > 0) {
+      // Calculate precision needed for at least 1 digit change per second
+      // p = ceil(-log10(changePerSecond)) gives the decimal place that changes once/second
       const calculatedPrecision = Math.ceil(-Math.log10(changePerSecond));
-      if (calculatedPrecision >= 3 && calculatedPrecision <= 6) {
-        requiredPrecision = Math.max(minPrecision, Math.min(calculatedPrecision, 6));
-      } else if (calculatedPrecision > 6) {
-        requiredPrecision = Math.max(minPrecision, 6);
-      }
+      // Allow up to 10 decimals to ensure small balances still animate
+      requiredPrecision = Math.max(minPrecision, Math.min(calculatedPrecision, 10));
     }
     
     setPrecision(requiredPrecision);
