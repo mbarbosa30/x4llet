@@ -186,6 +186,7 @@ export default function Earn() {
     aaveBalanceMicro: totalAaveBalanceMicro,
     apyRate: weightedApy / 100,
     enabled: parseFloat(totalAaveBalanceMicro) > 0,
+    minPrecision: 5,
   });
 
   const baseEarningAnimation = useEarningAnimation({
@@ -193,6 +194,7 @@ export default function Earn() {
     aaveBalanceMicro: aaveBalanceBase?.aUsdcBalance || '0',
     apyRate: (aaveBalanceBase?.apy || 0) / 100,
     enabled: parseFloat(aaveBalanceBase?.aUsdcBalance || '0') > 0,
+    minPrecision: 5,
   });
 
   const celoEarningAnimation = useEarningAnimation({
@@ -200,6 +202,7 @@ export default function Earn() {
     aaveBalanceMicro: aaveBalanceCelo?.aUsdcBalance || '0',
     apyRate: (aaveBalanceCelo?.apy || 0) / 100,
     enabled: parseFloat(aaveBalanceCelo?.aUsdcBalance || '0') > 0,
+    minPrecision: 5,
   });
 
   const { data: liquidBalanceBase } = useQuery<{ balance: string; balanceMicro: string }>({
@@ -485,21 +488,26 @@ export default function Earn() {
               </div>
             ) : hasAaveBalance ? (
               <div className="space-y-1">
-                <div className="text-4xl font-bold tabular-nums flex items-baseline justify-center" data-testid="text-earning-amount">
-                  <span>$</span>
-                  <span>{Math.floor(totalEarningAnimation.animatedValue)}</span>
-                  <span className="opacity-90">.{totalEarningAnimation.mainDecimals}</span>
-                  {totalEarningAnimation.extraDecimals && (
-                    <span className="text-[0.6em] text-green-500 dark:text-green-400 opacity-70">
-                      {totalEarningAnimation.extraDecimals}
-                    </span>
-                  )}
+                <div className="text-5xl font-medium tabular-nums flex items-center justify-center" data-testid="text-earning-amount">
+                  <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
+                  <span className="flex items-baseline">
+                    <span>{Math.floor(totalEarningAnimation.animatedValue)}</span>
+                    <span className="opacity-90">.{totalEarningAnimation.mainDecimals}</span>
+                    {totalEarningAnimation.extraDecimals && (
+                      <span className="text-2xl opacity-50 text-green-500 dark:text-green-400">
+                        {totalEarningAnimation.extraDecimals}
+                      </span>
+                    )}
+                  </span>
                 </div>
                 <div className="text-xs text-muted-foreground">USDC earning interest</div>
               </div>
             ) : (
               <div className="space-y-2">
-                <div className="text-4xl font-bold text-muted-foreground">$0.00</div>
+                <div className="text-5xl font-medium tabular-nums flex items-center justify-center">
+                  <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
+                  <span>0.00</span>
+                </div>
                 <div className="text-xs text-muted-foreground">No deposits yet</div>
               </div>
             )}
@@ -549,12 +557,12 @@ export default function Earn() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-medium tabular-nums flex items-baseline justify-end">
-                    <span>$</span>
+                  <div className="text-lg font-medium tabular-nums flex items-baseline justify-end">
+                    <span className="text-sm opacity-50 mr-0.5">$</span>
                     <span>{Math.floor(baseEarningAnimation.animatedValue)}</span>
                     <span className="opacity-90">.{baseEarningAnimation.mainDecimals}</span>
                     {baseEarningAnimation.extraDecimals && (
-                      <span className="text-[0.7em] text-green-500 dark:text-green-400 opacity-60">
+                      <span className="text-xs opacity-50 text-green-500 dark:text-green-400">
                         {baseEarningAnimation.extraDecimals}
                       </span>
                     )}
@@ -575,12 +583,12 @@ export default function Earn() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-medium tabular-nums flex items-baseline justify-end">
-                    <span>$</span>
+                  <div className="text-lg font-medium tabular-nums flex items-baseline justify-end">
+                    <span className="text-sm opacity-50 mr-0.5">$</span>
                     <span>{Math.floor(celoEarningAnimation.animatedValue)}</span>
                     <span className="opacity-90">.{celoEarningAnimation.mainDecimals}</span>
                     {celoEarningAnimation.extraDecimals && (
-                      <span className="text-[0.7em] text-green-500 dark:text-green-400 opacity-60">
+                      <span className="text-xs opacity-50 text-green-500 dark:text-green-400">
                         {celoEarningAnimation.extraDecimals}
                       </span>
                     )}

@@ -5,6 +5,7 @@ interface UseEarningAnimationParams {
   aaveBalanceMicro: string;
   apyRate: number;
   enabled?: boolean;
+  minPrecision?: number;
 }
 
 interface EarningAnimationResult {
@@ -19,10 +20,11 @@ export function useEarningAnimation({
   aaveBalanceMicro,
   apyRate,
   enabled = true,
+  minPrecision = 2,
 }: UseEarningAnimationParams): EarningAnimationResult {
   const mountTimeRef = useRef<number>(Date.now());
   const [animatedValue, setAnimatedValue] = useState<number>(0);
-  const [precision, setPrecision] = useState<number>(2);
+  const [precision, setPrecision] = useState<number>(minPrecision);
 
   const liquidBalance = parseFloat(usdcMicro) / 1e6;
   const aaveBalance = parseFloat(aaveBalanceMicro) / 1e6;
@@ -35,24 +37,26 @@ export function useEarningAnimation({
 
   useEffect(() => {
     if (!enabled || apyRate === 0 || aaveBalance === 0) {
-      setPrecision(2);
+      setPrecision(minPrecision);
       return;
     }
 
     const secondlyRate = apyRate / (365 * 24 * 60 * 60);
     const changePerSecond = aaveBalance * secondlyRate;
 
-    let requiredPrecision = 2;
+    let requiredPrecision = minPrecision;
     
     if (changePerSecond > 0) {
-      const minPrecision = Math.ceil(-Math.log10(changePerSecond));
-      if (minPrecision >= 3 && minPrecision <= 6) {
-        requiredPrecision = Math.min(minPrecision, 6);
+      const calculatedPrecision = Math.ceil(-Math.log10(changePerSecond));
+      if (calculatedPrecision >= 3 && calculatedPrecision <= 6) {
+        requiredPrecision = Math.max(minPrecision, Math.min(calculatedPrecision, 6));
+      } else if (calculatedPrecision > 6) {
+        requiredPrecision = Math.max(minPrecision, 6);
       }
     }
     
     setPrecision(requiredPrecision);
-  }, [aaveBalance, apyRate, enabled]);
+  }, [aaveBalance, apyRate, enabled, minPrecision]);
 
   useEffect(() => {
     if (!enabled || apyRate === 0 || aaveBalance === 0) {
