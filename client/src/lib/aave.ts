@@ -206,25 +206,34 @@ export async function withdrawFromAave(
     console.log('[Aave Withdraw] aUSDC balance:', aUsdcBalance.toString());
     console.log('[Aave Withdraw] Requested amount:', amountMicroUsdc.toString());
     
+    if (aUsdcBalance === 0n) {
+      return { success: false, error: 'No aUSDC balance to withdraw' };
+    }
+    
     // Check if user wants to withdraw full balance (within 1% tolerance for rounding)
     const isFullWithdraw = amountMicroUsdc >= (aUsdcBalance * 99n / 100n);
     
-    // Use max uint256 for full withdrawals to avoid dust/rounding issues
-    // This tells Aave to withdraw the entire balance
-    const MAX_UINT256 = 2n ** 256n - 1n;
-    const withdrawAmount = isFullWithdraw ? MAX_UINT256 : amountMicroUsdc;
-    
-    console.log('[Aave Withdraw] Is full withdraw:', isFullWithdraw);
-    console.log('[Aave Withdraw] Actual withdraw amount:', isFullWithdraw ? 'MAX_UINT256' : withdrawAmount.toString());
-    
-    if (!isFullWithdraw && aUsdcBalance < amountMicroUsdc) {
+    // For full withdrawals, use the actual aUSDC balance to avoid rounding issues
+    // For partial withdrawals, use the exact requested amount
+    let withdrawAmount: bigint;
+    if (isFullWithdraw) {
+      // Use actual balance for full withdrawal
+      withdrawAmount = aUsdcBalance;
+      console.log('[Aave Withdraw] Full withdrawal detected, using actual balance:', withdrawAmount.toString());
+    } else if (amountMicroUsdc > aUsdcBalance) {
       const balanceFormatted = (Number(aUsdcBalance) / 1e6).toFixed(2);
       const requestedFormatted = (Number(amountMicroUsdc) / 1e6).toFixed(2);
       return { 
         success: false, 
-        error: `Insufficient aUSDC balance. You have $${balanceFormatted} but requested $${requestedFormatted}` 
+        error: `Insufficient balance. You have $${balanceFormatted} but requested $${requestedFormatted}` 
       };
+    } else {
+      withdrawAmount = amountMicroUsdc;
+      console.log('[Aave Withdraw] Partial withdrawal:', withdrawAmount.toString());
     }
+    
+    console.log('[Aave Withdraw] Is full withdraw:', isFullWithdraw);
+    console.log('[Aave Withdraw] Final withdraw amount:', withdrawAmount.toString());
 
     console.log('[Aave Withdraw] Checking gas balance...');
 
@@ -334,13 +343,26 @@ export async function withdrawFromAave(
     }
     if (errorMessage.includes('execution reverted')) {
       // Try to extract more specific error if available
+      console.error('[Aave Withdraw] Revert error message:', errorMessage);
+      
       if (errorMessage.includes('INSUFFICIENT_BALANCE') || errorMessage.includes('insufficient balance')) {
         return { success: false, error: 'Insufficient aUSDC balance for withdrawal' };
       }
       if (errorMessage.includes('NOT_ENOUGH_AVAILABLE_USER_BALANCE')) {
         return { success: false, error: 'Not enough available balance in Aave pool' };
       }
-      return { success: false, error: 'Transaction reverted by Aave contract. This may be a temporary issue - please try again.' };
+      if (errorMessage.includes('HEALTH_FACTOR_LOWER_THAN_LIQUIDATION_THRESHOLD')) {
+        return { success: false, error: 'Cannot withdraw - this would put your account at risk of liquidation' };
+      }
+      if (errorMessage.includes('NOT_ENOUGH_LIQUIDITY')) {
+        return { success: false, error: 'Not enough liquidity in the pool. Try a smaller amount.' };
+      }
+      if (errorMessage.includes('INVALID_AMOUNT')) {
+        return { success: false, error: 'Invalid withdrawal amount. Please try a different amount.' };
+      }
+      // Log the full error for debugging
+      console.error('[Aave Withdraw] Full revert details:', errorMessage);
+      return { success: false, error: 'Transaction reverted. Please try a smaller amount or try again later.' };
     }
     if (errorMessage.includes('User rejected') || errorMessage.includes('user rejected')) {
       return { success: false, error: 'Transaction cancelled' };
