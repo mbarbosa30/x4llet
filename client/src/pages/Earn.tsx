@@ -58,6 +58,37 @@ interface AaveApyData {
   aTokenAddress: string;
 }
 
+function formatSmartPrecision(value: number, prefix: string = ''): string {
+  if (value === 0) return `${prefix}0.00`;
+  const absValue = Math.abs(value);
+  
+  if (absValue >= 1) {
+    return `${prefix}${value.toFixed(2)}`;
+  } else if (absValue >= 0.01) {
+    return `${prefix}${value.toFixed(4)}`;
+  } else if (absValue >= 0.0001) {
+    return `${prefix}${value.toFixed(6)}`;
+  } else {
+    const formatted = value.toExponential(2);
+    return `${prefix}${formatted}`;
+  }
+}
+
+function formatSmartPercent(value: number): string {
+  if (value === 0) return '+0.00%';
+  const absValue = Math.abs(value);
+  
+  if (absValue >= 0.1) {
+    return `+${value.toFixed(2)}%`;
+  } else if (absValue >= 0.01) {
+    return `+${value.toFixed(3)}%`;
+  } else if (absValue >= 0.001) {
+    return `+${value.toFixed(4)}%`;
+  } else {
+    return `+${value.toFixed(5)}%`;
+  }
+}
+
 export default function Earn() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -898,7 +929,7 @@ export default function Earn() {
               <div className="flex items-center gap-2">
                 {yearlyEarnings > 0 && (
                   <div className="text-xs text-muted-foreground">
-                    +${yearlyEarnings.toFixed(2)}/yr
+                    {formatSmartPrecision(yearlyEarnings, '+$')}/yr
                   </div>
                 )}
                 <div className="flex rounded-md border border-border overflow-hidden">
@@ -959,11 +990,11 @@ export default function Earn() {
                   />
                   <YAxis 
                     hide={chartViewMode === 'balance'}
-                    width={chartViewMode === 'earnings' ? 35 : 0}
+                    width={chartViewMode === 'earnings' ? 50 : 0}
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 8, fill: 'hsl(var(--muted-foreground))' }}
-                    tickFormatter={(val) => `+${val.toFixed(1)}%`}
+                    tickFormatter={(val) => formatSmartPercent(val)}
                     domain={[0, 'auto']}
                   />
                   <Tooltip 
@@ -977,10 +1008,10 @@ export default function Earn() {
                                 {data.isProjected ? 'Projected' : 'Now'}
                               </div>
                               <div className="text-xs text-success">
-                                +{(data.interestPercent || 0).toFixed(2)}% return
+                                {formatSmartPercent(data.interestPercent || 0)} return
                               </div>
                               <div className="text-xs text-muted-foreground mt-1">
-                                +${(data.interest || 0).toFixed(2)} interest
+                                {formatSmartPrecision(data.interest || 0, '+$')} interest
                               </div>
                             </div>
                           );
@@ -992,20 +1023,20 @@ export default function Earn() {
                             </div>
                             {data.isHistorical ? (
                               <div className="text-xs">
-                                Balance: ${data.total.toFixed(2)}
+                                Balance: {formatSmartPrecision(data.total, '$')}
                               </div>
                             ) : (
                               <>
                                 <div className="text-xs text-muted-foreground">
-                                  Principal: ${data.principal.toFixed(2)}
+                                  Principal: {formatSmartPrecision(data.principal, '$')}
                                 </div>
                                 {data.interest > 0 && (
                                   <div className="text-xs text-success">
-                                    +${data.interest.toFixed(2)} interest
+                                    {formatSmartPrecision(data.interest, '+$')} interest
                                   </div>
                                 )}
                                 <div className="text-xs font-medium mt-1 border-t border-border pt-1">
-                                  Total: ${data.total.toFixed(2)}
+                                  Total: {formatSmartPrecision(data.total, '$')}
                                 </div>
                               </>
                             )}
