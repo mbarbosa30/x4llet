@@ -304,11 +304,10 @@ export async function withdrawFromAave(
     console.log('[Aave Withdraw] Withdraw amount:', withdrawAmount.toString());
     console.log('[Aave Withdraw] User address:', accountAddress);
     
-    // For full withdrawals, use type(uint256).max as per Aave docs
-    // This tells the Pool to withdraw everything available
-    const MAX_UINT256 = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
-    const amountToWithdraw = isFullWithdraw ? MAX_UINT256 : withdrawAmount;
-    console.log('[Aave Withdraw] Using amount:', isFullWithdraw ? 'MAX_UINT256' : amountToWithdraw.toString());
+    // Use the actual aUSDC balance for withdrawals, NOT micro-USDC amount
+    // Aave's withdraw function expects the aToken amount, which may differ from underlying due to interest
+    const amountToWithdraw = withdrawAmount;
+    console.log('[Aave Withdraw] Using amount:', amountToWithdraw.toString());
 
     const { createWalletClient } = await import('viem');
     const walletClient = createWalletClient({
@@ -317,19 +316,33 @@ export async function withdrawFromAave(
       transport: http(network.rpcUrl),
     });
 
-    // Simulate the transaction first to get better error details
-    console.log('[Aave Withdraw] Simulating transaction...');
-    const { request } = await publicClient.simulateContract({
-      address: poolAddress,
-      abi: AAVE_POOL_ABI,
-      functionName: 'withdraw',
-      args: [usdcAddress, amountToWithdraw, accountAddress],
-      account: account,
-    });
-    console.log('[Aave Withdraw] Simulation successful, proceeding with transaction...');
+    // Celo's forno RPC has simulation issues - skip simulation and use explicit gas limit
+    // Base RPC is more reliable so we can still simulate there
+    let withdrawHash: `0x${string}`;
     
-    // If simulation passes, execute the actual transaction
-    const withdrawHash = await walletClient.writeContract(request);
+    if (chainId === 42220) {
+      // Celo: Skip simulation, use explicit gas limit
+      console.log('[Aave Withdraw] Celo chain - using direct write with explicit gas limit...');
+      withdrawHash = await walletClient.writeContract({
+        address: poolAddress,
+        abi: AAVE_POOL_ABI,
+        functionName: 'withdraw',
+        args: [usdcAddress, amountToWithdraw, accountAddress],
+        gas: 500000n, // 500k gas should be plenty for Aave withdraw
+      });
+    } else {
+      // Other chains: Simulate first for better error messages
+      console.log('[Aave Withdraw] Simulating transaction...');
+      const { request } = await publicClient.simulateContract({
+        address: poolAddress,
+        abi: AAVE_POOL_ABI,
+        functionName: 'withdraw',
+        args: [usdcAddress, amountToWithdraw, accountAddress],
+        account: account,
+      });
+      console.log('[Aave Withdraw] Simulation successful, proceeding with transaction...');
+      withdrawHash = await walletClient.writeContract(request);
+    }
 
     console.log('[Aave Withdraw] Withdraw tx hash:', withdrawHash);
     const withdrawReceipt = await publicClient.waitForTransactionReceipt({ hash: withdrawHash });
