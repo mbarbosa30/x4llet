@@ -22,7 +22,7 @@ export function useEarningAnimation({
   enabled = true,
   minPrecision = 2,
 }: UseEarningAnimationParams): EarningAnimationResult {
-  const mountTimeRef = useRef<number>(Date.now());
+  const baseTimeRef = useRef<number | null>(null);
   const [animatedValue, setAnimatedValue] = useState<number>(0);
   const [precision, setPrecision] = useState<number>(minPrecision);
 
@@ -31,9 +31,13 @@ export function useEarningAnimation({
   const totalBalance = liquidBalance + aaveBalance;
 
   useEffect(() => {
-    mountTimeRef.current = Date.now();
+    if (baseTimeRef.current === null && aaveBalance > 0) {
+      const now = Date.now();
+      const secondsIntoDay = Math.floor(now / 1000) % 86400;
+      baseTimeRef.current = now - (secondsIntoDay * 1000);
+    }
     setAnimatedValue(totalBalance);
-  }, [totalBalance]);
+  }, [totalBalance, aaveBalance]);
 
   useEffect(() => {
     if (!enabled || apyRate === 0 || aaveBalance === 0) {
@@ -66,7 +70,8 @@ export function useEarningAnimation({
     let animationFrameId: number;
     
     const animate = () => {
-      const elapsedSeconds = (Date.now() - mountTimeRef.current) / 1000;
+      const baseTime = baseTimeRef.current || Date.now();
+      const elapsedSeconds = (Date.now() - baseTime) / 1000;
       
       const rate = apyRate / (365 * 24 * 60 * 60);
       const earnedAmount = aaveBalance * (Math.exp(rate * elapsedSeconds) - 1);
