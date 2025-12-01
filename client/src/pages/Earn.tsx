@@ -514,15 +514,17 @@ export default function Earn() {
       }}
     >
       <main className="max-w-md mx-auto p-4 space-y-6">
-        <div className="text-center space-y-2">
-          <div className="flex items-center justify-center gap-2">
-            <Sparkles className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold" data-testid="text-earn-title">Earn</h1>
+        {!hasAaveBalance && (
+          <div className="text-center space-y-2">
+            <div className="flex items-center justify-center gap-2">
+              <Sparkles className="h-6 w-6 text-primary" />
+              <h1 className="text-2xl font-bold" data-testid="text-earn-title">Earn</h1>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Put your USDC to work and earn interest automatically
+            </p>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Put your USDC to work and earn interest automatically
-          </p>
-        </div>
+        )}
 
         <Card className="p-5 space-y-4" data-testid="card-earning-balance">
           <div className="flex items-center justify-between">
