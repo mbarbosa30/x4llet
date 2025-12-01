@@ -103,7 +103,6 @@ export default function Earn() {
   const [aaveOperationStep, setAaveOperationStep] = useState<'input' | 'gas_check' | 'gas_drip' | 'signing' | 'submitting' | 'complete'>('input');
   const [gasDripPending, setGasDripPending] = useState(false);
   const [isOperating, setIsOperating] = useState(false);
-  const [chartViewMode, setChartViewMode] = useState<'balance' | 'earnings'>('earnings');
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -457,40 +456,23 @@ export default function Earn() {
     return currentBalance * (weightedApy / 100);
   }, [totalAaveBalanceMicro, weightedApy]);
 
-  // Chart data transformed for the current view mode
+  // Chart data with both $ values and % growth for dual-axis display
   const displayChartData = useMemo(() => {
-    if (chartViewMode === 'balance') return combinedChartData;
-    
-    // Earnings mode: show projected interest growth as percentage of principal
-    // Only show projected points (from "Now" onwards) to avoid confusing historical data
     const nowPoint = combinedChartData.find(p => p.isNow);
     const principal = nowPoint?.principal || 0;
     
-    // If no principal, return empty array (earnings mode disabled)
-    if (principal <= 0) return [];
-    
-    // Filter to only Now + projected points, compute interest percentage
-    return combinedChartData
-      .filter(d => d.isNow || d.isProjected)
-      .map(d => ({
-        ...d,
-        // For earnings mode, show interest as percentage of principal
-        interestPercent: (d.interest / principal) * 100,
-      }));
-  }, [chartViewMode, combinedChartData]);
-  
-  // Determine if earnings mode should be available
-  const canShowEarningsMode = useMemo(() => {
-    const nowPoint = combinedChartData.find(p => p.isNow);
-    return (nowPoint?.principal || 0) > 0;
+    // Add total percentage growth relative to starting principal
+    return combinedChartData.map(d => ({
+      ...d,
+      // Total interest as percentage of principal (for the % line overlay)
+      totalInterestPercent: principal > 0 ? (d.interest / principal) * 100 : 0,
+    }));
   }, [combinedChartData]);
-
-  // Auto-switch to balance mode if earnings mode becomes unavailable
-  useEffect(() => {
-    if (chartViewMode === 'earnings' && !canShowEarningsMode) {
-      setChartViewMode('balance');
-    }
-  }, [chartViewMode, canShowEarningsMode]);
+  
+  // Check if we have any projected data to show
+  const hasProjectedData = useMemo(() => {
+    return combinedChartData.some(p => p.isProjected);
+  }, [combinedChartData]);
 
   const { data: liquidBalanceBase } = useQuery<{ balance: string; balanceMicro: string }>({
     queryKey: ['/api/balance', address, 8453],
@@ -982,50 +964,19 @@ export default function Earn() {
 
         {hasAaveBalance && combinedChartData.length > 0 && (
           <Card className="p-4 space-y-3" data-testid="card-projected-earnings">
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
-                <div className="text-sm font-medium">
-                  {chartViewMode === 'earnings' ? 'Projected % Growth' : 'Balance Over Time'}
-                </div>
-                <div className="flex rounded-lg border border-border overflow-hidden bg-muted/30">
-                  <button
-                    onClick={() => canShowEarningsMode && setChartViewMode('earnings')}
-                    disabled={!canShowEarningsMode}
-                    className={`px-3 py-1 text-xs font-medium transition-colors ${
-                      chartViewMode === 'earnings' 
-                        ? 'bg-success text-success-foreground' 
-                        : !canShowEarningsMode
-                        ? 'text-muted-foreground/50 cursor-not-allowed'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                    data-testid="button-chart-earnings"
-                  >
-                    % Growth
-                  </button>
-                  <button
-                    onClick={() => setChartViewMode('balance')}
-                    className={`px-3 py-1 text-xs font-medium transition-colors ${
-                      chartViewMode === 'balance' 
-                        ? 'bg-primary text-primary-foreground' 
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                    data-testid="button-chart-balance"
-                  >
-                    $ Balance
-                  </button>
-                </div>
+                <div className="text-sm font-medium">Projected Growth</div>
+                {yearlyEarnings > 0 && (
+                  <div className="text-xs">
+                    <span className="text-success font-medium">{formatSmartPrecision(yearlyEarnings, '+$')}</span>
+                    <span className="text-muted-foreground">/yr</span>
+                    <span className="text-muted-foreground mx-1">•</span>
+                    <span className="text-success font-medium">+{weightedApy.toFixed(2)}%</span>
+                    <span className="text-muted-foreground"> APY</span>
+                  </div>
+                )}
               </div>
-              {/* Context caption for earnings mode */}
-              {chartViewMode === 'earnings' && totalAaveBalanceMicro && weightedApy > 0 && (
-                <div className="text-xs text-muted-foreground">
-                  Your <span className="font-medium text-foreground">${(Number(totalAaveBalanceMicro) / 1_000_000).toFixed(2)}</span> earning <span className="font-medium text-success">~{weightedApy.toFixed(2)}%</span> annually
-                </div>
-              )}
-              {chartViewMode === 'balance' && yearlyEarnings > 0 && (
-                <div className="text-xs text-muted-foreground">
-                  Projected earnings: <span className="font-medium text-success">{formatSmartPrecision(yearlyEarnings, '+$')}/year</span>
-                </div>
-              )}
             </div>
             
             <div className="h-36 w-full">
@@ -1065,53 +1016,34 @@ export default function Earn() {
                     tickLine={false} 
                     tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }}
                   />
+                  {/* Left Y-axis for $ balance */}
                   <YAxis 
-                    hide={chartViewMode === 'balance'}
-                    width={chartViewMode === 'earnings' ? 42 : 0}
+                    yAxisId="balance"
+                    orientation="left"
+                    width={35}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 8, fill: 'hsl(var(--muted-foreground))' }}
+                    tickFormatter={(val) => `$${val.toFixed(0)}`}
+                    domain={['dataMin', 'auto']}
+                  />
+                  {/* Right Y-axis for % growth */}
+                  <YAxis 
+                    yAxisId="percent"
+                    orientation="right"
+                    width={35}
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 8, fill: 'hsl(142, 71%, 45%)' }}
                     tickFormatter={(val) => `+${val.toFixed(1)}%`}
                     domain={[0, 'auto']}
-                    label={chartViewMode === 'earnings' ? { 
-                      value: '% return', 
-                      angle: -90, 
-                      position: 'insideLeft',
-                      style: { fontSize: 8, fill: 'hsl(var(--muted-foreground))' },
-                      offset: 5
-                    } : undefined}
                   />
                   <Tooltip 
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
-                        if (chartViewMode === 'earnings') {
-                          return (
-                            <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md min-w-[140px]">
-                              <div className="text-xs font-medium mb-1.5">
-                                {data.isProjected ? 'Projected' : 'Now'}
-                              </div>
-                              {/* Per-chain earnings breakdown */}
-                              {(data.baseInterestPercent > 0 || data.basePrincipal > 0) && (
-                                <div className="flex items-center justify-between gap-2 text-xs mb-0.5">
-                                  <span className="text-blue-400">Base:</span>
-                                  <span>{formatSmartPercent(data.baseInterestPercent || 0)}</span>
-                                </div>
-                              )}
-                              {(data.celoInterestPercent > 0 || data.celoPrincipal > 0) && (
-                                <div className="flex items-center justify-between gap-2 text-xs mb-1">
-                                  <span className="text-yellow-400">Celo:</span>
-                                  <span>{formatSmartPercent(data.celoInterestPercent || 0)}</span>
-                                </div>
-                              )}
-                              <div className="text-xs text-success border-t border-border pt-1 mt-1">
-                                Total: {formatSmartPrecision(data.interest || 0, '+$')}
-                              </div>
-                            </div>
-                          );
-                        }
                         return (
-                          <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md min-w-[140px]">
+                          <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md min-w-[160px]">
                             <div className="text-xs font-medium mb-1.5">
                               {data.isProjected ? 'Projected' : data.isNow ? 'Now' : 'Historical'}
                             </div>
@@ -1121,40 +1053,44 @@ export default function Earn() {
                               </div>
                             ) : (
                               <>
-                                {/* Per-chain breakdown */}
+                                {/* Per-chain breakdown with $ */}
                                 {data.basePrincipal > 0 && (
-                                  <div className="flex items-center justify-between gap-2 text-xs mb-0.5">
+                                  <div className="flex items-center justify-between gap-3 text-xs mb-0.5">
                                     <span className="text-blue-400">Base:</span>
                                     <span>
-                                      {formatSmartPrecision(data.basePrincipal, '$')}
+                                      {formatSmartPrecision(data.basePrincipal + (data.baseInterest || 0), '$')}
                                       {data.baseInterest > 0 && (
-                                        <span className="text-blue-300 ml-1">
-                                          {formatSmartPrecision(data.baseInterest, '+')}
+                                        <span className="text-success ml-1">
+                                          (+{formatSmartPercent(data.baseInterestPercent || 0)})
                                         </span>
                                       )}
                                     </span>
                                   </div>
                                 )}
                                 {data.celoPrincipal > 0 && (
-                                  <div className="flex items-center justify-between gap-2 text-xs mb-1">
+                                  <div className="flex items-center justify-between gap-3 text-xs mb-1">
                                     <span className="text-yellow-400">Celo:</span>
                                     <span>
-                                      {formatSmartPrecision(data.celoPrincipal, '$')}
+                                      {formatSmartPrecision(data.celoPrincipal + (data.celoInterest || 0), '$')}
                                       {data.celoInterest > 0 && (
-                                        <span className="text-yellow-300 ml-1">
-                                          {formatSmartPrecision(data.celoInterest, '+')}
+                                        <span className="text-success ml-1">
+                                          (+{formatSmartPercent(data.celoInterestPercent || 0)})
                                         </span>
                                       )}
                                     </span>
                                   </div>
                                 )}
-                                <div className="text-xs font-medium border-t border-border pt-1 mt-1">
-                                  Total: {formatSmartPrecision(data.total, '$')}
-                                  {data.interest > 0 && (
-                                    <span className="text-success ml-1">
-                                      ({formatSmartPrecision(data.interest, '+$')})
-                                    </span>
-                                  )}
+                                {/* Total with both $ and % */}
+                                <div className="text-xs font-medium border-t border-border pt-1 mt-1 flex justify-between">
+                                  <span>Total:</span>
+                                  <span>
+                                    {formatSmartPrecision(data.total, '$')}
+                                    {data.totalInterestPercent > 0 && (
+                                      <span className="text-success ml-1">
+                                        (+{formatSmartPercent(data.totalInterestPercent)})
+                                      </span>
+                                    )}
+                                  </span>
                                 </div>
                               </>
                             )}
@@ -1170,122 +1106,101 @@ export default function Earn() {
                     stroke="hsl(var(--muted-foreground))"
                     strokeDasharray="4 4"
                     strokeWidth={1}
+                    yAxisId="balance"
                     label={{ value: '▼', position: 'top', fontSize: 8, fill: 'hsl(var(--muted-foreground))' }}
                   />
-                  {chartViewMode === 'balance' ? (
-                    <>
-                      {/* Historical balance line (only renders where historicalBalance is set) */}
-                      <Line 
-                        type="monotone" 
-                        dataKey="historicalBalance"
-                        stroke="hsl(var(--primary))"
-                        strokeWidth={2}
-                        dot={false}
-                        isAnimationActive={false}
-                        connectNulls={false}
-                      />
-                      {/* Stacked by chain: Base principal (bottom) */}
-                      <Area 
-                        type="monotone" 
-                        dataKey="basePrincipal"
-                        stackId="savings"
-                        stroke="hsl(217, 91%, 60%)"
-                        strokeWidth={0}
-                        fill="url(#basePrincipalGradient)"
-                        isAnimationActive={false}
-                      />
-                      {/* Base interest - grows on top of Base principal */}
-                      <Area 
-                        type="monotone" 
-                        dataKey="baseInterest"
-                        stackId="savings"
-                        stroke="hsl(217, 91%, 70%)"
-                        strokeWidth={1}
-                        fill="url(#baseInterestGradient)"
-                        isAnimationActive={false}
-                      />
-                      {/* Celo principal - stacks on top of Base */}
-                      <Area 
-                        type="monotone" 
-                        dataKey="celoPrincipal"
-                        stackId="savings"
-                        stroke="hsl(45, 93%, 47%)"
-                        strokeWidth={0}
-                        fill="url(#celoPrincipalGradient)"
-                        isAnimationActive={false}
-                      />
-                      {/* Celo interest - grows on top of Celo principal */}
-                      <Area 
-                        type="monotone" 
-                        dataKey="celoInterest"
-                        stackId="savings"
-                        stroke="hsl(45, 93%, 58%)"
-                        strokeWidth={1}
-                        fill="url(#celoInterestGradient)"
-                        isAnimationActive={false}
-                      />
-                    </>
-                  ) : (
-                    <>
-                      {/* Earnings mode: show per-chain percentage returns stacked */}
-                      <Area 
-                        type="monotone" 
-                        dataKey="baseInterestPercent"
-                        stackId="earnings"
-                        stroke="hsl(217, 91%, 70%)"
-                        strokeWidth={1}
-                        fill="url(#baseInterestGradient)"
-                        isAnimationActive={false}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="celoInterestPercent"
-                        stackId="earnings"
-                        stroke="hsl(45, 93%, 58%)"
-                        strokeWidth={1}
-                        fill="url(#celoInterestGradient)"
-                        isAnimationActive={false}
-                      />
-                    </>
-                  )}
+                  {/* Historical balance line (only renders where historicalBalance is set) */}
+                  <Line 
+                    type="monotone" 
+                    dataKey="historicalBalance"
+                    yAxisId="balance"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    dot={false}
+                    isAnimationActive={false}
+                    connectNulls={false}
+                  />
+                  {/* Stacked by chain: Base principal + interest (bottom) */}
+                  <Area 
+                    type="monotone" 
+                    dataKey="basePrincipal"
+                    yAxisId="balance"
+                    stackId="savings"
+                    stroke="hsl(217, 91%, 60%)"
+                    strokeWidth={0}
+                    fill="url(#basePrincipalGradient)"
+                    isAnimationActive={false}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="baseInterest"
+                    yAxisId="balance"
+                    stackId="savings"
+                    stroke="hsl(217, 91%, 70%)"
+                    strokeWidth={1}
+                    fill="url(#baseInterestGradient)"
+                    isAnimationActive={false}
+                  />
+                  {/* Celo principal + interest (stacks on Base) */}
+                  <Area 
+                    type="monotone" 
+                    dataKey="celoPrincipal"
+                    yAxisId="balance"
+                    stackId="savings"
+                    stroke="hsl(45, 93%, 47%)"
+                    strokeWidth={0}
+                    fill="url(#celoPrincipalGradient)"
+                    isAnimationActive={false}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="celoInterest"
+                    yAxisId="balance"
+                    stackId="savings"
+                    stroke="hsl(45, 93%, 58%)"
+                    strokeWidth={1}
+                    fill="url(#celoInterestGradient)"
+                    isAnimationActive={false}
+                  />
+                  {/* Overlay line for % growth (right Y-axis) */}
+                  <Line 
+                    type="monotone" 
+                    dataKey="totalInterestPercent"
+                    yAxisId="percent"
+                    stroke="hsl(142, 71%, 45%)"
+                    strokeWidth={2}
+                    strokeDasharray="6 3"
+                    dot={false}
+                    isAnimationActive={false}
+                    connectNulls={true}
+                  />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
             
             {/* Legend with per-chain breakdown */}
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-center gap-3 text-xs">
-                {chartViewMode === 'balance' ? (
-                  <>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(var(--primary))' }}></div>
-                      <span className="text-muted-foreground">History</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(217, 91%, 60%)' }}></div>
-                      <span className="text-blue-400">Base</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(45, 93%, 47%)' }}></div>
-                      <span className="text-yellow-400">Celo</span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(217, 91%, 60%)' }}></div>
-                      <span className="text-blue-400">Base %</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(45, 93%, 47%)' }}></div>
-                      <span className="text-yellow-400">Celo %</span>
-                    </div>
-                  </>
-                )}
+              <div className="flex items-center justify-center gap-3 text-xs flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(var(--primary))' }}></div>
+                  <span className="text-muted-foreground">History</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(217, 91%, 60%)' }}></div>
+                  <span className="text-blue-400">Base $</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(45, 93%, 47%)' }}></div>
+                  <span className="text-yellow-400">Celo $</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-4 h-0.5 rounded-sm" style={{ background: 'hsl(142, 71%, 45%)', borderTop: '2px dashed hsl(142, 71%, 45%)' }}></div>
+                  <span className="text-success">% Growth</span>
+                </div>
               </div>
               
               {/* Per-chain interest earned summary */}
-              {chartViewMode === 'balance' && combinedChartData.length > 0 && (
+              {combinedChartData.length > 0 && (
                 <div className="flex items-center justify-center gap-4 text-xs">
                   {(() => {
                     const yearlyPoint = combinedChartData.find(p => p.label === '+12mo');
@@ -1310,10 +1225,7 @@ export default function Earn() {
             </div>
             
             <p className="text-xs text-muted-foreground text-center">
-              {chartViewMode === 'balance' 
-                ? `Your savings + projected ${weightedApy > 0 ? `${weightedApy.toFixed(1)}%` : ''} APY growth`
-                : `Projected % return${weightedApy > 0 ? ` at ${weightedApy.toFixed(1)}% APY` : ''}`
-              }
+              Your savings + projected {weightedApy > 0 ? `${weightedApy.toFixed(1)}%` : ''} APY growth
             </p>
           </Card>
         )}
