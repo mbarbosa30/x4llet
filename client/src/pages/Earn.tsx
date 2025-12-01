@@ -407,8 +407,9 @@ export default function Earn() {
       const monthlyRateBase = baseApy / 100 / 12;
       const monthlyRateCelo = celoApy / 100 / 12;
       
-      // Key milestones: +1w, +2w (early growth), then 1mo, 3mo, 6mo, 12mo
+      // Key milestones: +1d for immediate lift, +1w, +2w (early growth), then 1mo, 3mo, 6mo, 12mo
       const projectionPoints = [
+        { months: 1/30, label: '+1d' },      // ~1 day for immediate visual lift
         { months: 1/4.33, label: '+1w' },    // ~1 week
         { months: 2/4.33, label: '+2w' },    // ~2 weeks
         { months: 1, label: '+1mo' },
