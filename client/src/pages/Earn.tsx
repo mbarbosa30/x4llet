@@ -355,12 +355,36 @@ export default function Earn() {
     });
     
     // Add projected points - principal stays flat, interest grows
+    // Include short-term projections to show tiny interest values with dynamic precision
     if (currentBalance > 0) {
       const monthlyRateBase = baseApy / 100 / 12;
       const monthlyRateCelo = celoApy / 100 / 12;
       
+      // Short-term projections (weeks) to show sub-cent interest
+      const shortTermPoints = [
+        { months: 1/52 * 12, label: '+1w' },   // 1 week
+        { months: 2/52 * 12, label: '+2w' },   // 2 weeks
+        { months: 1, label: '+1mo' },          // 1 month
+        { months: 2, label: '+2mo' },          // 2 months
+      ];
+      
+      for (const point of shortTermPoints) {
+        const baseInterestEarned = baseBalance * (Math.pow(1 + monthlyRateBase, point.months) - 1);
+        const celoInterestEarned = celoBalance * (Math.pow(1 + monthlyRateCelo, point.months) - 1);
+        const totalInterest = baseInterestEarned + celoInterestEarned;
+        
+        data.push({
+          label: point.label,
+          isProjected: true,
+          principal: currentBalance,
+          interest: totalInterest,
+          total: currentBalance + totalInterest,
+          historicalBalance: null,
+        });
+      }
+      
+      // Quarterly projections (existing)
       for (let month = 3; month <= 12; month += 3) {
-        // Interest earned per chain
         const baseInterestEarned = baseBalance * (Math.pow(1 + monthlyRateBase, month) - 1);
         const celoInterestEarned = celoBalance * (Math.pow(1 + monthlyRateCelo, month) - 1);
         const totalInterest = baseInterestEarned + celoInterestEarned;
@@ -368,10 +392,10 @@ export default function Earn() {
         data.push({
           label: `+${month}mo`,
           isProjected: true,
-          principal: currentBalance,  // Principal stays flat
-          interest: totalInterest,    // Interest grows
+          principal: currentBalance,
+          interest: totalInterest,
           total: currentBalance + totalInterest,
-          historicalBalance: null,    // Not historical - use stacked areas
+          historicalBalance: null,
         });
       }
     }
