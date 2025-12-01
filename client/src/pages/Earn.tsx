@@ -233,7 +233,9 @@ export default function Earn() {
     staleTime: 60000,
   });
 
-  // Combined chart data: Historical + Projected with chain breakdown
+  // Combined chart data: Historical balance + Projected principal/interest separation
+  // For historical data: We only have total balance (can't reliably separate principal/interest without deposit tracking)
+  // For projections: Principal = current balance (stays flat), Interest = projected growth
   const combinedChartData = useMemo(() => {
     const microBalance = BigInt(totalAaveBalanceMicro || '0');
     const currentBalance = Number(microBalance) / 1_000_000;
@@ -248,10 +250,11 @@ export default function Earn() {
       date?: Date;
       isProjected: boolean;
       isNow?: boolean;
-      base: number;
-      celo: number;
-      total: number;
-      interest?: number;
+      isHistorical?: boolean;
+      principal: number;           // Your deposited amount (for projections, 0 for historical)
+      interest: number;            // Earned from yield (for projections, 0 for historical)
+      total: number;               // principal + interest (or historicalBalance for historical)
+      historicalBalance?: number | null;  // Only set for historical points (for the historical line)
     }> = [];
     
     // Historical data (past 30 days, sample weekly)
@@ -290,49 +293,54 @@ export default function Earn() {
       ? sortedHistory.filter((_, i) => i === 0 || i === sortedHistory.length - 1 || i % Math.ceil(sortedHistory.length / 4) === 0).slice(-5)
       : [];
     
-    // Add historical points
-    historyPoints.forEach((point, i) => {
+    // Add historical points - show as "historicalBalance" line only (principal=0 so the stacked areas don't render)
+    // This ensures the chart correctly shows principal/interest separation only for projections
+    historyPoints.forEach((point) => {
       const weeksAgo = Math.round((Date.now() - point.date.getTime()) / (7 * 24 * 60 * 60 * 1000));
+      const pointTotal = point.base + point.celo;
+      
       data.push({
         label: weeksAgo === 0 ? 'This week' : `-${weeksAgo}w`,
         date: point.date,
         isProjected: false,
-        base: point.base,
-        celo: point.celo,
-        total: point.base + point.celo,
+        isHistorical: true,
+        principal: 0,              // Don't render principal area for historical
+        interest: 0,               // Don't render interest for historical
+        total: pointTotal,         // Used for tooltip
+        historicalBalance: pointTotal, // Separate key for historical line (null for projections)
       });
     });
     
-    // Add "Now" point
+    // Add "Now" point - current balance becomes principal baseline for projections
     data.push({
       label: 'Now',
       date: new Date(),
       isProjected: false,
       isNow: true,
-      base: baseBalance,
-      celo: celoBalance,
-      total: currentBalance,
+      principal: currentBalance,
       interest: 0,
+      total: currentBalance,
+      historicalBalance: null, // Not historical - use stacked areas from here
     });
     
-    // Add projected points (12 months ahead) - compute each chain separately
-    // so total = base + celo at each point
+    // Add projected points - principal stays flat, interest grows
     if (currentBalance > 0) {
       const monthlyRateBase = baseApy / 100 / 12;
       const monthlyRateCelo = celoApy / 100 / 12;
       
       for (let month = 3; month <= 12; month += 3) {
-        const projectedBase = baseBalance * Math.pow(1 + monthlyRateBase, month);
-        const projectedCelo = celoBalance * Math.pow(1 + monthlyRateCelo, month);
-        const projectedTotal = projectedBase + projectedCelo; // Total = sum of chains
+        // Interest earned per chain
+        const baseInterestEarned = baseBalance * (Math.pow(1 + monthlyRateBase, month) - 1);
+        const celoInterestEarned = celoBalance * (Math.pow(1 + monthlyRateCelo, month) - 1);
+        const totalInterest = baseInterestEarned + celoInterestEarned;
         
         data.push({
           label: `+${month}mo`,
           isProjected: true,
-          base: projectedBase,
-          celo: projectedCelo,
-          total: projectedTotal,
-          interest: projectedTotal - currentBalance,
+          principal: currentBalance,  // Principal stays flat
+          interest: totalInterest,    // Interest grows
+          total: currentBalance + totalInterest,
+          historicalBalance: null,    // Not historical - use stacked areas
         });
       }
     }
@@ -369,15 +377,29 @@ export default function Earn() {
   const displayChartData = useMemo(() => {
     if (chartViewMode === 'balance') return combinedChartData;
     
+    // Earnings mode: show projected interest growth as percentage of principal
+    // Only show projected points (from "Now" onwards) to avoid confusing historical data
     const nowPoint = combinedChartData.find(p => p.isNow);
-    const startBalance = nowPoint?.total || combinedChartData[0]?.total || 0;
-    if (startBalance <= 0) return combinedChartData;
+    const principal = nowPoint?.principal || 0;
     
-    return combinedChartData.map(d => ({
-      ...d,
-      total: ((d.total - startBalance) / startBalance) * 100,
-    }));
+    // If no principal, return empty array (earnings mode disabled)
+    if (principal <= 0) return [];
+    
+    // Filter to only Now + projected points, compute interest percentage
+    return combinedChartData
+      .filter(d => d.isNow || d.isProjected)
+      .map(d => ({
+        ...d,
+        // For earnings mode, show interest as percentage of principal
+        interestPercent: (d.interest / principal) * 100,
+      }));
   }, [chartViewMode, combinedChartData]);
+  
+  // Determine if earnings mode should be available
+  const canShowEarningsMode = useMemo(() => {
+    const nowPoint = combinedChartData.find(p => p.isNow);
+    return (nowPoint?.principal || 0) > 0;
+  }, [combinedChartData]);
 
   const { data: liquidBalanceBase } = useQuery<{ balance: string; balanceMicro: string }>({
     queryKey: ['/api/balance', address, 8453],
@@ -681,7 +703,7 @@ export default function Earn() {
             <div className="text-sm text-muted-foreground">Total Earning</div>
             <Badge variant="outline" className="text-xs">
               <TrendingUp className="h-3 w-3 mr-1" />
-              {weightedApy.toFixed(2)}% APY
+              {weightedApy > 0 ? `${weightedApy.toFixed(2)}%` : '—'} APY
             </Badge>
           </div>
           
@@ -707,7 +729,7 @@ export default function Earn() {
                 <div className="text-xs text-muted-foreground">USDC earning interest</div>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="text-5xl font-medium tabular-nums flex items-center justify-center">
                   <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
                   <span>0.00</span>
@@ -744,6 +766,70 @@ export default function Earn() {
             </Button>
           </div>
         </Card>
+
+        {/* Earnings Preview for users with no deposits */}
+        {!hasAaveBalance && aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && (
+          <Card className="p-4 space-y-4 border-dashed" data-testid="card-earnings-preview">
+            <div className="text-sm font-medium flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              What You Could Earn
+            </div>
+            
+            {weightedApy > 0 ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                  <div className="text-sm text-muted-foreground">If you deposit</div>
+                  <div className="text-lg font-semibold">$100</div>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="p-2 bg-success/10 rounded-lg">
+                    <div className="text-xs text-muted-foreground mb-1">1 month</div>
+                    <div className="text-sm font-medium text-success">
+                      +${(100 * (weightedApy / 100 / 12)).toFixed(2)}
+                    </div>
+                  </div>
+                  <div className="p-2 bg-success/10 rounded-lg">
+                    <div className="text-xs text-muted-foreground mb-1">6 months</div>
+                    <div className="text-sm font-medium text-success">
+                      +${(100 * (Math.pow(1 + weightedApy / 100 / 12, 6) - 1)).toFixed(2)}
+                    </div>
+                  </div>
+                  <div className="p-2 bg-success/10 rounded-lg">
+                    <div className="text-xs text-muted-foreground mb-1">1 year</div>
+                    <div className="text-sm font-medium text-success">
+                      +${(100 * (Math.pow(1 + weightedApy / 100 / 12, 12) - 1)).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+                
+                <p className="text-xs text-muted-foreground text-center">
+                  Based on current {weightedApy.toFixed(1)}% APY • Compounded monthly
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-center p-4 bg-muted/30 rounded-lg">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <span className="text-sm text-muted-foreground">Loading rates...</span>
+                </div>
+              </div>
+            )}
+            
+            <Button 
+              className="w-full" 
+              onClick={() => {
+                resetAaveDialog();
+                setShowAaveDeposit(true);
+              }}
+              disabled={weightedApy <= 0}
+              data-testid="button-start-earning"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Start Earning Now
+            </Button>
+          </Card>
+        )}
 
         {hasAaveBalance && baseBalanceNum > 0 && celoBalanceNum > 0 && (
           <Card className="p-4 space-y-3" data-testid="card-chain-breakdown">
@@ -807,12 +893,14 @@ export default function Earn() {
           <Card className="p-4 space-y-3" data-testid="card-projected-earnings">
             <div className="flex items-center justify-between">
               <div className="text-sm font-medium">
-                {chartViewMode === 'balance' ? 'Balance History' : 'Projected Earnings'}
+                {chartViewMode === 'balance' ? 'Your Savings Growth' : 'Interest Earned'}
               </div>
               <div className="flex items-center gap-2">
-                <div className="text-xs text-muted-foreground">
-                  +${yearlyEarnings.toFixed(2)}/yr
-                </div>
+                {yearlyEarnings > 0 && (
+                  <div className="text-xs text-muted-foreground">
+                    +${yearlyEarnings.toFixed(2)}/yr
+                  </div>
+                )}
                 <div className="flex rounded-md border border-border overflow-hidden">
                   <button
                     onClick={() => setChartViewMode('balance')}
@@ -826,10 +914,13 @@ export default function Earn() {
                     $
                   </button>
                   <button
-                    onClick={() => setChartViewMode('earnings')}
+                    onClick={() => canShowEarningsMode && setChartViewMode('earnings')}
+                    disabled={!canShowEarningsMode}
                     className={`px-2 py-0.5 text-xs transition-colors ${
                       chartViewMode === 'earnings' 
                         ? 'bg-primary text-primary-foreground' 
+                        : !canShowEarningsMode
+                        ? 'bg-muted/30 text-muted-foreground/50 cursor-not-allowed'
                         : 'bg-muted/50 text-muted-foreground hover:bg-muted'
                     }`}
                     data-testid="button-chart-earnings"
@@ -847,15 +938,15 @@ export default function Earn() {
                   margin={{ top: 10, right: 10, left: 10, bottom: 5 }}
                 >
                   <defs>
-                    <linearGradient id="baseGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0.5}/>
-                      <stop offset="100%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0.1}/>
+                    <linearGradient id="principalGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.3}/>
+                      <stop offset="100%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.05}/>
                     </linearGradient>
-                    <linearGradient id="celoGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(45, 93%, 47%)" stopOpacity={0.5}/>
-                      <stop offset="100%" stopColor="hsl(45, 93%, 47%)" stopOpacity={0.1}/>
+                    <linearGradient id="interestGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.6}/>
+                      <stop offset="100%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.2}/>
                     </linearGradient>
-                    <linearGradient id="earningsGradient" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="earningsPercentGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.5}/>
                       <stop offset="100%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.1}/>
                     </linearGradient>
@@ -868,51 +959,55 @@ export default function Earn() {
                   />
                   <YAxis 
                     hide={chartViewMode === 'balance'}
-                    width={chartViewMode === 'earnings' ? 30 : 0}
+                    width={chartViewMode === 'earnings' ? 35 : 0}
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 8, fill: 'hsl(var(--muted-foreground))' }}
-                    tickFormatter={(val) => chartViewMode === 'earnings' ? `${val.toFixed(1)}%` : `$${val.toFixed(0)}`}
-                    domain={chartViewMode === 'balance' 
-                      ? [(dataMin: number) => dataMin * 0.98, (dataMax: number) => dataMax * 1.02]
-                      : [0, 'auto']
-                    }
+                    tickFormatter={(val) => `+${val.toFixed(1)}%`}
+                    domain={[0, 'auto']}
                   />
                   <Tooltip 
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
-                        const originalData = combinedChartData.find(d => d.label === data.label);
                         if (chartViewMode === 'earnings') {
                           return (
                             <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md">
                               <div className="text-xs font-medium mb-1">
-                                {data.isProjected ? 'Projected' : data.isNow ? 'Current' : 'Historical'}
+                                {data.isProjected ? 'Projected' : 'Now'}
                               </div>
                               <div className="text-xs text-success">
-                                {data.total >= 0 ? '+' : ''}{data.total.toFixed(2)}% growth
+                                +{(data.interestPercent || 0).toFixed(2)}% return
                               </div>
-                              {originalData && (
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  ${originalData.total.toFixed(2)} total
-                                </div>
-                              )}
+                              <div className="text-xs text-muted-foreground mt-1">
+                                +${(data.interest || 0).toFixed(2)} interest
+                              </div>
                             </div>
                           );
                         }
                         return (
                           <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md">
                             <div className="text-xs font-medium mb-1">
-                              {data.isProjected ? 'Projected' : data.isNow ? 'Current' : 'Historical'}: ${data.total.toFixed(2)}
+                              {data.isProjected ? 'Projected' : data.isNow ? 'Now' : 'Historical'}
                             </div>
-                            {data.base > 0 && (
-                              <div className="text-xs text-blue-500">Base: ${data.base.toFixed(2)}</div>
-                            )}
-                            {data.celo > 0 && (
-                              <div className="text-xs text-yellow-600">Celo: ${data.celo.toFixed(2)}</div>
-                            )}
-                            {data.interest !== undefined && data.interest > 0 && (
-                              <div className="text-xs text-success mt-1">+${data.interest.toFixed(2)} interest</div>
+                            {data.isHistorical ? (
+                              <div className="text-xs">
+                                Balance: ${data.total.toFixed(2)}
+                              </div>
+                            ) : (
+                              <>
+                                <div className="text-xs text-muted-foreground">
+                                  Principal: ${data.principal.toFixed(2)}
+                                </div>
+                                {data.interest > 0 && (
+                                  <div className="text-xs text-success">
+                                    +${data.interest.toFixed(2)} interest
+                                  </div>
+                                )}
+                                <div className="text-xs font-medium mt-1 border-t border-border pt-1">
+                                  Total: ${data.total.toFixed(2)}
+                                </div>
+                              </>
                             )}
                           </div>
                         );
@@ -920,7 +1015,7 @@ export default function Earn() {
                       return null;
                     }}
                   />
-                  {/* "Now" reference line - render before areas so it's behind */}
+                  {/* "Now" reference line */}
                   <ReferenceLine 
                     x="Now" 
                     stroke="hsl(var(--muted-foreground))"
@@ -930,33 +1025,44 @@ export default function Earn() {
                   />
                   {chartViewMode === 'balance' ? (
                     <>
-                      {/* Stacked chain areas - Celo first (bottom), Base on top */}
+                      {/* Historical balance line (only renders where historicalBalance is set) */}
+                      <Line 
+                        type="monotone" 
+                        dataKey="historicalBalance"
+                        stroke="hsl(var(--primary))"
+                        strokeWidth={2}
+                        dot={false}
+                        isAnimationActive={false}
+                        connectNulls={false}
+                      />
+                      {/* Principal (your deposit) as base layer - stays flat in projections */}
                       <Area 
                         type="monotone" 
-                        dataKey="celo"
-                        stackId="chains"
-                        stroke="hsl(45, 93%, 47%)"
-                        strokeWidth={1.5}
-                        fill="url(#celoGradient)"
+                        dataKey="principal"
+                        stackId="savings"
+                        stroke="hsl(var(--muted-foreground))"
+                        strokeWidth={1}
+                        fill="url(#principalGradient)"
                         isAnimationActive={false}
                       />
+                      {/* Interest earned - grows on top of principal */}
                       <Area 
                         type="monotone" 
-                        dataKey="base"
-                        stackId="chains"
-                        stroke="hsl(217, 91%, 60%)"
-                        strokeWidth={1.5}
-                        fill="url(#baseGradient)"
+                        dataKey="interest"
+                        stackId="savings"
+                        stroke="hsl(142, 71%, 45%)"
+                        strokeWidth={2}
+                        fill="url(#interestGradient)"
                         isAnimationActive={false}
                       />
                     </>
                   ) : (
                     <Area 
                       type="monotone" 
-                      dataKey="total"
+                      dataKey="interestPercent"
                       stroke="hsl(142, 71%, 45%)"
                       strokeWidth={2}
-                      fill="url(#earningsGradient)"
+                      fill="url(#earningsPercentGradient)"
                       isAnimationActive={false}
                     />
                   )}
@@ -969,30 +1075,34 @@ export default function Earn() {
               {chartViewMode === 'balance' ? (
                 <>
                   <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(217, 91%, 60%, 0.6)' }}></div>
-                    <span className="text-muted-foreground">Base</span>
+                    <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(var(--primary))' }}></div>
+                    <span className="text-muted-foreground">History</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(45, 93%, 47%, 0.6)' }}></div>
-                    <span className="text-muted-foreground">Celo</span>
+                    <div className="w-3 h-2 rounded-sm bg-muted-foreground/30"></div>
+                    <span className="text-muted-foreground">Principal</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(142, 71%, 45%, 0.6)' }}></div>
+                    <span className="text-muted-foreground">Interest</span>
                   </div>
                 </>
               ) : (
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(142, 71%, 45%, 0.6)' }}></div>
-                  <span className="text-muted-foreground">% Growth</span>
+                  <span className="text-muted-foreground">% Return</span>
                 </div>
               )}
               <div className="flex items-center gap-1.5">
-                <span className="text-muted-foreground">|</span>
+                <span className="text-muted-foreground opacity-50">|</span>
                 <span className="text-muted-foreground">Now</span>
               </div>
             </div>
             
             <p className="text-xs text-muted-foreground text-center">
               {chartViewMode === 'balance' 
-                ? `Past 30 days + ${weightedApy.toFixed(1)}% APY projection`
-                : `Projected earnings at ${weightedApy.toFixed(1)}% APY`
+                ? `Your savings + projected ${weightedApy > 0 ? `${weightedApy.toFixed(1)}%` : ''} APY growth`
+                : `Projected % return${weightedApy > 0 ? ` at ${weightedApy.toFixed(1)}% APY` : ''}`
               }
             </p>
           </Card>
