@@ -28,7 +28,7 @@ export default function AnimatedBalance({
       <span className="inline-flex items-baseline text-inherit tabular-nums">
         {formattedWholePart}.{mainDecimals}
         {extraDecimals && (
-          <span className="text-[0.35em] text-muted-foreground opacity-60 tabular-nums relative ml-[0.15em]" style={{ top: '-0.6em' }}>
+          <span className="text-[0.35em] text-muted-foreground opacity-60 tabular-nums relative ml-1" style={{ top: '-0.6em' }}>
             {extraDecimals}
           </span>
         )}

@@ -300,7 +300,8 @@ export async function withdrawFromAave(
     console.log('[Aave Withdraw] Calling withdraw on Aave Pool...');
     console.log('[Aave Withdraw] Pool address:', poolAddress);
     console.log('[Aave Withdraw] USDC address:', usdcAddress);
-    console.log('[Aave Withdraw] Amount:', amountMicroUsdc.toString());
+    console.log('[Aave Withdraw] Withdraw amount:', withdrawAmount.toString());
+    console.log('[Aave Withdraw] User address:', accountAddress);
 
     const { createWalletClient } = await import('viem');
     const walletClient = createWalletClient({

@@ -269,23 +269,30 @@ export default function Earn() {
       if (!gasCheck.hasEnoughGas) {
         setAaveOperationStep('gas_drip');
         setGasDripPending(true);
+        console.log('[Earn Deposit] Requesting gas drip...');
         
         const dripResult = await requestGasDrip(selectedChain);
-        
-        if (dripResult.success) {
-          toast({
-            title: "Gas Sent",
-            description: "A small amount of gas has been sent to your wallet.",
-          });
-          await new Promise(resolve => setTimeout(resolve, 5000));
-        }
+        console.log('[Earn Deposit] Gas drip result:', dripResult);
         setGasDripPending(false);
+        
+        if (!dripResult.success) {
+          console.error('[Earn Deposit] Gas drip failed:', dripResult.error);
+          throw new Error(dripResult.error || 'Failed to get gas');
+        }
+        
+        toast({
+          title: "Gas Sent",
+          description: "A small amount of gas has been sent to your wallet.",
+        });
+        await new Promise(resolve => setTimeout(resolve, 5000));
       }
       
       setAaveOperationStep('signing');
+      console.log('[Earn Deposit] Getting private key...');
       
       const pk = await getPrivateKey();
       if (!pk) {
+        console.error('[Earn Deposit] No private key available');
         toast({
           title: "Wallet Locked",
           description: "Please unlock your wallet to continue.",
@@ -297,6 +304,7 @@ export default function Earn() {
       }
       
       setAaveOperationStep('submitting');
+      console.log('[Earn Deposit] Calling supplyToAave...');
       
       toast({
         title: "Depositing to Aave",
@@ -304,6 +312,7 @@ export default function Earn() {
       });
       
       const result = await supplyToAave(pk, selectedChain, amountInMicroUsdc, address);
+      console.log('[Earn Deposit] Deposit result:', result);
       
       if (!result.success) {
         throw new Error(result.error || 'Deposit failed');
@@ -344,31 +353,47 @@ export default function Earn() {
     setIsOperating(true);
     const amountInMicroUsdc = parseAmountToMicroUsdc(withdrawAmount);
     
+    console.log('[Earn] Starting withdrawal:', {
+      address,
+      withdrawAmount,
+      amountInMicroUsdc: amountInMicroUsdc.toString(),
+      selectedChain,
+    });
+    
     try {
       setAaveOperationStep('gas_check');
+      console.log('[Earn] Checking gas balance...');
       
       const gasCheck = await checkGasBalance(selectedChain);
+      console.log('[Earn] Gas check result:', gasCheck);
       
       if (!gasCheck.hasEnoughGas) {
         setAaveOperationStep('gas_drip');
         setGasDripPending(true);
+        console.log('[Earn] Requesting gas drip...');
         
         const dripResult = await requestGasDrip(selectedChain);
-        
-        if (dripResult.success) {
-          toast({
-            title: "Gas Sent",
-            description: "A small amount of gas has been sent to your wallet.",
-          });
-          await new Promise(resolve => setTimeout(resolve, 5000));
-        }
+        console.log('[Earn] Gas drip result:', dripResult);
         setGasDripPending(false);
+        
+        if (!dripResult.success) {
+          console.error('[Earn] Gas drip failed:', dripResult.error);
+          throw new Error(dripResult.error || 'Failed to get gas');
+        }
+        
+        toast({
+          title: "Gas Sent",
+          description: "A small amount of gas has been sent to your wallet.",
+        });
+        await new Promise(resolve => setTimeout(resolve, 5000));
       }
       
       setAaveOperationStep('signing');
+      console.log('[Earn] Getting private key...');
       
       const pk = await getPrivateKey();
       if (!pk) {
+        console.error('[Earn] No private key available');
         toast({
           title: "Wallet Locked",
           description: "Please unlock your wallet to continue.",
@@ -380,6 +405,7 @@ export default function Earn() {
       }
       
       setAaveOperationStep('submitting');
+      console.log('[Earn] Calling withdrawFromAave...');
       
       toast({
         title: "Withdrawing from Aave",
@@ -387,6 +413,7 @@ export default function Earn() {
       });
       
       const result = await withdrawFromAave(pk, selectedChain, amountInMicroUsdc, address);
+      console.log('[Earn] Withdrawal result:', result);
       
       if (!result.success) {
         throw new Error(result.error || 'Withdrawal failed');
@@ -495,7 +522,7 @@ export default function Earn() {
                     <span>{Math.floor(totalEarningAnimation.animatedValue)}</span>
                     <span className="opacity-90">.{totalEarningAnimation.mainDecimals}</span>
                     {totalEarningAnimation.extraDecimals && (
-                      <span className="text-[0.35em] opacity-60 text-green-500 dark:text-green-400 relative ml-[0.15em]" style={{ top: '-0.6em' }}>
+                      <span className="text-[0.35em] opacity-60 text-green-500 dark:text-green-400 relative ml-1" style={{ top: '-0.6em' }}>
                         {totalEarningAnimation.extraDecimals}
                       </span>
                     )}
@@ -563,7 +590,7 @@ export default function Earn() {
                     <span>{Math.floor(baseEarningAnimation.animatedValue)}</span>
                     <span className="opacity-90">.{baseEarningAnimation.mainDecimals}</span>
                     {baseEarningAnimation.extraDecimals && (
-                      <span className="text-[0.35em] opacity-60 text-green-500 dark:text-green-400 relative ml-[0.1em]" style={{ top: '-0.6em' }}>
+                      <span className="text-[0.35em] opacity-60 text-green-500 dark:text-green-400 relative ml-1" style={{ top: '-0.6em' }}>
                         {baseEarningAnimation.extraDecimals}
                       </span>
                     )}
@@ -589,7 +616,7 @@ export default function Earn() {
                     <span>{Math.floor(celoEarningAnimation.animatedValue)}</span>
                     <span className="opacity-90">.{celoEarningAnimation.mainDecimals}</span>
                     {celoEarningAnimation.extraDecimals && (
-                      <span className="text-[0.35em] opacity-60 text-green-500 dark:text-green-400 relative ml-[0.1em]" style={{ top: '-0.6em' }}>
+                      <span className="text-[0.35em] opacity-60 text-green-500 dark:text-green-400 relative ml-1" style={{ top: '-0.6em' }}>
                         {celoEarningAnimation.extraDecimals}
                       </span>
                     )}
