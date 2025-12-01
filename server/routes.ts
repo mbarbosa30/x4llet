@@ -605,6 +605,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transport: http(network.rpcUrl),
       });
 
+      // Get the current nonce for proper transaction sequencing
+      let currentNonce = await publicClient.getTransactionCount({
+        address: facilitatorAddress,
+      });
+      console.log('[Aave Supply] Starting nonce:', currentNonce);
+
       // Parse and validate signature
       if (!signature || typeof signature !== 'string' || !signature.startsWith('0x')) {
         return res.status(400).json({ error: 'Invalid signature format' });
@@ -624,12 +630,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Step 1: Execute transferWithAuthorization to receive USDC from user
-      console.log('[Aave Supply] Step 1: Executing transferWithAuthorization...');
+      console.log('[Aave Supply] Step 1: Executing transferWithAuthorization with nonce:', currentNonce);
       
       const transferHash = await walletClient.writeContract({
         address: network.usdcAddress as Address,
         abi: USDC_ABI,
         functionName: 'transferWithAuthorization',
+        nonce: currentNonce,
         args: [
           userAddress as Address,
           facilitatorAddress,
@@ -642,6 +649,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           s,
         ],
       });
+      currentNonce++; // Increment for next transaction
 
       console.log('[Aave Supply] Transfer tx hash:', transferHash);
       const transferReceipt = await publicClient.waitForTransactionReceipt({ hash: transferHash });
@@ -652,15 +660,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('[Aave Supply] Transfer confirmed');
 
       // Helper to refund USDC to user if later steps fail
+      // Uses currentNonce which is always ahead of any pending transactions
       const refundUser = async (reason: string) => {
         console.log(`[Aave Supply] Refunding user due to: ${reason}`);
+        console.log('[Aave Supply] Refund nonce:', currentNonce);
         try {
           const refundHash = await walletClient.writeContract({
             address: network.usdcAddress as Address,
             abi: ERC20_ABI,
             functionName: 'transfer',
+            nonce: currentNonce,
             args: [userAddress as Address, BigInt(amount)],
           });
+          currentNonce++; // Increment in case we need to retry
           console.log('[Aave Supply] Refund tx hash:', refundHash);
           await publicClient.waitForTransactionReceipt({ hash: refundHash });
           console.log('[Aave Supply] Refund completed');
@@ -672,7 +684,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       // Step 2: Approve Aave Pool to spend the received USDC
-      console.log('[Aave Supply] Step 2: Approving Aave Pool...');
+      console.log('[Aave Supply] Step 2: Approving Aave Pool with nonce:', currentNonce);
       
       let approveHash;
       try {
@@ -680,8 +692,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           address: network.usdcAddress as Address,
           abi: ERC20_ABI,
           functionName: 'approve',
+          nonce: currentNonce,
           args: [network.aavePoolAddress as Address, BigInt(amount)],
         });
+        currentNonce++; // Increment for next transaction
       } catch (approveError) {
         console.error('[Aave Supply] Approve transaction failed:', approveError);
         const refunded = await refundUser('Approval transaction failed');
@@ -706,7 +720,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('[Aave Supply] Approval confirmed');
 
       // Step 3: Supply to Aave on behalf of user (user receives aTokens)
-      console.log('[Aave Supply] Step 3: Supplying to Aave...');
+      console.log('[Aave Supply] Step 3: Supplying to Aave with nonce:', currentNonce);
       
       let supplyHash;
       try {
@@ -714,6 +728,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           address: network.aavePoolAddress as Address,
           abi: AAVE_POOL_ABI,
           functionName: 'supply',
+          nonce: currentNonce,
           args: [
             network.usdcAddress as Address,
             BigInt(amount),
