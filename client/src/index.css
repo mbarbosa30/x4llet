@@ -68,6 +68,10 @@
 
   --destructive-foreground: 0 0% 100%;
 
+  --success: 142 60% 35%;
+
+  --success-foreground: 0 0% 100%;
+
   --input: 0 0% 76%;
   --ring: 214 95% 36%;
   --chart-1: 214 95% 36%;
@@ -185,6 +189,10 @@
   --destructive: 0 84% 35%;
 
   --destructive-foreground: 0 0% 100%;
+
+  --success: 142 55% 55%;
+
+  --success-foreground: 0 0% 100%;
 
   --input: 0 0% 28%;
   --ring: 214 90% 50%;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
@@ -8,19 +8,18 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { 
   TrendingUp, 
-  Percent, 
   Loader2, 
   ArrowUpToLine, 
   ArrowDownToLine, 
   Info,
   Shield,
   Zap,
-  DollarSign,
   ChevronRight,
   CheckCircle2,
   Clock,
   Sparkles
 } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import {
   Dialog,
   DialogContent,
@@ -204,6 +203,31 @@ export default function Earn() {
     enabled: parseFloat(aaveBalanceCelo?.aUsdcBalance || '0') > 0,
     minPrecision: 5,
   });
+
+  const projectedEarningsData = useMemo(() => {
+    const microBalance = BigInt(totalAaveBalanceMicro || '0');
+    if (microBalance <= 0n || weightedApy <= 0) return [];
+    
+    const currentBalance = Number(microBalance) / 1_000_000;
+    const monthlyRate = weightedApy / 100 / 12;
+    const data = [];
+    for (let month = 0; month <= 12; month++) {
+      const projectedBalance = currentBalance * Math.pow(1 + monthlyRate, month);
+      data.push({
+        month: month === 0 ? 'Now' : `${month}mo`,
+        value: projectedBalance,
+        earnings: projectedBalance - currentBalance,
+      });
+    }
+    return data;
+  }, [totalAaveBalanceMicro, weightedApy]);
+
+  const yearlyEarnings = useMemo(() => {
+    const microBalance = BigInt(totalAaveBalanceMicro || '0');
+    if (microBalance <= 0n || weightedApy <= 0) return 0;
+    const currentBalance = Number(microBalance) / 1_000_000;
+    return currentBalance * (weightedApy / 100);
+  }, [totalAaveBalanceMicro, weightedApy]);
 
   const { data: liquidBalanceBase } = useQuery<{ balance: string; balanceMicro: string }>({
     queryKey: ['/api/balance', address, 8453],
@@ -522,7 +546,7 @@ export default function Earn() {
                     <span>{Math.floor(totalEarningAnimation.animatedValue)}</span>
                     <span className="opacity-90">.{totalEarningAnimation.mainDecimals}</span>
                     {totalEarningAnimation.extraDecimals && (
-                      <span className="text-[0.28em] font-light opacity-50 text-green-500 dark:text-green-400 relative ml-0.5" style={{ top: '-0.65em' }}>
+                      <span className="text-[0.28em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.65em' }}>
                         {totalEarningAnimation.extraDecimals}
                       </span>
                     )}
@@ -590,7 +614,7 @@ export default function Earn() {
                     <span>{Math.floor(baseEarningAnimation.animatedValue)}</span>
                     <span className="opacity-90">.{baseEarningAnimation.mainDecimals}</span>
                     {baseEarningAnimation.extraDecimals && (
-                      <span className="text-[0.28em] font-light opacity-50 text-green-500 dark:text-green-400 relative ml-0.5" style={{ top: '-0.65em' }}>
+                      <span className="text-[0.28em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.65em' }}>
                         {baseEarningAnimation.extraDecimals}
                       </span>
                     )}
@@ -616,7 +640,7 @@ export default function Earn() {
                     <span>{Math.floor(celoEarningAnimation.animatedValue)}</span>
                     <span className="opacity-90">.{celoEarningAnimation.mainDecimals}</span>
                     {celoEarningAnimation.extraDecimals && (
-                      <span className="text-[0.28em] font-light opacity-50 text-green-500 dark:text-green-400 relative ml-0.5" style={{ top: '-0.65em' }}>
+                      <span className="text-[0.28em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.65em' }}>
                         {celoEarningAnimation.extraDecimals}
                       </span>
                     )}
@@ -624,6 +648,66 @@ export default function Earn() {
                 </div>
               </div>
             )}
+          </Card>
+        )}
+
+        {hasAaveBalance && projectedEarningsData.length > 0 && (
+          <Card className="p-4 space-y-3" data-testid="card-projected-earnings">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium">Projected Growth</div>
+              <div className="text-xs text-muted-foreground">
+                +${yearlyEarnings.toFixed(2)}/year
+              </div>
+            </div>
+            
+            <div className="h-24 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={projectedEarningsData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="earningsGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis 
+                    dataKey="month" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis hide domain={['dataMin', 'dataMax']} />
+                  <Tooltip 
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-popover border border-border rounded-md px-2 py-1 shadow-sm">
+                            <div className="text-xs font-medium">${data.value.toFixed(2)}</div>
+                            {data.earnings > 0 && (
+                              <div className="text-xs text-success">+${data.earnings.toFixed(2)}</div>
+                            )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke="hsl(var(--success))" 
+                    strokeWidth={2}
+                    fill="url(#earningsGradient)"
+                    isAnimationActive={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+            
+            <p className="text-xs text-muted-foreground text-center">
+              Projection based on current {weightedApy.toFixed(1)}% APY
+            </p>
           </Card>
         )}
 
@@ -658,120 +742,70 @@ export default function Earn() {
           </p>
         </Card>
 
-        <Card className="p-4 space-y-4" data-testid="card-how-it-works">
-          <div className="flex items-center gap-2">
-            <Info className="h-5 w-5 text-primary" />
-            <div className="text-sm font-medium">How Earning Works</div>
+        <Card className="p-4 space-y-3" data-testid="card-how-it-works">
+          <div className="text-sm font-medium">How it works</div>
+          
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="p-2">
+              <ArrowUpToLine className="h-5 w-5 mx-auto mb-1.5 text-primary" />
+              <div className="text-xs font-medium">Deposit</div>
+              <div className="text-xs text-muted-foreground">One tap</div>
+            </div>
+            <div className="p-2">
+              <TrendingUp className="h-5 w-5 mx-auto mb-1.5 text-success" />
+              <div className="text-xs font-medium">Earn</div>
+              <div className="text-xs text-muted-foreground">Automatically</div>
+            </div>
+            <div className="p-2">
+              <ArrowDownToLine className="h-5 w-5 mx-auto mb-1.5 text-primary" />
+              <div className="text-xs font-medium">Withdraw</div>
+              <div className="text-xs text-muted-foreground">Anytime</div>
+            </div>
           </div>
           
-          <div className="space-y-3">
-            <div className="flex gap-3">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-sm font-bold text-primary">1</span>
-              </div>
-              <div>
-                <div className="text-sm font-medium">Deposit USDC</div>
-                <div className="text-xs text-muted-foreground">
-                  Move your USDC into Aave's lending pool
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex gap-3">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-sm font-bold text-primary">2</span>
-              </div>
-              <div>
-                <div className="text-sm font-medium">Earn Interest</div>
-                <div className="text-xs text-muted-foreground">
-                  Your balance grows every second from lending interest
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex gap-3">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-sm font-bold text-primary">3</span>
-              </div>
-              <div>
-                <div className="text-sm font-medium">Withdraw Anytime</div>
-                <div className="text-xs text-muted-foreground">
-                  Get your USDC back plus earned interest whenever you need it
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4 space-y-3" data-testid="card-features">
-          <div className="text-sm font-medium">Why Earn with nanoPay?</div>
-          
-          <div className="space-y-2">
-            <div className="flex items-center gap-3 p-2">
-              <Shield className="h-5 w-5 text-green-600" />
-              <div className="text-sm">
-                <span className="font-medium">Secure</span>
-                <span className="text-muted-foreground"> — Powered by Aave, DeFi's leading protocol</span>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3 p-2">
-              <Zap className="h-5 w-5 text-yellow-600" />
-              <div className="text-sm">
-                <span className="font-medium">Gasless Deposits</span>
-                <span className="text-muted-foreground"> — We cover gas fees for you</span>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3 p-2">
-              <Clock className="h-5 w-5 text-blue-600" />
-              <div className="text-sm">
-                <span className="font-medium">Real-time</span>
-                <span className="text-muted-foreground"> — Watch your balance grow live</span>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3 p-2">
-              <DollarSign className="h-5 w-5 text-purple-600" />
-              <div className="text-sm">
-                <span className="font-medium">No Minimums</span>
-                <span className="text-muted-foreground"> — Start earning with any amount</span>
-              </div>
-            </div>
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 pt-1 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Shield className="h-3 w-3 text-success" />
+              Secured by Aave
+            </span>
+            <span className="flex items-center gap-1">
+              <Zap className="h-3 w-3" />
+              Gasless
+            </span>
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              No lock-up
+            </span>
           </div>
         </Card>
 
         <Accordion type="single" collapsible className="w-full">
-          <AccordionItem value="faq-1">
-            <AccordionTrigger className="text-sm">What is Aave?</AccordionTrigger>
-            <AccordionContent className="text-sm text-muted-foreground">
-              Aave is a decentralized lending protocol where users can deposit assets to earn interest, 
-              or borrow against their deposits. It's one of the largest and most trusted DeFi protocols 
-              with billions of dollars in assets.
-            </AccordionContent>
-          </AccordionItem>
-          <AccordionItem value="faq-2">
-            <AccordionTrigger className="text-sm">How is interest calculated?</AccordionTrigger>
-            <AccordionContent className="text-sm text-muted-foreground">
-              Interest accrues continuously (every second) based on the current APY rate. The rate is 
-              variable and changes based on supply and demand in the lending market. You receive aUSDC 
-              tokens which automatically increase in value as interest accrues.
-            </AccordionContent>
-          </AccordionItem>
-          <AccordionItem value="faq-3">
-            <AccordionTrigger className="text-sm">Is my deposit safe?</AccordionTrigger>
-            <AccordionContent className="text-sm text-muted-foreground">
-              Aave is battle-tested with billions in deposits and has been audited by multiple security 
-              firms. However, as with all DeFi protocols, there are smart contract risks. Only deposit 
-              what you're comfortable with.
-            </AccordionContent>
-          </AccordionItem>
-          <AccordionItem value="faq-4">
-            <AccordionTrigger className="text-sm">Why are there two networks?</AccordionTrigger>
-            <AccordionContent className="text-sm text-muted-foreground">
-              nanoPay supports both Base and Celo networks. Each network has its own Aave deployment 
-              with different APY rates. You can deposit on either network based on where your USDC is 
-              and which rate is more attractive.
+          <AccordionItem value="faq" className="border-none">
+            <AccordionTrigger className="text-sm py-2">
+              <span className="flex items-center gap-2">
+                <Info className="h-4 w-4" />
+                Learn more
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="space-y-3 pt-2">
+              <div className="text-sm">
+                <div className="font-medium mb-1">What is Aave?</div>
+                <p className="text-muted-foreground text-xs">
+                  A trusted lending protocol with billions in deposits. Your USDC earns interest from borrowers.
+                </p>
+              </div>
+              <div className="text-sm">
+                <div className="font-medium mb-1">How does interest work?</div>
+                <p className="text-muted-foreground text-xs">
+                  Interest accrues every second based on market rates. You receive aUSDC tokens that grow in value automatically.
+                </p>
+              </div>
+              <div className="text-sm">
+                <div className="font-medium mb-1">Is it safe?</div>
+                <p className="text-muted-foreground text-xs">
+                  Aave is battle-tested and audited. As with all DeFi, only deposit what you're comfortable with.
+                </p>
+              </div>
             </AccordionContent>
           </AccordionItem>
         </Accordion>

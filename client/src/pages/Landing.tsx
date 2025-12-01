@@ -1,13 +1,43 @@
 import { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Smartphone, Lock, WifiOff, Coins, Globe, Network, TrendingUp } from 'lucide-react';
+import { Smartphone, Lock, WifiOff, Coins, Globe, Network, Sparkles } from 'lucide-react';
 import { hasWallet, isWalletUnlocked } from '@/lib/wallet';
 import Footer from '@/components/Footer';
+
+interface AaveApyData {
+  chainId: number;
+  apy: number;
+  apyFormatted: string;
+}
 
 export default function Landing() {
   const [, setLocation] = useLocation();
   const [walletExists, setWalletExists] = useState<boolean | null>(null);
+
+  const { data: aaveApyBase } = useQuery<AaveApyData>({
+    queryKey: ['/api/aave/apy', 8453],
+    queryFn: async () => {
+      const res = await fetch('/api/aave/apy/8453');
+      if (!res.ok) throw new Error('Failed to fetch APY');
+      return res.json();
+    },
+    staleTime: 60000,
+  });
+
+  const { data: aaveApyCelo } = useQuery<AaveApyData>({
+    queryKey: ['/api/aave/apy', 42220],
+    queryFn: async () => {
+      const res = await fetch('/api/aave/apy/42220');
+      if (!res.ok) throw new Error('Failed to fetch APY');
+      return res.json();
+    },
+    staleTime: 60000,
+  });
+
+  const bestApy = Math.max(aaveApyBase?.apy || 0, aaveApyCelo?.apy || 0);
+  const apyDisplay = bestApy > 0 ? `${bestApy.toFixed(1)}%` : null;
 
   useEffect(() => {
     let isActive = true;
@@ -123,10 +153,12 @@ export default function Landing() {
               
               <div className="space-y-1">
                 <div className="flex items-start gap-3">
-                  <TrendingUp className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                  <Sparkles className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                   <div>
-                    <div className="text-sm font-medium">Earn while you hold</div>
-                    <div className="text-xs text-muted-foreground">Optional auto-savings via Aave. Your USDC earns yield.</div>
+                    <div className="text-sm font-medium">
+                      Savings on autopilot{apyDisplay && <span className="text-success ml-1.5 font-normal">({apyDisplay} APY)</span>}
+                    </div>
+                    <div className="text-xs text-muted-foreground">One tap to earn. No complexity, no lock-ups.</div>
                   </div>
                 </div>
               </div>

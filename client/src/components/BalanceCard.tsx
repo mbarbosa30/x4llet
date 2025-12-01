@@ -288,7 +288,7 @@ export default function BalanceCard({
               <span>{Math.floor(earningAnimation.animatedValue)}</span>
               <span className="opacity-90">.{earningAnimation.mainDecimals}</span>
               {earningAnimation.extraDecimals && (
-                <span className="text-[0.28em] font-light opacity-50 text-green-500 dark:text-green-400 relative ml-0.5" style={{ top: '-0.65em' }}>
+                <span className="text-[0.28em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.65em' }}>
                   {earningAnimation.extraDecimals}
                 </span>
               )}
