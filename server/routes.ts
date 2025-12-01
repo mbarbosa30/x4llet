@@ -719,6 +719,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.log('[Aave Supply] Approval confirmed');
 
+      // Wait for state propagation across L2 nodes before supplying
+      // This prevents "transfer amount exceeds allowance" errors due to stale state reads
+      console.log('[Aave Supply] Waiting for state propagation...');
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
       // Step 3: Supply to Aave on behalf of user (user receives aTokens)
       console.log('[Aave Supply] Step 3: Supplying to Aave with nonce:', currentNonce);
       
