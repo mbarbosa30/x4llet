@@ -300,8 +300,15 @@ export async function withdrawFromAave(
     console.log('[Aave Withdraw] Calling withdraw on Aave Pool...');
     console.log('[Aave Withdraw] Pool address:', poolAddress);
     console.log('[Aave Withdraw] USDC address:', usdcAddress);
+    console.log('[Aave Withdraw] aUSDC address:', aUsdcAddress);
     console.log('[Aave Withdraw] Withdraw amount:', withdrawAmount.toString());
     console.log('[Aave Withdraw] User address:', accountAddress);
+    
+    // For full withdrawals, use type(uint256).max as per Aave docs
+    // This tells the Pool to withdraw everything available
+    const MAX_UINT256 = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
+    const amountToWithdraw = isFullWithdraw ? MAX_UINT256 : withdrawAmount;
+    console.log('[Aave Withdraw] Using amount:', isFullWithdraw ? 'MAX_UINT256' : amountToWithdraw.toString());
 
     const { createWalletClient } = await import('viem');
     const walletClient = createWalletClient({
@@ -310,12 +317,19 @@ export async function withdrawFromAave(
       transport: http(network.rpcUrl),
     });
 
-    const withdrawHash = await walletClient.writeContract({
+    // Simulate the transaction first to get better error details
+    console.log('[Aave Withdraw] Simulating transaction...');
+    const { request } = await publicClient.simulateContract({
       address: poolAddress,
       abi: AAVE_POOL_ABI,
       functionName: 'withdraw',
-      args: [usdcAddress, withdrawAmount, accountAddress],
+      args: [usdcAddress, amountToWithdraw, accountAddress],
+      account: account,
     });
+    console.log('[Aave Withdraw] Simulation successful, proceeding with transaction...');
+    
+    // If simulation passes, execute the actual transaction
+    const withdrawHash = await walletClient.writeContract(request);
 
     console.log('[Aave Withdraw] Withdraw tx hash:', withdrawHash);
     const withdrawReceipt = await publicClient.waitForTransactionReceipt({ hash: withdrawHash });
