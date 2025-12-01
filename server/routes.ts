@@ -1012,6 +1012,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Clear cache for a specific address (user-facing refresh)
+  app.post('/api/refresh/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      
+      if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
+        return res.status(400).json({ error: 'Invalid address' });
+      }
+      
+      await storage.clearCacheForAddress(address);
+      
+      res.json({ 
+        success: true, 
+        message: 'Cache cleared successfully',
+        address 
+      });
+    } catch (error) {
+      console.error('Error clearing cache:', error);
+      res.status(500).json({ error: 'Failed to clear cache' });
+    }
+  });
+
   app.get('/api/authorization/:nonce', async (req, res) => {
     try {
       const { nonce } = req.params;

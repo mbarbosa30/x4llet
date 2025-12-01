@@ -166,6 +166,9 @@ export interface IStorage {
   saveBalanceSnapshot(address: string, chainId: number, balance: string): Promise<void>;
   getInflationRate(currency: string): Promise<InflationData | null>;
   
+  // User-facing cache refresh
+  clearCacheForAddress(address: string): Promise<void>;
+  
   // Admin methods
   clearAllCaches(): Promise<void>;
   clearCachedBalances(): Promise<void>;
@@ -489,6 +492,11 @@ export class MemStorage implements IStorage {
   async migrateToMicroUsdc(): Promise<{ migratedTransactions: number; migratedBalances: number }> {
     // MemStorage doesn't use database, no-op
     return { migratedTransactions: 0, migratedBalances: 0 };
+  }
+
+  async clearCacheForAddress(address: string): Promise<void> {
+    // Clear balance cache for this address
+    this.balances.delete(address);
   }
 
   async getRecentGasDrips(address: string, chainId: number, since: Date): Promise<GasDrip[]> {
@@ -1292,6 +1300,28 @@ export class DbStorage extends MemStorage {
       console.log('[Admin] Cached balances cleared successfully');
     } catch (error) {
       console.error('[Admin] Error clearing cached balances:', error);
+      throw error;
+    }
+  }
+
+  async clearCacheForAddress(address: string): Promise<void> {
+    try {
+      const normalizedAddress = address.toLowerCase();
+      console.log(`[Refresh] Clearing cache for address: ${address}`);
+      
+      await db.delete(cachedBalances).where(
+        sql`LOWER(${cachedBalances.address}) = ${normalizedAddress}`
+      );
+      await db.delete(cachedTransactions).where(
+        sql`LOWER(${cachedTransactions.from}) = ${normalizedAddress} OR LOWER(${cachedTransactions.to}) = ${normalizedAddress}`
+      );
+      await db.delete(cachedMaxflowScores).where(
+        sql`LOWER(${cachedMaxflowScores.address}) = ${normalizedAddress}`
+      );
+      
+      console.log(`[Refresh] Cache cleared for address: ${address}`);
+    } catch (error) {
+      console.error(`[Refresh] Error clearing cache for ${address}:`, error);
       throw error;
     }
   }

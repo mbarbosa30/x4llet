@@ -15,7 +15,6 @@ interface AppHeaderProps {
 export default function AppHeader({ onScanClick }: AppHeaderProps) {
   const [, setLocation] = useLocation();
   const [address, setAddress] = useState<string | null>(null);
-  const [chainId, setChainId] = useState<number | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { toast } = useToast();
 
@@ -26,8 +25,6 @@ export default function AppHeader({ onScanClick }: AppHeaderProps) {
         if (wallet) {
           setAddress(wallet.address);
         }
-        // Default to Celo network
-        setChainId(42220);
       } catch (error) {
         // Wallet not loaded, ignore
       }
@@ -43,16 +40,50 @@ export default function AppHeader({ onScanClick }: AppHeaderProps) {
   });
 
   const handleRefresh = async () => {
-    if (!address || !chainId) return;
+    if (!address) return;
     
     setIsRefreshing(true);
     try {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['/api/balance', address, chainId] }),
-        queryClient.invalidateQueries({ queryKey: ['/api/balance-history', address, chainId] }),
-        queryClient.invalidateQueries({ queryKey: ['/api/transactions', address, chainId] }),
-        queryClient.invalidateQueries({ queryKey: ['/maxflow/score', address] }),
-      ]);
+      // Clear backend cache first
+      const refreshRes = await fetch(`/api/refresh/${address}`, { method: 'POST' });
+      if (!refreshRes.ok) {
+        throw new Error('Backend cache clear failed');
+      }
+      
+      // Invalidate all related frontend caches using predicate for comprehensive matching
+      await queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          if (!Array.isArray(key) || key.length === 0) return false;
+          
+          const route = key[0] as string;
+          
+          // Match address-specific queries
+          if (key.includes(address)) {
+            return route.startsWith('/api/balance') ||
+                   route.startsWith('/api/transactions') ||
+                   route.startsWith('/api/aave') ||
+                   route.startsWith('/maxflow');
+          }
+          
+          // Match global data queries (APY, exchange rates, etc.)
+          return route === '/api/aave/apy' ||
+                 route.startsWith('/api/exchange-rate') ||
+                 route.startsWith('/api/inflation-rate');
+        }
+      });
+      
+      toast({
+        title: "Refreshed",
+        description: "All data updated from blockchain",
+      });
+    } catch (error) {
+      console.error('Refresh failed:', error);
+      toast({
+        title: "Refresh failed",
+        description: "Please try again",
+        variant: "destructive",
+      });
     } finally {
       setTimeout(() => setIsRefreshing(false), 500);
     }
