@@ -166,12 +166,19 @@ export default function BalanceCard({
     },
   });
 
-  // Animate fiat value with inflation effect
+  // Calculate total balance (liquid + Aave) using BigInt for precision
+  const totalBalanceMicro = (() => {
+    const liquid = balanceMicro ? BigInt(balanceMicro) : 0n;
+    const aave = aaveBalance?.totalAUsdcBalance ? BigInt(aaveBalance.totalAUsdcBalance) : 0n;
+    return String(liquid + aave);
+  })();
+
+  // Animate fiat value with inflation effect (using total balance including Aave)
   const animation = useInflationAnimation({
-    usdcMicro: balanceMicro || '0',
+    usdcMicro: totalBalanceMicro,
     exchangeRate: exchangeRate || 1,
     inflationRate: inflationData?.annualRate || 0,
-    enabled: !!balanceMicro && !!exchangeRate && !!inflationData,
+    enabled: totalBalanceMicro !== '0' && !!exchangeRate && !!inflationData,
   });
 
   // Calculate balance-weighted APY across chains
@@ -277,11 +284,11 @@ export default function BalanceCard({
         <div className="text-5xl font-medium tabular-nums mb-2 flex items-center justify-center" data-testid="text-balance">
           <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
           {isEarning ? (
-            <span className="flex items-baseline">
+            <span className="inline-flex items-baseline">
               <span>{Math.floor(earningAnimation.animatedValue)}</span>
               <span className="opacity-90">.{earningAnimation.mainDecimals}</span>
               {earningAnimation.extraDecimals && (
-                <span className="text-2xl opacity-50 text-green-500 dark:text-green-400">
+                <span className="text-[0.35em] opacity-60 text-green-500 dark:text-green-400 relative ml-[0.15em]" style={{ top: '-0.6em' }}>
                   {earningAnimation.extraDecimals}
                 </span>
               )}
