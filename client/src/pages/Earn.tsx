@@ -468,17 +468,25 @@ export default function Earn() {
     return currentBalance * (weightedApy / 100);
   }, [totalAaveBalanceMicro, weightedApy]);
 
-  // Chart data with both $ values and % growth for dual-axis display
+  // Chart data for earnings-only view
+  // Returns only the interest values (not principal) so Y-axis scales dramatically
   const displayChartData = useMemo(() => {
     const nowPoint = combinedChartData.find(p => p.isNow);
     const principal = nowPoint?.principal || 0;
     
-    // Add total percentage growth relative to starting principal
-    return combinedChartData.map(d => ({
-      ...d,
-      // Total interest as percentage of principal (for the % line overlay)
-      totalInterestPercent: principal > 0 ? (d.interest / principal) * 100 : 0,
-    }));
+    // Filter to only "Now" and projected points, strip principal values entirely
+    return combinedChartData
+      .filter(d => d.isNow || d.isProjected)
+      .map(d => ({
+        label: d.label,
+        isNow: d.isNow,
+        isProjected: d.isProjected,
+        // Only interest values for the stacked areas (no principal)
+        baseInterest: d.baseInterest || 0,
+        celoInterest: d.celoInterest || 0,
+        // Total interest as percentage of principal (for the % line overlay)
+        totalInterestPercent: principal > 0 ? (d.interest / principal) * 100 : 0,
+      }));
   }, [combinedChartData]);
   
   // Check if we have any projected data to show
@@ -978,12 +986,22 @@ export default function Earn() {
           <Card className="p-4 space-y-3" data-testid="card-projected-earnings">
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
-                <div className="text-sm font-medium">Projected Growth</div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">Projected Earnings</span>
+                  <span className="text-xs text-muted-foreground">
+                    on {formatSmartPrecision((() => {
+                      const microBalance = BigInt(totalAaveBalanceMicro || '0');
+                      // Safe conversion: check if value exceeds JS safe integer range
+                      if (microBalance > BigInt(Number.MAX_SAFE_INTEGER)) {
+                        // For extremely large balances, divide first to prevent overflow
+                        return Number(microBalance / 1_000_000n);
+                      }
+                      return Number(microBalance) / 1_000_000;
+                    })(), '$')} principal
+                  </span>
+                </div>
                 {yearlyEarnings > 0 && (
                   <div className="text-xs">
-                    <span className="text-success font-medium">{formatSmartPrecision(yearlyEarnings, '+$')}</span>
-                    <span className="text-muted-foreground">/yr</span>
-                    <span className="text-muted-foreground mx-1">•</span>
                     <span className="text-success font-medium">+{weightedApy.toFixed(2)}%</span>
                     <span className="text-muted-foreground"> APY</span>
                   </div>
@@ -994,7 +1012,7 @@ export default function Earn() {
             <div className="h-36 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart 
-                  data={displayChartData} 
+                  data={displayChartData}
                   margin={{ top: 10, right: 10, left: 10, bottom: 5 }}
                 >
                   <defs>
@@ -1028,7 +1046,7 @@ export default function Earn() {
                     tickLine={false} 
                     tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }}
                   />
-                  {/* Left Y-axis for $ balance - starts from 0 for impactful visual */}
+                  {/* Left Y-axis for $ earnings only - magnifies small growth */}
                   <YAxis 
                     yAxisId="balance"
                     orientation="left"
@@ -1055,55 +1073,44 @@ export default function Earn() {
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
+                        const totalInterest = (data.baseInterest || 0) + (data.celoInterest || 0);
                         
                         return (
-                          <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md min-w-[160px]">
+                          <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md min-w-[140px]">
                             <div className="text-xs font-medium mb-1.5">
-                              {data.isProjected ? 'Projected' : data.isNow ? 'Now' : 'Historical'}
+                              {data.isNow ? 'Current' : 'Projected Earnings'}
                             </div>
-                            {data.isHistorical ? (
-                              <div className="text-xs">
-                                Balance: {formatSmartPrecision(data.total, '$')}
+                            {data.isNow ? (
+                              <div className="text-xs text-muted-foreground">
+                                Start earning now
                               </div>
                             ) : (
                               <>
-                                {/* Per-chain breakdown with $ */}
-                                {data.basePrincipal > 0 && (
+                                {/* Per-chain earnings breakdown */}
+                                {data.baseInterest > 0 && (
                                   <div className="flex items-center justify-between gap-3 text-xs mb-0.5">
                                     <span className="text-blue-400">Base:</span>
-                                    <span>
-                                      {formatSmartPrecision(data.basePrincipal + (data.baseInterest || 0), '$')}
-                                      {data.baseInterest > 0 && (
-                                        <span className="text-success ml-1">
-                                          (+{formatSmartPercent(data.baseInterestPercent || 0)})
-                                        </span>
-                                      )}
+                                    <span className="text-success">
+                                      +{formatSmartPrecision(data.baseInterest, '$')}
                                     </span>
                                   </div>
                                 )}
-                                {data.celoPrincipal > 0 && (
+                                {data.celoInterest > 0 && (
                                   <div className="flex items-center justify-between gap-3 text-xs mb-1">
                                     <span className="text-yellow-400">Celo:</span>
-                                    <span>
-                                      {formatSmartPrecision(data.celoPrincipal + (data.celoInterest || 0), '$')}
-                                      {data.celoInterest > 0 && (
-                                        <span className="text-success ml-1">
-                                          (+{formatSmartPercent(data.celoInterestPercent || 0)})
-                                        </span>
-                                      )}
+                                    <span className="text-success">
+                                      +{formatSmartPrecision(data.celoInterest, '$')}
                                     </span>
                                   </div>
                                 )}
-                                {/* Total with both $ and % */}
+                                {/* Total earnings */}
                                 <div className="text-xs font-medium border-t border-border pt-1 mt-1 flex justify-between">
-                                  <span>Total:</span>
-                                  <span>
-                                    {formatSmartPrecision(data.total, '$')}
-                                    {data.totalInterestPercent > 0 && (
-                                      <span className="text-success ml-1">
-                                        (+{formatSmartPercent(data.totalInterestPercent)})
-                                      </span>
-                                    )}
+                                  <span>Total earned:</span>
+                                  <span className="text-success">
+                                    +{formatSmartPrecision(totalInterest, '$')}
+                                    <span className="text-muted-foreground ml-1">
+                                      ({formatSmartPercent(data.totalInterestPercent || 0)})
+                                    </span>
                                   </span>
                                 </div>
                               </>
@@ -1123,54 +1130,22 @@ export default function Earn() {
                     yAxisId="balance"
                     label={{ value: '▼', position: 'top', fontSize: 8, fill: 'hsl(var(--muted-foreground))' }}
                   />
-                  {/* Historical balance line (only renders where historicalBalance is set) */}
-                  <Line 
-                    type="monotone" 
-                    dataKey="historicalBalance"
-                    yAxisId="balance"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    dot={false}
-                    isAnimationActive={false}
-                    connectNulls={false}
-                  />
-                  {/* Stacked by chain: Base principal + interest (bottom) */}
-                  <Area 
-                    type="monotone" 
-                    dataKey="basePrincipal"
-                    yAxisId="balance"
-                    stackId="savings"
-                    stroke="hsl(217, 91%, 60%)"
-                    strokeWidth={0}
-                    fill="url(#basePrincipalGradient)"
-                    isAnimationActive={false}
-                  />
+                  {/* Interest-only stacked areas for dramatic growth visualization */}
                   <Area 
                     type="monotone" 
                     dataKey="baseInterest"
                     yAxisId="balance"
-                    stackId="savings"
+                    stackId="earnings"
                     stroke="hsl(217, 91%, 70%)"
                     strokeWidth={1}
                     fill="url(#baseInterestGradient)"
-                    isAnimationActive={false}
-                  />
-                  {/* Celo principal + interest (stacks on Base) */}
-                  <Area 
-                    type="monotone" 
-                    dataKey="celoPrincipal"
-                    yAxisId="balance"
-                    stackId="savings"
-                    stroke="hsl(45, 93%, 47%)"
-                    strokeWidth={0}
-                    fill="url(#celoPrincipalGradient)"
                     isAnimationActive={false}
                   />
                   <Area 
                     type="monotone" 
                     dataKey="celoInterest"
                     yAxisId="balance"
-                    stackId="savings"
+                    stackId="earnings"
                     stroke="hsl(45, 93%, 58%)"
                     strokeWidth={1}
                     fill="url(#celoInterestGradient)"
@@ -1196,16 +1171,12 @@ export default function Earn() {
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-center gap-3 text-xs flex-wrap">
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(var(--primary))' }}></div>
-                  <span className="text-muted-foreground">History</span>
-                </div>
-                <div className="flex items-center gap-1.5">
                   <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(217, 91%, 60%)' }}></div>
-                  <span className="text-blue-400">Base $</span>
+                  <span className="text-blue-400">Base earnings</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(45, 93%, 47%)' }}></div>
-                  <span className="text-yellow-400">Celo $</span>
+                  <span className="text-yellow-400">Celo earnings</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-4 h-0.5 rounded-sm" style={{ background: 'hsl(142, 71%, 45%)', borderTop: '2px dashed hsl(142, 71%, 45%)' }}></div>
