@@ -616,7 +616,7 @@ export default function Earn() {
                     <span>{Math.floor(baseEarningAnimation.animatedValue)}</span>
                     <span className="opacity-90">.{baseEarningAnimation.mainDecimals}</span>
                     {baseEarningAnimation.extraDecimals && (
-                      <span className="text-[0.28em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.65em' }}>
+                      <span className="text-[0.38em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.55em' }}>
                         {baseEarningAnimation.extraDecimals}
                       </span>
                     )}
@@ -642,7 +642,7 @@ export default function Earn() {
                     <span>{Math.floor(celoEarningAnimation.animatedValue)}</span>
                     <span className="opacity-90">.{celoEarningAnimation.mainDecimals}</span>
                     {celoEarningAnimation.extraDecimals && (
-                      <span className="text-[0.28em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.65em' }}>
+                      <span className="text-[0.38em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.55em' }}>
                         {celoEarningAnimation.extraDecimals}
                       </span>
                     )}
