@@ -19,7 +19,7 @@ import {
   Clock,
   Sparkles
 } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { ComposedChart, AreaChart, Area, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import {
   Dialog,
   DialogContent,
@@ -203,6 +203,141 @@ export default function Earn() {
     enabled: parseFloat(aaveBalanceCelo?.aUsdcBalance || '0') > 0,
     minPrecision: 5,
   });
+
+  // Fetch balance history for the combined chart
+  interface BalanceHistoryPoint {
+    timestamp: string;
+    balance: string;
+  }
+  
+  const { data: balanceHistoryBase } = useQuery<BalanceHistoryPoint[]>({
+    queryKey: ['/api/balance-history', address, 8453],
+    enabled: !!address,
+    queryFn: async () => {
+      const res = await fetch(`/api/balance-history/${address}?chainId=8453&days=30`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 60000,
+  });
+
+  const { data: balanceHistoryCelo } = useQuery<BalanceHistoryPoint[]>({
+    queryKey: ['/api/balance-history', address, 42220],
+    enabled: !!address,
+    queryFn: async () => {
+      const res = await fetch(`/api/balance-history/${address}?chainId=42220&days=30`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 60000,
+  });
+
+  // Combined chart data: Historical + Projected with chain breakdown
+  const combinedChartData = useMemo(() => {
+    const microBalance = BigInt(totalAaveBalanceMicro || '0');
+    const currentBalance = Number(microBalance) / 1_000_000;
+    
+    const baseBalance = Number(baseAaveBalanceMicro) / 1_000_000;
+    const celoBalance = Number(celoAaveBalanceMicro) / 1_000_000;
+    const baseApy = aaveBalanceBase?.apy || aaveApyBase?.apy || 0;
+    const celoApy = aaveBalanceCelo?.apy || aaveApyCelo?.apy || 0;
+    
+    const data: Array<{
+      label: string;
+      date?: Date;
+      isProjected: boolean;
+      isNow?: boolean;
+      base: number;
+      celo: number;
+      total: number;
+      interest?: number;
+    }> = [];
+    
+    // Historical data (past 30 days, sample weekly)
+    const historyBase = balanceHistoryBase || [];
+    const historyCelo = balanceHistoryCelo || [];
+    
+    // Create a map of timestamps to balances
+    const historyMap = new Map<string, { base: number; celo: number }>();
+    
+    // Process Base history
+    historyBase.forEach(point => {
+      const dateKey = new Date(point.timestamp).toISOString().split('T')[0];
+      const existing = historyMap.get(dateKey) || { base: 0, celo: 0 };
+      existing.base = Number(point.balance) / 1_000_000;
+      historyMap.set(dateKey, existing);
+    });
+    
+    // Process Celo history
+    historyCelo.forEach(point => {
+      const dateKey = new Date(point.timestamp).toISOString().split('T')[0];
+      const existing = historyMap.get(dateKey) || { base: 0, celo: 0 };
+      existing.celo = Number(point.balance) / 1_000_000;
+      historyMap.set(dateKey, existing);
+    });
+    
+    // Convert to array and sort by date
+    const sortedHistory = Array.from(historyMap.entries())
+      .map(([dateKey, balances]) => ({
+        date: new Date(dateKey),
+        ...balances,
+      }))
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+    
+    // Sample up to 6 historical points (weekly-ish)
+    const historyPoints = sortedHistory.length > 0 
+      ? sortedHistory.filter((_, i) => i === 0 || i === sortedHistory.length - 1 || i % Math.ceil(sortedHistory.length / 4) === 0).slice(-5)
+      : [];
+    
+    // Add historical points
+    historyPoints.forEach((point, i) => {
+      const weeksAgo = Math.round((Date.now() - point.date.getTime()) / (7 * 24 * 60 * 60 * 1000));
+      data.push({
+        label: weeksAgo === 0 ? 'This week' : `-${weeksAgo}w`,
+        date: point.date,
+        isProjected: false,
+        base: point.base,
+        celo: point.celo,
+        total: point.base + point.celo,
+      });
+    });
+    
+    // Add "Now" point
+    data.push({
+      label: 'Now',
+      date: new Date(),
+      isProjected: false,
+      isNow: true,
+      base: baseBalance,
+      celo: celoBalance,
+      total: currentBalance,
+      interest: 0,
+    });
+    
+    // Add projected points (12 months ahead) - compute each chain separately
+    // so total = base + celo at each point
+    if (currentBalance > 0) {
+      const monthlyRateBase = baseApy / 100 / 12;
+      const monthlyRateCelo = celoApy / 100 / 12;
+      
+      for (let month = 3; month <= 12; month += 3) {
+        const projectedBase = baseBalance * Math.pow(1 + monthlyRateBase, month);
+        const projectedCelo = celoBalance * Math.pow(1 + monthlyRateCelo, month);
+        const projectedTotal = projectedBase + projectedCelo; // Total = sum of chains
+        
+        data.push({
+          label: `+${month}mo`,
+          isProjected: true,
+          base: projectedBase,
+          celo: projectedCelo,
+          total: projectedTotal,
+          interest: projectedTotal - currentBalance,
+        });
+      }
+    }
+    
+    return data;
+  }, [totalAaveBalanceMicro, baseAaveBalanceMicro, celoAaveBalanceMicro, weightedApy, aaveBalanceBase?.apy, aaveBalanceCelo?.apy, aaveApyBase?.apy, aaveApyCelo?.apy, balanceHistoryBase, balanceHistoryCelo]);
 
   const projectedEarningsData = useMemo(() => {
     const microBalance = BigInt(totalAaveBalanceMicro || '0');
@@ -653,41 +788,55 @@ export default function Earn() {
           </Card>
         )}
 
-        {hasAaveBalance && projectedEarningsData.length > 0 && (
+        {hasAaveBalance && combinedChartData.length > 0 && (
           <Card className="p-4 space-y-3" data-testid="card-projected-earnings">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-medium">Projected Growth</div>
+              <div className="text-sm font-medium">Balance History & Projection</div>
               <div className="text-xs text-muted-foreground">
                 +${yearlyEarnings.toFixed(2)}/year
               </div>
             </div>
             
-            <div className="h-24 w-full">
+            <div className="h-36 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={projectedEarningsData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                <ComposedChart data={combinedChartData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
                   <defs>
-                    <linearGradient id="earningsGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0}/>
+                    <linearGradient id="baseGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0.5}/>
+                      <stop offset="100%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0.1}/>
+                    </linearGradient>
+                    <linearGradient id="celoGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(45, 93%, 47%)" stopOpacity={0.5}/>
+                      <stop offset="100%" stopColor="hsl(45, 93%, 47%)" stopOpacity={0.1}/>
                     </linearGradient>
                   </defs>
                   <XAxis 
-                    dataKey="month" 
+                    dataKey="label" 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-                    interval="preserveStartEnd"
+                    tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }}
                   />
-                  <YAxis hide domain={['dataMin', 'dataMax']} />
+                  <YAxis 
+                    hide 
+                    domain={[(dataMin: number) => Math.max(0, dataMin * 0.95), (dataMax: number) => dataMax * 1.05]} 
+                  />
                   <Tooltip 
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
                         return (
-                          <div className="bg-popover border border-border rounded-md px-2 py-1 shadow-sm">
-                            <div className="text-xs font-medium">${data.value.toFixed(2)}</div>
-                            {data.earnings > 0 && (
-                              <div className="text-xs text-success">+${data.earnings.toFixed(2)}</div>
+                          <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md">
+                            <div className="text-xs font-medium mb-1">
+                              {data.isProjected ? 'Projected' : data.isNow ? 'Current' : 'Historical'}: ${data.total.toFixed(2)}
+                            </div>
+                            {data.base > 0 && (
+                              <div className="text-xs text-blue-500">Base: ${data.base.toFixed(2)}</div>
+                            )}
+                            {data.celo > 0 && (
+                              <div className="text-xs text-yellow-600">Celo: ${data.celo.toFixed(2)}</div>
+                            )}
+                            {data.interest !== undefined && data.interest > 0 && (
+                              <div className="text-xs text-success mt-1">+${data.interest.toFixed(2)} interest</div>
                             )}
                           </div>
                         );
@@ -695,20 +844,55 @@ export default function Earn() {
                       return null;
                     }}
                   />
+                  {/* "Now" reference line - render before areas so it's behind */}
+                  <ReferenceLine 
+                    x="Now" 
+                    stroke="hsl(var(--muted-foreground))"
+                    strokeDasharray="4 4"
+                    strokeWidth={1}
+                    label={{ value: '▼', position: 'top', fontSize: 8, fill: 'hsl(var(--muted-foreground))' }}
+                  />
+                  {/* Stacked chain areas - Celo first (bottom), Base on top */}
                   <Area 
                     type="monotone" 
-                    dataKey="value" 
-                    stroke="hsl(var(--success))" 
-                    strokeWidth={2}
-                    fill="url(#earningsGradient)"
+                    dataKey="celo"
+                    stackId="chains"
+                    stroke="hsl(45, 93%, 47%)"
+                    strokeWidth={1.5}
+                    fill="url(#celoGradient)"
                     isAnimationActive={false}
                   />
-                </AreaChart>
+                  <Area 
+                    type="monotone" 
+                    dataKey="base"
+                    stackId="chains"
+                    stroke="hsl(217, 91%, 60%)"
+                    strokeWidth={1.5}
+                    fill="url(#baseGradient)"
+                    isAnimationActive={false}
+                  />
+                </ComposedChart>
               </ResponsiveContainer>
             </div>
             
+            {/* Legend */}
+            <div className="flex items-center justify-center gap-4 text-xs">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(217, 91%, 60%, 0.6)' }}></div>
+                <span className="text-muted-foreground">Base</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(45, 93%, 47%, 0.6)' }}></div>
+                <span className="text-muted-foreground">Celo</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-muted-foreground">|</span>
+                <span className="text-muted-foreground">Now</span>
+              </div>
+            </div>
+            
             <p className="text-xs text-muted-foreground text-center">
-              Projection based on current {weightedApy.toFixed(1)}% APY
+              Past 30 days + {weightedApy.toFixed(1)}% APY projection
             </p>
           </Card>
         )}
