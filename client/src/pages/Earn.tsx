@@ -522,7 +522,7 @@ export default function Earn() {
                     <span>{Math.floor(totalEarningAnimation.animatedValue)}</span>
                     <span className="opacity-90">.{totalEarningAnimation.mainDecimals}</span>
                     {totalEarningAnimation.extraDecimals && (
-                      <span className="text-[0.35em] opacity-60 text-green-500 dark:text-green-400 relative ml-1" style={{ top: '-0.6em' }}>
+                      <span className="text-[0.28em] font-light opacity-50 text-green-500 dark:text-green-400 relative ml-0.5" style={{ top: '-0.65em' }}>
                         {totalEarningAnimation.extraDecimals}
                       </span>
                     )}
@@ -590,7 +590,7 @@ export default function Earn() {
                     <span>{Math.floor(baseEarningAnimation.animatedValue)}</span>
                     <span className="opacity-90">.{baseEarningAnimation.mainDecimals}</span>
                     {baseEarningAnimation.extraDecimals && (
-                      <span className="text-[0.35em] opacity-60 text-green-500 dark:text-green-400 relative ml-1" style={{ top: '-0.6em' }}>
+                      <span className="text-[0.28em] font-light opacity-50 text-green-500 dark:text-green-400 relative ml-0.5" style={{ top: '-0.65em' }}>
                         {baseEarningAnimation.extraDecimals}
                       </span>
                     )}
@@ -616,7 +616,7 @@ export default function Earn() {
                     <span>{Math.floor(celoEarningAnimation.animatedValue)}</span>
                     <span className="opacity-90">.{celoEarningAnimation.mainDecimals}</span>
                     {celoEarningAnimation.extraDecimals && (
-                      <span className="text-[0.35em] opacity-60 text-green-500 dark:text-green-400 relative ml-1" style={{ top: '-0.6em' }}>
+                      <span className="text-[0.28em] font-light opacity-50 text-green-500 dark:text-green-400 relative ml-0.5" style={{ top: '-0.65em' }}>
                         {celoEarningAnimation.extraDecimals}
                       </span>
                     )}
