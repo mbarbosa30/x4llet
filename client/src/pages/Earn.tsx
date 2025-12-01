@@ -264,9 +264,9 @@ export default function Earn() {
     staleTime: 60000,
   });
 
-  // Combined chart data: Historical balance + Projected principal/interest separation
+  // Combined chart data: Historical balance + Projected principal/interest separation BY CHAIN
   // For historical data: We only have total balance (can't reliably separate principal/interest without deposit tracking)
-  // For projections: Principal = current balance (stays flat), Interest = projected growth
+  // For projections: Principal = current balance (stays flat), Interest = projected growth per chain
   const combinedChartData = useMemo(() => {
     const microBalance = BigInt(totalAaveBalanceMicro || '0');
     const currentBalance = Number(microBalance) / 1_000_000;
@@ -282,10 +282,19 @@ export default function Earn() {
       isProjected: boolean;
       isNow?: boolean;
       isHistorical?: boolean;
-      principal: number;           // Your deposited amount (for projections, 0 for historical)
-      interest: number;            // Earned from yield (for projections, 0 for historical)
-      total: number;               // principal + interest (or historicalBalance for historical)
-      historicalBalance?: number | null;  // Only set for historical points (for the historical line)
+      // Per-chain breakdown for stacked areas
+      basePrincipal: number;       // Base deposit (flat)
+      baseInterest: number;        // Base yield growth
+      celoPrincipal: number;       // Celo deposit (flat)
+      celoInterest: number;        // Celo yield growth
+      // Totals for calculations
+      principal: number;           // Total principal
+      interest: number;            // Total interest
+      total: number;               // principal + interest
+      historicalBalance?: number | null;  // Historical line (null for projections)
+      // Per-chain percentages
+      baseInterestPercent?: number;
+      celoInterestPercent?: number;
     }> = [];
     
     // Historical data (past 30 days, sample weekly)
@@ -324,8 +333,7 @@ export default function Earn() {
       ? sortedHistory.filter((_, i) => i === 0 || i === sortedHistory.length - 1 || i % Math.ceil(sortedHistory.length / 4) === 0).slice(-5)
       : [];
     
-    // Add historical points - show as "historicalBalance" line only (principal=0 so the stacked areas don't render)
-    // This ensures the chart correctly shows principal/interest separation only for projections
+    // Add historical points - show as "historicalBalance" line only
     historyPoints.forEach((point) => {
       const weeksAgo = Math.round((Date.now() - point.date.getTime()) / (7 * 24 * 60 * 60 * 1000));
       const pointTotal = point.base + point.celo;
@@ -335,10 +343,14 @@ export default function Earn() {
         date: point.date,
         isProjected: false,
         isHistorical: true,
-        principal: 0,              // Don't render principal area for historical
-        interest: 0,               // Don't render interest for historical
-        total: pointTotal,         // Used for tooltip
-        historicalBalance: pointTotal, // Separate key for historical line (null for projections)
+        basePrincipal: 0,
+        baseInterest: 0,
+        celoPrincipal: 0,
+        celoInterest: 0,
+        principal: 0,
+        interest: 0,
+        total: pointTotal,
+        historicalBalance: pointTotal,
       });
     });
     
@@ -348,14 +360,19 @@ export default function Earn() {
       date: new Date(),
       isProjected: false,
       isNow: true,
+      basePrincipal: baseBalance,
+      baseInterest: 0,
+      celoPrincipal: celoBalance,
+      celoInterest: 0,
       principal: currentBalance,
       interest: 0,
       total: currentBalance,
-      historicalBalance: null, // Not historical - use stacked areas from here
+      historicalBalance: null,
+      baseInterestPercent: 0,
+      celoInterestPercent: 0,
     });
     
-    // Add projected points - principal stays flat, interest grows
-    // Include short-term projections to show tiny interest values with dynamic precision
+    // Add projected points - principal stays flat, interest grows per chain
     if (currentBalance > 0) {
       const monthlyRateBase = baseApy / 100 / 12;
       const monthlyRateCelo = celoApy / 100 / 12;
@@ -376,10 +393,16 @@ export default function Earn() {
         data.push({
           label: point.label,
           isProjected: true,
+          basePrincipal: baseBalance,
+          baseInterest: baseInterestEarned,
+          celoPrincipal: celoBalance,
+          celoInterest: celoInterestEarned,
           principal: currentBalance,
           interest: totalInterest,
           total: currentBalance + totalInterest,
           historicalBalance: null,
+          baseInterestPercent: baseBalance > 0 ? (baseInterestEarned / baseBalance) * 100 : 0,
+          celoInterestPercent: celoBalance > 0 ? (celoInterestEarned / celoBalance) * 100 : 0,
         });
       }
       
@@ -392,10 +415,16 @@ export default function Earn() {
         data.push({
           label: `+${month}mo`,
           isProjected: true,
+          basePrincipal: baseBalance,
+          baseInterest: baseInterestEarned,
+          celoPrincipal: celoBalance,
+          celoInterest: celoInterestEarned,
           principal: currentBalance,
           interest: totalInterest,
           total: currentBalance + totalInterest,
           historicalBalance: null,
+          baseInterestPercent: baseBalance > 0 ? (baseInterestEarned / baseBalance) * 100 : 0,
+          celoInterestPercent: celoBalance > 0 ? (celoInterestEarned / celoBalance) * 100 : 0,
         });
       }
     }
@@ -993,14 +1022,25 @@ export default function Earn() {
                   margin={{ top: 10, right: 10, left: 10, bottom: 5 }}
                 >
                   <defs>
-                    <linearGradient id="principalGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.3}/>
-                      <stop offset="100%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.05}/>
+                    {/* Base chain colors - blue */}
+                    <linearGradient id="basePrincipalGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0.25}/>
+                      <stop offset="100%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0.05}/>
                     </linearGradient>
-                    <linearGradient id="interestGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.6}/>
-                      <stop offset="100%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.2}/>
+                    <linearGradient id="baseInterestGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(217, 91%, 70%)" stopOpacity={0.7}/>
+                      <stop offset="100%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0.3}/>
                     </linearGradient>
+                    {/* Celo chain colors - yellow/gold */}
+                    <linearGradient id="celoPrincipalGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(45, 93%, 47%)" stopOpacity={0.25}/>
+                      <stop offset="100%" stopColor="hsl(45, 93%, 47%)" stopOpacity={0.05}/>
+                    </linearGradient>
+                    <linearGradient id="celoInterestGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(45, 93%, 58%)" stopOpacity={0.7}/>
+                      <stop offset="100%" stopColor="hsl(45, 93%, 47%)" stopOpacity={0.3}/>
+                    </linearGradient>
+                    {/* Earnings mode gradient */}
                     <linearGradient id="earningsPercentGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.5}/>
                       <stop offset="100%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.1}/>
@@ -1027,22 +1067,32 @@ export default function Earn() {
                         const data = payload[0].payload;
                         if (chartViewMode === 'earnings') {
                           return (
-                            <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md">
-                              <div className="text-xs font-medium mb-1">
+                            <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md min-w-[140px]">
+                              <div className="text-xs font-medium mb-1.5">
                                 {data.isProjected ? 'Projected' : 'Now'}
                               </div>
-                              <div className="text-xs text-success">
-                                {formatSmartPercent(data.interestPercent || 0)} return
-                              </div>
-                              <div className="text-xs text-muted-foreground mt-1">
-                                {formatSmartPrecision(data.interest || 0, '+$')} interest
+                              {/* Per-chain earnings breakdown */}
+                              {(data.baseInterestPercent > 0 || data.basePrincipal > 0) && (
+                                <div className="flex items-center justify-between gap-2 text-xs mb-0.5">
+                                  <span className="text-blue-400">Base:</span>
+                                  <span>{formatSmartPercent(data.baseInterestPercent || 0)}</span>
+                                </div>
+                              )}
+                              {(data.celoInterestPercent > 0 || data.celoPrincipal > 0) && (
+                                <div className="flex items-center justify-between gap-2 text-xs mb-1">
+                                  <span className="text-yellow-400">Celo:</span>
+                                  <span>{formatSmartPercent(data.celoInterestPercent || 0)}</span>
+                                </div>
+                              )}
+                              <div className="text-xs text-success border-t border-border pt-1 mt-1">
+                                Total: {formatSmartPrecision(data.interest || 0, '+$')}
                               </div>
                             </div>
                           );
                         }
                         return (
-                          <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md">
-                            <div className="text-xs font-medium mb-1">
+                          <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md min-w-[140px]">
+                            <div className="text-xs font-medium mb-1.5">
                               {data.isProjected ? 'Projected' : data.isNow ? 'Now' : 'Historical'}
                             </div>
                             {data.isHistorical ? (
@@ -1051,16 +1101,40 @@ export default function Earn() {
                               </div>
                             ) : (
                               <>
-                                <div className="text-xs text-muted-foreground">
-                                  Principal: {formatSmartPrecision(data.principal, '$')}
-                                </div>
-                                {data.interest > 0 && (
-                                  <div className="text-xs text-success">
-                                    {formatSmartPrecision(data.interest, '+$')} interest
+                                {/* Per-chain breakdown */}
+                                {data.basePrincipal > 0 && (
+                                  <div className="flex items-center justify-between gap-2 text-xs mb-0.5">
+                                    <span className="text-blue-400">Base:</span>
+                                    <span>
+                                      {formatSmartPrecision(data.basePrincipal, '$')}
+                                      {data.baseInterest > 0 && (
+                                        <span className="text-blue-300 ml-1">
+                                          {formatSmartPrecision(data.baseInterest, '+')}
+                                        </span>
+                                      )}
+                                    </span>
                                   </div>
                                 )}
-                                <div className="text-xs font-medium mt-1 border-t border-border pt-1">
+                                {data.celoPrincipal > 0 && (
+                                  <div className="flex items-center justify-between gap-2 text-xs mb-1">
+                                    <span className="text-yellow-400">Celo:</span>
+                                    <span>
+                                      {formatSmartPrecision(data.celoPrincipal, '$')}
+                                      {data.celoInterest > 0 && (
+                                        <span className="text-yellow-300 ml-1">
+                                          {formatSmartPrecision(data.celoInterest, '+')}
+                                        </span>
+                                      )}
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="text-xs font-medium border-t border-border pt-1 mt-1">
                                   Total: {formatSmartPrecision(data.total, '$')}
+                                  {data.interest > 0 && (
+                                    <span className="text-success ml-1">
+                                      ({formatSmartPrecision(data.interest, '+$')})
+                                    </span>
+                                  )}
                                 </div>
                               </>
                             )}
@@ -1090,68 +1164,129 @@ export default function Earn() {
                         isAnimationActive={false}
                         connectNulls={false}
                       />
-                      {/* Principal (your deposit) as base layer - stays flat in projections */}
+                      {/* Stacked by chain: Base principal (bottom) */}
                       <Area 
                         type="monotone" 
-                        dataKey="principal"
+                        dataKey="basePrincipal"
                         stackId="savings"
-                        stroke="hsl(var(--muted-foreground))"
-                        strokeWidth={1}
-                        fill="url(#principalGradient)"
+                        stroke="hsl(217, 91%, 60%)"
+                        strokeWidth={0}
+                        fill="url(#basePrincipalGradient)"
                         isAnimationActive={false}
                       />
-                      {/* Interest earned - grows on top of principal */}
+                      {/* Base interest - grows on top of Base principal */}
                       <Area 
                         type="monotone" 
-                        dataKey="interest"
+                        dataKey="baseInterest"
                         stackId="savings"
-                        stroke="hsl(142, 71%, 45%)"
-                        strokeWidth={2}
-                        fill="url(#interestGradient)"
+                        stroke="hsl(217, 91%, 70%)"
+                        strokeWidth={1}
+                        fill="url(#baseInterestGradient)"
+                        isAnimationActive={false}
+                      />
+                      {/* Celo principal - stacks on top of Base */}
+                      <Area 
+                        type="monotone" 
+                        dataKey="celoPrincipal"
+                        stackId="savings"
+                        stroke="hsl(45, 93%, 47%)"
+                        strokeWidth={0}
+                        fill="url(#celoPrincipalGradient)"
+                        isAnimationActive={false}
+                      />
+                      {/* Celo interest - grows on top of Celo principal */}
+                      <Area 
+                        type="monotone" 
+                        dataKey="celoInterest"
+                        stackId="savings"
+                        stroke="hsl(45, 93%, 58%)"
+                        strokeWidth={1}
+                        fill="url(#celoInterestGradient)"
                         isAnimationActive={false}
                       />
                     </>
                   ) : (
-                    <Area 
-                      type="monotone" 
-                      dataKey="interestPercent"
-                      stroke="hsl(142, 71%, 45%)"
-                      strokeWidth={2}
-                      fill="url(#earningsPercentGradient)"
-                      isAnimationActive={false}
-                    />
+                    <>
+                      {/* Earnings mode: show per-chain percentage returns stacked */}
+                      <Area 
+                        type="monotone" 
+                        dataKey="baseInterestPercent"
+                        stackId="earnings"
+                        stroke="hsl(217, 91%, 70%)"
+                        strokeWidth={1}
+                        fill="url(#baseInterestGradient)"
+                        isAnimationActive={false}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="celoInterestPercent"
+                        stackId="earnings"
+                        stroke="hsl(45, 93%, 58%)"
+                        strokeWidth={1}
+                        fill="url(#celoInterestGradient)"
+                        isAnimationActive={false}
+                      />
+                    </>
                   )}
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
             
-            {/* Legend */}
-            <div className="flex items-center justify-center gap-4 text-xs">
-              {chartViewMode === 'balance' ? (
-                <>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(var(--primary))' }}></div>
-                    <span className="text-muted-foreground">History</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-2 rounded-sm bg-muted-foreground/30"></div>
-                    <span className="text-muted-foreground">Principal</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(142, 71%, 45%, 0.6)' }}></div>
-                    <span className="text-muted-foreground">Interest</span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(142, 71%, 45%, 0.6)' }}></div>
-                  <span className="text-muted-foreground">% Return</span>
+            {/* Legend with per-chain breakdown */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-center gap-3 text-xs">
+                {chartViewMode === 'balance' ? (
+                  <>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(var(--primary))' }}></div>
+                      <span className="text-muted-foreground">History</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(217, 91%, 60%)' }}></div>
+                      <span className="text-blue-400">Base</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(45, 93%, 47%)' }}></div>
+                      <span className="text-yellow-400">Celo</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(217, 91%, 60%)' }}></div>
+                      <span className="text-blue-400">Base %</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(45, 93%, 47%)' }}></div>
+                      <span className="text-yellow-400">Celo %</span>
+                    </div>
+                  </>
+                )}
+              </div>
+              
+              {/* Per-chain interest earned summary */}
+              {chartViewMode === 'balance' && combinedChartData.length > 0 && (
+                <div className="flex items-center justify-center gap-4 text-xs">
+                  {(() => {
+                    const yearlyPoint = combinedChartData.find(p => p.label === '+12mo');
+                    if (!yearlyPoint) return null;
+                    return (
+                      <>
+                        {yearlyPoint.baseInterest > 0 && (
+                          <span className="text-blue-400">
+                            Base: {formatSmartPrecision(yearlyPoint.baseInterest, '+$')}/yr
+                          </span>
+                        )}
+                        {yearlyPoint.celoInterest > 0 && (
+                          <span className="text-yellow-400">
+                            Celo: {formatSmartPrecision(yearlyPoint.celoInterest, '+$')}/yr
+                          </span>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
-              <div className="flex items-center gap-1.5">
-                <span className="text-muted-foreground opacity-50">|</span>
-                <span className="text-muted-foreground">Now</span>
-              </div>
             </div>
             
             <p className="text-xs text-muted-foreground text-center">
