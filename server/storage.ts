@@ -46,15 +46,47 @@ interface BlockExplorerTx {
   tokenDecimal: string;
 }
 
-// Etherscan v2 unified API - supports 60+ EVM chains with single API key
-async function fetchTransactionsFromEtherscan(address: string, chainId: number): Promise<Transaction[]> {
-  const apiKey = process.env.ETHERSCAN_API_KEY;
-  if (!apiKey) {
-    console.log('[Etherscan v2] No API key configured, skipping on-chain transaction fetch');
-    console.log('[Etherscan v2] Please add ETHERSCAN_API_KEY to your Replit Secrets');
+// Parse transaction response from any Etherscan-compatible API
+function parseTransactionResponse(data: any, address: string, chainName: string): Transaction[] {
+  if (data.status !== '1' || !data.result) {
     return [];
   }
 
+  const transactions: Transaction[] = data.result.map((tx: BlockExplorerTx) => {
+    const normalizedWallet = address.toLowerCase();
+    const normalizedFrom = tx.from.toLowerCase();
+    const normalizedTo = tx.to.toLowerCase();
+    
+    const isSend = normalizedFrom === normalizedWallet;
+    const amount = tx.value;
+
+    console.log(`[Transaction Type Detection] TX ${tx.hash.slice(0, 10)}...`);
+    console.log(`  Wallet: ${normalizedWallet}`);
+    console.log(`  From:   ${normalizedFrom}`);
+    console.log(`  To:     ${normalizedTo}`);
+    console.log(`  Type:   ${isSend ? 'SEND' : 'RECEIVE'}`);
+    console.log(`  Amount: ${amount} micro-USDC`);
+
+    return {
+      id: tx.hash,
+      type: isSend ? 'send' : 'receive',
+      from: tx.from,
+      to: tx.to,
+      amount,
+      timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+      status: 'completed',
+      txHash: tx.hash,
+    } as Transaction;
+  });
+
+  console.log(`[Explorer] Found ${transactions.length} ${chainName} transactions`);
+  return transactions;
+}
+
+// Etherscan v2 unified API with chain-specific fallback for rate limit resilience
+async function fetchTransactionsFromEtherscan(address: string, chainId: number): Promise<Transaction[]> {
+  const etherscanApiKey = process.env.ETHERSCAN_API_KEY;
+  
   // Map chainId to USDC contract address
   const usdcAddresses: Record<number, string> = {
     8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',  // Base mainnet
@@ -63,58 +95,74 @@ async function fetchTransactionsFromEtherscan(address: string, chainId: number):
 
   const usdcAddress = usdcAddresses[chainId];
   if (!usdcAddress) {
-    console.error(`[Etherscan v2] Unsupported chainId: ${chainId}`);
+    console.error(`[Explorer] Unsupported chainId: ${chainId}`);
     return [];
   }
 
   const chainName = chainId === 8453 ? 'Base' : chainId === 42220 ? 'Celo' : `Chain ${chainId}`;
-  
-  // Etherscan v2 unified endpoint with chainid parameter
-  const url = `https://api.etherscan.io/v2/api?chainid=${chainId}&module=account&action=tokentx&contractaddress=${usdcAddress}&address=${address}&sort=desc&apikey=${apiKey}`;
+
+  // Try unified Etherscan v2 API first (if API key available)
+  if (etherscanApiKey) {
+    const unifiedUrl = `https://api.etherscan.io/v2/api?chainid=${chainId}&module=account&action=tokentx&contractaddress=${usdcAddress}&address=${address}&sort=desc&apikey=${etherscanApiKey}`;
+    
+    try {
+      console.log(`[Etherscan v2] Fetching ${chainName} transactions for ${address}`);
+      const response = await fetch(unifiedUrl);
+      const data = await response.json();
+
+      if (data.status === '1' && data.result) {
+        const transactions = parseTransactionResponse(data, address, chainName);
+        if (transactions.length > 0) {
+          return transactions;
+        }
+      }
+      console.log(`[Etherscan v2] ${chainName} API returned: ${data.message || 'no results'} - trying chain-specific fallback`);
+    } catch (error) {
+      console.log(`[Etherscan v2] ${chainName} request failed - trying chain-specific fallback`);
+    }
+  }
+
+  // Fallback to chain-specific APIs for better rate limit handling
+  const chainSpecificApis: Record<number, { url: string; keyEnv: string; name: string }> = {
+    8453: {
+      url: 'https://api.basescan.org/api',
+      keyEnv: 'BASESCAN_API_KEY',
+      name: 'BaseScan',
+    },
+    42220: {
+      url: 'https://api.celoscan.io/api',
+      keyEnv: 'CELOSCAN_API_KEY',
+      name: 'CeloScan',
+    },
+  };
+
+  const chainApi = chainSpecificApis[chainId];
+  if (!chainApi) {
+    console.log(`[Explorer] No chain-specific fallback for chainId ${chainId}`);
+    return [];
+  }
+
+  const chainApiKey = process.env[chainApi.keyEnv];
+  if (!chainApiKey) {
+    console.log(`[${chainApi.name}] No API key (${chainApi.keyEnv}) - cannot fetch transactions`);
+    return [];
+  }
+
+  const fallbackUrl = `${chainApi.url}?module=account&action=tokentx&contractaddress=${usdcAddress}&address=${address}&sort=desc&apikey=${chainApiKey}`;
 
   try {
-    console.log(`[Etherscan v2] Fetching ${chainName} transactions for ${address}`);
-    const response = await fetch(url);
+    console.log(`[${chainApi.name}] Fetching ${chainName} transactions (fallback)`);
+    const response = await fetch(fallbackUrl);
     const data = await response.json();
 
-    if (data.status !== '1' || !data.result) {
-      console.log(`[Etherscan v2] No ${chainName} transactions found or API error:`, data.message);
-      return [];
+    if (data.status === '1' && data.result) {
+      return parseTransactionResponse(data, address, chainName);
     }
-
-    const transactions: Transaction[] = data.result.map((tx: BlockExplorerTx) => {
-      // Normalize addresses for comparison (handle checksum variations)
-      const normalizedWallet = address.toLowerCase();
-      const normalizedFrom = tx.from.toLowerCase();
-      const normalizedTo = tx.to.toLowerCase();
-      
-      const isSend = normalizedFrom === normalizedWallet;
-      // Store raw micro-USDC value to preserve full 6-decimal precision
-      const amount = tx.value;
-
-      console.log(`[Transaction Type Detection] TX ${tx.hash.slice(0, 10)}...`);
-      console.log(`  Wallet: ${normalizedWallet}`);
-      console.log(`  From:   ${normalizedFrom}`);
-      console.log(`  To:     ${normalizedTo}`);
-      console.log(`  Type:   ${isSend ? 'SEND' : 'RECEIVE'}`);
-      console.log(`  Amount: ${amount} micro-USDC`);
-
-      return {
-        id: tx.hash,
-        type: isSend ? 'send' : 'receive',
-        from: tx.from,
-        to: tx.to,
-        amount,
-        timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
-        status: 'completed',
-        txHash: tx.hash,
-      } as Transaction;
-    });
-
-    console.log(`[Etherscan v2] Found ${transactions.length} ${chainName} transactions`);
-    return transactions;
+    
+    console.log(`[${chainApi.name}] No transactions found or API error:`, data.message);
+    return [];
   } catch (error) {
-    console.error(`[Etherscan v2] Error fetching ${chainName} transactions:`, error);
+    console.error(`[${chainApi.name}] Error fetching transactions:`, error);
     return [];
   }
 }
