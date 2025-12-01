@@ -103,7 +103,7 @@ export default function Earn() {
   const [aaveOperationStep, setAaveOperationStep] = useState<'input' | 'gas_check' | 'gas_drip' | 'signing' | 'submitting' | 'complete'>('input');
   const [gasDripPending, setGasDripPending] = useState(false);
   const [isOperating, setIsOperating] = useState(false);
-  const [chartViewMode, setChartViewMode] = useState<'balance' | 'earnings'>('balance');
+  const [chartViewMode, setChartViewMode] = useState<'balance' | 'earnings'>('earnings');
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -484,6 +484,13 @@ export default function Earn() {
     const nowPoint = combinedChartData.find(p => p.isNow);
     return (nowPoint?.principal || 0) > 0;
   }, [combinedChartData]);
+
+  // Auto-switch to balance mode if earnings mode becomes unavailable
+  useEffect(() => {
+    if (chartViewMode === 'earnings' && !canShowEarningsMode) {
+      setChartViewMode('balance');
+    }
+  }, [chartViewMode, canShowEarningsMode]);
 
   const { data: liquidBalanceBase } = useQuery<{ balance: string; balanceMicro: string }>({
     queryKey: ['/api/balance', address, 8453],
@@ -975,44 +982,50 @@ export default function Earn() {
 
         {hasAaveBalance && combinedChartData.length > 0 && (
           <Card className="p-4 space-y-3" data-testid="card-projected-earnings">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-medium">
-                {chartViewMode === 'balance' ? 'Your Savings Growth' : 'Interest Earned'}
-              </div>
-              <div className="flex items-center gap-2">
-                {yearlyEarnings > 0 && (
-                  <div className="text-xs text-muted-foreground">
-                    {formatSmartPrecision(yearlyEarnings, '+$')}/yr
-                  </div>
-                )}
-                <div className="flex rounded-md border border-border overflow-hidden">
-                  <button
-                    onClick={() => setChartViewMode('balance')}
-                    className={`px-2 py-0.5 text-xs transition-colors ${
-                      chartViewMode === 'balance' 
-                        ? 'bg-primary text-primary-foreground' 
-                        : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                    }`}
-                    data-testid="button-chart-balance"
-                  >
-                    $
-                  </button>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium">
+                  {chartViewMode === 'earnings' ? 'Projected % Growth' : 'Balance Over Time'}
+                </div>
+                <div className="flex rounded-lg border border-border overflow-hidden bg-muted/30">
                   <button
                     onClick={() => canShowEarningsMode && setChartViewMode('earnings')}
                     disabled={!canShowEarningsMode}
-                    className={`px-2 py-0.5 text-xs transition-colors ${
+                    className={`px-3 py-1 text-xs font-medium transition-colors ${
                       chartViewMode === 'earnings' 
-                        ? 'bg-primary text-primary-foreground' 
+                        ? 'bg-success text-success-foreground' 
                         : !canShowEarningsMode
-                        ? 'bg-muted/30 text-muted-foreground/50 cursor-not-allowed'
-                        : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                        ? 'text-muted-foreground/50 cursor-not-allowed'
+                        : 'text-muted-foreground hover:text-foreground'
                     }`}
                     data-testid="button-chart-earnings"
                   >
-                    +%
+                    % Growth
+                  </button>
+                  <button
+                    onClick={() => setChartViewMode('balance')}
+                    className={`px-3 py-1 text-xs font-medium transition-colors ${
+                      chartViewMode === 'balance' 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    data-testid="button-chart-balance"
+                  >
+                    $ Balance
                   </button>
                 </div>
               </div>
+              {/* Context caption for earnings mode */}
+              {chartViewMode === 'earnings' && totalAaveBalanceMicro && weightedApy > 0 && (
+                <div className="text-xs text-muted-foreground">
+                  Your <span className="font-medium text-foreground">${(Number(totalAaveBalanceMicro) / 1_000_000).toFixed(2)}</span> earning <span className="font-medium text-success">~{weightedApy.toFixed(2)}%</span> annually
+                </div>
+              )}
+              {chartViewMode === 'balance' && yearlyEarnings > 0 && (
+                <div className="text-xs text-muted-foreground">
+                  Projected earnings: <span className="font-medium text-success">{formatSmartPrecision(yearlyEarnings, '+$')}/year</span>
+                </div>
+              )}
             </div>
             
             <div className="h-36 w-full">
@@ -1054,12 +1067,19 @@ export default function Earn() {
                   />
                   <YAxis 
                     hide={chartViewMode === 'balance'}
-                    width={chartViewMode === 'earnings' ? 50 : 0}
+                    width={chartViewMode === 'earnings' ? 42 : 0}
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 8, fill: 'hsl(var(--muted-foreground))' }}
-                    tickFormatter={(val) => formatSmartPercent(val)}
+                    tick={{ fontSize: 8, fill: 'hsl(142, 71%, 45%)' }}
+                    tickFormatter={(val) => `+${val.toFixed(1)}%`}
                     domain={[0, 'auto']}
+                    label={chartViewMode === 'earnings' ? { 
+                      value: '% return', 
+                      angle: -90, 
+                      position: 'insideLeft',
+                      style: { fontSize: 8, fill: 'hsl(var(--muted-foreground))' },
+                      offset: 5
+                    } : undefined}
                   />
                   <Tooltip 
                     content={({ active, payload }) => {
