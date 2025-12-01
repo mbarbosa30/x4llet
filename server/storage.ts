@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo } from 'viem/chains';
@@ -229,6 +229,31 @@ export interface IStorage {
   getRecentGasDrips(address: string, chainId: number, since: Date): Promise<GasDrip[]>;
   createGasDrip(drip: { address: string; chainId: number; amount: string; status: string }): Promise<GasDrip>;
   updateGasDrip(id: string, update: { status?: string; txHash?: string }): Promise<void>;
+  
+  // Aave operation tracking for recovery
+  createAaveOperation(op: {
+    userAddress: string;
+    chainId: number;
+    operationType: 'supply' | 'withdraw';
+    amount: string;
+    status: string;
+    step?: string;
+  }): Promise<AaveOperation>;
+  updateAaveOperation(id: string, update: Partial<{
+    status: string;
+    step: string;
+    transferTxHash: string;
+    approveTxHash: string;
+    supplyTxHash: string;
+    refundTxHash: string;
+    errorMessage: string;
+    retryCount: number;
+    resolvedAt: Date;
+    resolvedBy: string;
+  }>): Promise<void>;
+  getAaveOperation(id: string): Promise<AaveOperation | null>;
+  getPendingAaveOperations(): Promise<AaveOperation[]>;
+  getFailedAaveOperations(): Promise<AaveOperation[]>;
 }
 
 export interface GasDrip {
@@ -567,6 +592,63 @@ export class MemStorage implements IStorage {
 
   async updateGasDrip(id: string, update: { status?: string; txHash?: string }): Promise<void> {
     // MemStorage doesn't track gas drips, no-op
+  }
+
+  async createAaveOperation(op: {
+    userAddress: string;
+    chainId: number;
+    operationType: 'supply' | 'withdraw';
+    amount: string;
+    status: string;
+    step?: string;
+  }): Promise<AaveOperation> {
+    // MemStorage stub
+    return {
+      id: randomUUID(),
+      userAddress: op.userAddress,
+      chainId: op.chainId,
+      operationType: op.operationType,
+      amount: op.amount,
+      status: op.status,
+      step: op.step || null,
+      transferTxHash: null,
+      approveTxHash: null,
+      supplyTxHash: null,
+      refundTxHash: null,
+      errorMessage: null,
+      retryCount: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      resolvedAt: null,
+      resolvedBy: null,
+    };
+  }
+
+  async updateAaveOperation(id: string, update: Partial<{
+    status: string;
+    step: string;
+    transferTxHash: string;
+    approveTxHash: string;
+    supplyTxHash: string;
+    refundTxHash: string;
+    errorMessage: string;
+    retryCount: number;
+    resolvedAt: Date;
+    resolvedBy: string;
+  }>): Promise<void> {
+    // MemStorage stub - no-op
+  }
+
+  async getAaveOperation(id: string): Promise<AaveOperation | null> {
+    return null;
+  }
+
+  async getPendingAaveOperations(): Promise<AaveOperation[]> {
+    return [];
+  }
+
+  async getFailedAaveOperations(): Promise<AaveOperation[]> {
+    return [];
   }
 }
 
@@ -1714,6 +1796,112 @@ export class DbStorage extends MemStorage {
     } catch (error) {
       console.error('[GasDrip] Error updating drip record:', error);
       throw error;
+    }
+  }
+
+  async createAaveOperation(op: {
+    userAddress: string;
+    chainId: number;
+    operationType: 'supply' | 'withdraw';
+    amount: string;
+    status: string;
+    step?: string;
+  }): Promise<AaveOperation> {
+    try {
+      const [result] = await db
+        .insert(aaveOperations)
+        .values({
+          userAddress: op.userAddress.toLowerCase(),
+          chainId: op.chainId,
+          operationType: op.operationType,
+          amount: op.amount,
+          status: op.status,
+          step: op.step,
+        })
+        .returning();
+      console.log('[AaveOps] Created operation record:', result.id);
+      return result;
+    } catch (error) {
+      console.error('[AaveOps] Error creating operation record:', error);
+      throw error;
+    }
+  }
+
+  async updateAaveOperation(id: string, update: Partial<{
+    status: string;
+    step: string;
+    transferTxHash: string;
+    approveTxHash: string;
+    supplyTxHash: string;
+    refundTxHash: string;
+    errorMessage: string;
+    retryCount: number;
+    resolvedAt: Date;
+    resolvedBy: string;
+  }>): Promise<void> {
+    try {
+      await db
+        .update(aaveOperations)
+        .set({
+          ...update,
+          updatedAt: new Date(),
+        })
+        .where(eq(aaveOperations.id, id));
+    } catch (error) {
+      console.error('[AaveOps] Error updating operation record:', error);
+      throw error;
+    }
+  }
+
+  async getAaveOperation(id: string): Promise<AaveOperation | null> {
+    try {
+      const [result] = await db
+        .select()
+        .from(aaveOperations)
+        .where(eq(aaveOperations.id, id))
+        .limit(1);
+      return result || null;
+    } catch (error) {
+      console.error('[AaveOps] Error fetching operation:', error);
+      return null;
+    }
+  }
+
+  async getPendingAaveOperations(): Promise<AaveOperation[]> {
+    try {
+      return await db
+        .select()
+        .from(aaveOperations)
+        .where(
+          or(
+            eq(aaveOperations.status, 'pending'),
+            eq(aaveOperations.status, 'transferring'),
+            eq(aaveOperations.status, 'approving'),
+            eq(aaveOperations.status, 'supplying')
+          )
+        )
+        .orderBy(desc(aaveOperations.createdAt));
+    } catch (error) {
+      console.error('[AaveOps] Error fetching pending operations:', error);
+      return [];
+    }
+  }
+
+  async getFailedAaveOperations(): Promise<AaveOperation[]> {
+    try {
+      return await db
+        .select()
+        .from(aaveOperations)
+        .where(
+          or(
+            eq(aaveOperations.status, 'failed'),
+            eq(aaveOperations.status, 'refund_failed')
+          )
+        )
+        .orderBy(desc(aaveOperations.createdAt));
+    } catch (error) {
+      console.error('[AaveOps] Error fetching failed operations:', error);
+      return [];
     }
   }
 }

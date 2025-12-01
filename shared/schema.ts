@@ -95,6 +95,28 @@ export const gasDrips = pgTable("gas_drips", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const aaveOperations = pgTable("aave_operations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userAddress: text("user_address").notNull(),
+  chainId: integer("chain_id").notNull(),
+  operationType: text("operation_type").notNull(), // 'supply' or 'withdraw'
+  amount: text("amount").notNull(), // Amount in micro-USDC
+  status: text("status").notNull().default('pending'), // pending, transferring, approving, supplying, completed, failed, refunded, refund_failed
+  step: text("step"), // Current step: 'transfer', 'approve', 'supply', 'withdraw'
+  transferTxHash: text("transfer_tx_hash"), // User's transfer to facilitator
+  approveTxHash: text("approve_tx_hash"), // Facilitator's approve tx
+  supplyTxHash: text("supply_tx_hash"), // Facilitator's supply tx
+  refundTxHash: text("refund_tx_hash"), // Refund tx if failed
+  errorMessage: text("error_message"),
+  retryCount: integer("retry_count").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: text("resolved_by"), // 'auto' or admin username
+});
+
+export type AaveOperation = typeof aaveOperations.$inferSelect;
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,

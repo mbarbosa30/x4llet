@@ -53,7 +53,7 @@ The application features a unified fixed header and bottom navigation across all
 ### External APIs
 - **MaxFlow API**: For network signal scoring and vouching (proxied via backend).
 - **fawazahmed0 Currency API**: For exchange rates (with dual CDN fallback).
-- **Etherscan v2 unified API**: For fetching transaction history across EVM chains.
+- **Etherscan v2 unified API**: Primary source for fetching transaction history across EVM chains. Falls back to chain-specific APIs (BaseScan, CeloScan) when unified API rate limits are hit.
 
 ### UI Component Libraries
 - **Radix UI**: Headless component primitives.
@@ -87,11 +87,17 @@ The application features a unified fixed header and bottom navigation across all
 - Users receive aUSDC (interest-bearing) when depositing USDC
 - Gas drip model: Facilitator sends small gas amounts (0.001 CELO or 0.0001 ETH) with 24-hour cooldown per chain
 
+**Operation Tracking & Recovery:**
+- All Aave supply operations are tracked in `aave_operations` database table
+- Tracks status through steps: pending → transferring → approving → supplying → completed
+- Automatic refund with retry logic (3 attempts, exponential backoff) if any step fails after transfer
+- Failed refunds are logged with status `refund_failed` for manual recovery
+- Admin endpoints for viewing stuck operations (`GET /api/admin/aave-operations`)
+- Admin can manually refund (`POST /api/admin/aave-operations/:id/refund`) or resolve (`POST /api/admin/aave-operations/:id/resolve`)
+
 **Phase 2 Requirements (Not Yet Implemented):**
-1. Actual supply/withdraw transaction execution (currently shows "coming soon")
-2. Auto-withdraw orchestration in Send flow when liquid USDC is insufficient
-3. Background sync for accrued interest display
-4. Failure handling and transaction logging for facilitator relays
+1. Auto-withdraw orchestration in Send flow when liquid USDC is insufficient
+2. Background sync for accrued interest display
 
 ## Future Vision: Savings-Backed Pay Later
 

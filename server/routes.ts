@@ -560,7 +560,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Gasless Aave supply using EIP-3009 TransferWithAuthorization
   // Flow: User signs auth to transfer USDC to facilitator -> Facilitator receives USDC -> 
   //       Facilitator approves Aave -> Facilitator supplies on behalf of user
+  // Now includes operation tracking for recovery and retry logic for refunds
   app.post('/api/aave/supply', async (req, res) => {
+    let operationId: string | null = null;
+    
     try {
       const { 
         chainId, 
@@ -586,6 +589,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!network || !network.aavePoolAddress) {
         return res.status(400).json({ error: 'Aave not supported on this network' });
       }
+
+      // Create operation record for tracking/recovery
+      const operation = await storage.createAaveOperation({
+        userAddress,
+        chainId,
+        operationType: 'supply',
+        amount,
+        status: 'pending',
+        step: 'transfer',
+      });
+      operationId = operation.id;
+      console.log('[Aave Supply] Created operation record:', operationId);
 
       const chain = chainId === 8453 ? base : celo;
       const facilitatorAccount = getFacilitatorAccount();
@@ -613,6 +628,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Parse and validate signature
       if (!signature || typeof signature !== 'string' || !signature.startsWith('0x')) {
+        await storage.updateAaveOperation(operationId, { status: 'failed', errorMessage: 'Invalid signature format' });
         return res.status(400).json({ error: 'Invalid signature format' });
       }
       
@@ -620,16 +636,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         signatureParts = hexToSignature(signature as Hex);
       } catch (e) {
+        await storage.updateAaveOperation(operationId, { status: 'failed', errorMessage: 'Failed to parse signature' });
         return res.status(400).json({ error: 'Failed to parse signature' });
       }
       
       const { v, r, s } = signatureParts;
       
       if (v === undefined || r === undefined || s === undefined) {
+        await storage.updateAaveOperation(operationId, { status: 'failed', errorMessage: 'Invalid signature components' });
         return res.status(400).json({ error: 'Invalid signature components' });
       }
 
       // Step 1: Execute transferWithAuthorization to receive USDC from user
+      await storage.updateAaveOperation(operationId, { status: 'transferring', step: 'transfer' });
       console.log('[Aave Supply] Step 1: Executing transferWithAuthorization with nonce:', currentNonce);
       
       const transferHash = await walletClient.writeContract({
@@ -652,38 +671,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
       currentNonce++; // Increment for next transaction
 
       console.log('[Aave Supply] Transfer tx hash:', transferHash);
+      await storage.updateAaveOperation(operationId, { transferTxHash: transferHash });
+      
       const transferReceipt = await publicClient.waitForTransactionReceipt({ hash: transferHash });
       
       if (transferReceipt.status !== 'success') {
+        await storage.updateAaveOperation(operationId, { 
+          status: 'failed', 
+          errorMessage: 'Transfer authorization failed - funds still with user'
+        });
         return res.status(400).json({ error: 'Transfer authorization failed' });
       }
       console.log('[Aave Supply] Transfer confirmed');
 
-      // Helper to refund USDC to user if later steps fail
-      // Uses currentNonce which is always ahead of any pending transactions
-      const refundUser = async (reason: string) => {
+      // Helper to refund USDC to user with retry logic (up to 3 attempts with exponential backoff)
+      const refundUserWithRetry = async (reason: string, maxRetries = 3): Promise<{ success: boolean; txHash?: string }> => {
         console.log(`[Aave Supply] Refunding user due to: ${reason}`);
-        console.log('[Aave Supply] Refund nonce:', currentNonce);
-        try {
-          const refundHash = await walletClient.writeContract({
-            address: network.usdcAddress as Address,
-            abi: ERC20_ABI,
-            functionName: 'transfer',
-            nonce: currentNonce,
-            args: [userAddress as Address, BigInt(amount)],
-          });
-          currentNonce++; // Increment in case we need to retry
-          console.log('[Aave Supply] Refund tx hash:', refundHash);
-          await publicClient.waitForTransactionReceipt({ hash: refundHash });
-          console.log('[Aave Supply] Refund completed');
-          return true;
-        } catch (refundError) {
-          console.error('[Aave Supply] CRITICAL: Refund failed!', refundError);
-          return false;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          console.log(`[Aave Supply] Refund attempt ${attempt}/${maxRetries}, nonce: ${currentNonce}`);
+          
+          try {
+            const refundHash = await walletClient.writeContract({
+              address: network.usdcAddress as Address,
+              abi: ERC20_ABI,
+              functionName: 'transfer',
+              nonce: currentNonce,
+              args: [userAddress as Address, BigInt(amount)],
+            });
+            currentNonce++;
+            console.log('[Aave Supply] Refund tx hash:', refundHash);
+            
+            const receipt = await publicClient.waitForTransactionReceipt({ hash: refundHash });
+            
+            if (receipt.status === 'success') {
+              console.log('[Aave Supply] Refund completed successfully');
+              await storage.updateAaveOperation(operationId!, { 
+                status: 'refunded',
+                refundTxHash: refundHash,
+                errorMessage: reason,
+                retryCount: attempt,
+                resolvedAt: new Date(),
+                resolvedBy: 'auto'
+              });
+              return { success: true, txHash: refundHash };
+            }
+          } catch (refundError) {
+            console.error(`[Aave Supply] Refund attempt ${attempt} failed:`, refundError);
+            
+            // Wait with exponential backoff before retry (2s, 4s, 8s)
+            if (attempt < maxRetries) {
+              const backoffMs = Math.pow(2, attempt) * 1000;
+              console.log(`[Aave Supply] Waiting ${backoffMs}ms before retry...`);
+              await new Promise(resolve => setTimeout(resolve, backoffMs));
+              
+              // Re-fetch nonce in case it changed
+              currentNonce = await publicClient.getTransactionCount({ address: facilitatorAddress });
+            }
+          }
         }
+        
+        // All retries failed - log for manual recovery
+        console.error('[Aave Supply] CRITICAL: All refund attempts failed!');
+        await storage.updateAaveOperation(operationId!, { 
+          status: 'refund_failed',
+          errorMessage: `${reason} - REFUND FAILED AFTER ${maxRetries} ATTEMPTS`,
+          retryCount: maxRetries
+        });
+        return { success: false };
       };
 
       // Step 2: Approve Aave Pool to spend the received USDC
+      await storage.updateAaveOperation(operationId, { status: 'approving', step: 'approve' });
       console.log('[Aave Supply] Step 2: Approving Aave Pool with nonce:', currentNonce);
       
       let approveHash;
@@ -696,13 +755,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           args: [network.aavePoolAddress as Address, BigInt(amount)],
         });
         currentNonce++; // Increment for next transaction
+        await storage.updateAaveOperation(operationId, { approveTxHash: approveHash });
       } catch (approveError) {
         console.error('[Aave Supply] Approve transaction failed:', approveError);
-        const refunded = await refundUser('Approval transaction failed');
+        const refundResult = await refundUserWithRetry('Approval transaction failed');
         return res.status(400).json({ 
           error: 'Approval failed', 
-          refunded,
-          refundMessage: refunded ? 'USDC has been returned to your wallet' : 'CRITICAL: Could not refund - contact support'
+          refunded: refundResult.success,
+          refundTxHash: refundResult.txHash,
+          operationId,
+          refundMessage: refundResult.success ? 'USDC has been returned to your wallet' : 'CRITICAL: Could not refund - contact support'
         });
       }
 
@@ -710,21 +772,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveHash });
       
       if (approveReceipt.status !== 'success') {
-        const refunded = await refundUser('Approval transaction reverted');
+        const refundResult = await refundUserWithRetry('Approval transaction reverted');
         return res.status(400).json({ 
           error: 'Approval failed',
-          refunded,
-          refundMessage: refunded ? 'USDC has been returned to your wallet' : 'CRITICAL: Could not refund - contact support'
+          refunded: refundResult.success,
+          refundTxHash: refundResult.txHash,
+          operationId,
+          refundMessage: refundResult.success ? 'USDC has been returned to your wallet' : 'CRITICAL: Could not refund - contact support'
         });
       }
       console.log('[Aave Supply] Approval confirmed');
 
       // Wait for state propagation across L2 nodes before supplying
-      // This prevents "transfer amount exceeds allowance" errors due to stale state reads
       console.log('[Aave Supply] Waiting for state propagation...');
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       // Step 3: Supply to Aave on behalf of user (user receives aTokens)
+      await storage.updateAaveOperation(operationId, { status: 'supplying', step: 'supply' });
       console.log('[Aave Supply] Step 3: Supplying to Aave with nonce:', currentNonce);
       
       let supplyHash;
@@ -741,13 +805,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             0, // referral code
           ],
         });
+        await storage.updateAaveOperation(operationId, { supplyTxHash: supplyHash });
       } catch (supplyError) {
         console.error('[Aave Supply] Supply transaction failed:', supplyError);
-        const refunded = await refundUser('Supply transaction failed');
+        const refundResult = await refundUserWithRetry('Supply transaction failed');
         return res.status(400).json({ 
           error: 'Supply failed',
-          refunded,
-          refundMessage: refunded ? 'USDC has been returned to your wallet' : 'CRITICAL: Could not refund - contact support'
+          refunded: refundResult.success,
+          refundTxHash: refundResult.txHash,
+          operationId,
+          refundMessage: refundResult.success ? 'USDC has been returned to your wallet' : 'CRITICAL: Could not refund - contact support'
         });
       }
 
@@ -755,17 +822,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const supplyReceipt = await publicClient.waitForTransactionReceipt({ hash: supplyHash });
 
       if (supplyReceipt.status !== 'success') {
-        const refunded = await refundUser('Supply transaction reverted');
+        const refundResult = await refundUserWithRetry('Supply transaction reverted');
         return res.status(400).json({ 
           error: 'Supply failed',
-          refunded,
-          refundMessage: refunded ? 'USDC has been returned to your wallet' : 'CRITICAL: Could not refund - contact support'
+          refunded: refundResult.success,
+          refundTxHash: refundResult.txHash,
+          operationId,
+          refundMessage: refundResult.success ? 'USDC has been returned to your wallet' : 'CRITICAL: Could not refund - contact support'
         });
       }
+      
+      // Success! Mark operation as completed
+      await storage.updateAaveOperation(operationId, { 
+        status: 'completed',
+        resolvedAt: new Date(),
+        resolvedBy: 'auto'
+      });
       console.log('[Aave Supply] Supply confirmed! User now has aTokens');
 
       res.json({
         success: true,
+        operationId,
         txHash: supplyHash,
         transferTxHash: transferHash,
         approveTxHash: approveHash,
@@ -777,16 +854,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('[Aave Supply] Error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
+      // Update operation with error if we have an ID
+      if (operationId) {
+        await storage.updateAaveOperation(operationId, { 
+          status: 'failed', 
+          errorMessage 
+        });
+      }
+      
       // Parse revert reason if available
       if (errorMessage.includes('execution reverted')) {
         return res.status(400).json({ 
           error: 'Transaction reverted',
           details: errorMessage,
+          operationId,
           hint: 'Check if the authorization signature is valid and not expired'
         });
       }
       
-      res.status(500).json({ error: 'Failed to supply to Aave', details: errorMessage });
+      res.status(500).json({ error: 'Failed to supply to Aave', details: errorMessage, operationId });
     }
   });
 
@@ -1549,6 +1635,159 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching recent activity:', error);
       res.status(500).json({ error: 'Failed to fetch recent activity' });
+    }
+  });
+
+  // Aave Operations Admin Endpoints
+  app.get('/api/admin/aave-operations', adminAuthMiddleware, async (req, res) => {
+    try {
+      const { status } = req.query;
+      let operations;
+      
+      if (status === 'failed') {
+        operations = await storage.getFailedAaveOperations();
+      } else if (status === 'pending') {
+        operations = await storage.getPendingAaveOperations();
+      } else {
+        // Get both failed and pending by default
+        const [failed, pending] = await Promise.all([
+          storage.getFailedAaveOperations(),
+          storage.getPendingAaveOperations(),
+        ]);
+        operations = [...failed, ...pending].sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      }
+      
+      res.json({
+        count: operations.length,
+        operations: operations.map(op => ({
+          ...op,
+          amountFormatted: (parseFloat(op.amount) / 1000000).toFixed(2) + ' USDC',
+          chainName: op.chainId === 8453 ? 'Base' : 'Celo',
+        })),
+      });
+    } catch (error) {
+      console.error('Error fetching Aave operations:', error);
+      res.status(500).json({ error: 'Failed to fetch Aave operations' });
+    }
+  });
+
+  app.get('/api/admin/aave-operations/:id', adminAuthMiddleware, async (req, res) => {
+    try {
+      const operation = await storage.getAaveOperation(req.params.id);
+      if (!operation) {
+        return res.status(404).json({ error: 'Operation not found' });
+      }
+      res.json({
+        ...operation,
+        amountFormatted: (parseFloat(operation.amount) / 1000000).toFixed(2) + ' USDC',
+        chainName: operation.chainId === 8453 ? 'Base' : 'Celo',
+      });
+    } catch (error) {
+      console.error('Error fetching Aave operation:', error);
+      res.status(500).json({ error: 'Failed to fetch Aave operation' });
+    }
+  });
+
+  // Manual refund endpoint for stuck deposits
+  app.post('/api/admin/aave-operations/:id/refund', adminAuthMiddleware, async (req, res) => {
+    try {
+      const operation = await storage.getAaveOperation(req.params.id);
+      if (!operation) {
+        return res.status(404).json({ error: 'Operation not found' });
+      }
+      
+      if (operation.status === 'completed' || operation.status === 'refunded') {
+        return res.status(400).json({ error: 'Operation already resolved', status: operation.status });
+      }
+      
+      // Only allow refund if transfer completed (funds are with facilitator)
+      if (!operation.transferTxHash) {
+        return res.status(400).json({ 
+          error: 'Cannot refund - transfer not completed. Funds still with user.',
+          status: operation.status
+        });
+      }
+
+      const network = getNetworkByChainId(operation.chainId);
+      if (!network) {
+        return res.status(400).json({ error: 'Invalid chain ID' });
+      }
+
+      const chain = operation.chainId === 8453 ? base : celo;
+      const facilitatorAccount = getFacilitatorAccount();
+
+      const walletClient = createWalletClient({
+        account: facilitatorAccount,
+        chain,
+        transport: http(network.rpcUrl),
+      });
+
+      const publicClient = createPublicClient({
+        chain,
+        transport: http(network.rpcUrl),
+      });
+
+      console.log('[Admin Refund] Processing manual refund for operation:', operation.id);
+      console.log('[Admin Refund] User:', operation.userAddress, 'Amount:', operation.amount);
+
+      const refundHash = await walletClient.writeContract({
+        address: network.usdcAddress as Address,
+        abi: ERC20_ABI,
+        functionName: 'transfer',
+        args: [operation.userAddress as Address, BigInt(operation.amount)],
+      });
+
+      console.log('[Admin Refund] Refund tx hash:', refundHash);
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: refundHash });
+
+      if (receipt.status === 'success') {
+        await storage.updateAaveOperation(operation.id, {
+          status: 'refunded',
+          refundTxHash: refundHash,
+          resolvedAt: new Date(),
+          resolvedBy: 'admin',
+        });
+
+        res.json({
+          success: true,
+          refundTxHash: refundHash,
+          message: 'USDC successfully refunded to user',
+        });
+      } else {
+        res.status(500).json({ error: 'Refund transaction failed', txHash: refundHash });
+      }
+    } catch (error) {
+      console.error('Error processing manual refund:', error);
+      res.status(500).json({ 
+        error: 'Failed to process refund', 
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Mark operation as resolved (for cases where refund was done manually outside the system)
+  app.post('/api/admin/aave-operations/:id/resolve', adminAuthMiddleware, async (req, res) => {
+    try {
+      const { status, notes } = req.body;
+      const operation = await storage.getAaveOperation(req.params.id);
+      
+      if (!operation) {
+        return res.status(404).json({ error: 'Operation not found' });
+      }
+      
+      await storage.updateAaveOperation(operation.id, {
+        status: status || 'refunded',
+        errorMessage: notes || operation.errorMessage,
+        resolvedAt: new Date(),
+        resolvedBy: 'admin_manual',
+      });
+
+      res.json({ success: true, message: 'Operation marked as resolved' });
+    } catch (error) {
+      console.error('Error resolving operation:', error);
+      res.status(500).json({ error: 'Failed to resolve operation' });
     }
   });
 
