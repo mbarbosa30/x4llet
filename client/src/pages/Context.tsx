@@ -1,5 +1,5 @@
 import { useLocation } from 'wouter';
-import { ArrowLeft, Shield, Users, Zap, Globe, HeartHandshake, Wrench, TrendingUp, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Shield, Users, Zap, Globe, HeartHandshake, Wrench, TrendingUp, AlertCircle, PiggyBank } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -121,6 +121,27 @@ export default function Context() {
                   <li><strong>Transparency:</strong> each payout has a human-readable receipt; auditors can verify on-chain.</li>
                   <li><strong>Cash-out flexibility:</strong> programs can pair wallet payouts with local agents, mobile money, or bank rails (outside the wallet).</li>
                 </ul>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4 space-y-4">
+            <div className="flex items-start gap-3">
+              <PiggyBank className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+              <div className="space-y-2">
+                <h3 className="font-semibold">Earn Mode: Put your USDC to work</h3>
+                <p className="text-sm text-muted-foreground">
+                  Instead of letting your USDC sit idle, you can deposit it into Aave V3 to earn yield automatically.
+                </p>
+                <ul className="space-y-1.5 text-sm text-muted-foreground">
+                  <li><strong>No gas tokens needed:</strong> deposit USDC without holding native tokens. Our relayer handles the blockchain transactions for you when available.</li>
+                  <li><strong>Estimated earnings display:</strong> see your projected balance grow based on current APY. Actual earnings are calculated by the Aave protocol.</li>
+                  <li><strong>Withdraw anytime:</strong> your funds are never locked. Withdraw back to your wallet whenever you need them.</li>
+                  <li><strong>Multi-chain support:</strong> earn on both Base and Celo networks with variable APY rates.</li>
+                </ul>
+                <p className="text-sm text-muted-foreground">
+                  Aave is a battle-tested DeFi protocol with billions in deposits. Your USDC is supplied to Aave's lending pool, and you receive aUSDC tokens representing your deposit plus accrued interest.
+                </p>
               </div>
             </div>
           </Card>

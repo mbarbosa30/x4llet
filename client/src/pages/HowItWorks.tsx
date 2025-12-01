@@ -127,6 +127,55 @@ export default function HowItWorks() {
             You can switch networks in Settings. Your wallet address is the same on both networks.
           </p>
         </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold">Earn Mode</h2>
+          <p className="text-sm text-muted-foreground">
+            Earn Mode lets you deposit your USDC into Aave V3 to earn interest automatically. Instead of your money sitting idle, 
+            it works for you by being supplied to a decentralized lending protocol.
+          </p>
+          <p className="text-sm text-muted-foreground font-medium">
+            How it works:
+          </p>
+          <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground ml-2">
+            <li>Enable Earn Mode in Settings or go to the Earn page</li>
+            <li>Choose how much USDC to deposit</li>
+            <li>Sign the authorization (no gas tokens needed - our relayer submits it)</li>
+            <li>Your USDC is deposited to Aave, and you receive aUSDC tokens</li>
+            <li>See your estimated balance grow based on current APY</li>
+          </ol>
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium">Withdrawing:</span> You can withdraw your USDC back to your wallet anytime. 
+            There are no lock-up periods. Just sign the withdrawal authorization and our relayer will process it.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium">About aUSDC:</span> When you deposit, you receive aUSDC tokens that represent your 
+            deposit plus accrued interest. The aUSDC balance increases as interest accrues in the Aave protocol. When you withdraw, 
+            your aUSDC is converted back to USDC at the current value.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium">Note:</span> Deposits and withdrawals depend on our relayer service being available. 
+            If a transaction fails, you can retry. Your funds remain safe in your wallet or in Aave.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold">Aave Protocol</h2>
+          <p className="text-sm text-muted-foreground">
+            Aave is one of the largest and most trusted decentralized finance (DeFi) protocols. It operates as a 
+            non-custodial lending pool where users can supply assets to earn interest, or borrow against their deposits.
+          </p>
+          <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-2">
+            <li><span className="font-medium">Battle-tested:</span> Aave has been running since 2020 with billions in total value locked</li>
+            <li><span className="font-medium">Audited:</span> The protocol has been audited by multiple security firms</li>
+            <li><span className="font-medium">Non-custodial:</span> Your funds are held by smart contracts, not a company</li>
+            <li><span className="font-medium">Variable rates:</span> APY changes based on supply and demand in the lending pool</li>
+          </ul>
+          <p className="text-sm text-muted-foreground font-medium mt-2">
+            Important: While Aave is well-established, DeFi protocols carry smart contract risk. Only deposit what you can afford 
+            to have exposed to this risk.
+          </p>
+        </section>
         </div>
       </main>
     </div>

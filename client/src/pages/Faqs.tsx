@@ -274,6 +274,91 @@ export default function Faqs() {
               </p>
             </AccordionContent>
           </AccordionItem>
+
+          <AccordionItem value="earn-mode">
+            <AccordionTrigger data-testid="faq-earn-mode">
+              What is Earn Mode?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground mb-2">
+                Earn Mode lets you deposit your USDC into Aave V3 to earn interest automatically. Instead of your money sitting 
+                idle in your wallet, it earns yield by being supplied to a decentralized lending protocol.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                You can enable Earn Mode in Settings or go directly to the Earn page. You don't need to hold gas tokens - 
+                just sign an authorization and our relayer handles the blockchain transactions for you.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="earn-safe">
+            <AccordionTrigger data-testid="faq-earn-safe">
+              Is my money safe in Earn Mode?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground mb-2">
+                Your USDC is deposited into Aave V3, one of the largest and most trusted DeFi protocols:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-2">
+                <li><span className="font-medium">Battle-tested:</span> Running since 2020 with billions in deposits</li>
+                <li><span className="font-medium">Audited:</span> Multiple security audits by leading firms</li>
+                <li><span className="font-medium">Non-custodial:</span> Funds held by smart contracts, not a company</li>
+              </ul>
+              <p className="text-sm text-muted-foreground mt-2">
+                However, all DeFi protocols carry smart contract risk. While Aave has an excellent track record, only deposit 
+                what you're comfortable having exposed to this risk.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="earn-withdraw">
+            <AccordionTrigger data-testid="faq-earn-withdraw">
+              How do I withdraw my savings?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground mb-2">
+                Go to the Earn page and tap "Withdraw". Choose how much to withdraw (or tap "Max" for everything), then sign 
+                the authorization. Our relayer will process the withdrawal and return USDC to your wallet.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                There are no lock-up periods - you can withdraw anytime. If a withdrawal fails due to network issues, 
+                you can retry. Your funds remain safe in Aave until successfully withdrawn.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="earn-apy">
+            <AccordionTrigger data-testid="faq-earn-apy">
+              What APY can I expect?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground mb-2">
+                APY (Annual Percentage Yield) varies based on supply and demand in the Aave lending pool. Current rates are 
+                displayed on the Earn page and in Settings, and update when you refresh.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Rates typically range from 1-5% for USDC, but can be higher or lower depending on market conditions. The rate 
+                is variable and changes over time.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="earn-ausdc">
+            <AccordionTrigger data-testid="faq-earn-ausdc">
+              What is aUSDC?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground mb-2">
+                When you deposit USDC to Aave, you receive aUSDC (Aave USDC) tokens in return. These tokens represent your 
+                deposit plus any interest earned.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                The aUSDC balance increases as interest accrues in the Aave protocol. The Earn page shows an estimated balance 
+                based on current APY - pull down to refresh for the latest on-chain value. When you withdraw, your aUSDC is 
+                converted back to regular USDC.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
         </Accordion>
         </div>
       </main>
