@@ -238,7 +238,8 @@ export async function withdrawFromAave(
     console.log('[Aave Withdraw] Checking gas balance...');
 
     const gasBalance = await publicClient.getBalance({ address: accountAddress });
-    const minGasRequired = chainId === 42220 ? BigInt(1e15) : BigInt(1e14);
+    // Aave operations need ~250k gas, at 30 gwei = 0.0075 CELO, use 0.01 threshold
+    const minGasRequired = chainId === 42220 ? BigInt(1e16) : BigInt(1e14);
 
     console.log('[Aave Withdraw] Gas balance:', gasBalance.toString(), 'Required:', minGasRequired.toString());
 
@@ -322,13 +323,14 @@ export async function withdrawFromAave(
     
     if (chainId === 42220) {
       // Celo: Skip simulation, use explicit gas limit
+      // Aave withdrawals typically use 150-200k gas, using 250k for safety margin
       console.log('[Aave Withdraw] Celo chain - using direct write with explicit gas limit...');
       withdrawHash = await walletClient.writeContract({
         address: poolAddress,
         abi: AAVE_POOL_ABI,
         functionName: 'withdraw',
         args: [usdcAddress, amountToWithdraw, accountAddress],
-        gas: 500000n, // 500k gas should be plenty for Aave withdraw
+        gas: 250000n, // 250k gas - typical Aave withdraw uses ~180k
       });
     } else {
       // Other chains: Simulate first for better error messages

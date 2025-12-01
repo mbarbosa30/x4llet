@@ -827,16 +827,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GAS DRIP ENDPOINTS
-  // Minimum gas thresholds for transactions
+  // Minimum gas thresholds for transactions (should cover Aave operations)
   const GAS_THRESHOLDS = {
     8453: BigInt('50000000000000'), // 0.00005 ETH for Base (~$0.15)
-    42220: BigInt('1000000000000000'), // 0.001 CELO for Celo (~$0.0005)
+    42220: BigInt('10000000000000000'), // 0.01 CELO for Celo (Aave needs ~0.0075 CELO)
   };
 
   // Gas drip amounts (enough for 1-2 Aave transactions)
+  // Aave withdrawals need ~250k gas, at 30 gwei that's 0.0075 CELO
   const GAS_DRIP_AMOUNTS = {
     8453: BigInt('100000000000000'), // 0.0001 ETH for Base
-    42220: BigInt('2000000000000000'), // 0.002 CELO for Celo
+    42220: BigInt('15000000000000000'), // 0.015 CELO for Celo (enough for Aave operations)
   };
 
   // Check user's native gas balance
