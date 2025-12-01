@@ -514,7 +514,7 @@ export default function Earn() {
       }}
     >
       <main className="max-w-md mx-auto p-4 space-y-6">
-        {!hasAaveBalance && (
+        {!hasAaveBalance && !isAaveBalanceBaseLoading && !isAaveBalanceCeloLoading && (
           <div className="text-center space-y-2">
             <div className="flex items-center justify-center gap-2">
               <Sparkles className="h-6 w-6 text-primary" />
