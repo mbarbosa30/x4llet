@@ -326,24 +326,40 @@ export async function withdrawFromAave(
     }
 
     return { success: true, txHash: withdrawHash };
-  } catch (error) {
-    console.error('[Aave Withdraw] Error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    // Use BigInt-safe serialization for error details
-    try {
-      const errorDetails = error instanceof Error 
-        ? JSON.stringify(error, (_, v) => typeof v === 'bigint' ? v.toString() : v) 
-        : '';
-      console.error('[Aave Withdraw] Error details:', errorDetails);
-    } catch {
-      console.error('[Aave Withdraw] Could not serialize error details');
-    }
+  } catch (error: unknown) {
+    // Extract viem error properties - viem errors have special structure
+    const viemError = error as { 
+      shortMessage?: string; 
+      details?: string; 
+      cause?: { shortMessage?: string; details?: string; message?: string };
+      message?: string;
+      name?: string;
+    };
     
-    if (errorMessage.includes('insufficient funds')) {
+    // Log all available error information
+    console.error('[Aave Withdraw] Error name:', viemError.name);
+    console.error('[Aave Withdraw] Error message:', viemError.message);
+    console.error('[Aave Withdraw] Short message:', viemError.shortMessage);
+    console.error('[Aave Withdraw] Details:', viemError.details);
+    console.error('[Aave Withdraw] Cause:', viemError.cause);
+    
+    // Build comprehensive error string from all available properties
+    const errorParts = [
+      viemError.shortMessage,
+      viemError.details,
+      viemError.message,
+      viemError.cause?.shortMessage,
+      viemError.cause?.details,
+      viemError.cause?.message,
+    ].filter(Boolean);
+    
+    const errorMessage = errorParts.join(' | ') || 'Unknown error';
+    console.error('[Aave Withdraw] Combined error:', errorMessage);
+    
+    if (errorMessage.includes('insufficient funds') || errorMessage.includes('Insufficient funds')) {
       return { success: false, error: 'Insufficient gas for transaction - please try again in a moment' };
     }
-    if (errorMessage.includes('execution reverted')) {
-      // Try to extract more specific error if available
+    if (errorMessage.includes('execution reverted') || errorMessage.includes('reverted')) {
       console.error('[Aave Withdraw] Revert error message:', errorMessage);
       
       if (errorMessage.includes('INSUFFICIENT_BALANCE') || errorMessage.includes('insufficient balance')) {
@@ -361,9 +377,12 @@ export async function withdrawFromAave(
       if (errorMessage.includes('INVALID_AMOUNT')) {
         return { success: false, error: 'Invalid withdrawal amount. Please try a different amount.' };
       }
-      // Log the full error for debugging
+      if (errorMessage.includes('32') || errorMessage.includes('0x32')) {
+        // Error code 32 in Aave means "Invalid amount" 
+        return { success: false, error: 'Invalid withdrawal amount - please try a different value' };
+      }
       console.error('[Aave Withdraw] Full revert details:', errorMessage);
-      return { success: false, error: 'Transaction reverted. Please try a smaller amount or try again later.' };
+      return { success: false, error: `Transaction reverted: ${errorMessage.substring(0, 150)}` };
     }
     if (errorMessage.includes('User rejected') || errorMessage.includes('user rejected')) {
       return { success: false, error: 'Transaction cancelled' };
@@ -372,8 +391,8 @@ export async function withdrawFromAave(
       return { success: false, error: 'Transaction nonce error - please try again' };
     }
     
-    // For unknown errors, provide a cleaner message
-    return { success: false, error: `Withdrawal failed: ${errorMessage.substring(0, 100)}` };
+    // For unknown errors, provide a cleaner message with more context
+    return { success: false, error: `Withdrawal failed: ${errorMessage.substring(0, 150)}` };
   }
 }
 
