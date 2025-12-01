@@ -1058,7 +1058,7 @@ export default function Earn() {
                     domain={[0, 'auto']}
                     tickCount={5}
                   />
-                  {/* Right Y-axis for % growth */}
+                  {/* Right Y-axis for % growth - offset with extra headroom so line sits lower */}
                   <YAxis 
                     yAxisId="percent"
                     orientation="right"
@@ -1067,7 +1067,8 @@ export default function Earn() {
                     tickLine={false}
                     tick={{ fontSize: 8, fill: 'hsl(142, 71%, 45%)' }}
                     tickFormatter={(val) => `+${val.toFixed(1)}%`}
-                    domain={[0, 'auto']}
+                    domain={[0, (dataMax: number) => dataMax * 1.6]}
+                    tickCount={4}
                   />
                   <Tooltip 
                     content={({ active, payload }) => {
