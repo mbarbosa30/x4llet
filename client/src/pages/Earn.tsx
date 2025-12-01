@@ -89,6 +89,36 @@ function formatSmartPercent(value: number): string {
   }
 }
 
+function formatSmartCurrencyTick(value: number): string {
+  if (value === 0) return '$0';
+  const absValue = Math.abs(value);
+  
+  if (absValue >= 1000) {
+    return `$${(value / 1000).toFixed(1)}k`;
+  } else if (absValue >= 100) {
+    return `$${value.toFixed(0)}`;
+  } else if (absValue >= 10) {
+    return `$${value.toFixed(1)}`;
+  } else if (absValue >= 1) {
+    return `$${value.toFixed(2)}`;
+  } else if (absValue >= 0.1) {
+    // $0.10 - $0.99: show 2 decimals
+    return `$${value.toFixed(2)}`;
+  } else if (absValue >= 0.01) {
+    // $0.01 - $0.09: show 2 decimals
+    return `$${value.toFixed(2)}`;
+  } else if (absValue >= 0.001) {
+    // $0.001 - $0.009: show 3 decimals
+    return `$${value.toFixed(3)}`;
+  } else if (absValue >= 0.0001) {
+    // $0.0001 - $0.0009: show 4 decimals
+    return `$${value.toFixed(4)}`;
+  } else {
+    // Very tiny values
+    return `$${value.toFixed(5)}`;
+  }
+}
+
 export default function Earn() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -103,6 +133,7 @@ export default function Earn() {
   const [aaveOperationStep, setAaveOperationStep] = useState<'input' | 'gas_check' | 'gas_drip' | 'signing' | 'submitting' | 'complete'>('input');
   const [gasDripPending, setGasDripPending] = useState(false);
   const [isOperating, setIsOperating] = useState(false);
+  const [chartScale, setChartScale] = useState<'linear' | 'log'>('linear');
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -372,47 +403,48 @@ export default function Earn() {
     });
     
     // Add projected points - principal stays flat, interest grows per chain
+    // Generate monthly points over 36 months for smooth exponential curve
     if (currentBalance > 0) {
       const monthlyRateBase = baseApy / 100 / 12;
       const monthlyRateCelo = celoApy / 100 / 12;
       
-      // Short-term projections (weeks) to show sub-cent interest
-      const shortTermPoints = [
-        { months: 1/52 * 12, label: '+1w' },   // 1 week
-        { months: 2/52 * 12, label: '+2w' },   // 2 weeks
-        { months: 1, label: '+1mo' },          // 1 month
-        { months: 2, label: '+2mo' },          // 2 months
+      // Generate points at increasing intervals for smooth exponential curve
+      // Week 1, 2 (to show early growth), then months 1-36
+      const projectionPoints: { months: number; label: string }[] = [
+        { months: 1/4.33, label: '+1w' },   // ~1 week
+        { months: 2/4.33, label: '+2w' },   // ~2 weeks
       ];
       
-      for (const point of shortTermPoints) {
+      // Monthly points from 1-12 months
+      for (let m = 1; m <= 12; m++) {
+        projectionPoints.push({ 
+          months: m, 
+          label: m === 1 ? '+1mo' : m === 6 ? '+6mo' : m === 12 ? '+1yr' : `+${m}mo`
+        });
+      }
+      
+      // Continue with quarterly points from 15-36 months for dramatic exponential curve
+      for (let m = 15; m <= 36; m += 3) {
+        const years = m / 12;
+        projectionPoints.push({ 
+          months: m, 
+          label: m === 24 ? '+2yr' : m === 36 ? '+3yr' : `+${years.toFixed(1)}yr`
+        });
+      }
+      
+      // Only show labels for key milestones to avoid clutter
+      const labeledMonths = new Set([1/4.33, 2/4.33, 1, 3, 6, 12, 24, 36]);
+      
+      for (const point of projectionPoints) {
         const baseInterestEarned = baseBalance * (Math.pow(1 + monthlyRateBase, point.months) - 1);
         const celoInterestEarned = celoBalance * (Math.pow(1 + monthlyRateCelo, point.months) - 1);
         const totalInterest = baseInterestEarned + celoInterestEarned;
         
-        data.push({
-          label: point.label,
-          isProjected: true,
-          basePrincipal: baseBalance,
-          baseInterest: baseInterestEarned,
-          celoPrincipal: celoBalance,
-          celoInterest: celoInterestEarned,
-          principal: currentBalance,
-          interest: totalInterest,
-          total: currentBalance + totalInterest,
-          historicalBalance: null,
-          baseInterestPercent: baseBalance > 0 ? (baseInterestEarned / baseBalance) * 100 : 0,
-          celoInterestPercent: celoBalance > 0 ? (celoInterestEarned / celoBalance) * 100 : 0,
-        });
-      }
-      
-      // Quarterly projections (existing)
-      for (let month = 3; month <= 12; month += 3) {
-        const baseInterestEarned = baseBalance * (Math.pow(1 + monthlyRateBase, month) - 1);
-        const celoInterestEarned = celoBalance * (Math.pow(1 + monthlyRateCelo, month) - 1);
-        const totalInterest = baseInterestEarned + celoInterestEarned;
+        // Only show label for milestone points
+        const showLabel = point.months <= 2/4.33 || [1, 3, 6, 12, 24, 36].includes(point.months);
         
         data.push({
-          label: `+${month}mo`,
+          label: showLabel ? point.label : '',
           isProjected: true,
           basePrincipal: baseBalance,
           baseInterest: baseInterestEarned,
@@ -457,17 +489,57 @@ export default function Earn() {
   }, [totalAaveBalanceMicro, weightedApy]);
 
   // Chart data with both $ values and % growth for dual-axis display
+  // When using log scale, we need to add epsilon to avoid log(0) - apply to ALL numeric fields
   const displayChartData = useMemo(() => {
     const nowPoint = combinedChartData.find(p => p.isNow);
     const principal = nowPoint?.principal || 0;
+    const epsilon = 0.0001; // Small offset for log scale
+    const isLog = chartScale === 'log';
+    
+    // Helper to ensure positive values for log scale
+    const ensurePositive = (val: number): number => {
+      if (!isLog) return val;
+      return val > 0 ? val : epsilon;
+    };
     
     // Add total percentage growth relative to starting principal
-    return combinedChartData.map(d => ({
-      ...d,
-      // Total interest as percentage of principal (for the % line overlay)
-      totalInterestPercent: principal > 0 ? (d.interest / principal) * 100 : 0,
-    }));
-  }, [combinedChartData]);
+    return combinedChartData.map(d => {
+      // For log scale, ensure ALL numeric values that feed into the chart are positive
+      const basePrincipal = ensurePositive(d.basePrincipal);
+      const baseInterest = ensurePositive(d.baseInterest);
+      const celoPrincipal = ensurePositive(d.celoPrincipal);
+      const celoInterest = ensurePositive(d.celoInterest);
+      const total = ensurePositive(d.total);
+      const principalVal = ensurePositive(d.principal);
+      const interest = ensurePositive(d.interest);
+      
+      // For historicalBalance, also add epsilon if log scale (but keep null as null)
+      const historicalBalance = d.historicalBalance !== null && d.historicalBalance !== undefined
+        ? ensurePositive(d.historicalBalance)
+        : null;
+      
+      return {
+        ...d,
+        basePrincipal,
+        baseInterest,
+        celoPrincipal,
+        celoInterest,
+        total,
+        principal: principalVal,
+        interest,
+        historicalBalance,
+        // Keep original values for tooltip display (without epsilon)
+        _originalBasePrincipal: d.basePrincipal,
+        _originalBaseInterest: d.baseInterest,
+        _originalCeloPrincipal: d.celoPrincipal,
+        _originalCeloInterest: d.celoInterest,
+        _originalTotal: d.total,
+        _originalHistoricalBalance: d.historicalBalance,
+        // Total interest as percentage of principal (for the % line overlay)
+        totalInterestPercent: principal > 0 ? (d.interest / principal) * 100 : 0,
+      };
+    });
+  }, [combinedChartData, chartScale]);
   
   // Check if we have any projected data to show
   const hasProjectedData = useMemo(() => {
@@ -966,7 +1038,33 @@ export default function Earn() {
           <Card className="p-4 space-y-3" data-testid="card-projected-earnings">
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
-                <div className="text-sm font-medium">Projected Growth</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-sm font-medium">Projected Growth</div>
+                  <div className="flex items-center rounded-md border border-border overflow-hidden">
+                    <button
+                      onClick={() => setChartScale('linear')}
+                      className={`px-2 py-0.5 text-[10px] transition-colors ${
+                        chartScale === 'linear' 
+                          ? 'bg-primary text-primary-foreground' 
+                          : 'bg-transparent text-muted-foreground hover:text-foreground'
+                      }`}
+                      data-testid="button-scale-linear"
+                    >
+                      Linear
+                    </button>
+                    <button
+                      onClick={() => setChartScale('log')}
+                      className={`px-2 py-0.5 text-[10px] transition-colors ${
+                        chartScale === 'log' 
+                          ? 'bg-primary text-primary-foreground' 
+                          : 'bg-transparent text-muted-foreground hover:text-foreground'
+                      }`}
+                      data-testid="button-scale-log"
+                    >
+                      Log
+                    </button>
+                  </div>
+                </div>
                 {yearlyEarnings > 0 && (
                   <div className="text-xs">
                     <span className="text-success font-medium">{formatSmartPrecision(yearlyEarnings, '+$')}</span>
@@ -1020,12 +1118,15 @@ export default function Earn() {
                   <YAxis 
                     yAxisId="balance"
                     orientation="left"
-                    width={35}
+                    width={40}
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 8, fill: 'hsl(var(--muted-foreground))' }}
-                    tickFormatter={(val) => `$${val.toFixed(0)}`}
-                    domain={['dataMin', 'auto']}
+                    tickFormatter={formatSmartCurrencyTick}
+                    scale={chartScale}
+                    domain={chartScale === 'log' ? ['auto', 'auto'] : ['dataMin', 'auto']}
+                    allowDataOverflow={chartScale === 'log'}
+                    tickCount={5}
                   />
                   {/* Right Y-axis for % growth */}
                   <YAxis 
@@ -1042,6 +1143,13 @@ export default function Earn() {
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
+                        // Use original values for display (without epsilon adjustment)
+                        const displayBasePrincipal = data._originalBasePrincipal ?? data.basePrincipal;
+                        const displayBaseInterest = data._originalBaseInterest ?? data.baseInterest;
+                        const displayCeloPrincipal = data._originalCeloPrincipal ?? data.celoPrincipal;
+                        const displayCeloInterest = data._originalCeloInterest ?? data.celoInterest;
+                        const displayTotal = data._originalTotal ?? data.total;
+                        
                         return (
                           <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md min-w-[160px]">
                             <div className="text-xs font-medium mb-1.5">
@@ -1049,17 +1157,17 @@ export default function Earn() {
                             </div>
                             {data.isHistorical ? (
                               <div className="text-xs">
-                                Balance: {formatSmartPrecision(data.total, '$')}
+                                Balance: {formatSmartPrecision(displayTotal, '$')}
                               </div>
                             ) : (
                               <>
                                 {/* Per-chain breakdown with $ */}
-                                {data.basePrincipal > 0 && (
+                                {displayBasePrincipal > 0 && (
                                   <div className="flex items-center justify-between gap-3 text-xs mb-0.5">
                                     <span className="text-blue-400">Base:</span>
                                     <span>
-                                      {formatSmartPrecision(data.basePrincipal + (data.baseInterest || 0), '$')}
-                                      {data.baseInterest > 0 && (
+                                      {formatSmartPrecision(displayBasePrincipal + (displayBaseInterest || 0), '$')}
+                                      {displayBaseInterest > 0 && (
                                         <span className="text-success ml-1">
                                           (+{formatSmartPercent(data.baseInterestPercent || 0)})
                                         </span>
@@ -1067,12 +1175,12 @@ export default function Earn() {
                                     </span>
                                   </div>
                                 )}
-                                {data.celoPrincipal > 0 && (
+                                {displayCeloPrincipal > 0 && (
                                   <div className="flex items-center justify-between gap-3 text-xs mb-1">
                                     <span className="text-yellow-400">Celo:</span>
                                     <span>
-                                      {formatSmartPrecision(data.celoPrincipal + (data.celoInterest || 0), '$')}
-                                      {data.celoInterest > 0 && (
+                                      {formatSmartPrecision(displayCeloPrincipal + (displayCeloInterest || 0), '$')}
+                                      {displayCeloInterest > 0 && (
                                         <span className="text-success ml-1">
                                           (+{formatSmartPercent(data.celoInterestPercent || 0)})
                                         </span>
@@ -1084,7 +1192,7 @@ export default function Earn() {
                                 <div className="text-xs font-medium border-t border-border pt-1 mt-1 flex justify-between">
                                   <span>Total:</span>
                                   <span>
-                                    {formatSmartPrecision(data.total, '$')}
+                                    {formatSmartPrecision(displayTotal, '$')}
                                     {data.totalInterestPercent > 0 && (
                                       <span className="text-success ml-1">
                                         (+{formatSmartPercent(data.totalInterestPercent)})
