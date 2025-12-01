@@ -72,6 +72,7 @@ export default function Earn() {
   const [aaveOperationStep, setAaveOperationStep] = useState<'input' | 'gas_check' | 'gas_drip' | 'signing' | 'submitting' | 'complete'>('input');
   const [gasDripPending, setGasDripPending] = useState(false);
   const [isOperating, setIsOperating] = useState(false);
+  const [chartViewMode, setChartViewMode] = useState<'balance' | 'earnings'>('balance');
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -363,6 +364,20 @@ export default function Earn() {
     const currentBalance = Number(microBalance) / 1_000_000;
     return currentBalance * (weightedApy / 100);
   }, [totalAaveBalanceMicro, weightedApy]);
+
+  // Chart data transformed for the current view mode
+  const displayChartData = useMemo(() => {
+    if (chartViewMode === 'balance') return combinedChartData;
+    
+    const nowPoint = combinedChartData.find(p => p.isNow);
+    const startBalance = nowPoint?.total || combinedChartData[0]?.total || 0;
+    if (startBalance <= 0) return combinedChartData;
+    
+    return combinedChartData.map(d => ({
+      ...d,
+      total: ((d.total - startBalance) / startBalance) * 100,
+    }));
+  }, [chartViewMode, combinedChartData]);
 
   const { data: liquidBalanceBase } = useQuery<{ balance: string; balanceMicro: string }>({
     queryKey: ['/api/balance', address, 8453],
@@ -791,15 +806,46 @@ export default function Earn() {
         {hasAaveBalance && combinedChartData.length > 0 && (
           <Card className="p-4 space-y-3" data-testid="card-projected-earnings">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-medium">Balance History & Projection</div>
-              <div className="text-xs text-muted-foreground">
-                +${yearlyEarnings.toFixed(2)}/year
+              <div className="text-sm font-medium">
+                {chartViewMode === 'balance' ? 'Balance History' : 'Projected Earnings'}
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="text-xs text-muted-foreground">
+                  +${yearlyEarnings.toFixed(2)}/yr
+                </div>
+                <div className="flex rounded-md border border-border overflow-hidden">
+                  <button
+                    onClick={() => setChartViewMode('balance')}
+                    className={`px-2 py-0.5 text-xs transition-colors ${
+                      chartViewMode === 'balance' 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                    }`}
+                    data-testid="button-chart-balance"
+                  >
+                    $
+                  </button>
+                  <button
+                    onClick={() => setChartViewMode('earnings')}
+                    className={`px-2 py-0.5 text-xs transition-colors ${
+                      chartViewMode === 'earnings' 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                    }`}
+                    data-testid="button-chart-earnings"
+                  >
+                    +%
+                  </button>
+                </div>
               </div>
             </div>
             
             <div className="h-36 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={combinedChartData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
+                <ComposedChart 
+                  data={displayChartData} 
+                  margin={{ top: 10, right: 10, left: 10, bottom: 5 }}
+                >
                   <defs>
                     <linearGradient id="baseGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0.5}/>
@@ -809,6 +855,10 @@ export default function Earn() {
                       <stop offset="0%" stopColor="hsl(45, 93%, 47%)" stopOpacity={0.5}/>
                       <stop offset="100%" stopColor="hsl(45, 93%, 47%)" stopOpacity={0.1}/>
                     </linearGradient>
+                    <linearGradient id="earningsGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.5}/>
+                      <stop offset="100%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.1}/>
+                    </linearGradient>
                   </defs>
                   <XAxis 
                     dataKey="label" 
@@ -817,13 +867,39 @@ export default function Earn() {
                     tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }}
                   />
                   <YAxis 
-                    hide 
-                    domain={[(dataMin: number) => Math.max(0, dataMin * 0.95), (dataMax: number) => dataMax * 1.05]} 
+                    hide={chartViewMode === 'balance'}
+                    width={chartViewMode === 'earnings' ? 30 : 0}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 8, fill: 'hsl(var(--muted-foreground))' }}
+                    tickFormatter={(val) => chartViewMode === 'earnings' ? `${val.toFixed(1)}%` : `$${val.toFixed(0)}`}
+                    domain={chartViewMode === 'balance' 
+                      ? [(dataMin: number) => dataMin * 0.98, (dataMax: number) => dataMax * 1.02]
+                      : [0, 'auto']
+                    }
                   />
                   <Tooltip 
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
+                        const originalData = combinedChartData.find(d => d.label === data.label);
+                        if (chartViewMode === 'earnings') {
+                          return (
+                            <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md">
+                              <div className="text-xs font-medium mb-1">
+                                {data.isProjected ? 'Projected' : data.isNow ? 'Current' : 'Historical'}
+                              </div>
+                              <div className="text-xs text-success">
+                                {data.total >= 0 ? '+' : ''}{data.total.toFixed(2)}% growth
+                              </div>
+                              {originalData && (
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  ${originalData.total.toFixed(2)} total
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
                         return (
                           <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md">
                             <div className="text-xs font-medium mb-1">
@@ -852,39 +928,61 @@ export default function Earn() {
                     strokeWidth={1}
                     label={{ value: '▼', position: 'top', fontSize: 8, fill: 'hsl(var(--muted-foreground))' }}
                   />
-                  {/* Stacked chain areas - Celo first (bottom), Base on top */}
-                  <Area 
-                    type="monotone" 
-                    dataKey="celo"
-                    stackId="chains"
-                    stroke="hsl(45, 93%, 47%)"
-                    strokeWidth={1.5}
-                    fill="url(#celoGradient)"
-                    isAnimationActive={false}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="base"
-                    stackId="chains"
-                    stroke="hsl(217, 91%, 60%)"
-                    strokeWidth={1.5}
-                    fill="url(#baseGradient)"
-                    isAnimationActive={false}
-                  />
+                  {chartViewMode === 'balance' ? (
+                    <>
+                      {/* Stacked chain areas - Celo first (bottom), Base on top */}
+                      <Area 
+                        type="monotone" 
+                        dataKey="celo"
+                        stackId="chains"
+                        stroke="hsl(45, 93%, 47%)"
+                        strokeWidth={1.5}
+                        fill="url(#celoGradient)"
+                        isAnimationActive={false}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="base"
+                        stackId="chains"
+                        stroke="hsl(217, 91%, 60%)"
+                        strokeWidth={1.5}
+                        fill="url(#baseGradient)"
+                        isAnimationActive={false}
+                      />
+                    </>
+                  ) : (
+                    <Area 
+                      type="monotone" 
+                      dataKey="total"
+                      stroke="hsl(142, 71%, 45%)"
+                      strokeWidth={2}
+                      fill="url(#earningsGradient)"
+                      isAnimationActive={false}
+                    />
+                  )}
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
             
             {/* Legend */}
             <div className="flex items-center justify-center gap-4 text-xs">
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(217, 91%, 60%, 0.6)' }}></div>
-                <span className="text-muted-foreground">Base</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(45, 93%, 47%, 0.6)' }}></div>
-                <span className="text-muted-foreground">Celo</span>
-              </div>
+              {chartViewMode === 'balance' ? (
+                <>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(217, 91%, 60%, 0.6)' }}></div>
+                    <span className="text-muted-foreground">Base</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(45, 93%, 47%, 0.6)' }}></div>
+                    <span className="text-muted-foreground">Celo</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(142, 71%, 45%, 0.6)' }}></div>
+                  <span className="text-muted-foreground">% Growth</span>
+                </div>
+              )}
               <div className="flex items-center gap-1.5">
                 <span className="text-muted-foreground">|</span>
                 <span className="text-muted-foreground">Now</span>
@@ -892,7 +990,10 @@ export default function Earn() {
             </div>
             
             <p className="text-xs text-muted-foreground text-center">
-              Past 30 days + {weightedApy.toFixed(1)}% APY projection
+              {chartViewMode === 'balance' 
+                ? `Past 30 days + ${weightedApy.toFixed(1)}% APY projection`
+                : `Projected earnings at ${weightedApy.toFixed(1)}% APY`
+              }
             </p>
           </Card>
         )}
