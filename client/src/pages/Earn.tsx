@@ -593,7 +593,7 @@ export default function Earn() {
           </div>
         </Card>
 
-        {hasAaveBalance && (
+        {hasAaveBalance && baseBalanceNum > 0 && celoBalanceNum > 0 && (
           <Card className="p-4 space-y-3" data-testid="card-chain-breakdown">
             <div className="text-sm font-medium">Balance by Network</div>
             
