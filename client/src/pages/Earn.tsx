@@ -357,18 +357,46 @@ export default function Earn() {
       }))
       .sort((a, b) => a.date.getTime() - b.date.getTime());
     
-    // Sample up to 6 historical points (weekly-ish)
-    const historyPoints = sortedHistory.length > 0 
-      ? sortedHistory.filter((_, i) => i === 0 || i === sortedHistory.length - 1 || i % Math.ceil(sortedHistory.length / 4) === 0).slice(-5)
-      : [];
+    // Generate semantic historical labels: -1m, -2w, -1w based on actual time
+    const generateHistoricalLabel = (date: Date): string => {
+      const daysAgo = Math.round((Date.now() - date.getTime()) / (24 * 60 * 60 * 1000));
+      if (daysAgo <= 3) return '-1d';
+      if (daysAgo <= 10) return '-1w';
+      if (daysAgo <= 17) return '-2w';
+      if (daysAgo <= 24) return '-3w';
+      if (daysAgo <= 45) return '-1m';
+      if (daysAgo <= 75) return '-2m';
+      return `-${Math.round(daysAgo / 30)}m`;
+    };
+    
+    // Sample key historical points: first, middle, and most recent before now
+    let historyPoints: typeof sortedHistory = [];
+    if (sortedHistory.length > 0) {
+      // Always include first (oldest) point
+      historyPoints.push(sortedHistory[0]);
+      
+      // Add middle points if we have enough data
+      if (sortedHistory.length >= 4) {
+        const midIndex = Math.floor(sortedHistory.length / 2);
+        historyPoints.push(sortedHistory[midIndex]);
+      }
+      
+      // Add recent point if different from first
+      if (sortedHistory.length >= 2) {
+        const recentIndex = sortedHistory.length - 1;
+        if (recentIndex !== 0) {
+          historyPoints.push(sortedHistory[recentIndex]);
+        }
+      }
+    }
     
     // Add historical points - show as "historicalBalance" line only
     historyPoints.forEach((point) => {
-      const weeksAgo = Math.round((Date.now() - point.date.getTime()) / (7 * 24 * 60 * 60 * 1000));
       const pointTotal = point.base + point.celo;
+      const label = generateHistoricalLabel(point.date);
       
       data.push({
-        label: weeksAgo === 0 ? 'This week' : `-${weeksAgo}w`,
+        label,
         date: point.date,
         isProjected: false,
         isHistorical: true,
@@ -407,15 +435,13 @@ export default function Earn() {
       const monthlyRateBase = baseApy / 100 / 12;
       const monthlyRateCelo = celoApy / 100 / 12;
       
-      // Key milestones: +1d for immediate lift, +1w, +2w (early growth), then 1mo, 3mo, 6mo, 12mo
+      // Key milestones: +2w, +1m, +3m, +6m, +1y (matching historical label style)
       const projectionPoints = [
-        { months: 1/30, label: '+1d' },      // ~1 day for immediate visual lift
-        { months: 1/4.33, label: '+1w' },    // ~1 week
         { months: 2/4.33, label: '+2w' },    // ~2 weeks
-        { months: 1, label: '+1mo' },
-        { months: 3, label: '+3mo' },
-        { months: 6, label: '+6mo' },
-        { months: 12, label: '+1yr' },
+        { months: 1, label: '+1m' },
+        { months: 3, label: '+3m' },
+        { months: 6, label: '+6m' },
+        { months: 12, label: '+1y' },
       ];
       
       for (const point of projectionPoints) {
@@ -468,25 +494,79 @@ export default function Earn() {
     return currentBalance * (weightedApy / 100);
   }, [totalAaveBalanceMicro, weightedApy]);
 
-  // Chart data for earnings-only view
-  // Returns only the interest values (not principal) so Y-axis scales dramatically
+  // Chart data for combined historical + projected view
+  // Historical: shows balance growth as subtle line leading to "Now"
+  // Projected: shows interest-only stacked areas for dramatic exponential effect
   const displayChartData = useMemo(() => {
     const nowPoint = combinedChartData.find(p => p.isNow);
     const principal = nowPoint?.principal || 0;
+    const historicalPoints = combinedChartData.filter(p => p.isHistorical);
+    const projectedPoints = combinedChartData.filter(p => p.isProjected);
     
-    // Filter to only "Now" and projected points, strip principal values entirely
-    return combinedChartData
-      .filter(d => d.isNow || d.isProjected)
-      .map(d => ({
-        label: d.label,
-        isNow: d.isNow,
-        isProjected: d.isProjected,
-        // Only interest values for the stacked areas (no principal)
-        baseInterest: d.baseInterest || 0,
-        celoInterest: d.celoInterest || 0,
-        // Total interest as percentage of principal (for the % line overlay)
-        totalInterestPercent: principal > 0 ? (d.interest / principal) * 100 : 0,
-      }));
+    // Get the earliest historical balance to calculate relative growth
+    const earliestHistoricalBalance = historicalPoints.length > 0 
+      ? historicalPoints[0].historicalBalance || 0 
+      : principal;
+    
+    // Build display data with both historical balance line and projected earnings
+    const result: Array<{
+      label: string;
+      isNow?: boolean;
+      isProjected?: boolean;
+      isHistorical?: boolean;
+      // Historical balance line (null for projections to create gap)
+      historicalBalance: number | null;
+      // Historical growth from earliest point (for subtle shading)
+      historicalGrowth: number | null;
+      // Projected interest only (for stacked areas)
+      baseInterest: number;
+      celoInterest: number;
+      // Total interest percentage
+      totalInterestPercent: number;
+    }> = [];
+    
+    // Add historical points with relative growth from earliest snapshot
+    historicalPoints.forEach(point => {
+      const balanceGrowth = (point.historicalBalance || 0) - earliestHistoricalBalance;
+      result.push({
+        label: point.label,
+        isHistorical: true,
+        historicalBalance: point.historicalBalance || 0,
+        historicalGrowth: balanceGrowth > 0 ? balanceGrowth : 0,
+        baseInterest: 0,
+        celoInterest: 0,
+        totalInterestPercent: 0,
+      });
+    });
+    
+    // Add "Now" point - transition from history to projections
+    if (nowPoint) {
+      const balanceGrowth = principal - earliestHistoricalBalance;
+      result.push({
+        label: 'Now',
+        isNow: true,
+        historicalBalance: principal,
+        historicalGrowth: balanceGrowth > 0 ? balanceGrowth : 0,
+        baseInterest: 0,
+        celoInterest: 0,
+        totalInterestPercent: 0,
+      });
+    }
+    
+    // Add projected points (history line ends, interest areas begin)
+    projectedPoints.forEach(point => {
+      result.push({
+        label: point.label,
+        isProjected: true,
+        historicalBalance: null, // No historical line in projection zone
+        historicalGrowth: null,
+        baseInterest: point.baseInterest || 0,
+        celoInterest: point.celoInterest || 0,
+        totalInterestPercent: principal > 0 ? (point.interest / principal) * 100 : 0,
+      });
+    });
+    
+    return result;
   }, [combinedChartData]);
   
   // Check if we have any projected data to show
@@ -1016,20 +1096,17 @@ export default function Earn() {
                   margin={{ top: 10, right: 10, left: 10, bottom: 5 }}
                 >
                   <defs>
-                    {/* Base chain colors - blue */}
-                    <linearGradient id="basePrincipalGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0.25}/>
-                      <stop offset="100%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0.05}/>
+                    {/* Historical growth - subtle gray/muted */}
+                    <linearGradient id="historicalGrowthGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.15}/>
+                      <stop offset="100%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.03}/>
                     </linearGradient>
+                    {/* Base chain colors - blue */}
                     <linearGradient id="baseInterestGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="hsl(217, 91%, 70%)" stopOpacity={0.7}/>
                       <stop offset="100%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0.3}/>
                     </linearGradient>
                     {/* Celo chain colors - yellow/gold */}
-                    <linearGradient id="celoPrincipalGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(45, 93%, 47%)" stopOpacity={0.25}/>
-                      <stop offset="100%" stopColor="hsl(45, 93%, 47%)" stopOpacity={0.05}/>
-                    </linearGradient>
                     <linearGradient id="celoInterestGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="hsl(45, 93%, 58%)" stopOpacity={0.7}/>
                       <stop offset="100%" stopColor="hsl(45, 93%, 47%)" stopOpacity={0.3}/>
@@ -1046,7 +1123,7 @@ export default function Earn() {
                     tickLine={false} 
                     tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }}
                   />
-                  {/* Left Y-axis for $ earnings only - magnifies small growth */}
+                  {/* Left Y-axis for projected $ earnings only - magnifies small growth */}
                   <YAxis 
                     yAxisId="balance"
                     orientation="left"
@@ -1057,6 +1134,13 @@ export default function Earn() {
                     tickFormatter={formatSmartCurrencyTick}
                     domain={[0, 'auto']}
                     tickCount={5}
+                  />
+                  {/* Hidden Y-axis for historical growth - auto-scales independently */}
+                  <YAxis 
+                    yAxisId="history"
+                    orientation="left"
+                    hide={true}
+                    domain={[0, 'auto']}
                   />
                   {/* Right Y-axis for % growth - offset with extra headroom so line sits lower */}
                   <YAxis 
@@ -1078,15 +1162,35 @@ export default function Earn() {
                         
                         return (
                           <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md min-w-[140px]">
-                            <div className="text-xs font-medium mb-1.5">
-                              {data.isNow ? 'Current' : 'Projected Earnings'}
-                            </div>
-                            {data.isNow ? (
-                              <div className="text-xs text-muted-foreground">
-                                Start earning now
-                              </div>
+                            {data.isHistorical ? (
+                              <>
+                                <div className="text-xs font-medium mb-1.5 text-muted-foreground">
+                                  Historical ({data.label})
+                                </div>
+                                <div className="flex items-center justify-between gap-3 text-xs">
+                                  <span>Balance:</span>
+                                  <span>{formatSmartPrecision(data.historicalBalance || 0, '$')}</span>
+                                </div>
+                                {data.historicalGrowth > 0 && (
+                                  <div className="flex items-center justify-between gap-3 text-xs text-success mt-0.5">
+                                    <span>Growth:</span>
+                                    <span>+{formatSmartPrecision(data.historicalGrowth, '$')}</span>
+                                  </div>
+                                )}
+                              </>
+                            ) : data.isNow ? (
+                              <>
+                                <div className="text-xs font-medium mb-1.5">Current Balance</div>
+                                <div className="flex items-center justify-between gap-3 text-xs">
+                                  <span>Earning:</span>
+                                  <span>{formatSmartPrecision(data.historicalBalance || 0, '$')}</span>
+                                </div>
+                              </>
                             ) : (
                               <>
+                                <div className="text-xs font-medium mb-1.5">
+                                  Projected ({data.label})
+                                </div>
                                 {/* Per-chain earnings breakdown */}
                                 {data.baseInterest > 0 && (
                                   <div className="flex items-center justify-between gap-3 text-xs mb-0.5">
@@ -1122,23 +1226,34 @@ export default function Earn() {
                       return null;
                     }}
                   />
-                  {/* "Now" reference line */}
+                  {/* "Now" reference line - visual separator between history and projections */}
                   <ReferenceLine 
                     x="Now" 
-                    stroke="hsl(var(--muted-foreground))"
-                    strokeDasharray="4 4"
-                    strokeWidth={1}
+                    stroke="hsl(var(--foreground))"
+                    strokeWidth={1.5}
                     yAxisId="balance"
-                    label={{ value: '▼', position: 'top', fontSize: 8, fill: 'hsl(var(--muted-foreground))' }}
+                    label={{ value: 'Now', position: 'top', fontSize: 9, fill: 'hsl(var(--foreground))', fontWeight: 500 }}
                   />
-                  {/* Interest-only stacked areas for dramatic growth visualization */}
+                  {/* Historical growth area - subtle, uses separate Y-axis to not affect projection scale */}
+                  <Area 
+                    type="monotone" 
+                    dataKey="historicalGrowth"
+                    yAxisId="history"
+                    stroke="hsl(var(--muted-foreground))"
+                    strokeWidth={1}
+                    strokeOpacity={0.4}
+                    fill="url(#historicalGrowthGradient)"
+                    isAnimationActive={false}
+                    connectNulls={false}
+                  />
+                  {/* Projected interest areas - prominent exponential growth visualization */}
                   <Area 
                     type="monotone" 
                     dataKey="baseInterest"
                     yAxisId="balance"
                     stackId="earnings"
                     stroke="hsl(217, 91%, 70%)"
-                    strokeWidth={1}
+                    strokeWidth={1.5}
                     fill="url(#baseInterestGradient)"
                     isAnimationActive={false}
                   />
@@ -1148,7 +1263,7 @@ export default function Earn() {
                     yAxisId="balance"
                     stackId="earnings"
                     stroke="hsl(45, 93%, 58%)"
-                    strokeWidth={1}
+                    strokeWidth={1.5}
                     fill="url(#celoInterestGradient)"
                     isAnimationActive={false}
                   />
@@ -1171,13 +1286,19 @@ export default function Earn() {
             {/* Legend with per-chain breakdown */}
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-center gap-3 text-xs flex-wrap">
+                {displayChartData.some(d => d.isHistorical) && (
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-2 rounded-sm opacity-30" style={{ background: 'hsl(var(--muted-foreground))' }}></div>
+                    <span className="text-muted-foreground">History</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(217, 91%, 60%)' }}></div>
-                  <span className="text-blue-400">Base earnings</span>
+                  <span className="text-blue-400">Base</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(45, 93%, 47%)' }}></div>
-                  <span className="text-yellow-400">Celo earnings</span>
+                  <span className="text-yellow-400">Celo</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-4 h-0.5 rounded-sm" style={{ background: 'hsl(142, 71%, 45%)', borderTop: '2px dashed hsl(142, 71%, 45%)' }}></div>
@@ -1189,7 +1310,7 @@ export default function Earn() {
               {combinedChartData.length > 0 && (
                 <div className="flex items-center justify-center gap-4 text-xs">
                   {(() => {
-                    const yearlyPoint = combinedChartData.find(p => p.label === '+12mo');
+                    const yearlyPoint = combinedChartData.find(p => p.label === '+1y');
                     if (!yearlyPoint) return null;
                     return (
                       <>
@@ -1211,7 +1332,7 @@ export default function Earn() {
             </div>
             
             <p className="text-xs text-muted-foreground text-center">
-              Your savings + projected {weightedApy > 0 ? `${weightedApy.toFixed(1)}%` : ''} APY growth
+              {displayChartData.some(d => d.isHistorical) ? 'Your progress + ' : ''}Projected {weightedApy > 0 ? `${weightedApy.toFixed(1)}%` : ''} APY growth
             </p>
           </Card>
         )}
