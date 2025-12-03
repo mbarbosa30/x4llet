@@ -640,26 +640,43 @@ export default function Signal() {
           <TabsContent value="circles" className="mt-4">
             <Card className="p-6 space-y-6">
               {isLoadingCircles ? (
-                <div className="text-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground mt-2">Checking Circles status...</p>
+                <div className="text-center space-y-4">
+                  <CircleDot className="h-12 w-12 mx-auto text-muted-foreground" />
+                  <div>
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground mt-2">Checking Circles status...</p>
+                  </div>
                 </div>
               ) : circlesAvatar?.isRegistered ? (
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <p className="text-xs text-muted-foreground mb-1">CRC Balance</p>
-                    <div className="text-4xl font-bold text-foreground" data-testid="text-crc-balance">
+                <div className="text-center space-y-4">
+                  <CircleDot className="h-12 w-12 mx-auto text-primary" />
+                  <div>
+                    <h2 className="text-sm text-muted-foreground mb-2">Your CRC Balance</h2>
+                    <div className="text-5xl font-bold text-foreground" data-testid="text-crc-balance">
                       {circlesBalance?.formattedCrc || '0.00'}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Claim 1 CRC per hour, up to 24/day
-                    </p>
+                  </div>
+                  
+                  <div className="flex justify-center gap-2">
+                    {[...Array(10)].map((_, i) => (
+                      <div
+                        key={i}
+                        className={`h-2 w-2 rounded-full ${
+                          i < Math.min(10, Math.floor(parseFloat(circlesBalance?.formattedCrc || '0') / 10)) ? 'bg-primary' : 'bg-muted'
+                        }`}
+                      />
+                    ))}
                   </div>
 
+                  <p className="text-sm text-muted-foreground">
+                    Claim 1 CRC per hour, up to 24/day
+                  </p>
+
                   {!showTrustInput && !showSendInput && (
-                    <div className="space-y-3">
+                    <div className="space-y-3 pt-2">
                       <div className="flex gap-2">
                         <Button
+                          size="lg"
                           className="flex-1"
                           onClick={() => mintMutation.mutate()}
                           disabled={mintMutation.isPending}
@@ -673,6 +690,7 @@ export default function Signal() {
                           Claim
                         </Button>
                         <Button
+                          size="lg"
                           className="flex-1"
                           variant="outline"
                           onClick={() => setShowSendInput(true)}
@@ -685,7 +703,6 @@ export default function Signal() {
                       <div className="flex gap-2">
                         <Button
                           variant="ghost"
-                          size="sm"
                           className="flex-1"
                           onClick={() => setShowTrustInput(true)}
                           data-testid="button-trust"
@@ -695,7 +712,6 @@ export default function Signal() {
                         </Button>
                         <Button
                           variant="ghost"
-                          size="sm"
                           className="flex-1"
                           onClick={() => refetchBalance()}
                           data-testid="button-refresh-balance"
@@ -704,9 +720,6 @@ export default function Signal() {
                           Refresh
                         </Button>
                       </div>
-                      <p className="text-xs text-muted-foreground text-center">
-                        Trust others to let your CRC flow through their network. A ~7% yearly decay keeps CRC circulating.
-                      </p>
                     </div>
                   )}
 
@@ -844,6 +857,20 @@ export default function Signal() {
                     </div>
                   )}
 
+                  <div className="pt-4 border-t space-y-2">
+                    <h3 className="text-xs font-semibold text-muted-foreground mb-3">Circles Network</h3>
+                    <div className="grid grid-cols-1 gap-2 text-sm">
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Claim Rate</span>
+                        <span className="font-mono font-medium">1 CRC/hour</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Yearly Demurrage</span>
+                        <span className="font-mono font-medium">~7%</span>
+                      </div>
+                    </div>
+                  </div>
+
                   <Button
                     variant="ghost"
                     className="w-full"
@@ -854,48 +881,56 @@ export default function Signal() {
                     View on Circles Garden
                   </Button>
 
-                  <p className="text-xs text-muted-foreground text-center">
-                    CRC is social money, separate from your USDC.
+                  <p className="text-xs text-muted-foreground">
+                    CRC is social money on Gnosis, separate from your USDC.
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <CircleDot className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                    <h2 className="text-lg font-semibold">Join Circles</h2>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Circles is community-powered social money on Gnosis Chain. Every human can claim the same amount of CRC over time and use it to support people and local groups.
-                    </p>
+                <div className="space-y-6">
+                  <div className="text-center space-y-4">
+                    <CircleDot className="h-12 w-12 mx-auto text-muted-foreground" />
+                    <div>
+                      <h2 className="text-lg font-semibold mb-2">Join Circles</h2>
+                      <p className="text-sm text-muted-foreground">
+                        Circles is community-powered social money on Gnosis Chain.
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium">How it works</h3>
-                    <ul className="text-sm text-muted-foreground space-y-1.5">
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary">•</span>
-                        <span>Register your avatar (one per human)</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary">•</span>
-                        <span>Claim 1 CRC per hour, up to 24/day</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary">•</span>
-                        <span>Send CRC to friends and groups you want to support</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary">•</span>
-                        <span>Trust others so your CRC can flow through the network</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary">•</span>
-                        <span>~7% yearly decay keeps CRC circulating</span>
-                      </li>
-                    </ul>
+                  <div className="space-y-4 text-left">
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-semibold">What is Circles?</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Every human can claim the same amount of CRC over time. It's not a cryptocurrency — it's social money designed to support people and local communities.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-semibold">How it Works</h3>
+                      <p className="text-sm text-muted-foreground">
+                        You earn 1 CRC per hour (up to 24/day). Trust others to let your CRC flow through their network. A ~7% yearly decay keeps CRC circulating fairly.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-semibold">Get Started</h3>
+                      <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                        <li>Register your avatar (one per human)</li>
+                        <li>Claim your CRC each day</li>
+                        <li>Trust friends to expand your network</li>
+                      </ol>
+                    </div>
+
+                    <div className="pt-2">
+                      <p className="text-xs text-muted-foreground">
+                        Your address: <span className="font-mono">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
+                      </p>
+                    </div>
                   </div>
 
                   <Button
                     className="w-full"
+                    size="lg"
                     onClick={() => registerMutation.mutate()}
                     disabled={registerMutation.isPending}
                     data-testid="button-register-circles"
@@ -905,17 +940,8 @@ export default function Signal() {
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         Registering...
                       </>
-                    ) : (
-                      <>
-                        <UserPlus className="h-4 w-4 mr-2" />
-                        Register as Human
-                      </>
-                    )}
+                    ) : 'Register as Human'}
                   </Button>
-
-                  <p className="text-xs text-muted-foreground text-center">
-                    CRC is social money, separate from your USDC balance. Gas fees are covered.
-                  </p>
                 </div>
               )}
             </Card>
@@ -924,38 +950,52 @@ export default function Signal() {
           <TabsContent value="gooddollar" className="mt-4">
             <Card className="p-6 space-y-6">
               {isLoadingGdIdentity ? (
-                <div className="text-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground mt-2">Checking GoodDollar status...</p>
+                <div className="text-center space-y-4">
+                  <Gift className="h-12 w-12 mx-auto text-muted-foreground" />
+                  <div>
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground mt-2">Checking GoodDollar status...</p>
+                  </div>
                 </div>
               ) : gdIdentity?.isWhitelisted ? (
-                <div className="space-y-4">
-                  <div className="text-center">
+                <div className="text-center space-y-4">
+                  <Gift className="h-12 w-12 mx-auto text-primary" />
+                  <div>
                     <div className="flex items-center justify-center gap-2 mb-2">
-                      <CheckCircle className="h-5 w-5 text-green-500" />
-                      <span className="text-sm text-green-600 dark:text-green-400 font-medium">Face Verified</span>
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <span className="text-xs text-green-600 dark:text-green-400 font-medium">Face Verified</span>
                     </div>
-                    <p className="text-xs text-muted-foreground mb-1">G$ Balance</p>
-                    <div className="text-4xl font-bold text-foreground" data-testid="text-gd-balance">
+                    <h2 className="text-sm text-muted-foreground mb-2">Your G$ Balance</h2>
+                    <div className="text-5xl font-bold text-foreground" data-testid="text-gd-balance">
                       {gdBalance?.balanceFormatted || '0.00'}
                     </div>
-                    {gdIdentity.daysUntilExpiry !== null && gdIdentity.daysUntilExpiry <= 30 && (
-                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 flex items-center justify-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        Verification expires in {gdIdentity.daysUntilExpiry} days
-                      </p>
-                    )}
+                  </div>
+                  
+                  <div className="flex justify-center gap-2">
+                    {[...Array(10)].map((_, i) => (
+                      <div
+                        key={i}
+                        className={`h-2 w-2 rounded-full ${
+                          i < Math.min(10, Math.floor(parseFloat(gdBalance?.balanceFormatted || '0') / 100)) ? 'bg-primary' : 'bg-muted'
+                        }`}
+                      />
+                    ))}
                   </div>
 
+                  {gdIdentity.daysUntilExpiry !== null && gdIdentity.daysUntilExpiry <= 30 && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      Verification expires in {gdIdentity.daysUntilExpiry} days
+                    </p>
+                  )}
+
                   {gdClaimStatus?.canClaim ? (
-                    <div className="space-y-3">
-                      <div className="bg-primary/10 rounded-lg p-4 text-center">
-                        <p className="text-sm text-muted-foreground">Available to claim</p>
-                        <p className="text-2xl font-bold text-primary" data-testid="text-gd-entitlement">
-                          {gdClaimStatus.entitlementFormatted} G$
-                        </p>
-                      </div>
+                    <div className="space-y-3 pt-2">
+                      <p className="text-sm text-muted-foreground">
+                        <span className="font-semibold text-primary">{gdClaimStatus.entitlementFormatted} G$</span> available to claim
+                      </p>
                       <Button
+                        size="lg"
                         className="w-full"
                         onClick={() => {
                           window.open('https://wallet.gooddollar.org', '_blank', 'noopener,noreferrer');
@@ -965,22 +1005,14 @@ export default function Signal() {
                         <Coins className="h-4 w-4 mr-2" />
                         Claim in GoodWallet
                       </Button>
-                      <p className="text-xs text-muted-foreground text-center">
-                        Claiming requires gas on Celo. Use GoodWallet for free claims.
-                      </p>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      <div className="bg-muted rounded-lg p-4 text-center">
-                        <Clock className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
-                        <p className="text-sm text-muted-foreground">Next claim available</p>
-                        {gdClaimStatus?.nextClaimTime && (
-                          <p className="text-lg font-semibold" data-testid="text-gd-next-claim">
-                            {gdClaimStatus.nextClaimTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                        )}
-                      </div>
+                    <div className="space-y-3 pt-2">
+                      <p className="text-sm text-muted-foreground">
+                        Next claim at {gdClaimStatus?.nextClaimTime?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || '--:--'}
+                      </p>
                       <Button
+                        size="lg"
                         variant="outline"
                         className="w-full"
                         onClick={() => {
@@ -990,7 +1022,7 @@ export default function Signal() {
                         data-testid="button-refresh-gd"
                       >
                         <RefreshCw className="h-4 w-4 mr-2" />
-                        Refresh Status
+                        Refresh
                       </Button>
                     </div>
                   )}
@@ -1019,59 +1051,67 @@ export default function Signal() {
                     Open GoodWallet
                   </Button>
 
-                  <p className="text-xs text-muted-foreground text-center">
+                  <p className="text-xs text-muted-foreground">
                     G$ is universal basic income on Celo, separate from your USDC.
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <Gift className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                    <h2 className="text-lg font-semibold">Claim Daily UBI</h2>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      GoodDollar distributes free G$ tokens daily to verified humans. Prove you're unique with face verification to start claiming.
-                    </p>
+                <div className="space-y-6">
+                  <div className="text-center space-y-4">
+                    <Gift className="h-12 w-12 mx-auto text-muted-foreground" />
+                    <div>
+                      <h2 className="text-lg font-semibold mb-2">Claim Daily UBI</h2>
+                      <p className="text-sm text-muted-foreground">
+                        GoodDollar distributes free G$ tokens daily to verified humans.
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium">How it works</h3>
-                    <ul className="text-sm text-muted-foreground space-y-1.5">
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary">•</span>
-                        <span>Verify your face once (privacy-preserving)</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary">•</span>
-                        <span>Claim free G$ tokens every day</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary">•</span>
-                        <span>Use G$ for payments or support others</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary">•</span>
-                        <span>Re-verify every {gdIdentity?.authenticationPeriod || 180} days</span>
-                      </li>
-                    </ul>
+                  <div className="space-y-4 text-left">
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-semibold">What is GoodDollar?</h3>
+                      <p className="text-sm text-muted-foreground">
+                        GoodDollar is a universal basic income protocol on Celo. Everyone who verifies their identity gets the same daily G$ distribution — no exceptions.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-semibold">How it Works</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Verify your face once (it's privacy-preserving — only a hash is stored). Then claim your G$ every day. Re-verify every {gdIdentity?.authenticationPeriod || 180} days.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-semibold">Get Started</h3>
+                      <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                        <li>Verify your face (takes ~1 minute)</li>
+                        <li>Claim G$ daily in GoodWallet</li>
+                        <li>Use G$ for payments or support others</li>
+                      </ol>
+                    </div>
+
+                    <div className="pt-2">
+                      <p className="text-xs text-muted-foreground">
+                        Your address: <span className="font-mono">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
+                      </p>
+                    </div>
                   </div>
 
                   <Button
                     className="w-full"
+                    size="lg"
                     onClick={handleFaceVerification}
                     disabled={isVerifyingFace}
                     data-testid="button-verify-face"
                   >
                     {isVerifyingFace ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <UserPlus className="h-4 w-4 mr-2" />
-                    )}
-                    {isVerifyingFace ? 'Signing...' : 'Verify Face'}
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Signing...
+                      </>
+                    ) : 'Verify Face'}
                   </Button>
-
-                  <p className="text-xs text-muted-foreground text-center">
-                    Your face data is not stored. Only a unique hash is kept to prevent duplicates.
-                  </p>
                 </div>
               )}
             </Card>
