@@ -872,22 +872,6 @@ export default function Claim() {
                     ) : null}
                   </div>
 
-                  <div className="pt-4 border-t">
-                    <div className="space-y-2 text-center">
-                      <p className="text-xs text-muted-foreground">
-                        GoodDollar is a non-profit protocol distributing free crypto to verified humans daily.
-                      </p>
-                      <Button
-                        variant="link"
-                        className="text-xs h-auto p-0"
-                        onClick={() => window.open('https://gooddollar.org', '_blank', 'noopener,noreferrer')}
-                        data-testid="button-gd-learn-more"
-                      >
-                        Learn more at gooddollar.org
-                        <ExternalLink className="h-3 w-3 ml-1" />
-                      </Button>
-                    </div>
-                  </div>
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -949,6 +933,34 @@ export default function Claim() {
                 </div>
               )}
             </Card>
+
+            {gdIdentity?.isWhitelisted && (
+              <Card className="p-5 mt-4">
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold">About GoodDollar</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    GoodDollar is a non-profit protocol creating free money for everyone. 
+                    It distributes G$ tokens daily to verified humans around the world — 
+                    funded by interest from DeFi and donations.
+                  </p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span>Built on Celo</span>
+                    <span>500k+ members</span>
+                    <span>$2M+ distributed</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => window.open('https://gooddollar.org', '_blank', 'noopener,noreferrer')}
+                    data-testid="button-gd-learn-more"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 mr-2" />
+                    Learn more at gooddollar.org
+                  </Button>
+                </div>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </main>
