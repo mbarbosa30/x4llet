@@ -547,10 +547,13 @@ export default function Signal() {
                     <div className="text-4xl font-bold text-foreground" data-testid="text-crc-balance">
                       {circlesBalance?.formattedCrc || '0.00'}
                     </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Claim 1 CRC per hour, up to 24/day
+                    </p>
                   </div>
 
                   {!showTrustInput && !showSendInput && (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <div className="flex gap-2">
                         <Button
                           className="flex-1"
@@ -597,6 +600,9 @@ export default function Signal() {
                           Refresh
                         </Button>
                       </div>
+                      <p className="text-xs text-muted-foreground text-center">
+                        Trust others to let your CRC flow through their network. A ~7% yearly decay keeps CRC circulating.
+                      </p>
                     </div>
                   )}
 
@@ -754,24 +760,35 @@ export default function Signal() {
                     <CircleDot className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
                     <h2 className="text-lg font-semibold">Join Circles</h2>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Claim CRC daily to support people and communities on Gnosis Chain.
+                      Circles is community-powered social money on Gnosis Chain. Every human can claim the same amount of CRC over time and use it to support people and local groups.
                     </p>
                   </div>
 
-                  <ul className="text-sm text-muted-foreground space-y-1.5">
-                    <li className="flex items-start gap-2">
-                      <span className="text-primary mt-0.5">1.</span>
-                      <span>Register your avatar (one per human)</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-primary mt-0.5">2.</span>
-                      <span>Claim up to 24 CRC/day (1 per hour)</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-primary mt-0.5">3.</span>
-                      <span>Send CRC to people you trust</span>
-                    </li>
-                  </ul>
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-medium">How it works</h3>
+                    <ul className="text-sm text-muted-foreground space-y-1.5">
+                      <li className="flex items-start gap-2">
+                        <span className="text-primary">•</span>
+                        <span>Register your avatar (one per human)</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-primary">•</span>
+                        <span>Claim 1 CRC per hour, up to 24/day</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-primary">•</span>
+                        <span>Send CRC to friends and groups you want to support</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-primary">•</span>
+                        <span>Trust others so your CRC can flow through the network</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-primary">•</span>
+                        <span>~7% yearly decay keeps CRC circulating</span>
+                      </li>
+                    </ul>
+                  </div>
 
                   <Button
                     className="w-full"
@@ -787,13 +804,13 @@ export default function Signal() {
                     ) : (
                       <>
                         <UserPlus className="h-4 w-4 mr-2" />
-                        Register
+                        Register as Human
                       </>
                     )}
                   </Button>
 
                   <p className="text-xs text-muted-foreground text-center">
-                    CRC is social money, separate from your USDC. Gas fees covered.
+                    CRC is social money, separate from your USDC balance. Gas fees are covered.
                   </p>
                 </div>
               )}
