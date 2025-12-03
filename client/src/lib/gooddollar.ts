@@ -224,11 +224,12 @@ export async function getClaimStatus(address: Address): Promise<ClaimStatus> {
   const client = getCeloClient();
   
   try {
-    const [entitlement, currentDay, dailyUbi, lastClaimedDay, activeUsers] = await Promise.all([
+    const [entitlement, currentDay, dailyUbi, lastClaimedDay] = await Promise.all([
       client.readContract({
         address: GOODDOLLAR_CONTRACTS.ubi.celo,
         abi: UBI_SCHEME_ABI,
         functionName: 'checkEntitlement',
+        account: address,
       }),
       client.readContract({
         address: GOODDOLLAR_CONTRACTS.ubi.celo,
@@ -246,12 +247,19 @@ export async function getClaimStatus(address: Address): Promise<ClaimStatus> {
         functionName: 'lastClaimed',
         args: [address],
       }),
-      client.readContract({
+    ]);
+
+    let activeUsers = 0;
+    try {
+      const activeUsersResult = await client.readContract({
         address: GOODDOLLAR_CONTRACTS.ubi.celo,
         abi: UBI_SCHEME_ABI,
         functionName: 'activeUsersCount',
-      }),
-    ]);
+      });
+      activeUsers = Number(activeUsersResult);
+    } catch (e) {
+      console.warn('Could not fetch activeUsersCount (optional):', e);
+    }
 
     const canClaim = entitlement > 0n;
     
@@ -273,7 +281,7 @@ export async function getClaimStatus(address: Address): Promise<ClaimStatus> {
       currentDay: Number(currentDay),
       dailyUbi,
       dailyUbiFormatted: formatGoodDollar(dailyUbi),
-      activeUsers: Number(activeUsers),
+      activeUsers,
       nextClaimTime,
     };
   } catch (error) {
