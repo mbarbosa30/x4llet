@@ -67,14 +67,16 @@ export interface CirclesBalance {
 
 export async function getCirclesAvatar(address: string): Promise<CirclesAvatar> {
   try {
-    const avatarAddress = await publicClient.readContract({
+    // avatars(address) returns the NEXT address in a linked list, not an avatar token
+    // If it returns non-zero, the address is registered in the linked list
+    const nextInList = await publicClient.readContract({
       address: HUB_V2_ADDRESS,
       abi: hubAbi,
       functionName: 'avatars',
       args: [address as Address],
     }) as Address;
 
-    const isRegistered = avatarAddress !== '0x0000000000000000000000000000000000000000';
+    const isRegistered = nextInList !== '0x0000000000000000000000000000000000000000';
     
     if (!isRegistered) {
       return {
@@ -87,30 +89,31 @@ export async function getCirclesAvatar(address: string): Promise<CirclesAvatar> 
       };
     }
 
+    // For type checks, use the WALLET address directly (not the linked list pointer)
     const [isHuman, isOrganization, isGroup] = await Promise.all([
       publicClient.readContract({
         address: HUB_V2_ADDRESS,
         abi: hubAbi,
         functionName: 'isHuman',
-        args: [avatarAddress],
+        args: [address as Address],
       }),
       publicClient.readContract({
         address: HUB_V2_ADDRESS,
         abi: hubAbi,
         functionName: 'isOrganization',
-        args: [avatarAddress],
+        args: [address as Address],
       }),
       publicClient.readContract({
         address: HUB_V2_ADDRESS,
         abi: hubAbi,
         functionName: 'isGroup',
-        args: [avatarAddress],
+        args: [address as Address],
       }),
     ]);
 
     return {
       address,
-      avatarAddress: avatarAddress,
+      avatarAddress: address, // The avatar address IS the wallet address in Circles v2
       isRegistered: true,
       isHuman: isHuman as boolean,
       isOrganization: isOrganization as boolean,
@@ -131,27 +134,29 @@ export async function getCirclesAvatar(address: string): Promise<CirclesAvatar> 
 
 export async function getCirclesBalance(address: string): Promise<CirclesBalance> {
   try {
-    const avatarAddress = await publicClient.readContract({
+    // Check if registered by looking at linked list
+    const nextInList = await publicClient.readContract({
       address: HUB_V2_ADDRESS,
       abi: hubAbi,
       functionName: 'avatars',
       args: [address as Address],
     }) as Address;
 
-    if (avatarAddress === '0x0000000000000000000000000000000000000000') {
+    if (nextInList === '0x0000000000000000000000000000000000000000') {
       return {
         totalCrc: '0',
         formattedCrc: '0.00',
       };
     }
 
-    const tokenId = BigInt(avatarAddress);
+    // In Circles v2, the token ID for a human's personal CRC is their address as uint256
+    const tokenId = BigInt(address);
     
     const balance = await publicClient.readContract({
       address: HUB_V2_ADDRESS,
       abi: hubAbi,
       functionName: 'balanceOf',
-      args: [avatarAddress, tokenId],
+      args: [address as Address, tokenId],
     });
 
     const formatted = formatUnits(balance as bigint, 18);
@@ -345,18 +350,20 @@ export async function sendCRC(
 
     const walletClient = await getWalletClient();
     
-    const avatarAddress = await publicClient.readContract({
+    // Check if sender is registered by checking linked list
+    const nextInList = await publicClient.readContract({
       address: HUB_V2_ADDRESS,
       abi: hubAbi,
       functionName: 'avatars',
       args: [fromAddress as Address],
     }) as Address;
 
-    if (avatarAddress === '0x0000000000000000000000000000000000000000') {
+    if (nextInList === '0x0000000000000000000000000000000000000000') {
       throw new Error('Sender is not registered in Circles');
     }
 
-    const tokenId = BigInt(avatarAddress);
+    // In Circles v2, the token ID is the wallet address as uint256
+    const tokenId = BigInt(fromAddress);
     const amountWei = parseUnits(amount, 18);
 
     const hash = await walletClient.writeContract({
@@ -364,7 +371,7 @@ export async function sendCRC(
       abi: hubAbi,
       functionName: 'safeTransferFrom',
       args: [
-        avatarAddress,
+        fromAddress as Address,
         toAddress as Address,
         tokenId,
         amountWei,

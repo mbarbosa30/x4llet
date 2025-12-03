@@ -40,6 +40,8 @@ Features a unified fixed header and bottom navigation. The header displays brand
 - **GoodDollar Tab**: Face verification integration for UBI claiming. Uses SDK-compatible flow with signed messages (login + identifier), lz-string compression, and redirect to GoodID (https://goodid.gooddollar.org). Identity and claim status checked on Celo chain.
 - Smart default tab selection based on user data (Circles avatar, MaxFlow score, or GoodDollar identity)
 
+**Circles Facilitator**: The x402 facilitator (0x2c696E742e07d92D9ae574865267C54B13930363) is registered as a Circles V2 **Organization** named "nanoPay" (tx: 0x49dcc114f788948e1598260928c88e3755a239c50ddf1f107321e5f74a5880da). Organizations can receive CRC, provide xDAI gas drips, and be trusted by the community, but cannot mint personal CRC tokens. For user onboarding, users will register as Humans using the Circles SDK with a community inviter.
+
 Multi-chain UX includes aggregated USDC balance display, chain badges for transactions, auto-selection of the chain with the highest USDC balance on the Send page, and network selection on the Receive page.
 
 ## External Dependencies
