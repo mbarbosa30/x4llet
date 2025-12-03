@@ -880,7 +880,7 @@ export default function Claim() {
                                 </a>
 
                                 <a 
-                                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Looking to join @CirclesUBI! If you're already on Circles, I'd appreciate a trust 🙏\n\nMy address: ${address}\n\n#CirclesUBI #BasicIncome`)}`}
+                                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Looking to join @aboutcircles! If you're already on Circles, I'd appreciate a trust 🙏\n\nMy address: ${address}\n\n#CirclesUBI #BasicIncome`)}`}
                                   target="_blank" 
                                   rel="noopener noreferrer"
                                   className="flex items-center gap-3 p-2 rounded-md hover-elevate transition-colors"
