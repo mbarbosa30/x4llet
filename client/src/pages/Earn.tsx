@@ -688,7 +688,8 @@ export default function Earn() {
   const getTotalAaveBalance = (): number => {
     const baseBalance = aaveBalanceBase?.aUsdcBalance ? parseFloat(aaveBalanceBase.aUsdcBalance) : 0;
     const celoBalance = aaveBalanceCelo?.aUsdcBalance ? parseFloat(aaveBalanceCelo.aUsdcBalance) : 0;
-    return (baseBalance + celoBalance) / 1000000;
+    const gnosisBalance = aaveBalanceGnosis?.aUsdcBalance ? parseFloat(aaveBalanceGnosis.aUsdcBalance) : 0;
+    return (baseBalance + celoBalance + gnosisBalance) / 1000000;
   };
 
   const resetAaveDialog = () => {

@@ -127,9 +127,10 @@ export default function Home() {
   const getExplorerUrl = (txHash: string, txChainId?: number) => {
     // Use transaction's chainId to determine explorer
     const effectiveChainId = txChainId || 42220; // Default to Celo if not specified
-    const network = effectiveChainId === 42220 ? 'celo' : 'base';
-    if (network === 'celo') {
+    if (effectiveChainId === 42220) {
       return `https://celoscan.io/tx/${txHash}`;
+    } else if (effectiveChainId === 100) {
+      return `https://gnosisscan.io/tx/${txHash}`;
     } else {
       return `https://basescan.org/tx/${txHash}`;
     }
@@ -350,7 +351,7 @@ export default function Home() {
                   data-testid="button-view-explorer"
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
-                  View on {((selectedTransaction as any).chainId || 42220) === 42220 ? 'Celoscan' : 'Basescan'}
+                  View on {((selectedTransaction as any).chainId || 42220) === 42220 ? 'Celoscan' : ((selectedTransaction as any).chainId === 100 ? 'Gnosisscan' : 'Basescan')}
                 </Button>
               )}
             </div>
