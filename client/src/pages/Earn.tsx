@@ -279,7 +279,6 @@ export default function Earn() {
     const data: Array<{
       label: string;
       isProjected: boolean;
-      isNow?: boolean;
       baseInterest: number;
       celoInterest: number;
       principal: number;
@@ -289,26 +288,12 @@ export default function Earn() {
       celoInterestPercent?: number;
     }> = [];
     
-    // Add "Now" point - starting point for projections
-    data.push({
-      label: 'Now',
-      isProjected: false,
-      isNow: true,
-      baseInterest: 0,
-      celoInterest: 0,
-      principal: currentBalance,
-      interest: 0,
-      total: currentBalance,
-      baseInterestPercent: 0,
-      celoInterestPercent: 0,
-    });
-    
-    // Add projected points - interest grows per chain
+    // Add projected points - interest grows per chain (starting from +1m, no "Now" point)
     if (currentBalance > 0) {
       const monthlyRateBase = baseApy / 100 / 12;
       const monthlyRateCelo = celoApy / 100 / 12;
       
-      // Key milestones: +1m, +3m, +6m, +1y, +18m, +2y (2-year projection for dramatic curve)
+      // Key milestones: +1m, +3m, +6m, +1y, +18m, +2y, +3y (3-year projection for dramatic curve)
       const projectionPoints = [
         { months: 1, label: '+1m' },
         { months: 3, label: '+3m' },
@@ -316,6 +301,7 @@ export default function Earn() {
         { months: 12, label: '+1y' },
         { months: 18, label: '+18m' },
         { months: 24, label: '+2y' },
+        { months: 36, label: '+3y' },
       ];
       
       for (const point of projectionPoints) {
@@ -367,12 +353,10 @@ export default function Earn() {
 
   // Chart display data - simplified projection-only view
   const displayChartData = useMemo(() => {
-    const nowPoint = combinedChartData.find(p => p.isNow);
-    const principal = nowPoint?.principal || 0;
+    const principal = combinedChartData[0]?.principal || 0;
     
     return combinedChartData.map(point => ({
       label: point.label,
-      isNow: point.isNow,
       isProjected: point.isProjected,
       baseInterest: point.baseInterest,
       celoInterest: point.celoInterest,
@@ -1057,22 +1041,22 @@ export default function Earn() {
                 </div>
               </div>
               
-              {/* Per-chain interest earned summary (2-year projection) */}
+              {/* Per-chain interest earned summary (3-year projection) */}
               {combinedChartData.length > 0 && (
                 <div className="flex items-center justify-center gap-4 text-xs">
                   {(() => {
-                    const twoYearPoint = combinedChartData.find(p => p.label === '+2y');
-                    if (!twoYearPoint) return null;
+                    const threeYearPoint = combinedChartData.find(p => p.label === '+3y');
+                    if (!threeYearPoint) return null;
                     return (
                       <>
-                        {twoYearPoint.baseInterest > 0 && (
+                        {threeYearPoint.baseInterest > 0 && (
                           <span className="text-blue-400">
-                            Base: {formatSmartPrecision(twoYearPoint.baseInterest, '+$')}/2yr
+                            Base: {formatSmartPrecision(threeYearPoint.baseInterest, '+$')}/3yr
                           </span>
                         )}
-                        {twoYearPoint.celoInterest > 0 && (
+                        {threeYearPoint.celoInterest > 0 && (
                           <span className="text-yellow-400">
-                            Celo: {formatSmartPrecision(twoYearPoint.celoInterest, '+$')}/2yr
+                            Celo: {formatSmartPrecision(threeYearPoint.celoInterest, '+$')}/3yr
                           </span>
                         )}
                       </>
