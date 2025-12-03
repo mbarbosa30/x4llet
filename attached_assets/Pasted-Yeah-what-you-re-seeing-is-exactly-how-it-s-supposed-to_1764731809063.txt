@@ -1,0 +1,71 @@
+Yeah, what you’re seeing is exactly how it’s supposed to behave:
+inviting a wallet ≠ registering it. The invite is only step 1.
+
+From the docs there are two flows, depending on which SDK surface you use:
+
+⸻
+
+1. “Old-style” flow: inviteHuman + acceptInvitation
+
+On the “Inviting and accepting human avatars” page:  ￼
+	1.	You (already a Circles avatar) invite the new address:
+
+await avatar.inviteHuman(newUserAddress);
+
+	2.	Then, the invited wallet address itself must accept the invitation and register:
+
+const avatar = await sdk.acceptInvitation(inviterAddress, profile);
+console.log(avatar.avatarInfo);
+
+	•	inviterAddress = your avatar address (the one that called inviteHuman).
+	•	profile = a Profile object or CID (name, description, etc.).
+	•	This call must be signed by the invited wallet – i.e. you initialise Sdk with that wallet as the ContractRunner.
+
+Until that second step happens, sdk.getAvatar(invitedAddress) will say “not registered” – the invite alone does not create the avatar.
+
+⸻
+
+2. Newer unified method: sdk.register.asHuman
+
+In the newer SDK methods page:  ￼
+
+sdk.register.asHuman(inviter: string, profile: Profile | string): Promise<HumanAvatar>;
+
+Docs: “Registers a human avatar; handles invitation redemption automatically.”
+
+So the newer pattern for the invited wallet is:
+
+// using the invited wallet as the signer/runner
+const human = await sdk.register.asHuman(inviterAddress, {
+  name: 'Alice',
+  description: '…'
+});
+
+Again:
+	•	This must be called with the invited wallet as the signer.
+	•	It both redeems the invite and creates the avatar in one go.
+	•	After this, sdk.getAvatar(invitedAddress) will succeed and they can start minting CRC.
+
+⸻
+
+What this means for you
+
+“I already invited a wallet address, but it says it is not registered. According to the docs, is there a way to register it?”
+
+According to the docs, yes – but only from the invited wallet side.
+
+You can’t fully “finish” registration just by inviting from your account. The invited address must:
+	•	Either call sdk.acceptInvitation(inviterAddress, profile), or
+	•	Call sdk.register.asHuman(inviterAddress, profile) (recommended, newer API),
+
+using that wallet as the signer.
+
+So in nanoPay / your app, the flow should be something like:
+	1.	You (as an existing avatar) call inviteHuman(invitedWallet).
+	2.	When the invited person opens the app with that wallet:
+	•	Detect they’ve been invited (optional),
+	•	Ask them for a name/profile,
+	•	Call sdk.register.asHuman(yourAvatarAddress, profile) with their wallet,
+	•	Only then treat them as “registered” and let them claim CRC.
+
+If you control the invited wallet (e.g. it’s an internal account in your system), you can just run the register.asHuman call yourself using that key. If it’s an external user’s wallet, they must go through that second step.
