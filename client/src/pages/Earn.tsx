@@ -198,6 +198,15 @@ export default function Earn() {
     },
   });
 
+  const { data: aaveApyGnosis, isLoading: isApyGnosisLoading } = useQuery<AaveApyData>({
+    queryKey: ['/api/aave/apy', 100],
+    queryFn: async () => {
+      const res = await fetch('/api/aave/apy/100');
+      if (!res.ok) throw new Error('Failed to fetch APY');
+      return res.json();
+    },
+  });
+
   const { data: aaveBalanceBase, isLoading: isAaveBalanceBaseLoading } = useQuery<{ aUsdcBalance: string; apy: number }>({
     queryKey: ['/api/aave/balance', address, 8453],
     enabled: !!address,
@@ -220,23 +229,38 @@ export default function Earn() {
     refetchInterval: 30000,
   });
 
+  const { data: aaveBalanceGnosis, isLoading: isAaveBalanceGnosisLoading } = useQuery<{ aUsdcBalance: string; apy: number }>({
+    queryKey: ['/api/aave/balance', address, 100],
+    enabled: !!address,
+    queryFn: async () => {
+      const res = await fetch(`/api/aave/balance/${address}?chainId=100`);
+      if (!res.ok) throw new Error('Failed to fetch Aave balance');
+      return res.json();
+    },
+    refetchInterval: 30000,
+  });
+
   // Use BigInt for precise micro-USDC arithmetic
   const baseAaveBalanceMicro = aaveBalanceBase?.aUsdcBalance ? BigInt(aaveBalanceBase.aUsdcBalance) : 0n;
   const celoAaveBalanceMicro = aaveBalanceCelo?.aUsdcBalance ? BigInt(aaveBalanceCelo.aUsdcBalance) : 0n;
-  const totalAaveBalanceMicro = String(baseAaveBalanceMicro + celoAaveBalanceMicro);
+  const gnosisAaveBalanceMicro = aaveBalanceGnosis?.aUsdcBalance ? BigInt(aaveBalanceGnosis.aUsdcBalance) : 0n;
+  const totalAaveBalanceMicro = String(baseAaveBalanceMicro + celoAaveBalanceMicro + gnosisAaveBalanceMicro);
 
   const calculateWeightedApy = () => {
     const baseBalance = aaveBalanceBase?.aUsdcBalance ? parseFloat(aaveBalanceBase.aUsdcBalance) : 0;
     const celoBalance = aaveBalanceCelo?.aUsdcBalance ? parseFloat(aaveBalanceCelo.aUsdcBalance) : 0;
-    const totalBalance = baseBalance + celoBalance;
+    const gnosisBalance = aaveBalanceGnosis?.aUsdcBalance ? parseFloat(aaveBalanceGnosis.aUsdcBalance) : 0;
+    const totalBalance = baseBalance + celoBalance + gnosisBalance;
     if (totalBalance === 0) {
       const baseApy = aaveApyBase?.apy || 0;
       const celoApy = aaveApyCelo?.apy || 0;
-      return Math.max(baseApy, celoApy);
+      const gnosisApy = aaveApyGnosis?.apy || 0;
+      return Math.max(baseApy, celoApy, gnosisApy);
     }
     const baseApy = aaveBalanceBase?.apy || 0;
     const celoApy = aaveBalanceCelo?.apy || 0;
-    return ((baseApy * baseBalance) + (celoApy * celoBalance)) / totalBalance;
+    const gnosisApy = aaveBalanceGnosis?.apy || 0;
+    return ((baseApy * baseBalance) + (celoApy * celoBalance) + (gnosisApy * gnosisBalance)) / totalBalance;
   };
 
   const weightedApy = calculateWeightedApy();
@@ -265,6 +289,14 @@ export default function Earn() {
     minPrecision: 5,
   });
 
+  const gnosisEarningAnimation = useEarningAnimation({
+    usdcMicro: '0',
+    aaveBalanceMicro: aaveBalanceGnosis?.aUsdcBalance || '0',
+    apyRate: (aaveBalanceGnosis?.apy || 0) / 100,
+    enabled: parseFloat(aaveBalanceGnosis?.aUsdcBalance || '0') > 0,
+    minPrecision: 5,
+  });
+
   // Chart data: Projection-only view showing interest growth per chain
   // Principal = current balance (stays flat at 0 on chart), Interest = projected growth per chain
   const combinedChartData = useMemo(() => {
@@ -273,25 +305,30 @@ export default function Earn() {
     
     const baseBalance = Number(baseAaveBalanceMicro) / 1_000_000;
     const celoBalance = Number(celoAaveBalanceMicro) / 1_000_000;
+    const gnosisBalance = Number(gnosisAaveBalanceMicro) / 1_000_000;
     const baseApy = aaveBalanceBase?.apy || aaveApyBase?.apy || 0;
     const celoApy = aaveBalanceCelo?.apy || aaveApyCelo?.apy || 0;
+    const gnosisApy = aaveBalanceGnosis?.apy || aaveApyGnosis?.apy || 0;
     
     const data: Array<{
       label: string;
       isProjected: boolean;
       baseInterest: number;
       celoInterest: number;
+      gnosisInterest: number;
       principal: number;
       interest: number;
       total: number;
       baseInterestPercent?: number;
       celoInterestPercent?: number;
+      gnosisInterestPercent?: number;
     }> = [];
     
     // Add projected points - interest grows per chain (starting from +1m, no "Now" point)
     if (currentBalance > 0) {
       const monthlyRateBase = baseApy / 100 / 12;
       const monthlyRateCelo = celoApy / 100 / 12;
+      const monthlyRateGnosis = gnosisApy / 100 / 12;
       
       // Key milestones: +1m, +3m, +6m, +1y, +18m, +2y, +3y (3-year projection for dramatic curve)
       const projectionPoints = [
@@ -307,24 +344,27 @@ export default function Earn() {
       for (const point of projectionPoints) {
         const baseInterestEarned = baseBalance * (Math.pow(1 + monthlyRateBase, point.months) - 1);
         const celoInterestEarned = celoBalance * (Math.pow(1 + monthlyRateCelo, point.months) - 1);
-        const totalInterest = baseInterestEarned + celoInterestEarned;
+        const gnosisInterestEarned = gnosisBalance * (Math.pow(1 + monthlyRateGnosis, point.months) - 1);
+        const totalInterest = baseInterestEarned + celoInterestEarned + gnosisInterestEarned;
         
         data.push({
           label: point.label,
           isProjected: true,
           baseInterest: baseInterestEarned,
           celoInterest: celoInterestEarned,
+          gnosisInterest: gnosisInterestEarned,
           principal: currentBalance,
           interest: totalInterest,
           total: currentBalance + totalInterest,
           baseInterestPercent: baseBalance > 0 ? (baseInterestEarned / baseBalance) * 100 : 0,
           celoInterestPercent: celoBalance > 0 ? (celoInterestEarned / celoBalance) * 100 : 0,
+          gnosisInterestPercent: gnosisBalance > 0 ? (gnosisInterestEarned / gnosisBalance) * 100 : 0,
         });
       }
     }
     
     return data;
-  }, [totalAaveBalanceMicro, baseAaveBalanceMicro, celoAaveBalanceMicro, weightedApy, aaveBalanceBase?.apy, aaveBalanceCelo?.apy, aaveApyBase?.apy, aaveApyCelo?.apy]);
+  }, [totalAaveBalanceMicro, baseAaveBalanceMicro, celoAaveBalanceMicro, gnosisAaveBalanceMicro, weightedApy, aaveBalanceBase?.apy, aaveBalanceCelo?.apy, aaveBalanceGnosis?.apy, aaveApyBase?.apy, aaveApyCelo?.apy, aaveApyGnosis?.apy]);
 
   const projectedEarningsData = useMemo(() => {
     const microBalance = BigInt(totalAaveBalanceMicro || '0');
@@ -640,10 +680,11 @@ export default function Earn() {
     setIsOperating(false);
   };
 
-  const hasAaveBalance = baseAaveBalanceMicro > 0n || celoAaveBalanceMicro > 0n;
+  const hasAaveBalance = baseAaveBalanceMicro > 0n || celoAaveBalanceMicro > 0n || gnosisAaveBalanceMicro > 0n;
   // Convert BigInt micro-USDC to number for display (safe for amounts up to ~9 trillion USDC)
   const baseBalanceNum = Number(baseAaveBalanceMicro) / 1e6;
   const celoBalanceNum = Number(celoAaveBalanceMicro) / 1e6;
+  const gnosisBalanceNum = Number(gnosisAaveBalanceMicro) / 1e6;
 
   return (
     <div 
@@ -799,7 +840,7 @@ export default function Earn() {
           </Card>
         )}
 
-        {hasAaveBalance && baseBalanceNum > 0 && celoBalanceNum > 0 && (
+        {hasAaveBalance && (baseBalanceNum > 0 || celoBalanceNum > 0 || gnosisBalanceNum > 0) && [baseBalanceNum, celoBalanceNum, gnosisBalanceNum].filter(b => b > 0).length > 1 && (
           <Card className="p-4 space-y-3" data-testid="card-chain-breakdown">
             <div className="text-sm font-medium">Balance by Network</div>
             
@@ -854,6 +895,32 @@ export default function Earn() {
                 </div>
               </div>
             )}
+
+            {gnosisBalanceNum > 0 && (
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                    <span className="text-xs font-bold text-emerald-600">G</span>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium">Gnosis</div>
+                    <div className="text-xs text-muted-foreground">{aaveApyGnosis?.apyFormatted || '—'} APY</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-medium tabular-nums inline-flex items-baseline justify-end">
+                    <span className="text-sm opacity-50 mr-0.5">$</span>
+                    <span>{Math.floor(gnosisEarningAnimation.animatedValue)}</span>
+                    <span className="opacity-90">.{gnosisEarningAnimation.mainDecimals}</span>
+                    {gnosisEarningAnimation.extraDecimals && (
+                      <span className="text-[0.45em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.5em' }}>
+                        {gnosisEarningAnimation.extraDecimals}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </Card>
         )}
 
@@ -901,6 +968,11 @@ export default function Earn() {
                       <stop offset="0%" stopColor="hsl(45, 93%, 58%)" stopOpacity={0.7}/>
                       <stop offset="100%" stopColor="hsl(45, 93%, 47%)" stopOpacity={0.3}/>
                     </linearGradient>
+                    {/* Gnosis chain colors - emerald/green */}
+                    <linearGradient id="gnosisInterestGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(160, 84%, 45%)" stopOpacity={0.7}/>
+                      <stop offset="100%" stopColor="hsl(160, 84%, 35%)" stopOpacity={0.3}/>
+                    </linearGradient>
                     {/* Earnings mode gradient */}
                     <linearGradient id="earningsPercentGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.5}/>
@@ -941,7 +1013,7 @@ export default function Earn() {
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
-                        const totalInterest = (data.baseInterest || 0) + (data.celoInterest || 0);
+                        const totalInterest = (data.baseInterest || 0) + (data.celoInterest || 0) + (data.gnosisInterest || 0);
                         
                         if (data.isNow) {
                           return (
@@ -965,10 +1037,18 @@ export default function Earn() {
                               </div>
                             )}
                             {data.celoInterest > 0 && (
-                              <div className="flex items-center justify-between gap-3 text-xs mb-1">
+                              <div className="flex items-center justify-between gap-3 text-xs mb-0.5">
                                 <span className="text-yellow-400">Celo:</span>
                                 <span className="text-success">
                                   +{formatSmartPrecision(data.celoInterest, '$')}
+                                </span>
+                              </div>
+                            )}
+                            {data.gnosisInterest > 0 && (
+                              <div className="flex items-center justify-between gap-3 text-xs mb-1">
+                                <span className="text-emerald-400">Gnosis:</span>
+                                <span className="text-success">
+                                  +{formatSmartPrecision(data.gnosisInterest, '$')}
                                 </span>
                               </div>
                             )}
@@ -1008,6 +1088,16 @@ export default function Earn() {
                     fill="url(#celoInterestGradient)"
                     isAnimationActive={false}
                   />
+                  <Area 
+                    type="monotone" 
+                    dataKey="gnosisInterest"
+                    yAxisId="balance"
+                    stackId="earnings"
+                    stroke="hsl(160, 84%, 45%)"
+                    strokeWidth={1.5}
+                    fill="url(#gnosisInterestGradient)"
+                    isAnimationActive={false}
+                  />
                   {/* Overlay line for % growth (right Y-axis) */}
                   <Line 
                     type="monotone" 
@@ -1036,6 +1126,10 @@ export default function Earn() {
                   <span className="text-yellow-400">Celo</span>
                 </div>
                 <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(160, 84%, 40%)' }}></div>
+                  <span className="text-emerald-400">Gnosis</span>
+                </div>
+                <div className="flex items-center gap-1.5">
                   <div className="w-4 h-0.5 rounded-sm" style={{ background: 'hsl(142, 71%, 45%)', borderTop: '2px dashed hsl(142, 71%, 45%)' }}></div>
                   <span className="text-success">% Growth</span>
                 </div>
@@ -1043,7 +1137,7 @@ export default function Earn() {
               
               {/* Per-chain interest earned summary (3-year projection) */}
               {combinedChartData.length > 0 && (
-                <div className="flex items-center justify-center gap-4 text-xs">
+                <div className="flex items-center justify-center gap-4 text-xs flex-wrap">
                   {(() => {
                     const threeYearPoint = combinedChartData.find(p => p.label === '+3y');
                     if (!threeYearPoint) return null;
@@ -1057,6 +1151,11 @@ export default function Earn() {
                         {threeYearPoint.celoInterest > 0 && (
                           <span className="text-yellow-400">
                             Celo: {formatSmartPrecision(threeYearPoint.celoInterest, '+$')}/3yr
+                          </span>
+                        )}
+                        {threeYearPoint.gnosisInterest > 0 && (
+                          <span className="text-emerald-400">
+                            Gnosis: {formatSmartPrecision(threeYearPoint.gnosisInterest, '+$')}/3yr
                           </span>
                         )}
                       </>
@@ -1075,7 +1174,7 @@ export default function Earn() {
         <Card className="p-4 space-y-3" data-testid="card-apy-rates">
           <div className="text-sm font-medium">Current APY Rates</div>
           
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="p-3 bg-muted/50 rounded-lg text-center">
               <div className="text-xs text-muted-foreground mb-1">Base</div>
               {isApyBaseLoading ? (
@@ -1093,6 +1192,16 @@ export default function Earn() {
               ) : (
                 <div className="text-lg font-bold text-primary" data-testid="text-celo-apy">
                   {aaveApyCelo?.apyFormatted || '—'}
+                </div>
+              )}
+            </div>
+            <div className="p-3 bg-muted/50 rounded-lg text-center">
+              <div className="text-xs text-muted-foreground mb-1">Gnosis</div>
+              {isApyGnosisLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+              ) : (
+                <div className="text-lg font-bold text-primary" data-testid="text-gnosis-apy">
+                  {aaveApyGnosis?.apyFormatted || '—'}
                 </div>
               )}
             </div>
@@ -1198,6 +1307,7 @@ export default function Earn() {
                   <SelectContent>
                     <SelectItem value="8453">Base ({aaveApyBase?.apyFormatted || '—'} APY)</SelectItem>
                     <SelectItem value="42220">Celo ({aaveApyCelo?.apyFormatted || '—'} APY)</SelectItem>
+                    <SelectItem value="100">Gnosis ({aaveApyGnosis?.apyFormatted || '—'} APY)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1313,6 +1423,9 @@ export default function Earn() {
                     </SelectItem>
                     <SelectItem value="42220" disabled={celoBalanceNum === 0}>
                       Celo (${celoBalanceNum.toFixed(2)} available)
+                    </SelectItem>
+                    <SelectItem value="100" disabled={gnosisBalanceNum === 0}>
+                      Gnosis (${gnosisBalanceNum.toFixed(2)} available)
                     </SelectItem>
                   </SelectContent>
                 </Select>

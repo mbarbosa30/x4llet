@@ -12,7 +12,9 @@ Preferred communication style: Simple, everyday language.
 The frontend is built with React 18, TypeScript, Vite, Wouter for routing, TanStack Query for server state management, Shadcn UI (Radix UI-based) for components, and Tailwind CSS for styling. It features a performance-first, mobile-optimized design with a fixed header/footer and content limited to a max-width of 448px. State management leverages IndexedDB for local key storage and TanStack Query for API data caching. Dark mode contrast has been improved for better readability. Multi-chain balance aggregation displays total USDC across Base and Celo networks with per-chain breakdown, and transactions are merged chronologically with chain badges.
 
 ### Backend Architecture
-The backend uses Express.js (TypeScript), Drizzle ORM, and PostgreSQL (via Neon serverless adapter). It provides APIs for balance and transaction history with multi-chain aggregation support. When called without a chainId parameter, balance and transaction endpoints fetch data from both Base and Celo in parallel, returning aggregated totals with per-chain breakdowns. The production-ready EIP-3009 facilitator handles gasless USDC transfers on both networks. Transaction history is retrieved using the Etherscan v2 unified API, supporting over 60 EVM chains. All USDC amounts are handled with BigInt for precision to avoid floating-point errors. Balance formatting uses BigInt division to maintain precision for large amounts. Transaction merging uses deterministic timestamp-based sorting with txHash as tiebreaker. An admin dashboard with HTTP Basic Auth is available for backfill operations, cache management, database statistics, and API health checks.
+The backend uses Express.js (TypeScript), Drizzle ORM, and PostgreSQL (via Neon serverless adapter). It provides APIs for balance and transaction history with multi-chain aggregation support. When called without a chainId parameter, balance and transaction endpoints fetch data from Base, Celo, and Gnosis in parallel, returning aggregated totals with per-chain breakdowns. The production-ready EIP-3009 facilitator handles gasless USDC transfers on Base and Celo (not Gnosis - see limitations). Transaction history is retrieved using the Etherscan v2 unified API. All USDC amounts are handled with BigInt for precision to avoid floating-point errors. Balance formatting uses BigInt division to maintain precision for large amounts. Transaction merging uses deterministic timestamp-based sorting with txHash as tiebreaker. An admin dashboard with HTTP Basic Auth is available for backfill operations, cache management, database statistics, and API health checks.
+
+**Chain Resolution:** The backend uses a `resolveChain()` helper function for consistent viem chain resolution across all routes, eliminating hardcoded Base/Celo ternaries and enabling proper Gnosis support. Routes that don't support Gnosis (e.g., gasless transfers, Aave supply) explicitly reject chainId 100 with clear error messages.
 
 ### Cryptographic Architecture
 Wallet generation employs `viem` for secp256k1 private key creation. Private keys are encrypted with WebCrypto API (AES-GCM with PBKDF2) and stored in IndexedDB, protected by a user-defined password. EIP-712 typed data signing is used for gasless transfers, compatible with USDC's EIP-3009. The application correctly handles EIP-712 domain differences for "USDC" vs. "USD Coin" across different networks.
@@ -21,11 +23,18 @@ Wallet generation employs `viem` for secp256k1 private key creation. Private key
 A PostgreSQL database managed with Drizzle ORM is used for intelligent caching. Tables include `users`, `wallets`, `authorizations`, `cached_balances`, `cached_transactions`, `balance_history`, `cached_maxflow_scores`, and `exchange_rates`. This caching strategy reduces blockchain RPC calls and external API requests, enhancing performance and enabling offline balance display. USDC amounts are standardized to micro-USDC integers (6 decimals) for precision throughout all tables—cached balances, transactions, and balance history all store amounts as micro-USDC integers (not decimal strings). Balance history uses automatic snapshots: per-chain snapshots are saved when balances are fetched (chainId 8453 for Base, 42220 for Celo), and aggregated snapshots (chainId 0) representing the total balance across all chains are saved simultaneously using forward-fill logic to ensure accurate historical totals. Historical exchange rates are fetched and stored for inflation animation.
 
 ### Network Configuration
-The application supports Base (chainId: 8453) and Celo (chainId: 42220) networks, with Celo as the default. Users can switch networks via the Settings page.
+The application supports Base (chainId: 8453), Celo (chainId: 42220), and Gnosis (chainId: 100) networks. Users can switch networks via the Settings page.
 
 **Network Support Status:**
 - **Celo (42220)**: ✅ Fully operational. Facilitator has 4.9 CELO for gas fees.
 - **Base (8453)**: ✅ Fully operational. Facilitator has 0.001 ETH for gas fees (~100+ transactions).
+- **Gnosis (100)**: ⏳ Read-only (balances, receive, earn). Uses USDC.e (Circle Bridge Token Standard) at `0x2a22f9c3b484c3629090FeED35F17Ff8F88f76F0`. Gasless sends NOT supported (USDC.e uses EIP-2612 permit, not EIP-3009).
+
+**Gnosis Chain Details:**
+- USDC.e (Circle Standard): `0x2a22f9c3b484c3629090FeED35F17Ff8F88f76F0`
+- Aave V3 Pool: `0xb50201558B00496A145fE76f7424749556E326D8`
+- aGnoUSDCe (aToken): `0xC0333cb85B59a788d8C7CAe5e1Fd6E229A3E5a65`
+- Note: Old USDC (`0xDDAfbb505ad214D7b80b1f830fcCc89B60fb7A83`) is legacy Omnibridge version - not used.
 
 **Facilitator Wallet:** `0x2c696E742e07d92D9ae574865267C54B13930363`
 - Monitor Base ETH balance and top up when below 0.0005 ETH to maintain service availability.
@@ -82,9 +91,9 @@ The application features a unified fixed header and bottom navigation across all
 - Backend endpoints for APY, balance checking, and placeholder supply/withdraw
 
 **Architecture:**
-- Aave V3 Pool addresses: Base (`0xA238Dd80C259a72E81d7e4664a9801593F98d1c5`), Celo (`0x3E59A31363E2ad014dcbc521c4a0d5757d9f3402`)
-- aUSDC tokens: Base (`0x4e65fE4DbA92790696d040aC24Aa414708F5c0AB`), Celo (`0xFF8309b9e99bfd2D4021bc71a362aBD93dBd4785`)
-- Users receive aUSDC (interest-bearing) when depositing USDC
+- Aave V3 Pool addresses: Base (`0xA238Dd80C259a72E81d7e4664a9801593F98d1c5`), Celo (`0x3E59A31363E2ad014dcbc521c4a0d5757d9f3402`), Gnosis (`0xb50201558B00496A145fE76f7424749556E326D8`)
+- aUSDC tokens: Base (`0x4e65fE4DbA92790696d040aC24Aa414708F5c0AB`), Celo (`0xFF8309b9e99bfd2D4021bc71a362aBD93dBd4785`), Gnosis (`0xC0333cb85B59a788d8C7CAe5e1Fd6E229A3E5a65`)
+- Users receive aUSDC (interest-bearing) when depositing USDC/USDC.e
 - Gas drip model: Facilitator sends small gas amounts (0.001 CELO or 0.0001 ETH) with 24-hour cooldown per chain
 
 **Operation Tracking & Recovery:**

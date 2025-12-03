@@ -28,7 +28,7 @@ export default function Receive() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [address, setAddress] = useState<string | null>(null);
-  const [network, setNetwork] = useState<'base' | 'celo'>('celo');
+  const [network, setNetwork] = useState<'base' | 'celo' | 'gnosis'>('celo');
   const [amount, setAmount] = useState('');
   const [ttl, setTtl] = useState('600');
   const [description, setDescription] = useState('');
@@ -37,7 +37,8 @@ export default function Receive() {
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
 
   const handleNetworkToggle = async () => {
-    const newNetwork = network === 'base' ? 'celo' : 'base';
+    // Cycle through networks: celo -> base -> gnosis -> celo
+    const newNetwork = network === 'celo' ? 'base' : network === 'base' ? 'gnosis' : 'celo';
     setNetwork(newNetwork);
     // Clear payment request when switching networks
     setPaymentRequest(null);

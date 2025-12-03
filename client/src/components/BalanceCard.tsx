@@ -37,6 +37,7 @@ interface BalanceCardProps {
   chains?: {
     base: ChainBalance;
     celo: ChainBalance;
+    gnosis?: ChainBalance;
   };
   aaveBalance?: AaveBalance;
   earnMode?: boolean;
@@ -300,10 +301,16 @@ export default function BalanceCard({
         
         {/* Chain breakdown - always show when chains data is available */}
         {chains && (
-          <div className="text-xs text-muted-foreground mb-3 flex items-center justify-center gap-3 opacity-40">
+          <div className="text-xs text-muted-foreground mb-3 flex items-center justify-center gap-3 opacity-40 flex-wrap">
             <span data-testid="text-base-balance">${chains.base.balance} Base</span>
             <span className="opacity-50">+</span>
             <span data-testid="text-celo-balance">${chains.celo.balance} Celo</span>
+            {chains.gnosis && BigInt(chains.gnosis.balanceMicro) > 0n && (
+              <>
+                <span className="opacity-50">+</span>
+                <span data-testid="text-gnosis-balance">${chains.gnosis.balance} Gnosis</span>
+              </>
+            )}
           </div>
         )}
 

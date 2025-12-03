@@ -7,7 +7,7 @@ import { getNetworkConfig, getNetworkByChainId } from "@shared/networks";
 import { AAVE_POOL_ABI, ERC20_ABI, rayToPercent } from "@shared/aave";
 import { createPublicClient, createWalletClient, http, type Address, type Hex, hexToSignature, recoverAddress, hashTypedData } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { base, celo } from 'viem/chains';
+import { base, celo, gnosis } from 'viem/chains';
 
 // USDC EIP-3009 ABI
 // Note: Both functions are defined, but this implementation uses transferWithAuthorization for all cases
@@ -58,6 +58,19 @@ function getFacilitatorAccount() {
   return privateKeyToAccount(formattedKey as Hex);
 }
 
+function resolveChain(chainId: number) {
+  switch (chainId) {
+    case 8453:
+      return { viemChain: base, networkKey: 'base' as const, name: 'Base' };
+    case 42220:
+      return { viemChain: celo, networkKey: 'celo' as const, name: 'Celo' };
+    case 100:
+      return { viemChain: gnosis, networkKey: 'gnosis' as const, name: 'Gnosis' };
+    default:
+      return null;
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/balance/:address', async (req, res) => {
     try {
@@ -71,13 +84,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Otherwise, fetch balances from all chains in parallel
-      const [baseBalance, celoBalance] = await Promise.all([
+      const [baseBalance, celoBalance, gnosisBalance] = await Promise.all([
         storage.getBalance(address, 8453),
         storage.getBalance(address, 42220),
+        storage.getBalance(address, 100),
       ]);
       
       // Calculate total balance (sum of micro-USDC) - keep as BigInt for precision
-      const totalMicroUsdc = BigInt(baseBalance.balanceMicro) + BigInt(celoBalance.balanceMicro);
+      const totalMicroUsdc = BigInt(baseBalance.balanceMicro) + BigInt(celoBalance.balanceMicro) + BigInt(gnosisBalance.balanceMicro);
       
       // Format total for display using BigInt division to preserve precision
       // Add 5000 for rounding to nearest cent (0.005 USDC = 5000 micro-USDC)
@@ -103,6 +117,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             balance: celoBalance.balance,
             balanceMicro: celoBalance.balanceMicro,
           },
+          gnosis: {
+            chainId: 100,
+            balance: gnosisBalance.balance,
+            balanceMicro: gnosisBalance.balanceMicro,
+          },
         },
       });
     } catch (error) {
@@ -123,17 +142,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Otherwise, fetch transactions from all chains in parallel
-      const [baseTransactions, celoTransactions] = await Promise.all([
+      const [baseTransactions, celoTransactions, gnosisTransactions] = await Promise.all([
         storage.getTransactions(address, 8453),
         storage.getTransactions(address, 42220),
+        storage.getTransactions(address, 100),
       ]);
       
       // Add chainId to each transaction and merge
       const baseTxsWithChain = baseTransactions.map(tx => ({ ...tx, chainId: 8453 }));
       const celoTxsWithChain = celoTransactions.map(tx => ({ ...tx, chainId: 42220 }));
+      const gnosisTxsWithChain = gnosisTransactions.map(tx => ({ ...tx, chainId: 100 }));
       
       // Merge and sort by timestamp (most recent first), with txHash as tiebreaker for deterministic ordering
-      const allTransactions = [...baseTxsWithChain, ...celoTxsWithChain]
+      const allTransactions = [...baseTxsWithChain, ...celoTxsWithChain, ...gnosisTxsWithChain]
         .sort((a, b) => {
           const timeDiff = new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
           if (timeDiff !== 0) return timeDiff;
@@ -191,9 +212,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         chainId: validatedData.chainId,
       });
       
-      // Get network configuration
-      const chain = validatedData.chainId === 8453 ? base : celo;
-      const networkConfig = getNetworkConfig(validatedData.chainId === 8453 ? 'base' : 'celo');
+      // Get network configuration - reject Gnosis (no EIP-3009 support for USDC.e)
+      if (validatedData.chainId === 100) {
+        return res.status(400).json({ 
+          error: 'Gnosis chain not supported for gasless transfers',
+          details: 'USDC.e on Gnosis uses EIP-2612 permit, not EIP-3009 transferWithAuthorization' 
+        });
+      }
+      
+      const chainInfo = resolveChain(validatedData.chainId);
+      if (!chainInfo) {
+        return res.status(400).json({ error: `Unsupported chain: ${validatedData.chainId}` });
+      }
+      
+      const chain = chainInfo.viemChain;
+      const networkConfig = getNetworkConfig(chainInfo.networkKey);
       const facilitatorAccount = getFacilitatorAccount();
       
       // Create wallet client
@@ -464,9 +497,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Aave not supported on this network' });
       }
 
-      const chain = chainId === 8453 ? base : celo;
+      const chainInfo = resolveChain(chainId);
+      if (!chainInfo) {
+        return res.status(400).json({ error: `Unsupported chain: ${chainId}` });
+      }
+      
       const publicClient = createPublicClient({
-        chain,
+        chain: chainInfo.viemChain,
         transport: http(network.rpcUrl),
       });
 
@@ -503,9 +540,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return { chainId: cId, aUsdcBalance: '0', apy: 0 };
         }
 
-        const chain = cId === 8453 ? base : celo;
+        const chainInfo = resolveChain(cId);
+        if (!chainInfo) {
+          return { chainId: cId, aUsdcBalance: '0', apy: 0 };
+        }
+        
         const publicClient = createPublicClient({
-          chain,
+          chain: chainInfo.viemChain,
           transport: http(network.rpcUrl),
         });
 
@@ -537,18 +578,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Fetch from all chains
-      const [baseResult, celoResult] = await Promise.all([
+      const [baseResult, celoResult, gnosisResult] = await Promise.all([
         fetchAaveBalance(8453).catch(() => ({ chainId: 8453, aUsdcBalance: '0', apy: 0 })),
         fetchAaveBalance(42220).catch(() => ({ chainId: 42220, aUsdcBalance: '0', apy: 0 })),
+        fetchAaveBalance(100).catch(() => ({ chainId: 100, aUsdcBalance: '0', apy: 0 })),
       ]);
 
-      const totalAUsdcMicro = BigInt(baseResult.aUsdcBalance) + BigInt(celoResult.aUsdcBalance);
+      const totalAUsdcMicro = BigInt(baseResult.aUsdcBalance) + BigInt(celoResult.aUsdcBalance) + BigInt(gnosisResult.aUsdcBalance);
 
       res.json({
         totalAUsdcBalance: totalAUsdcMicro.toString(),
         chains: {
           base: baseResult,
           celo: celoResult,
+          gnosis: gnosisResult,
         },
       });
     } catch (error) {
@@ -590,6 +633,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Aave not supported on this network' });
       }
 
+      // Gnosis uses USDC.e with EIP-2612 permit, not EIP-3009
+      if (chainId === 100) {
+        return res.status(400).json({ 
+          error: 'Aave supply on Gnosis requires permit-based flow (not yet implemented)',
+          details: 'USDC.e on Gnosis uses EIP-2612 permit, not EIP-3009 transferWithAuthorization' 
+        });
+      }
+
+      const chainInfo = resolveChain(chainId);
+      if (!chainInfo) {
+        return res.status(400).json({ error: `Unsupported chain: ${chainId}` });
+      }
+
       // Create operation record for tracking/recovery
       const operation = await storage.createAaveOperation({
         userAddress,
@@ -602,7 +658,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       operationId = operation.id;
       console.log('[Aave Supply] Created operation record:', operationId);
 
-      const chain = chainId === 8453 ? base : celo;
+      const chain = chainInfo.viemChain;
       const facilitatorAccount = getFacilitatorAccount();
       const facilitatorAddress = facilitatorAccount.address;
 
@@ -889,7 +945,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Aave not supported on this network' });
       }
 
-      const chain = chainId === 8453 ? base : celo;
+      const chainInfo = resolveChain(chainId);
+      if (!chainInfo) {
+        return res.status(400).json({ error: `Unsupported chain: ${chainId}` });
+      }
+
+      const chain = chainInfo.viemChain;
       const facilitatorAccount = getFacilitatorAccount();
 
       const walletClient = createWalletClient({
@@ -962,9 +1023,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return { chainId: cId, balance: '0', hasEnoughGas: false };
         }
 
-        const chain = cId === 8453 ? base : celo;
+        const chainInfo = resolveChain(cId);
+        if (!chainInfo) {
+          return { chainId: cId, balance: '0', hasEnoughGas: false };
+        }
+        
         const publicClient = createPublicClient({
-          chain,
+          chain: chainInfo.viemChain,
           transport: http(network.rpcUrl),
         });
 
@@ -976,7 +1041,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           balance: balance.toString(),
           balanceFormatted: cId === 8453 
             ? `${(Number(balance) / 1e18).toFixed(6)} ETH`
-            : `${(Number(balance) / 1e18).toFixed(4)} CELO`,
+            : cId === 100
+              ? `${(Number(balance) / 1e18).toFixed(6)} xDAI`
+              : `${(Number(balance) / 1e18).toFixed(4)} CELO`,
           hasEnoughGas: balance >= threshold,
           threshold: threshold.toString(),
         };
@@ -1023,7 +1090,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Network not supported' });
       }
 
-      const chain = chainId === 8453 ? base : celo;
+      const chainInfo = resolveChain(chainId);
+      if (!chainInfo) {
+        return res.status(400).json({ error: `Unsupported chain: ${chainId}` });
+      }
+
+      const chain = chainInfo.viemChain;
       const facilitatorAccount = getFacilitatorAccount();
 
       const publicClient = createPublicClient({
@@ -1212,8 +1284,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         mode: 'offline',
       });
       
-      const chain = chainId === 8453 ? base : celo;
-      const networkConfig = getNetworkConfig(chainId === 8453 ? 'base' : 'celo');
+      // Reject Gnosis (no EIP-3009 support for USDC.e)
+      if (chainId === 100) {
+        return res.status(400).json({ 
+          error: 'Gnosis chain not supported for gasless transfers',
+          details: 'USDC.e on Gnosis uses EIP-2612 permit, not EIP-3009 transferWithAuthorization' 
+        });
+      }
+      
+      const chainInfo = resolveChain(chainId);
+      if (!chainInfo) {
+        return res.status(400).json({ error: `Unsupported chain: ${chainId}` });
+      }
+      
+      const chain = chainInfo.viemChain;
+      const networkConfig = getNetworkConfig(chainInfo.networkKey);
       const facilitatorAccount = getFacilitatorAccount();
       
       const walletClient = createWalletClient({
@@ -1661,11 +1746,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({
         count: operations.length,
-        operations: operations.map(op => ({
-          ...op,
-          amountFormatted: (parseFloat(op.amount) / 1000000).toFixed(2) + ' USDC',
-          chainName: op.chainId === 8453 ? 'Base' : 'Celo',
-        })),
+        operations: operations.map(op => {
+          const chainInfo = resolveChain(op.chainId);
+          return {
+            ...op,
+            amountFormatted: (parseFloat(op.amount) / 1000000).toFixed(2) + ' USDC',
+            chainName: chainInfo?.name || `Chain ${op.chainId}`,
+          };
+        }),
       });
     } catch (error) {
       console.error('Error fetching Aave operations:', error);
@@ -1679,10 +1767,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!operation) {
         return res.status(404).json({ error: 'Operation not found' });
       }
+      const opChainInfo = resolveChain(operation.chainId);
       res.json({
         ...operation,
         amountFormatted: (parseFloat(operation.amount) / 1000000).toFixed(2) + ' USDC',
-        chainName: operation.chainId === 8453 ? 'Base' : 'Celo',
+        chainName: opChainInfo?.name || `Chain ${operation.chainId}`,
       });
     } catch (error) {
       console.error('Error fetching Aave operation:', error);
@@ -1715,7 +1804,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid chain ID' });
       }
 
-      const chain = operation.chainId === 8453 ? base : celo;
+      const chainInfo = resolveChain(operation.chainId);
+      if (!chainInfo) {
+        return res.status(400).json({ error: `Unsupported chain: ${operation.chainId}` });
+      }
+
+      const chain = chainInfo.viemChain;
       const facilitatorAccount = getFacilitatorAccount();
 
       const walletClient = createWalletClient({
@@ -1815,11 +1909,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   async function checkRpcHealth(chainId: number): Promise<boolean> {
     try {
-      const network = chainId === 8453 ? 'base' : 'celo';
-      const config = getNetworkConfig(network);
-      const viemChain = chainId === 8453 ? base : celo;
+      const chainInfo = resolveChain(chainId);
+      if (!chainInfo) return false;
+      
+      const config = getNetworkConfig(chainInfo.networkKey);
       const client = createPublicClient({
-        chain: viemChain,
+        chain: chainInfo.viemChain,
         transport: http(config.rpcUrl),
       });
       

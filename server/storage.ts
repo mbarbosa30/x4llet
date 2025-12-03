@@ -1,9 +1,23 @@
 import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
-import { base, celo } from 'viem/chains';
+import { base, celo, gnosis } from 'viem/chains';
 import { db } from "./db";
 import { eq, and, or, desc, sql, gte } from "drizzle-orm";
+import { getNetworkByChainId } from "@shared/networks";
+
+function resolveChainForStorage(chainId: number) {
+  switch (chainId) {
+    case 8453:
+      return { viemChain: base, name: 'Base' };
+    case 42220:
+      return { viemChain: celo, name: 'Celo' };
+    case 100:
+      return { viemChain: gnosis, name: 'Gnosis' };
+    default:
+      return null;
+  }
+}
 
 const USDC_ABI = [
   {
@@ -91,11 +105,19 @@ async function fetchTransactionsFromEtherscan(address: string, chainId: number):
   const usdcAddresses: Record<number, string> = {
     8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',  // Base mainnet
     42220: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C',  // Celo mainnet
+    100: '0x2a22f9c3b484c3629090FeED35F17Ff8F88f76F0',  // Gnosis USDC.e (Circle standard)
   };
 
   const usdcAddress = usdcAddresses[chainId];
   if (!usdcAddress) {
     console.error(`[Explorer] Unsupported chainId: ${chainId}`);
+    return [];
+  }
+
+  // Gnosis chain: transaction history not yet supported (no Gnosisscan API integration)
+  // Return empty array until we add Gnosisscan support
+  if (chainId === 100) {
+    console.log(`[Explorer] Gnosis transaction history not yet supported, returning empty`);
     return [];
   }
 
@@ -346,13 +368,18 @@ export class MemStorage implements IStorage {
     console.log(`[Balance API] Fetching balance for address: ${address}, chainId: ${chainId}`);
     
     try {
-      // Fetch real blockchain balance
-      const chain = chainId === 8453 ? base : celo;
-      const usdcAddress = chainId === 8453 
-        ? '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address  // Base USDC
-        : '0xcebA9300f2b948710d2653dD7B07f33A8B32118C' as Address; // Celo Circle native USDC
+      // Fetch real blockchain balance using network config
+      const chainInfo = resolveChainForStorage(chainId);
+      const networkConfig = getNetworkByChainId(chainId);
       
-      console.log(`[Balance API] Using ${chain.name} (chainId: ${chain.id}), USDC: ${usdcAddress}`);
+      if (!chainInfo || !networkConfig) {
+        throw new Error(`Unsupported chainId: ${chainId}`);
+      }
+      
+      const chain = chainInfo.viemChain;
+      const usdcAddress = networkConfig.usdcAddress as Address;
+      
+      console.log(`[Balance API] Using ${chainInfo.name} (chainId: ${chainId}), USDC: ${usdcAddress}`);
       console.log(`[Balance API] RPC URL: ${chain.rpcUrls.default.http[0]}`);
       
       const client = createPublicClient({

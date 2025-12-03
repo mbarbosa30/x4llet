@@ -26,9 +26,17 @@ export const NETWORKS: Record<string, NetworkConfig> = {
     aavePoolAddress: getAddress('0x3E59A31363E2ad014dcbc521c4a0d5757d9f3402'),
     aUsdcAddress: getAddress('0xFF8309b9e99bfd2D4021bc71a362aBD93dBd4785'),
   },
+  gnosis: {
+    chainId: 100,
+    name: 'Gnosis',
+    usdcAddress: getAddress('0x2a22f9c3b484c3629090FeED35F17Ff8F88f76F0'),
+    rpcUrl: 'https://rpc.gnosischain.com',
+    aavePoolAddress: getAddress('0xb50201558B00496A145fE76f7424749556E326D8'),
+    aUsdcAddress: getAddress('0xC0333cb85B59a788d8C7CAe5e1Fd6E229A3E5a65'),
+  },
 };
 
-export function getNetworkConfig(network: 'base' | 'celo'): NetworkConfig {
+export function getNetworkConfig(network: 'base' | 'celo' | 'gnosis'): NetworkConfig {
   return NETWORKS[network];
 }
 
