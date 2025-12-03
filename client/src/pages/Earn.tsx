@@ -1155,9 +1155,16 @@ export default function Earn() {
         {/* Interest Earned Subsection */}
         {interestEarnedData && (
           <Card className="p-4 space-y-2" data-testid="card-interest-earned">
-            <div className="text-sm font-medium">Interest Earned</div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-sm font-medium">Interest Earned</div>
+              {Number(interestEarnedData.totalInterestEarnedMicro) > 0 && (
+                <span className="text-sm font-medium text-success">
+                  +${(Number(interestEarnedData.totalInterestEarnedMicro) / 1_000_000).toFixed(4)}
+                </span>
+              )}
+            </div>
             {interestEarnedData.chains.some(c => c.hasTrackingData) ? (
-              <div className="space-y-2">
+              <div>
                 {(() => {
                   const baseData = interestEarnedData.chains.find(c => c.chainId === 8453);
                   const celoData = interestEarnedData.chains.find(c => c.chainId === 42220);
@@ -1175,41 +1182,32 @@ export default function Earn() {
                   }
                   
                   return (
-                    <>
-                      <div className="grid grid-cols-3 gap-3 text-center">
-                        {baseData?.hasTrackingData && (
-                          <div className="p-2 bg-muted/50 rounded-lg">
-                            <div className="text-xs text-muted-foreground mb-0.5">Base</div>
-                            <div className="text-sm font-medium text-blue-400">
-                              +${(Number(baseData.interestEarnedMicro) / 1_000_000).toFixed(4)}
-                            </div>
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      {baseData?.hasTrackingData && (
+                        <div className="p-2 bg-muted/50 rounded-lg">
+                          <div className="text-xs text-muted-foreground mb-0.5">Base</div>
+                          <div className="text-sm font-medium text-blue-400">
+                            +${(Number(baseData.interestEarnedMicro) / 1_000_000).toFixed(4)}
                           </div>
-                        )}
-                        {celoData?.hasTrackingData && (
-                          <div className="p-2 bg-muted/50 rounded-lg">
-                            <div className="text-xs text-muted-foreground mb-0.5">Celo</div>
-                            <div className="text-sm font-medium text-yellow-400">
-                              +${(Number(celoData.interestEarnedMicro) / 1_000_000).toFixed(4)}
-                            </div>
-                          </div>
-                        )}
-                        {gnosisData?.hasTrackingData && (
-                          <div className="p-2 bg-muted/50 rounded-lg">
-                            <div className="text-xs text-muted-foreground mb-0.5">Gnosis</div>
-                            <div className="text-sm font-medium text-purple-400">
-                              +${(Number(gnosisData.interestEarnedMicro) / 1_000_000).toFixed(4)}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      {Number(interestEarnedData.totalInterestEarnedMicro) > 0 && (
-                        <div className="text-center pt-1">
-                          <span className="text-sm font-medium text-success">
-                            Total: +${(Number(interestEarnedData.totalInterestEarnedMicro) / 1_000_000).toFixed(4)}
-                          </span>
                         </div>
                       )}
-                    </>
+                      {celoData?.hasTrackingData && (
+                        <div className="p-2 bg-muted/50 rounded-lg">
+                          <div className="text-xs text-muted-foreground mb-0.5">Celo</div>
+                          <div className="text-sm font-medium text-yellow-400">
+                            +${(Number(celoData.interestEarnedMicro) / 1_000_000).toFixed(4)}
+                          </div>
+                        </div>
+                      )}
+                      {gnosisData?.hasTrackingData && (
+                        <div className="p-2 bg-muted/50 rounded-lg">
+                          <div className="text-xs text-muted-foreground mb-0.5">Gnosis</div>
+                          <div className="text-sm font-medium text-purple-400">
+                            +${(Number(gnosisData.interestEarnedMicro) / 1_000_000).toFixed(4)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   );
                 })()}
               </div>
