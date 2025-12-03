@@ -861,7 +861,7 @@ export default function Claim() {
                       )}
                     </div>
                     {gdBalance && gdPrice?.priceUSD ? (
-                      <div className="pt-2 mt-2 border-t">
+                      <div className="pt-3 border-t">
                         <div className="flex justify-between items-center text-sm">
                           <span className="text-muted-foreground">Your G$ Value</span>
                           <span className="font-mono font-medium" data-testid="text-gd-usd-value">
