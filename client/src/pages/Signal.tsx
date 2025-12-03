@@ -26,7 +26,7 @@ import {
   getIdentityStatus,
   getClaimStatus,
   getGoodDollarBalance,
-  generateSignedFVLink,
+  generateFVLink,
   parseFVCallback,
   type IdentityStatus,
   type ClaimStatus,
@@ -166,7 +166,7 @@ export default function Signal() {
     try {
       const privateKey = await getPrivateKey();
       if (!privateKey) {
-        throw new Error('Failed to get private key');
+        throw new Error('Failed to get wallet key');
       }
       
       const account = privateKeyToAccount(privateKey as `0x${string}`);
@@ -181,7 +181,7 @@ export default function Signal() {
       };
 
       const callbackUrl = `${window.location.origin}/signal`;
-      const fvLink = await generateSignedFVLink({
+      const fvLink = await generateFVLink({
         address: address as `0x${string}`,
         signMessage,
         callbackUrl,

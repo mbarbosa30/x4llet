@@ -333,90 +333,92 @@ export function formatGoodDollar(amount: bigint, decimals: number = 2): string {
   return `${wholePart}.${fractionalStr}`;
 }
 
-const GOODDOLLAR_FV_BASE_URL = 'https://goodid.gooddollar.org';
-
-export interface FVLinkParams {
-  address: Address;
-  firstName?: string;
-  callbackUrl?: string;
-  popupMode?: boolean;
-  chainId?: number;
-}
-
 export interface FVResult {
   isVerified: boolean;
   reason?: string;
 }
 
-export async function generateSignedFVLink(params: {
+const GOODDOLLAR_IDENTITY_URL = 'https://goodid.gooddollar.org';
+
+const FV_LOGIN_MSG = `Sign this message to login into GoodDollar Unique Identity service.
+WARNING: do not sign this message unless you trust the website/application requesting this signature.
+nonce:`;
+
+const FV_IDENTIFIER_MSG = `Sign this message to request verifying your account <account> and to create your own secret unique identifier for your anonymized record.
+You can use this identifier in the future to delete this anonymized record.
+WARNING: do not sign this message unless you trust the website/application requesting this signature.`;
+
+export interface GenerateFVLinkParams {
   address: Address;
   signMessage: (message: string) => Promise<string>;
   firstName?: string;
   callbackUrl?: string;
   popupMode?: boolean;
   chainId?: number;
-}): Promise<string> {
+}
+
+export async function generateFVLink(params: GenerateFVLinkParams): Promise<string> {
   const {
     address,
     signMessage,
     firstName = 'User',
-    callbackUrl = window.location.href,
+    callbackUrl,
     popupMode = false,
     chainId = 42220,
   } = params;
 
-  const identifierMessage = `Sign this message to verify your identity for address ${address}`;
-  
-  try {
-    const signature = await signMessage(identifierMessage);
-    
-    const identifier = btoa(JSON.stringify({
-      a: address.toLowerCase(),
-      s: signature,
-      t: Date.now(),
-    }));
-
-    const fvParams = new URLSearchParams({
-      identifier,
-      firstName,
-      callbackUrl,
-      popupMode: popupMode.toString(),
-      chainId: chainId.toString(),
-      env: 'production',
-    });
-
-    return `${GOODDOLLAR_FV_BASE_URL}?${fvParams.toString()}`;
-  } catch (error) {
-    throw new Error('User rejected signature request');
+  if (!popupMode && !callbackUrl) {
+    throw new Error('Redirect URL is required for redirect mode');
   }
+
+  const nonce = Math.floor(Date.now() / 1000).toString();
+  
+  const loginSig = await signMessage(FV_LOGIN_MSG + nonce);
+  
+  const identifierMsg = FV_IDENTIFIER_MSG.replace('<account>', address);
+  const fvSig = await signMessage(identifierMsg);
+
+  const fvParams: Record<string, string | number | undefined> = {
+    account: address,
+    nonce,
+    fvsig: fvSig,
+    firstname: firstName,
+    sg: loginSig,
+    chain: chainId,
+  };
+
+  if (callbackUrl) {
+    if (popupMode) {
+      fvParams.cbu = callbackUrl;
+    } else {
+      fvParams.rdu = callbackUrl;
+    }
+  }
+
+  const { compressToEncodedURIComponent } = await import('./lz-string-mini');
+  const compressed = compressToEncodedURIComponent(JSON.stringify(fvParams));
+  
+  return `${GOODDOLLAR_IDENTITY_URL}?lz=${compressed}`;
 }
 
-export function generateFaceVerificationLink(
-  address: Address,
-  callbackUrl?: string,
-  popupMode: boolean = false
-): string {
-  const baseUrl = 'https://wallet.gooddollar.org';
-  const params = new URLSearchParams();
-  
-  params.set('address', address);
-  if (callbackUrl) {
-    params.set('callbackUrl', callbackUrl);
-  }
-  params.set('popupMode', popupMode.toString());
-  params.set('chainId', '42220');
-  
-  return `${baseUrl}?${params.toString()}`;
+export function getGoodWalletSignupUrl(address: Address): string {
+  return `https://wallet.gooddollar.org/?inviteCode=${address}`;
 }
 
 export function parseFVCallback(): FVResult | null {
   const params = new URLSearchParams(window.location.search);
-  const isVerified = params.get('isVerified');
-  const reason = params.get('reason');
   
-  if (isVerified !== null) {
+  const isVerified = params.get('isVerified');
+  const verified = params.get('verified');
+  const success = params.get('success');
+  
+  const reason = params.get('reason') || params.get('error') || params.get('err');
+  
+  const verifiedValue = isVerified || verified || success;
+  
+  if (verifiedValue !== null) {
     return {
-      isVerified: isVerified === 'true',
+      isVerified: verifiedValue === 'true' || verifiedValue === '1',
       reason: reason || undefined,
     };
   }
