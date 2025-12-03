@@ -15,22 +15,44 @@ export default function Unlock() {
   const [isUnlocking, setIsUnlocking] = useState(false);
 
   const handleUnlock = async () => {
+    if (!password) {
+      toast({
+        title: "Password required",
+        description: "Please enter your password.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     try {
       setIsUnlocking(true);
+      console.log('[Unlock] Attempting unlock with password length:', password.length);
+      
       const wallet = await getWallet(password);
+      console.log('[Unlock] getWallet result:', wallet ? 'wallet found' : 'null');
       
       if (wallet) {
         toast({
           title: "Wallet unlocked",
         });
         setLocation('/home');
+      } else {
+        console.log('[Unlock] Wallet is null - no encrypted data found');
+        toast({
+          title: "No wallet found",
+          description: "Please create a new wallet or restore from your private key.",
+          variant: "destructive",
+        });
       }
     } catch (error: any) {
+      console.error('[Unlock] Error:', error.message);
       toast({
         title: "Failed to Unlock",
         description: error.message === 'INVALID_RECOVERY_CODE' 
           ? "Incorrect password. Please try again." 
-          : "An error occurred.",
+          : error.message === 'RECOVERY_CODE_REQUIRED'
+            ? "Password is required."
+            : "An error occurred: " + error.message,
         variant: "destructive",
       });
     } finally {
@@ -38,7 +60,7 @@ export default function Unlock() {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && password && !isUnlocking) {
       handleUnlock();
     }
@@ -67,7 +89,7 @@ export default function Unlock() {
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyDown}
                 data-testid="input-password"
               />
               <button
