@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette, BookOpen, HelpCircle, MessageCircleQuestion, TrendingDown, TrendingUp } from 'lucide-react';
+import { ChevronRight, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette, BookOpen, HelpCircle, MessageCircleQuestion, TrendingDown, TrendingUp, RotateCcw, Loader2, AlertTriangle } from 'lucide-react';
+import { queryClient } from '@/lib/queryClient';
 import { Card } from '@/components/ui/card';
 import InstallPrompt from '@/components/InstallPrompt';
 import { getWallet, getPreferences, savePreferences, getPrivateKey, lockWallet } from '@/lib/wallet';
@@ -52,6 +53,8 @@ export default function Settings() {
   const [copied, setCopied] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [showTheme, setShowTheme] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -88,6 +91,65 @@ export default function Settings() {
       title: "Currency updated",
     });
     setShowCurrency(false);
+  };
+
+  const handleResetAppData = async () => {
+    setIsResetting(true);
+    try {
+      // 1. Clear React Query cache
+      queryClient.clear();
+      
+      // 2. Unregister all service workers
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map(reg => reg.unregister()));
+      }
+      
+      // 3. Clear all caches (Cache API)
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+      }
+      
+      // 4. Clear IndexedDB databases
+      if ('indexedDB' in window) {
+        const databases = await indexedDB.databases?.() || [];
+        await Promise.all(databases.map(db => {
+          if (db.name) {
+            return new Promise<void>((resolve, reject) => {
+              const req = indexedDB.deleteDatabase(db.name!);
+              req.onsuccess = () => resolve();
+              req.onerror = () => reject(req.error);
+              req.onblocked = () => resolve(); // Continue even if blocked
+            });
+          }
+          return Promise.resolve();
+        }));
+      }
+      
+      // 5. Clear localStorage and sessionStorage
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // 6. Show success and reload
+      toast({
+        title: "App data cleared",
+        description: "Reloading...",
+      });
+      
+      // Small delay to show the toast, then reload
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 500);
+    } catch (error) {
+      console.error('Reset failed:', error);
+      setIsResetting(false);
+      toast({
+        title: "Reset failed",
+        description: "Please try again or clear browser data manually",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleExportPrivateKey = async () => {
@@ -349,6 +411,28 @@ export default function Settings() {
           </Card>
         </div>
 
+        <div className="space-y-2">
+          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-2">
+            Troubleshooting
+          </h2>
+          <Card className="divide-y">
+            <button
+              onClick={() => setShowResetConfirm(true)}
+              className="w-full flex items-center justify-between p-4 hover-elevate"
+              data-testid="button-reset-app-data"
+            >
+              <div className="flex items-center gap-3">
+                <RotateCcw className="h-5 w-5 text-muted-foreground" />
+                <div className="text-left">
+                  <div className="text-sm font-medium">Reset App Data</div>
+                  <div className="text-xs text-muted-foreground">Clear cache if app isn't working</div>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </button>
+          </Card>
+        </div>
+
         <div className="pt-4">
           <button
             onClick={() => {
@@ -518,6 +602,54 @@ export default function Settings() {
               </SelectContent>
             </Select>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Reset App Data
+            </DialogTitle>
+            <DialogDescription>
+              This will clear all cached data including your saved preferences. Your wallet and funds are safe - you'll just need to unlock again.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
+              <p className="font-medium mb-2">This will clear:</p>
+              <ul className="list-disc list-inside space-y-1 text-xs">
+                <li>App cache and stored data</li>
+                <li>Saved preferences (theme, currency)</li>
+                <li>Cached balances and transactions</li>
+              </ul>
+            </div>
+            <div className="text-sm text-muted-foreground bg-success/10 p-3 rounded-md border border-success/20">
+              <p className="font-medium text-success mb-1">Your wallet is safe</p>
+              <p className="text-xs">Your encrypted wallet stays on your device. You'll need your password to unlock it again.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowResetConfirm(false)} disabled={isResetting} data-testid="button-cancel-reset">
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleResetAppData} 
+              disabled={isResetting}
+              data-testid="button-confirm-reset"
+            >
+              {isResetting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Resetting...
+                </>
+              ) : (
+                'Reset App Data'
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
