@@ -431,6 +431,17 @@ export default function Earn() {
     refetchInterval: 30000,
   });
 
+  const { data: liquidBalanceGnosis } = useQuery<{ balance: string; balanceMicro: string }>({
+    queryKey: ['/api/balance', address, 100],
+    enabled: !!address,
+    queryFn: async () => {
+      const res = await fetch(`/api/balance/${address}?chainId=100`);
+      if (!res.ok) throw new Error('Failed to fetch balance');
+      return res.json();
+    },
+    refetchInterval: 30000,
+  });
+
   const checkGasBalance = async (chainId: number): Promise<{ hasEnoughGas: boolean; balance: string; required: string }> => {
     if (!address) throw new Error('No wallet address');
     const res = await fetch(`/api/gas-balance/${address}?chainId=${chainId}`);
@@ -653,14 +664,22 @@ export default function Earn() {
   };
 
   const getMaxDepositAmount = (): string => {
-    const balance = selectedChain === 8453 ? liquidBalanceBase : liquidBalanceCelo;
+    const balance = selectedChain === 8453 
+      ? liquidBalanceBase 
+      : selectedChain === 42220 
+        ? liquidBalanceCelo 
+        : liquidBalanceGnosis;
     if (!balance?.balanceMicro) return '0.00';
     const balanceNum = parseFloat(balance.balanceMicro) / 1000000;
     return balanceNum.toFixed(2);
   };
 
   const getMaxWithdrawAmount = (): string => {
-    const balance = selectedChain === 8453 ? aaveBalanceBase : aaveBalanceCelo;
+    const balance = selectedChain === 8453 
+      ? aaveBalanceBase 
+      : selectedChain === 42220 
+        ? aaveBalanceCelo 
+        : aaveBalanceGnosis;
     if (!balance?.aUsdcBalance) return '0.00';
     const { full } = formatPrecisionBalance(balance.aUsdcBalance);
     return full;
