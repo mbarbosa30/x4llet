@@ -61,6 +61,7 @@ export default function Signal() {
   const [sendAmount, setSendAmount] = useState('');
   const [scanContext, setScanContext] = useState<'vouch' | 'trust' | 'send'>('vouch');
   const [isVerifyingFace, setIsVerifyingFace] = useState(false);
+  const [countdown, setCountdown] = useState<string | null>(null);
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -168,6 +169,36 @@ export default function Signal() {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [address, queryClient, toast]);
+
+  // Countdown timer for next claim
+  useEffect(() => {
+    if (!gdClaimStatus?.nextClaimTime || gdClaimStatus?.canClaim) {
+      setCountdown(null);
+      return;
+    }
+
+    const updateCountdown = () => {
+      const now = new Date();
+      const target = gdClaimStatus.nextClaimTime!;
+      const diff = target.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setCountdown('Ready!');
+        refetchGdClaim();
+        return;
+      }
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      setCountdown(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [gdClaimStatus?.nextClaimTime, gdClaimStatus?.canClaim, refetchGdClaim]);
 
   const handleFaceVerification = async () => {
     if (!address) return;
@@ -1060,9 +1091,12 @@ export default function Signal() {
                     </div>
                   ) : (
                     <div className="space-y-3 pt-2">
-                      <p className="text-sm text-muted-foreground">
-                        Next claim at {gdClaimStatus?.nextClaimTime?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || '--:--'}
-                      </p>
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground mb-1">Next claim in</p>
+                        <p className="text-2xl font-mono font-bold" data-testid="text-gd-countdown">
+                          {countdown || '--:--:--'}
+                        </p>
+                      </div>
                       <Button
                         size="lg"
                         variant="outline"
@@ -1086,20 +1120,14 @@ export default function Signal() {
                         <span className="text-xs text-muted-foreground">Your Share</span>
                         <p className="font-mono font-medium" data-testid="text-gd-daily-ubi">{gdClaimStatus?.dailyUbiFormatted || '0.00'} G$</p>
                       </div>
-                      <div className="space-y-1">
-                        <span className="text-xs text-muted-foreground">Daily Pool</span>
-                        <p className="font-mono font-medium" data-testid="text-gd-daily-pool">{gdClaimStatus?.dailyPoolFormatted || '0'} G$</p>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-xs text-muted-foreground">Active Claimers</span>
-                        <p className="font-mono font-medium" data-testid="text-gd-active-users">{gdClaimStatus?.activeUsers?.toLocaleString() || '0'}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-xs text-muted-foreground">G$ Price</span>
-                        <p className="font-mono font-medium" data-testid="text-gd-price">
-                          {gdPrice?.priceUSD ? `$${gdPrice.priceUSD.toFixed(6)}` : '--'}
-                        </p>
-                      </div>
+                      {gdPrice?.priceUSD ? (
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">G$ Price</span>
+                          <p className="font-mono font-medium" data-testid="text-gd-price">
+                            ${gdPrice.priceUSD.toFixed(6)}
+                          </p>
+                        </div>
+                      ) : null}
                       {gdIdentity?.daysUntilExpiry !== null && gdIdentity?.daysUntilExpiry !== undefined && (
                         <div className="space-y-1">
                           <span className="text-xs text-muted-foreground">Identity Expires</span>

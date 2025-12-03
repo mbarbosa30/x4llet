@@ -147,10 +147,10 @@ export interface ClaimStatus {
   currentDay: number;
   dailyUbi: bigint;
   dailyUbiFormatted: string;
-  activeUsers: number;
+  activeUsers: number | null;
   nextClaimTime: Date | null;
-  dailyPool: bigint;
-  dailyPoolFormatted: string;
+  dailyPool: bigint | null;
+  dailyPoolFormatted: string | null;
   daysSinceLastClaim: number | null;
   hasActiveStreak: boolean;
 }
@@ -266,7 +266,7 @@ export async function getClaimStatus(address: Address): Promise<ClaimStatus> {
       }),
     ]);
 
-    let activeUsers = 0;
+    let activeUsers: number | null = null;
     try {
       const activeUsersResult = await client.readContract({
         address: GOODDOLLAR_CONTRACTS.ubi.celo,
@@ -276,6 +276,7 @@ export async function getClaimStatus(address: Address): Promise<ClaimStatus> {
       activeUsers = Number(activeUsersResult);
     } catch (e) {
       console.warn('Could not fetch activeUsersCount (optional):', e);
+      activeUsers = null;
     }
 
     const canClaim = entitlement > 0n;
@@ -291,8 +292,8 @@ export async function getClaimStatus(address: Address): Promise<ClaimStatus> {
     }
 
     // Calculate daily pool (total distributed to all claimers)
-    // Use 0 if activeUsers is unavailable, don't inflate with fallback
-    const dailyPool = activeUsers > 0 ? dailyUbi * BigInt(activeUsers) : 0n;
+    // Return null if activeUsers is unavailable to avoid showing misleading data
+    const dailyPool = activeUsers !== null && activeUsers > 0 ? dailyUbi * BigInt(activeUsers) : null;
     
     // Calculate days since last claim and streak status
     const currentDayNum = Number(currentDay);
@@ -313,7 +314,7 @@ export async function getClaimStatus(address: Address): Promise<ClaimStatus> {
       activeUsers,
       nextClaimTime,
       dailyPool,
-      dailyPoolFormatted: formatGoodDollar(dailyPool, tokenDecimals),
+      dailyPoolFormatted: dailyPool !== null ? formatGoodDollar(dailyPool, tokenDecimals) : null,
       daysSinceLastClaim,
       hasActiveStreak,
     };
@@ -327,10 +328,10 @@ export async function getClaimStatus(address: Address): Promise<ClaimStatus> {
       currentDay: 0,
       dailyUbi: 0n,
       dailyUbiFormatted: '0.00',
-      activeUsers: 0,
+      activeUsers: null,
       nextClaimTime: null,
-      dailyPool: 0n,
-      dailyPoolFormatted: '0.00',
+      dailyPool: null,
+      dailyPoolFormatted: null,
       daysSinceLastClaim: null,
       hasActiveStreak: false,
     };
