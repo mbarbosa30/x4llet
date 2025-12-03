@@ -1,0 +1,91 @@
+Yes—organizations are first-class avatars in Circles v2 and they’re simpler than humans (no inviter needed). Here’s the exact “how”.
+
+What an Organization avatar is (v2)
+	•	No inviter required. You can register directly from your wallet (EOA or Safe).  ￼
+	•	No minting/UBI. Orgs don’t mint their own CRC; they receive/trust others and can route value. (Their balances are subject to the system’s demurrage rules.)  ￼
+
+⸻
+
+Step-by-step (SDK)
+
+0) Init the SDK (Gnosis, chainId 100)
+
+import { Sdk, circlesConfig } from '@aboutcircles/sdk';
+import { Profiles } from '@aboutcircles/sdk-profiles';
+import { ethers } from 'ethers';
+
+const provider = new ethers.JsonRpcProvider('https://rpc.gnosischain.com');
+const signer   = new ethers.Wallet(PRIVATE_KEY, provider);
+
+// Browser dapp: use the connected wallet's signer instead.
+const sdk = new Sdk(circlesConfig[100], signer);
+const profiles = new Profiles();
+
+1) Create a profile (pin to IPFS) and register the org
+
+const profile = { name: 'Acme Relief', description: 'Local merchant coop' };
+const cid = await profiles.create(profile);          // ipfs://<cid>
+const org = await sdk.register.asOrganization(cid);  // returns OrganisationAvatar
+
+That’s it: asOrganization(profileOrCid) creates the Organization avatar. No inviter param.  ￼
+
+2) (Optional) Update on-chain metadata / short name
+
+await org.profile.update({ name: 'Acme Relief', image: 'ipfs://...' });
+// Optionally register a short name later:
+await org.profile.registerShortName(nonce); // when exposed in your UI/workflow
+
+Profile helpers pin JSON and update the avatar’s metadata digest for you.  ￼
+
+⸻
+
+Using a Gnosis Safe to control the Organization (recommended)
+
+If you want the org to be multisig-controlled:
+	1.	Create a Safe on Gnosis.
+	2.	Instantiate the SDK with a Safe runner instead of a plain EOA signer.
+	•	The Circles docs explicitly support custom runners (incl. Safe).  ￼
+	•	Use the package that provides a SafeContractRunner for Circles SDK.  ￼
+
+With a Safe runner in place, call the same sdk.register.asOrganization(...). All subsequent org.* writes (trust, transfers, profile updates) will be executed through the Safe.
+
+⸻
+
+After registration: what you can do
+
+Accept and route CRC
+	•	Get the avatar instance anytime: const org = await sdk.getAvatar(orgAddress) .  ￼
+	•	Receive payments directly, or trust counterparties to open paths:
+
+await org.trust.add(['0xFriendA', '0xShopB']);      // add trust edges (optional expiry)
+const max = await org.transfer.getMaxAmount('0xBuyer');
+await org.transfer.advanced('0xSeller', max, { useWrappedBalances: true });
+
+Trust & transfer helpers are built into the avatar API.  ￼
+
+If you need a pooled currency (not just an org)
+
+Organizations don’t mint. If you want a shared currency with collateral rules, consider a Group avatar instead:
+
+const group = await sdk.register.asGroup(owner, service, feeCollector, [], 'MarketCoop', 'MCO', profile);
+
+Groups issue group tokens against trusted collateral—different purpose than orgs.  ￼
+
+⸻
+
+Common pitfalls / tips
+	•	Already registered? Handle “avatar exists” gracefully by switching to sdk.getAvatar(address).  ￼
+	•	Gas on Gnosis: pay in xDAI; you can sponsor writes behind your relayer if you want nanoPay to keep it gasless.
+	•	Demurrage awareness: since orgs don’t mint, keep operational balances lean or route quickly.  ￼
+
+⸻
+
+TL;DR
+
+Use:
+
+const org = await sdk.register.asOrganization(profileOrCid);
+
+No inviter required. Control it with an EOA or, better, a Gnosis Safe via a Safe runner. Then add trust edges and start accepting CRC from your community.  ￼
+
+If you want, I can sketch a tiny React hook useCirclesOrg() that: pins profile → registers org → stores the address → exposes trust() and receive() helpers for your PWA.

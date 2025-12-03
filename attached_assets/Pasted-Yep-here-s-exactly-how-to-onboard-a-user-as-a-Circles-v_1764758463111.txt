@@ -1,0 +1,125 @@
+Yep—here’s exactly how to onboard a user as a Circles v2 human inside your PWA, using a community inviter so the user doesn’t need to “find a friend” first. (Registration still needs an inviter address, but no trust edge is required to complete signup. Trust only matters for transacting beyond direct peers later.)
+
+⸻
+
+1) Install & init the SDK (Gnosis Chain)
+
+npm i @aboutcircles/sdk @aboutcircles/sdk-profiles
+
+// circles.ts
+import { Sdk, circlesConfig } from '@aboutcircles/sdk';
+import { Profiles } from '@aboutcircles/sdk-profiles';
+// use either ethers.Signer or a viem ContractRunner; any “runner” that can sign tx on Gnosis
+import { ethers } from 'ethers';
+
+export async function initCircles(signer: ethers.Signer) {
+  // Gnosis Chain by default; you can also pass circlesConfig[100]
+  const sdk = new Sdk(circlesConfig[100], signer);
+  const profiles = new Profiles(); // pins JSON to IPFS behind the scenes
+  return { sdk, profiles };
+}
+
+Why: Circles’ SDK exposes a high-level Sdk with avatar namespaces and a ContractRunner requirement for writes (your signer).  ￼
+
+⸻
+
+2) Use a community inviter (one address you control)
+	•	Pick any already-registered Circles avatar (human or org) your project controls to act as the inviter (e.g., an NGO/Community account).
+	•	You only need its address to register new humans. The inviter does not have to trust the new user for them to register.
+	•	Circles v2’s SDK method is:
+
+// registers the CONNECTED wallet as a human
+await sdk.register.asHuman(inviterAddress, profileOrCid);
+
+This handles the invitation redemption under the hood. Params: inviter: string, profile: Profile | string (CID); returns a HumanAvatar.  ￼
+
+Note: In v2, “invited” is distinct from “trusted.” Trust is only needed for wider spendability later. The public docs also describe “Sign up & get invited” as the first step.  ￼
+
+⸻
+
+3) PWA onboarding flow (what your code does)
+
+// onboarding.ts
+type MinimalProfile = { name: string; description?: string; image?: string };
+
+export async function registerHuman({
+  signer,
+  inviterAddress,
+  profile,
+}: {
+  signer: ethers.Signer;
+  inviterAddress: `0x${string}`;
+  profile: MinimalProfile;
+}) {
+  const { sdk, profiles } = await initCircles(signer);
+
+  // (A) Pin profile JSON to IPFS to get a CID (or pass the object directly)
+  const cid = await profiles.create(profile);           // → "ipfs://<cid>"
+  // (B) Register this wallet as a human, using your inviter address
+  const human = await sdk.register.asHuman(inviterAddress, cid);
+
+  // (C) (Optional) immediately set/update profile via the avatar as well
+  await human.profile.update(profile);
+
+  return human; // has .address, .transfer, .trust, .wrap helpers, etc.
+}
+
+	•	profiles.create gives you a CID; asHuman writes on-chain; human.profile.update updates metadata digest.  ￼
+
+⸻
+
+4) (Optional) Give new users initial spendability right away
+
+Registration alone doesn’t give wide routing capacity. To let newcomers transact immediately (e.g., buy from a local shop), you can add a small, revocable trust edge from an avatar you control (your inviter, a group, or a merchant cooperative).
+
+Pattern:
+
+// giveTrust.ts — run with the INVITER’S signer (or a Safe owner session)
+export async function bootstrapTrust({
+  inviterSigner,          // signer controlling the inviter avatar
+  inviterAvatarAddress,   // inviter’s avatar
+  newHumanAddress,        // the freshly registered human avatar
+}: {
+  inviterSigner: ethers.Signer;
+  inviterAvatarAddress: `0x${string}`;
+  newHumanAddress: `0x${string}`;
+}) {
+  const { sdk } = await initCircles(inviterSigner);
+  const inviterAvatar = await sdk.getAvatar(inviterAvatarAddress);
+
+  // The SDK exposes trust helpers under avatar.trust (trust/untrust lists).
+  // Exact method names are under `avatar.trust` in the reference.
+  // Typical flows: add or set trust to true for one or multiple addresses.
+  await inviterAvatar.trust.add([newHumanAddress]); // or .set(newHumanAddress, true)
+}
+
+	•	The SDK groups trust helpers under avatar.trust (trust graph helpers). The examples repo shows “trusting and untrusting another avatar.”  ￼
+
+Good practice: limit that initial trust (policy, not protocol): cap amounts in your app UI, time-box it (e.g., ask inviter to untrust after 30 days if no activity), or rely on groups to pool/route spend (Base Groups) instead of permanent bilateral trust.  ￼
+
+⸻
+
+5) Minimal UI copy (fits your PWA)
+	•	Step 1: Create your Circles ID
+“We’ll register your wallet as a human on Gnosis. An inviter address is used to complete signup—no friend needed.”
+	•	Step 2: Set your profile
+“Name and (optional) photo help shops/peers recognize you.”
+	•	Step 3: (Optional) Starter trust
+“Our community account temporarily trusts new members so you can transact immediately. You can build your own trust over time.”
+
+⸻
+
+6) Things to watch out for
+	•	Chain: Circles runs on Gnosis Chain (100)—make sure your signer is on Gnosis RPC and has tiny xDAI for any user-paid calls (your PWA can sponsor via relayer if you want).  ￼
+	•	One-time signup: An address can only be signed up once (v1 users can migrate to v2). Handle “already registered” errors gracefully.  ￼
+	•	Trust ≠ invite: Don’t promise spendability without trust paths. Use avatar.trust helpers or Groups to bootstrap.  ￼
+	•	Profiles: Keep profile sizes small; pin JSON via profiles.create and pass the CID into asHuman or avatar.profile.update.  ￼
+
+⸻
+
+End-to-end flow summary
+	1.	User taps “Join Circles” in nanoPay → your app pins a profile JSON → calls sdk.register.asHuman(COMMUNITY_INVITER, cid).  ￼
+	2.	(Optional) Your community inviter (or group) calls avatar.trust... to give a starter trust edge to the new human so they can transact right away.  ￼
+	3.	User builds their own trust network over time; your app can visualize routes and balances via sdk.data and avatar helpers.  ￼
+
+If you want, I can tailor the above into a drop-in React hook (useCirclesOnboarding) that handles: profile pin → register → optional trust bootstrap → state updates for your UI.
