@@ -308,13 +308,14 @@ export default function Earn() {
       const monthlyRateBase = baseApy / 100 / 12;
       const monthlyRateCelo = celoApy / 100 / 12;
       
-      // Key milestones: +2w, +1m, +3m, +6m, +1y
+      // Key milestones: +1m, +3m, +6m, +1y, +18m, +2y (2-year projection for dramatic curve)
       const projectionPoints = [
-        { months: 2/4.33, label: '+2w' },
         { months: 1, label: '+1m' },
         { months: 3, label: '+3m' },
         { months: 6, label: '+6m' },
         { months: 12, label: '+1y' },
+        { months: 18, label: '+18m' },
+        { months: 24, label: '+2y' },
       ];
       
       for (const point of projectionPoints) {
@@ -1002,14 +1003,6 @@ export default function Earn() {
                       return null;
                     }}
                   />
-                  {/* "Now" reference line - starting point marker */}
-                  <ReferenceLine 
-                    x="Now" 
-                    stroke="hsl(var(--foreground))"
-                    strokeWidth={1.5}
-                    yAxisId="balance"
-                    label={{ value: 'Now', position: 'top', fontSize: 9, fill: 'hsl(var(--foreground))', fontWeight: 500 }}
-                  />
                   {/* Interest areas - stacked per chain */}
                   <Area 
                     type="monotone" 
@@ -1064,22 +1057,22 @@ export default function Earn() {
                 </div>
               </div>
               
-              {/* Per-chain interest earned summary */}
+              {/* Per-chain interest earned summary (2-year projection) */}
               {combinedChartData.length > 0 && (
                 <div className="flex items-center justify-center gap-4 text-xs">
                   {(() => {
-                    const yearlyPoint = combinedChartData.find(p => p.label === '+1y');
-                    if (!yearlyPoint) return null;
+                    const twoYearPoint = combinedChartData.find(p => p.label === '+2y');
+                    if (!twoYearPoint) return null;
                     return (
                       <>
-                        {yearlyPoint.baseInterest > 0 && (
+                        {twoYearPoint.baseInterest > 0 && (
                           <span className="text-blue-400">
-                            Base: {formatSmartPrecision(yearlyPoint.baseInterest, '+$')}/yr
+                            Base: {formatSmartPrecision(twoYearPoint.baseInterest, '+$')}/2yr
                           </span>
                         )}
-                        {yearlyPoint.celoInterest > 0 && (
+                        {twoYearPoint.celoInterest > 0 && (
                           <span className="text-yellow-400">
-                            Celo: {formatSmartPrecision(yearlyPoint.celoInterest, '+$')}/yr
+                            Celo: {formatSmartPrecision(twoYearPoint.celoInterest, '+$')}/2yr
                           </span>
                         )}
                       </>
