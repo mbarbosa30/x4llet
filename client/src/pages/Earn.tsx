@@ -858,7 +858,7 @@ export default function Earn() {
 
         {hasAaveBalance && (baseBalanceNum > 0 || celoBalanceNum > 0 || gnosisBalanceNum > 0) && [baseBalanceNum, celoBalanceNum, gnosisBalanceNum].filter(b => b > 0).length > 1 && (
           <Card className="p-4 space-y-3" data-testid="card-chain-breakdown">
-            <div className="text-sm font-medium">Balance by Network</div>
+            <div className="text-sm font-medium">Balance & Rates by Network</div>
             
             {baseBalanceNum > 0 && (
               <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
@@ -1131,117 +1131,95 @@ export default function Earn() {
             </div>
             
             {/* Legend with per-chain breakdown */}
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-center gap-3 text-xs flex-wrap">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(217, 91%, 60%)' }}></div>
-                  <span className="text-blue-400">Base</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(45, 93%, 47%)' }}></div>
-                  <span className="text-yellow-400">Celo</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(270, 70%, 55%)' }}></div>
-                  <span className="text-purple-400">Gnosis</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-4 h-0.5 rounded-sm" style={{ background: 'hsl(142, 71%, 45%)', borderTop: '2px dashed hsl(142, 71%, 45%)' }}></div>
-                  <span className="text-success">% Growth</span>
-                </div>
+            <div className="flex items-center justify-center gap-3 text-xs flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(217, 91%, 60%)' }}></div>
+                <span className="text-blue-400">Base</span>
               </div>
-              
-              {/* Interest earned to date per chain */}
-              {interestEarnedData && (
-                <div className="flex items-center justify-center gap-4 text-xs flex-wrap">
-                  {interestEarnedData.chains.some(c => c.hasTrackingData) ? (
-                    <>
-                      <span className="text-muted-foreground">Earned:</span>
-                      {(() => {
-                        const baseData = interestEarnedData.chains.find(c => c.chainId === 8453);
-                        const celoData = interestEarnedData.chains.find(c => c.chainId === 42220);
-                        const gnosisData = interestEarnedData.chains.find(c => c.chainId === 100);
-                        return (
-                          <>
-                            {baseData?.hasTrackingData && Number(baseData.interestEarnedMicro) > 0 && (
-                              <span className="text-blue-400">
-                                Base: +${(Number(baseData.interestEarnedMicro) / 1_000_000).toFixed(4)}
-                              </span>
-                            )}
-                            {celoData?.hasTrackingData && Number(celoData.interestEarnedMicro) > 0 && (
-                              <span className="text-yellow-400">
-                                Celo: +${(Number(celoData.interestEarnedMicro) / 1_000_000).toFixed(4)}
-                              </span>
-                            )}
-                            {gnosisData?.hasTrackingData && Number(gnosisData.interestEarnedMicro) > 0 && (
-                              <span className="text-purple-400">
-                                Gnosis: +${(Number(gnosisData.interestEarnedMicro) / 1_000_000).toFixed(4)}
-                              </span>
-                            )}
-                            {Number(interestEarnedData.totalInterestEarnedMicro) > 0 && (
-                              <span className="text-success font-medium">
-                                Total: +${(Number(interestEarnedData.totalInterestEarnedMicro) / 1_000_000).toFixed(4)}
-                              </span>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </>
-                  ) : (
-                    <span className="text-muted-foreground">
-                      Interest tracking starts with your next deposit
-                    </span>
-                  )}
-                </div>
-              )}
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(45, 93%, 47%)' }}></div>
+                <span className="text-yellow-400">Celo</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(270, 70%, 55%)' }}></div>
+                <span className="text-purple-400">Gnosis</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-4 h-0.5 rounded-sm" style={{ background: 'hsl(142, 71%, 45%)', borderTop: '2px dashed hsl(142, 71%, 45%)' }}></div>
+                <span className="text-success">% Growth</span>
+              </div>
             </div>
-            
-            <p className="text-xs text-muted-foreground text-center">
-              Projected {weightedApy > 0 ? `${weightedApy.toFixed(1)}%` : ''} APY growth
-            </p>
           </Card>
         )}
 
-        <Card className="p-4 space-y-3" data-testid="card-apy-rates">
-          <div className="text-sm font-medium">Current APY Rates</div>
-          
-          <div className="grid grid-cols-3 gap-3">
-            <div className="p-3 bg-muted/50 rounded-lg text-center">
-              <div className="text-xs text-muted-foreground mb-1">Base</div>
-              {isApyBaseLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-              ) : (
-                <div className="text-lg font-bold text-primary" data-testid="text-base-apy">
-                  {aaveApyBase?.apyFormatted || '—'}
-                </div>
-              )}
-            </div>
-            <div className="p-3 bg-muted/50 rounded-lg text-center">
-              <div className="text-xs text-muted-foreground mb-1">Celo</div>
-              {isApyCeloLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-              ) : (
-                <div className="text-lg font-bold text-primary" data-testid="text-celo-apy">
-                  {aaveApyCelo?.apyFormatted || '—'}
-                </div>
-              )}
-            </div>
-            <div className="p-3 bg-muted/50 rounded-lg text-center">
-              <div className="text-xs text-muted-foreground mb-1">Gnosis</div>
-              {isApyGnosisLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-              ) : (
-                <div className="text-lg font-bold text-primary" data-testid="text-gnosis-apy">
-                  {aaveApyGnosis?.apyFormatted || '—'}
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <p className="text-xs text-muted-foreground text-center">
-            Rates update automatically based on market conditions
-          </p>
-        </Card>
+        {/* Interest Earned Subsection */}
+        {interestEarnedData && (
+          <Card className="p-4 space-y-2" data-testid="card-interest-earned">
+            <div className="text-sm font-medium">Interest Earned</div>
+            {interestEarnedData.chains.some(c => c.hasTrackingData) ? (
+              <div className="space-y-2">
+                {(() => {
+                  const baseData = interestEarnedData.chains.find(c => c.chainId === 8453);
+                  const celoData = interestEarnedData.chains.find(c => c.chainId === 42220);
+                  const gnosisData = interestEarnedData.chains.find(c => c.chainId === 100);
+                  const hasAnyEarnings = [baseData, celoData, gnosisData].some(
+                    d => d?.hasTrackingData && Number(d.interestEarnedMicro) > 0
+                  );
+                  
+                  if (!hasAnyEarnings) {
+                    return (
+                      <p className="text-sm text-muted-foreground">
+                        Interest is accruing. Check back soon!
+                      </p>
+                    );
+                  }
+                  
+                  return (
+                    <>
+                      <div className="grid grid-cols-3 gap-3 text-center">
+                        {baseData?.hasTrackingData && (
+                          <div className="p-2 bg-muted/50 rounded-lg">
+                            <div className="text-xs text-muted-foreground mb-0.5">Base</div>
+                            <div className="text-sm font-medium text-blue-400">
+                              +${(Number(baseData.interestEarnedMicro) / 1_000_000).toFixed(4)}
+                            </div>
+                          </div>
+                        )}
+                        {celoData?.hasTrackingData && (
+                          <div className="p-2 bg-muted/50 rounded-lg">
+                            <div className="text-xs text-muted-foreground mb-0.5">Celo</div>
+                            <div className="text-sm font-medium text-yellow-400">
+                              +${(Number(celoData.interestEarnedMicro) / 1_000_000).toFixed(4)}
+                            </div>
+                          </div>
+                        )}
+                        {gnosisData?.hasTrackingData && (
+                          <div className="p-2 bg-muted/50 rounded-lg">
+                            <div className="text-xs text-muted-foreground mb-0.5">Gnosis</div>
+                            <div className="text-sm font-medium text-purple-400">
+                              +${(Number(gnosisData.interestEarnedMicro) / 1_000_000).toFixed(4)}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {Number(interestEarnedData.totalInterestEarnedMicro) > 0 && (
+                        <div className="text-center pt-1">
+                          <span className="text-sm font-medium text-success">
+                            Total: +${(Number(interestEarnedData.totalInterestEarnedMicro) / 1_000_000).toFixed(4)}
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Interest tracking starts with your next deposit
+              </p>
+            )}
+          </Card>
+        )}
 
         <Card className="p-4 space-y-3" data-testid="card-how-it-works">
           <div className="text-sm font-medium">How it works</div>
