@@ -1,6 +1,6 @@
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { Gift, Wallet, Settings, TrendingUp } from 'lucide-react';
+import { Coins, Wallet, Settings, TrendingUp } from 'lucide-react';
 
 export default function BottomNav() {
   const [location, setLocation] = useLocation();
@@ -27,7 +27,7 @@ export default function BottomNav() {
           }`}
           data-testid="nav-claim"
         >
-          <Gift className="h-5 w-5" />
+          <Coins className="h-5 w-5" />
           <span className="text-[10px]">Claim</span>
         </Button>
 
