@@ -114,14 +114,7 @@ async function fetchTransactionsFromEtherscan(address: string, chainId: number):
     return [];
   }
 
-  // Gnosis chain: transaction history not yet supported (no Gnosisscan API integration)
-  // Return empty array until we add Gnosisscan support
-  if (chainId === 100) {
-    console.log(`[Explorer] Gnosis transaction history not yet supported, returning empty`);
-    return [];
-  }
-
-  const chainName = chainId === 8453 ? 'Base' : chainId === 42220 ? 'Celo' : `Chain ${chainId}`;
+  const chainName = chainId === 8453 ? 'Base' : chainId === 42220 ? 'Celo' : chainId === 100 ? 'Gnosis' : `Chain ${chainId}`;
 
   // Try unified Etherscan v2 API first (if API key available)
   if (etherscanApiKey) {
@@ -155,6 +148,11 @@ async function fetchTransactionsFromEtherscan(address: string, chainId: number):
       url: 'https://api.celoscan.io/api',
       keyEnv: 'CELOSCAN_API_KEY',
       name: 'CeloScan',
+    },
+    100: {
+      url: 'https://api.gnosisscan.io/api',
+      keyEnv: 'GNOSISSCAN_API_KEY',
+      name: 'GnosisScan',
     },
   };
 
