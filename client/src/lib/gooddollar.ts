@@ -164,6 +164,8 @@ export interface GoodDollarBalance {
 export async function getIdentityStatus(address: Address): Promise<IdentityStatus> {
   const client = getCeloClient();
   
+  console.log('[GoodDollar] Checking identity status for:', address);
+  
   try {
     const [isWhitelisted, whitelistedRoot, lastAuthenticatedBigInt, authPeriodBigInt] = await Promise.all([
       client.readContract({
@@ -190,6 +192,13 @@ export async function getIdentityStatus(address: Address): Promise<IdentityStatu
         functionName: 'authenticationPeriod',
       }),
     ]);
+    
+    console.log('[GoodDollar] Identity contract responses:', {
+      isWhitelisted,
+      whitelistedRoot,
+      lastAuthenticated: lastAuthenticatedBigInt.toString(),
+      authPeriod: authPeriodBigInt.toString(),
+    });
 
     const authPeriodDays = Number(authPeriodBigInt);
     const lastAuthSeconds = Number(lastAuthenticatedBigInt);
@@ -234,6 +243,8 @@ export async function getIdentityStatus(address: Address): Promise<IdentityStatu
 export async function getClaimStatus(address: Address): Promise<ClaimStatus> {
   const client = getCeloClient();
   
+  console.log('[GoodDollar] Checking claim status for:', address);
+  
   try {
     // Fetch UBI scheme data and token decimals in parallel
     const [entitlement, currentDay, dailyUbi, lastClaimedDay, tokenDecimals] = await Promise.all([
@@ -265,6 +276,15 @@ export async function getClaimStatus(address: Address): Promise<ClaimStatus> {
         functionName: 'decimals',
       }),
     ]);
+    
+    console.log('[GoodDollar] Claim status contract responses:', {
+      entitlement: entitlement.toString(),
+      currentDay: currentDay.toString(),
+      dailyUbi: dailyUbi.toString(),
+      lastClaimedDay: lastClaimedDay.toString(),
+      canClaim: entitlement > 0n,
+      tokenDecimals,
+    });
 
     let activeUsers: number | null = null;
     try {
@@ -377,6 +397,8 @@ export async function getGoodDollarPrice(): Promise<GoodDollarPrice> {
 export async function getGoodDollarBalance(address: Address): Promise<GoodDollarBalance> {
   const client = getCeloClient();
   
+  console.log('[GoodDollar] Checking G$ balance for:', address);
+  
   try {
     const [balance, decimals] = await Promise.all([
       client.readContract({
@@ -391,6 +413,12 @@ export async function getGoodDollarBalance(address: Address): Promise<GoodDollar
         functionName: 'decimals',
       }),
     ]);
+    
+    console.log('[GoodDollar] G$ balance result:', {
+      balance: balance.toString(),
+      decimals,
+      formatted: formatGoodDollar(balance, decimals),
+    });
 
     return {
       balance,
