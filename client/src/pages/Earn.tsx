@@ -477,31 +477,6 @@ export default function Earn() {
     const amountInMicroUsdc = parseAmountToMicroUsdc(depositAmount);
     
     try {
-      setAaveOperationStep('gas_check');
-      
-      const gasCheck = await checkGasBalance(selectedChain);
-      
-      if (!gasCheck.hasEnoughGas) {
-        setAaveOperationStep('gas_drip');
-        setGasDripPending(true);
-        console.log('[Earn Deposit] Requesting gas drip...');
-        
-        const dripResult = await requestGasDrip(selectedChain);
-        console.log('[Earn Deposit] Gas drip result:', dripResult);
-        setGasDripPending(false);
-        
-        if (!dripResult.success) {
-          console.error('[Earn Deposit] Gas drip failed:', dripResult.error);
-          throw new Error(dripResult.error || 'Failed to get gas');
-        }
-        
-        toast({
-          title: "Gas Sent",
-          description: "A small amount of gas has been sent to your wallet.",
-        });
-        await new Promise(resolve => setTimeout(resolve, 5000));
-      }
-      
       setAaveOperationStep('signing');
       console.log('[Earn Deposit] Getting private key...');
       

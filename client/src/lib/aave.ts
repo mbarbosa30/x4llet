@@ -1,6 +1,6 @@
 import { createPublicClient, http, type Address, type Hex, parseAbi, type Chain, keccak256, toHex, getAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { base, celo } from 'viem/chains';
+import { base, celo, gnosis } from 'viem/chains';
 import { getNetworkByChainId } from '@shared/networks';
 
 const AAVE_POOL_ABI = parseAbi([
@@ -17,6 +17,7 @@ const ERC20_ABI = parseAbi([
 const CHAIN_MAP: Record<number, Chain> = {
   8453: base,
   42220: celo,
+  100: gnosis,
 };
 
 export interface AaveTransactionResult {
@@ -91,7 +92,7 @@ export async function supplyToAaveGasless(
     const nonce = generateNonce();
 
     const domain = {
-      name: chainId === 8453 ? 'USD Coin' : 'USDC',
+      name: chainId === 42220 ? 'USDC' : 'USD Coin',
       version: '2',
       chainId: BigInt(chainId),
       verifyingContract: getAddress(network.usdcAddress) as Address,

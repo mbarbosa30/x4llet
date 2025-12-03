@@ -1270,8 +1270,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid address' });
       }
 
-      if (!chainId || ![8453, 42220].includes(chainId)) {
-        return res.status(400).json({ error: 'Invalid chainId. Must be 8453 (Base) or 42220 (Celo)' });
+      if (!chainId || ![8453, 42220, 100].includes(chainId)) {
+        return res.status(400).json({ error: 'Invalid chainId. Must be 8453 (Base), 42220 (Celo), or 100 (Gnosis)' });
       }
 
       const network = getNetworkByChainId(chainId);
