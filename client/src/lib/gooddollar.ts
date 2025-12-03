@@ -149,6 +149,10 @@ export interface ClaimStatus {
   dailyUbiFormatted: string;
   activeUsers: number;
   nextClaimTime: Date | null;
+  dailyPool: bigint;
+  dailyPoolFormatted: string;
+  daysSinceLastClaim: number | null;
+  hasActiveStreak: boolean;
 }
 
 export interface GoodDollarBalance {
@@ -286,16 +290,32 @@ export async function getClaimStatus(address: Address): Promise<ClaimStatus> {
       }
     }
 
+    // Calculate daily pool (total distributed to all claimers)
+    // Use 0 if activeUsers is unavailable, don't inflate with fallback
+    const dailyPool = activeUsers > 0 ? dailyUbi * BigInt(activeUsers) : 0n;
+    
+    // Calculate days since last claim and streak status
+    const currentDayNum = Number(currentDay);
+    const lastClaimedDayNum = Number(lastClaimedDay);
+    // Guard against negative values (e.g., clock drift or edge cases)
+    const daysSinceLastClaim = lastClaimedDayNum > 0 ? Math.max(0, currentDayNum - lastClaimedDayNum) : null;
+    // User has active streak if they claimed today or yesterday
+    const hasActiveStreak = daysSinceLastClaim !== null && daysSinceLastClaim <= 1;
+
     return {
       canClaim,
       entitlement,
       entitlementFormatted: formatGoodDollar(entitlement, tokenDecimals),
-      lastClaimedDay: Number(lastClaimedDay),
-      currentDay: Number(currentDay),
+      lastClaimedDay: lastClaimedDayNum,
+      currentDay: currentDayNum,
       dailyUbi,
       dailyUbiFormatted: formatGoodDollar(dailyUbi, tokenDecimals),
       activeUsers,
       nextClaimTime,
+      dailyPool,
+      dailyPoolFormatted: formatGoodDollar(dailyPool, tokenDecimals),
+      daysSinceLastClaim,
+      hasActiveStreak,
     };
   } catch (error) {
     console.error('Error fetching claim status:', error);
@@ -309,6 +329,46 @@ export async function getClaimStatus(address: Address): Promise<ClaimStatus> {
       dailyUbiFormatted: '0.00',
       activeUsers: 0,
       nextClaimTime: null,
+      dailyPool: 0n,
+      dailyPoolFormatted: '0.00',
+      daysSinceLastClaim: null,
+      hasActiveStreak: false,
+    };
+  }
+}
+
+export interface GoodDollarPrice {
+  priceUSD: number;
+  lastUpdated: Date;
+}
+
+export async function getGoodDollarPrice(): Promise<GoodDollarPrice> {
+  try {
+    // Use CoinGecko API for G$ price (GoodDollar token on Celo)
+    const response = await fetch(
+      'https://api.coingecko.com/api/v3/simple/price?ids=gooddollar&vs_currencies=usd',
+      { 
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-store'
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch G$ price');
+    }
+    
+    const data = await response.json();
+    const priceUSD = data?.gooddollar?.usd || 0;
+    
+    return {
+      priceUSD,
+      lastUpdated: new Date(),
+    };
+  } catch (error) {
+    console.error('Error fetching G$ price:', error);
+    return {
+      priceUSD: 0,
+      lastUpdated: new Date(),
     };
   }
 }

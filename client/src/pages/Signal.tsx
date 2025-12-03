@@ -26,12 +26,14 @@ import {
   getIdentityStatus,
   getClaimStatus,
   getGoodDollarBalance,
+  getGoodDollarPrice,
   generateFVLink,
   parseFVCallback,
   claimGoodDollarWithWallet,
   type IdentityStatus,
   type ClaimStatus,
   type GoodDollarBalance,
+  type GoodDollarPrice,
   type ClaimResult,
 } from '@/lib/gooddollar';
 import { createWalletClient, http } from 'viem';
@@ -120,6 +122,12 @@ export default function Signal() {
     queryFn: () => getGoodDollarBalance(address! as `0x${string}`),
     enabled: !!address,
     staleTime: 60 * 1000,
+  });
+
+  const { data: gdPrice } = useQuery<GoodDollarPrice>({
+    queryKey: ['/gooddollar/price'],
+    queryFn: () => getGoodDollarPrice(),
+    staleTime: 5 * 60 * 1000,
   });
 
   useEffect(() => {
@@ -1072,17 +1080,51 @@ export default function Signal() {
                   )}
 
                   <div className="pt-4 border-t space-y-2">
-                    <h3 className="text-xs font-semibold text-muted-foreground mb-3">Daily UBI Stats</h3>
-                    <div className="grid grid-cols-1 gap-2 text-sm">
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Daily UBI</span>
-                        <span className="font-mono font-medium" data-testid="text-gd-daily-ubi">{gdClaimStatus?.dailyUbiFormatted || '0.00'} G$</span>
+                    <h3 className="text-xs font-semibold text-muted-foreground mb-3">UBI Stats</h3>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="space-y-1">
+                        <span className="text-xs text-muted-foreground">Your Share</span>
+                        <p className="font-mono font-medium" data-testid="text-gd-daily-ubi">{gdClaimStatus?.dailyUbiFormatted || '0.00'} G$</p>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Active Claimers</span>
-                        <span className="font-mono font-medium" data-testid="text-gd-active-users">{gdClaimStatus?.activeUsers?.toLocaleString() || '0'}</span>
+                      <div className="space-y-1">
+                        <span className="text-xs text-muted-foreground">Daily Pool</span>
+                        <p className="font-mono font-medium" data-testid="text-gd-daily-pool">{gdClaimStatus?.dailyPoolFormatted || '0'} G$</p>
                       </div>
+                      <div className="space-y-1">
+                        <span className="text-xs text-muted-foreground">Active Claimers</span>
+                        <p className="font-mono font-medium" data-testid="text-gd-active-users">{gdClaimStatus?.activeUsers?.toLocaleString() || '0'}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-xs text-muted-foreground">G$ Price</span>
+                        <p className="font-mono font-medium" data-testid="text-gd-price">
+                          {gdPrice?.priceUSD ? `$${gdPrice.priceUSD.toFixed(6)}` : '--'}
+                        </p>
+                      </div>
+                      {gdIdentity?.daysUntilExpiry !== null && gdIdentity?.daysUntilExpiry !== undefined && (
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Identity Expires</span>
+                          <p className={`font-mono font-medium ${gdIdentity.daysUntilExpiry <= 14 ? 'text-amber-500' : ''}`} data-testid="text-gd-expiry">
+                            {gdIdentity.daysUntilExpiry} days
+                          </p>
+                        </div>
+                      )}
+                      {gdClaimStatus?.hasActiveStreak && (
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Streak</span>
+                          <p className="font-mono font-medium text-green-500" data-testid="text-gd-streak">Active</p>
+                        </div>
+                      )}
                     </div>
+                    {gdBalance && gdPrice?.priceUSD ? (
+                      <div className="pt-2 mt-2 border-t">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Your G$ Value</span>
+                          <span className="font-mono font-medium" data-testid="text-gd-usd-value">
+                            ${(parseFloat(gdBalance.balanceFormatted.replace(/,/g, '')) * gdPrice.priceUSD).toFixed(2)} USD
+                          </span>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
 
                   <p className="text-xs text-muted-foreground">
