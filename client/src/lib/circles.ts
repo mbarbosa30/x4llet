@@ -14,6 +14,7 @@ import { getPrivateKey } from '@/lib/wallet';
 const CIRCLES_RPC = 'https://rpc.aboutcircles.com';
 
 const HUB_V2_ADDRESS = '0xc12C1E50ABB450d6205Ea2C3Fa861b3B834d13e8' as const;
+const DEFAULT_INVITER = '0xbf3E8C2f1191dC6e3cdbA3aD05626A5EEeF60731' as const;
 const FACILITATOR_URL = '/api/facilitator';
 
 const publicClient = createPublicClient({
@@ -211,10 +212,7 @@ export async function registerHuman(address: string, inviterAddress?: string): P
 
     const walletClient = await getWalletClient();
     
-    const inviter = inviterAddress 
-      ? inviterAddress as Address 
-      : '0x0000000000000000000000000000000000000000' as Address;
-    
+    const inviter = (inviterAddress || DEFAULT_INVITER) as Address;
     const metadataDigest = '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`;
 
     const hash = await walletClient.writeContract({

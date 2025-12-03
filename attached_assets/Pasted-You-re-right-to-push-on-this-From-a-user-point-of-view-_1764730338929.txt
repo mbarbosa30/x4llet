@@ -1,0 +1,71 @@
+You’re right to push on this 😄
+From a user point of view it really is “just register” — the invite stuff is mostly a dev / SDK detail.
+
+Here’s what the docs actually say and how I’d translate it for nanoPay.
+
+⸻
+
+What the docs say is needed to register as a human
+
+From the current Circles SDK docs:  ￼
+
+To register a human avatar via the SDK you need:
+	1.	A wallet on Gnosis Chain (xDAI)
+	•	Your EOA must be connected to Gnosis (chainId 100).
+	•	You need a tiny bit of xDAI for gas.
+	2.	An inviter avatar address (dev-level requirement)
+SDK method:
+
+sdk.register.asHuman(inviter: string, profile: Profile | string): Promise<HumanAvatar>;
+
+	•	inviter: address of an existing Circles avatar that invites the new human.
+	•	This method “handles invitation redemption automatically” – meaning you don’t have to call a separate “accept invite” function; it does the invite + accept in one go.  ￼
+In practice, the official Circles app can just use a default inviter or some onboarding flow so the user never sees this.
+
+	3.	A simple profile
+	•	profile can be:
+	•	A Profile object ({ name: 'Alice', description: '…' }), or
+	•	A CID string pointing to JSON on IPFS.  ￼
+At minimum, name is required.
+
+Once sdk.register.asHuman succeeds:
+	•	The wallet now is a Circles human avatar.
+	•	You can call avatar.getMintableAmount() and avatar.personalMint() to start minting/claiming CRC.  ￼
+
+⸻
+
+How this maps to what users experience
+
+On the front-end (like nanoPay or the official Circles app), you don’t need to expose any of that.
+
+For a regular user, the real requirements are:
+	•	Have a wallet (same one nanoPay uses, or a connected one).
+	•	Be on Gnosis Chain with a bit of xDAI.
+	•	Tap “Register with Circles” and fill a simple profile (name, maybe picture).
+
+The app can:
+	•	Internally pick an inviter (e.g. a Circles onboarding avatar or a nanoPay “guardian” avatar),
+	•	Call sdk.register.asHuman(inviter, profile) for them,
+	•	And then show “You’re now a Circles human avatar. You can start claiming CRC.”
+
+So:
+	•	You’re correct at UX level: users basically “just need to register first”.
+	•	The only extra things behind the scenes are:
+	•	There is an inviter address passed by the app, and
+	•	A small profile object is created/pinned.
+
+⸻
+
+Suggested nanoPay wording (accurate but simple)
+
+Something like:
+
+How do I join Circles?
+When you tap Register, nanoPay will:
+	•	Connect your wallet on Gnosis Chain (xDAI)
+	•	Create a simple Circles profile for you (name, avatar)
+	•	Register your wallet as a human avatar in Circles
+
+After that, you can start claiming CRC (up to 24 per day, 1 per hour) and sending it as social money to friends and groups.
+
+No need to mention “inviter” in the UI; just handle it in your code with sdk.register.asHuman.
