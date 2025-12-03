@@ -32,7 +32,14 @@ Note: Gnosis USDC.e follows Circle's Bridged USDC Standard (identical to FiatTok
 Designed as an offline-first PWA with a service worker for asset caching, IndexedDB for local data, and a manifest file. Includes mobile optimizations like viewport configuration, Apple mobile web app meta tags, safe area padding, and a touch-optimized UI.
 
 ### UI/UX Decisions
-Features a unified fixed header and bottom navigation. The header displays branding, MaxFlow score, and QR/Scan icons. Bottom navigation provides access to Signal, Wallet, and Settings. The "Reputation" page was renamed to "Signal". Multi-chain UX includes aggregated USDC balance display, chain badges for transactions, auto-selection of the chain with the highest USDC balance on the Send page, and network selection on the Receive page.
+Features a unified fixed header and bottom navigation. The header displays branding and QR/Scan icons. Bottom navigation provides access to Signal, Wallet, and Settings.
+
+**Trust Hub (Signal Page)**: The Signal page serves as a Trust Hub with tabbed interface for sybil-resistant identity systems:
+- **MaxFlow Tab**: Network signal scoring via max-flow computation, vouch submission with EIP-712 signing
+- **Circles Tab**: Full Circles Protocol integration on Gnosis Chain - avatar registration, CRC minting, trust/untrust management, and CRC transfers. All operations use the x402 facilitator for xDAI gas drips.
+- Smart default tab selection based on user data (Circles avatar or MaxFlow score)
+
+Multi-chain UX includes aggregated USDC balance display, chain badges for transactions, auto-selection of the chain with the highest USDC balance on the Send page, and network selection on the Receive page.
 
 ## External Dependencies
 

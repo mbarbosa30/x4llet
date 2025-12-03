@@ -6,10 +6,22 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Scan, Shield, CircleDot, Loader2, ExternalLink, UserPlus } from 'lucide-react';
+import { Scan, Shield, CircleDot, Loader2, ExternalLink, UserPlus, Coins, Heart, HeartOff, Send, RefreshCw } from 'lucide-react';
 import { getWallet, getPrivateKey } from '@/lib/wallet';
 import { getMaxFlowScore, getCurrentEpoch, getNextNonce, submitVouch } from '@/lib/maxflow';
-import { getCirclesAvatar, getCirclesBalance, getCirclesExplorerUrl, type CirclesAvatar, type CirclesBalance } from '@/lib/circles';
+import { 
+  getCirclesAvatar, 
+  getCirclesBalance, 
+  getCirclesExplorerUrl, 
+  registerHuman,
+  mintPersonalCRC,
+  trustAddress,
+  untrustAddress,
+  sendCRC,
+  checkTrust,
+  type CirclesAvatar, 
+  type CirclesBalance 
+} from '@/lib/circles';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getAddress } from 'viem';
 import { useToast } from '@/hooks/use-toast';
@@ -25,6 +37,13 @@ export default function Signal() {
   const [vouchAddress, setVouchAddress] = useState('');
   const [showScanner, setShowScanner] = useState(false);
   const [activeTab, setActiveTab] = useState<string | null>(null);
+  
+  const [showTrustInput, setShowTrustInput] = useState(false);
+  const [trusteeAddress, setTrusteeAddress] = useState('');
+  const [showSendInput, setShowSendInput] = useState(false);
+  const [sendRecipient, setSendRecipient] = useState('');
+  const [sendAmount, setSendAmount] = useState('');
+  const [scanContext, setScanContext] = useState<'vouch' | 'trust' | 'send'>('vouch');
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -60,7 +79,7 @@ export default function Signal() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: circlesBalance } = useQuery<CirclesBalance>({
+  const { data: circlesBalance, refetch: refetchBalance } = useQuery<CirclesBalance>({
     queryKey: ['/circles/balance', address],
     queryFn: () => getCirclesBalance(address!),
     enabled: !!address && circlesAvatar?.isRegistered,
@@ -140,9 +159,7 @@ export default function Signal() {
       });
     },
     onSuccess: () => {
-      toast({
-        title: "Vouch submitted",
-      });
+      toast({ title: "Vouch submitted" });
       setVouchAddress('');
       setShowVouchInput(false);
       queryClient.invalidateQueries({ queryKey: ['/maxflow/score', address] });
@@ -156,16 +173,141 @@ export default function Signal() {
     },
   });
 
+  const registerMutation = useMutation({
+    mutationFn: async () => {
+      if (!address) throw new Error('No wallet found');
+      return registerHuman(address);
+    },
+    onSuccess: (txHash) => {
+      toast({ title: "Registration successful", description: "You are now a Circles human!" });
+      queryClient.invalidateQueries({ queryKey: ['/circles/avatar', address] });
+      queryClient.invalidateQueries({ queryKey: ['/circles/balance', address] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Registration Failed",
+        description: error instanceof Error ? error.message : "Failed to register",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const mintMutation = useMutation({
+    mutationFn: async () => {
+      if (!address) throw new Error('No wallet found');
+      return mintPersonalCRC(address);
+    },
+    onSuccess: () => {
+      toast({ title: "CRC minted" });
+      queryClient.invalidateQueries({ queryKey: ['/circles/balance', address] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Mint Failed",
+        description: error instanceof Error ? error.message : "Failed to mint CRC",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const trustMutation = useMutation({
+    mutationFn: async (trustee: string) => {
+      if (!address) throw new Error('No wallet found');
+      return trustAddress(address, trustee);
+    },
+    onSuccess: () => {
+      toast({ title: "Trust established" });
+      setTrusteeAddress('');
+      setShowTrustInput(false);
+      queryClient.invalidateQueries({ queryKey: ['/circles/avatar', address] });
+      queryClient.invalidateQueries({ queryKey: ['/circles/balance', address] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Trust Failed",
+        description: error instanceof Error ? error.message : "Failed to establish trust",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const untrustMutation = useMutation({
+    mutationFn: async (trustee: string) => {
+      if (!address) throw new Error('No wallet found');
+      return untrustAddress(address, trustee);
+    },
+    onSuccess: () => {
+      toast({ title: "Trust removed" });
+      setTrusteeAddress('');
+      setShowTrustInput(false);
+      queryClient.invalidateQueries({ queryKey: ['/circles/avatar', address] });
+      queryClient.invalidateQueries({ queryKey: ['/circles/balance', address] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Untrust Failed",
+        description: error instanceof Error ? error.message : "Failed to remove trust",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const sendCrcMutation = useMutation({
+    mutationFn: async ({ recipient, amount }: { recipient: string; amount: string }) => {
+      if (!address) throw new Error('No wallet found');
+      return sendCRC(address, recipient, amount);
+    },
+    onSuccess: () => {
+      toast({ title: "CRC sent" });
+      setSendRecipient('');
+      setSendAmount('');
+      setShowSendInput(false);
+      queryClient.invalidateQueries({ queryKey: ['/circles/balance', address] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Send Failed",
+        description: error instanceof Error ? error.message : "Failed to send CRC",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleVouch = () => {
     if (!vouchAddress) return;
     vouchMutation.mutate(vouchAddress);
   };
 
+  const handleTrust = () => {
+    if (!trusteeAddress) return;
+    trustMutation.mutate(trusteeAddress);
+  };
+
+  const handleUntrust = () => {
+    if (!trusteeAddress) return;
+    untrustMutation.mutate(trusteeAddress);
+  };
+
+  const handleSendCrc = () => {
+    if (!sendRecipient || !sendAmount) return;
+    sendCrcMutation.mutate({ recipient: sendRecipient, amount: sendAmount });
+  };
+
   const handleScan = (data: string) => {
     if (/^0x[a-fA-F0-9]{40}$/.test(data.trim())) {
-      setVouchAddress(data.trim());
+      const scannedAddress = data.trim();
       setShowScanner(false);
-      setShowVouchInput(true);
+      
+      if (scanContext === 'vouch') {
+        setVouchAddress(scannedAddress);
+        setShowVouchInput(true);
+      } else if (scanContext === 'trust') {
+        setTrusteeAddress(scannedAddress);
+        setShowTrustInput(true);
+      } else if (scanContext === 'send') {
+        setSendRecipient(scannedAddress);
+        setShowSendInput(true);
+      }
     } else {
       toast({
         title: "Invalid QR Code",
@@ -173,6 +315,11 @@ export default function Signal() {
         variant: "destructive",
       });
     }
+  };
+
+  const openScanner = (context: 'vouch' | 'trust' | 'send') => {
+    setScanContext(context);
+    setShowScanner(true);
   };
 
   const score = scoreData?.localHealth ?? 0;
@@ -347,8 +494,8 @@ export default function Signal() {
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => setShowScanner(true)}
-                        data-testid="button-scan"
+                        onClick={() => openScanner('vouch')}
+                        data-testid="button-scan-vouch"
                       >
                         <Scan className="h-4 w-4" />
                       </Button>
@@ -363,7 +510,7 @@ export default function Signal() {
                         setVouchAddress('');
                       }}
                       className="flex-1"
-                      data-testid="button-cancel"
+                      data-testid="button-cancel-vouch"
                     >
                       Cancel
                     </Button>
@@ -373,7 +520,12 @@ export default function Signal() {
                       className="flex-1"
                       data-testid="button-submit-vouch"
                     >
-                      {vouchMutation.isPending ? 'Submitting...' : 'Submit Vouch'}
+                      {vouchMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Submitting...
+                        </>
+                      ) : 'Submit Vouch'}
                     </Button>
                   </div>
                 </div>
@@ -414,8 +566,184 @@ export default function Signal() {
                     </div>
                   </div>
 
+                  {!showTrustInput && !showSendInput && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => mintMutation.mutate()}
+                        disabled={mintMutation.isPending}
+                        data-testid="button-mint-crc"
+                      >
+                        {mintMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Coins className="h-4 w-4 mr-2" />
+                        )}
+                        Mint CRC
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => refetchBalance()}
+                        data-testid="button-refresh-balance"
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Refresh
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowTrustInput(true)}
+                        data-testid="button-trust"
+                      >
+                        <Heart className="h-4 w-4 mr-2" />
+                        Trust
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowSendInput(true)}
+                        data-testid="button-send-crc"
+                      >
+                        <Send className="h-4 w-4 mr-2" />
+                        Send CRC
+                      </Button>
+                    </div>
+                  )}
+
+                  {showTrustInput && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="trust-address">Address to Trust</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="trust-address"
+                            placeholder="0x..."
+                            value={trusteeAddress}
+                            onChange={(e) => setTrusteeAddress(e.target.value)}
+                            className="font-mono text-sm flex-1"
+                            data-testid="input-trust-address"
+                          />
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => openScanner('trust')}
+                            data-testid="button-scan-trust"
+                          >
+                            <Scan className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setShowTrustInput(false);
+                            setTrusteeAddress('');
+                          }}
+                          className="flex-1"
+                          data-testid="button-cancel-trust"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleTrust}
+                          disabled={!trusteeAddress || trustMutation.isPending}
+                          className="flex-1"
+                          data-testid="button-submit-trust"
+                        >
+                          {trustMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Heart className="h-4 w-4 mr-2" />
+                          )}
+                          {trustMutation.isPending ? 'Trusting...' : 'Trust'}
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={handleUntrust}
+                          disabled={!trusteeAddress || untrustMutation.isPending}
+                          className="flex-1"
+                          data-testid="button-submit-untrust"
+                        >
+                          {untrustMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <HeartOff className="h-4 w-4 mr-2" />
+                          )}
+                          {untrustMutation.isPending ? 'Untrusting...' : 'Untrust'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {showSendInput && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="send-address">Recipient Address</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="send-address"
+                            placeholder="0x..."
+                            value={sendRecipient}
+                            onChange={(e) => setSendRecipient(e.target.value)}
+                            className="font-mono text-sm flex-1"
+                            data-testid="input-send-address"
+                          />
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => openScanner('send')}
+                            data-testid="button-scan-send"
+                          >
+                            <Scan className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="send-amount">Amount (CRC)</Label>
+                        <Input
+                          id="send-amount"
+                          type="number"
+                          placeholder="0.00"
+                          value={sendAmount}
+                          onChange={(e) => setSendAmount(e.target.value)}
+                          className="font-mono"
+                          data-testid="input-send-amount"
+                        />
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setShowSendInput(false);
+                            setSendRecipient('');
+                            setSendAmount('');
+                          }}
+                          className="flex-1"
+                          data-testid="button-cancel-send"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleSendCrc}
+                          disabled={!sendRecipient || !sendAmount || sendCrcMutation.isPending}
+                          className="flex-1"
+                          data-testid="button-submit-send"
+                        >
+                          {sendCrcMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4 mr-2" />
+                          )}
+                          {sendCrcMutation.isPending ? 'Sending...' : 'Send CRC'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     className="w-full"
                     onClick={() => window.open(getCirclesExplorerUrl(address!), '_blank', 'noopener,noreferrer')}
                     data-testid="button-circles-profile"
@@ -468,15 +796,25 @@ export default function Signal() {
                   <Button
                     className="w-full"
                     size="lg"
-                    onClick={() => window.open('https://circles.garden/', '_blank', 'noopener,noreferrer')}
+                    onClick={() => registerMutation.mutate()}
+                    disabled={registerMutation.isPending}
                     data-testid="button-register-circles"
                   >
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Register on Circles Garden
+                    {registerMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Registering...
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Register as Human
+                      </>
+                    )}
                   </Button>
 
                   <p className="text-xs text-muted-foreground text-center">
-                    Registration requires being invited by an existing Circles member.
+                    Gas fees are covered by nanoPay's facilitator service.
                   </p>
                 </div>
               )}
