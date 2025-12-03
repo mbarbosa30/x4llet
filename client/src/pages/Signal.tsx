@@ -26,11 +26,14 @@ import {
   getIdentityStatus,
   getClaimStatus,
   getGoodDollarBalance,
-  generateFaceVerificationLink,
+  generateSignedFVLink,
+  parseFVCallback,
   type IdentityStatus,
   type ClaimStatus,
   type GoodDollarBalance,
 } from '@/lib/gooddollar';
+import { createWalletClient, http } from 'viem';
+import { celo } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getAddress } from 'viem';
 import { useToast } from '@/hooks/use-toast';
@@ -53,6 +56,7 @@ export default function Signal() {
   const [sendRecipient, setSendRecipient] = useState('');
   const [sendAmount, setSendAmount] = useState('');
   const [scanContext, setScanContext] = useState<'vouch' | 'trust' | 'send'>('vouch');
+  const [isVerifyingFace, setIsVerifyingFace] = useState(false);
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -133,6 +137,69 @@ export default function Signal() {
       }
     }
   }, [activeTab, isLoadingMaxFlow, isLoadingCircles, isLoadingGdIdentity, scoreData, circlesAvatar, gdIdentity]);
+
+  useEffect(() => {
+    const fvResult = parseFVCallback();
+    if (fvResult) {
+      if (fvResult.isVerified) {
+        toast({
+          title: "Face Verified",
+          description: "Your identity has been verified. You can now claim G$ daily.",
+        });
+        queryClient.invalidateQueries({ queryKey: ['/gooddollar/identity', address] });
+        queryClient.invalidateQueries({ queryKey: ['/gooddollar/claim', address] });
+      } else {
+        toast({
+          title: "Verification Failed",
+          description: fvResult.reason || "Face verification was not successful. Please try again.",
+          variant: "destructive",
+        });
+      }
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [address, queryClient, toast]);
+
+  const handleFaceVerification = async () => {
+    if (!address) return;
+    
+    setIsVerifyingFace(true);
+    try {
+      const privateKey = await getPrivateKey();
+      if (!privateKey) {
+        throw new Error('Failed to get private key');
+      }
+      
+      const account = privateKeyToAccount(privateKey as `0x${string}`);
+      const walletClient = createWalletClient({
+        account,
+        chain: celo,
+        transport: http(),
+      });
+
+      const signMessage = async (message: string): Promise<string> => {
+        return walletClient.signMessage({ message });
+      };
+
+      const callbackUrl = `${window.location.origin}/signal`;
+      const fvLink = await generateSignedFVLink({
+        address: address as `0x${string}`,
+        signMessage,
+        callbackUrl,
+        popupMode: false,
+        chainId: 42220,
+      });
+
+      window.location.href = fvLink;
+    } catch (error) {
+      console.error('Face verification error:', error);
+      toast({
+        title: "Verification Error",
+        description: error instanceof Error ? error.message : "Failed to start face verification",
+        variant: "destructive",
+      });
+      setIsVerifyingFace(false);
+    }
+  };
 
   const vouchMutation = useMutation({
     mutationFn: async (endorsedAddress: string) => {
@@ -990,15 +1057,16 @@ export default function Signal() {
 
                   <Button
                     className="w-full"
-                    onClick={() => {
-                      const callbackUrl = window.location.origin + '/signal';
-                      const link = generateFaceVerificationLink(address! as `0x${string}`, callbackUrl, false);
-                      window.open(link, '_blank', 'noopener,noreferrer');
-                    }}
+                    onClick={handleFaceVerification}
+                    disabled={isVerifyingFace}
                     data-testid="button-verify-face"
                   >
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Verify Face
+                    {isVerifyingFace ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <UserPlus className="h-4 w-4 mr-2" />
+                    )}
+                    {isVerifyingFace ? 'Signing...' : 'Verify Face'}
                   </Button>
 
                   <p className="text-xs text-muted-foreground text-center">

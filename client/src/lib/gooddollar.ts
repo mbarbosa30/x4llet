@@ -333,12 +333,70 @@ export function formatGoodDollar(amount: bigint, decimals: number = 2): string {
   return `${wholePart}.${fractionalStr}`;
 }
 
+const GOODDOLLAR_FV_BASE_URL = 'https://goodid.gooddollar.org';
+
+export interface FVLinkParams {
+  address: Address;
+  firstName?: string;
+  callbackUrl?: string;
+  popupMode?: boolean;
+  chainId?: number;
+}
+
+export interface FVResult {
+  isVerified: boolean;
+  reason?: string;
+}
+
+export async function generateSignedFVLink(params: {
+  address: Address;
+  signMessage: (message: string) => Promise<string>;
+  firstName?: string;
+  callbackUrl?: string;
+  popupMode?: boolean;
+  chainId?: number;
+}): Promise<string> {
+  const {
+    address,
+    signMessage,
+    firstName = 'User',
+    callbackUrl = window.location.href,
+    popupMode = false,
+    chainId = 42220,
+  } = params;
+
+  const identifierMessage = `Sign this message to verify your identity for address ${address}`;
+  
+  try {
+    const signature = await signMessage(identifierMessage);
+    
+    const identifier = btoa(JSON.stringify({
+      a: address.toLowerCase(),
+      s: signature,
+      t: Date.now(),
+    }));
+
+    const fvParams = new URLSearchParams({
+      identifier,
+      firstName,
+      callbackUrl,
+      popupMode: popupMode.toString(),
+      chainId: chainId.toString(),
+      env: 'production',
+    });
+
+    return `${GOODDOLLAR_FV_BASE_URL}?${fvParams.toString()}`;
+  } catch (error) {
+    throw new Error('User rejected signature request');
+  }
+}
+
 export function generateFaceVerificationLink(
   address: Address,
   callbackUrl?: string,
   popupMode: boolean = false
 ): string {
-  const baseUrl = 'https://wallet.gooddollar.org/AppNavigation/FaceVerification';
+  const baseUrl = 'https://wallet.gooddollar.org';
   const params = new URLSearchParams();
   
   params.set('address', address);
@@ -349,6 +407,20 @@ export function generateFaceVerificationLink(
   params.set('chainId', '42220');
   
   return `${baseUrl}?${params.toString()}`;
+}
+
+export function parseFVCallback(): FVResult | null {
+  const params = new URLSearchParams(window.location.search);
+  const isVerified = params.get('isVerified');
+  const reason = params.get('reason');
+  
+  if (isVerified !== null) {
+    return {
+      isVerified: isVerified === 'true',
+      reason: reason || undefined,
+    };
+  }
+  return null;
 }
 
 export function getClaimTransaction(address: Address) {
