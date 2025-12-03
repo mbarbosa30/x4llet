@@ -179,7 +179,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Validate domain parameters (name varies by network, version is always "2")
-      const expectedName = validatedData.chainId === 8453 ? 'USD Coin' : 'USDC';
+      // Base and Gnosis use "USD Coin" (Circle's native/bridged standard), Celo uses "USDC"
+      const expectedName = validatedData.chainId === 42220 ? 'USDC' : 'USD Coin';
       if (validatedData.typedData.domain.name !== expectedName ||
           validatedData.typedData.domain.version !== '2') {
         return res.status(400).json({ error: `Invalid domain parameters (expected name: "${expectedName}", version: "2")` });
@@ -211,14 +212,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         value,
         chainId: validatedData.chainId,
       });
-      
-      // Get network configuration - reject Gnosis (no EIP-3009 support for USDC.e)
-      if (validatedData.chainId === 100) {
-        return res.status(400).json({ 
-          error: 'Gnosis chain not supported for gasless transfers',
-          details: 'USDC.e on Gnosis uses EIP-2612 permit, not EIP-3009 transferWithAuthorization' 
-        });
-      }
       
       const chainInfo = resolveChain(validatedData.chainId);
       if (!chainInfo) {
@@ -633,14 +626,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Aave not supported on this network' });
       }
 
-      // Gnosis uses USDC.e with EIP-2612 permit, not EIP-3009
-      if (chainId === 100) {
-        return res.status(400).json({ 
-          error: 'Aave supply on Gnosis requires permit-based flow (not yet implemented)',
-          details: 'USDC.e on Gnosis uses EIP-2612 permit, not EIP-3009 transferWithAuthorization' 
-        });
-      }
-
       const chainInfo = resolveChain(chainId);
       if (!chainInfo) {
         return res.status(400).json({ error: `Unsupported chain: ${chainId}` });
@@ -995,16 +980,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // GAS DRIP ENDPOINTS
   // Minimum gas thresholds for transactions (should cover Aave operations)
-  const GAS_THRESHOLDS = {
+  const GAS_THRESHOLDS: Record<number, bigint> = {
     8453: BigInt('50000000000000'), // 0.00005 ETH for Base (~$0.15)
     42220: BigInt('10000000000000000'), // 0.01 CELO for Celo (Aave needs ~0.0075 CELO)
+    100: BigInt('1000000000000000'), // 0.001 xDAI for Gnosis (~$0.001, very cheap gas)
   };
 
   // Gas drip amounts (enough for 1-2 Aave transactions)
   // Aave withdrawals need ~250k gas, at 30 gwei that's 0.0075 CELO
-  const GAS_DRIP_AMOUNTS = {
+  const GAS_DRIP_AMOUNTS: Record<number, bigint> = {
     8453: BigInt('100000000000000'), // 0.0001 ETH for Base
     42220: BigInt('15000000000000000'), // 0.015 CELO for Celo (enough for Aave operations)
+    100: BigInt('5000000000000000'), // 0.005 xDAI for Gnosis (enough for multiple Aave operations)
   };
 
   // Check user's native gas balance
@@ -1283,14 +1270,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         chainId,
         mode: 'offline',
       });
-      
-      // Reject Gnosis (no EIP-3009 support for USDC.e)
-      if (chainId === 100) {
-        return res.status(400).json({ 
-          error: 'Gnosis chain not supported for gasless transfers',
-          details: 'USDC.e on Gnosis uses EIP-2612 permit, not EIP-3009 transferWithAuthorization' 
-        });
-      }
       
       const chainInfo = resolveChain(chainId);
       if (!chainInfo) {
