@@ -1,0 +1,59 @@
+Absolutely—here’s the clean way to add Gnosis Chain next to Base & Celo without breaking your “no-install, gasless, PWA” vibe.
+
+What to wire up
+
+1) Chain config (frontend)
+	•	chainId: 100
+	•	RPC: https://rpc.gnosischain.com
+	•	Explorer: https://gnosisscan.io
+	•	Native gas: xDAI (stable-denominated gas).  ￼
+
+2) Earn on Gnosis (Aave v3 / Spark)
+	•	Aave v3 is live on Gnosis (assets include USDC, wXDAI, EURe, sDAI). Reuse your Earn flow (supply/withdraw) with the Gnosis pool + aTokens.  ￼
+	•	Optional: add SparkLend (DAI-centric, Aave-v3 fork) as a second market toggle.  ￼
+
+3) Gasless sends (tokens)
+	•	On Base you used EIP-3009 (USDC). On Gnosis, most stables are bridged (USDC.e, DAI via bridges) and often don’t implement standard 3009, or use non-standard 712 domains. Plan for two paths:
+	•	PATH A (preferred when available): If a token does support permit (EIP-2612) or a compatible 3009, do permit + transferFrom in your facilitator (1 tx, relayer pays).
+	•	PATH B (fallback, robust): Use ERC-4337 + paymaster just for Gnosis sends. User signs; your paymaster sponsors gas; your smart account calls transfer.
+(Keep 3009 on Base; auto-select per chain/token.)  ￼
+
+4) x402 on Gnosis
+	•	Accept xDAI, USDC.e, DAI. For each payment challenge, choose:
+	•	Token with permit → facilitator permit+transferFrom.
+	•	Otherwise → 4337 path.
+	•	You still keep execute-by-link (relayer posts on Gnosis).
+
+5) Bridging & faucets (for ops & tests)
+	•	xDAI Bridge docs + Gnosis Bridge UI for funding test ops and merchant wallets.  ￼
+
+Earn specifics to drop in
+	•	Point your Earn SDK to Aave v3 (Gnosis) address-book; expose markets: USDC, wXDAI, sDAI, EURe (hide any with 0 liquidity).  ￼
+	•	Keep your aToken-permit withdraw trick (gasless withdraw): user signs ERC-2612 on aToken → facilitator calls withdraw to user. Works same as Base.
+
+Minimal code (frontend chain add)
+
+export const gnosis = {
+  id: 100,
+  name: 'Gnosis',
+  nativeCurrency: { name: 'xDAI', symbol: 'xDAI', decimals: 18 },
+  rpcUrls: { default: { http: ['https://rpc.gnosischain.com'] } },
+  blockExplorers: { default: { name: 'GnosisScan', url: 'https://gnosisscan.io' } },
+};
+
+“Gotchas” to account for
+	•	Don’t assume 3009 on Gnosis stables (bridged USDC.e/DAI often differ) → keep permit+transferFrom and 4337 fallbacks.  ￼
+	•	xDAI as gas is already stable-denominated; your paymaster costs are predictable.  ￼
+	•	For Earn, confirm paused assets/caps in Aave before showing them (pull from address-book/live config).  ￼
+
+Step-by-step checklist
+	1.	Add chain config (100) and a chain switcher in Settings.
+	2.	Wire Aave v3 Gnosis addresses into Earn; show supported assets.  ￼
+	3.	Extend facilitator:
+	•	permit+transferFrom path (EIP-2612)
+	•	4337 paymaster path for non-permit tokens
+	4.	Extend x402 to emit chainId:100 challenges; keep execute-by-link.
+	5.	QA: token sends (DAI/USDC.e/xDAI), Earn deposit/withdraw, offline relay, and paymaster limits.
+	6.	(Optional) Add Spark market toggle for DAI/sDAI users.  ￼
+
+This gives you Gnosis support with the same UX (gasless, PWA, offline-friendly), Earn on day one via Aave v3 (Gnosis), and safe sends via permit or 4337 where 3009 isn’t available.
