@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
-import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Shield, RefreshCw, QrCode, ScanLine, Share2 } from 'lucide-react';
-import { getWallet, getPreferences } from '@/lib/wallet';
-import { getMaxFlowScore } from '@/lib/maxflow';
+import { RefreshCw, QrCode, ScanLine, Share2 } from 'lucide-react';
+import { getWallet } from '@/lib/wallet';
 import { queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 
@@ -32,12 +30,6 @@ export default function AppHeader({ onScanClick }: AppHeaderProps) {
     loadWallet();
   }, []);
 
-  const { data: maxflowScore } = useQuery({
-    queryKey: ['/maxflow/score', address],
-    queryFn: () => getMaxFlowScore(address!),
-    enabled: !!address,
-    staleTime: 5 * 60 * 1000,
-  });
 
   const handleRefresh = async () => {
     if (!address) return;
@@ -126,18 +118,6 @@ export default function AppHeader({ onScanClick }: AppHeaderProps) {
       <div className="flex items-center justify-between px-4 h-16">
       <div className="flex items-center gap-3">
         <h1 className="text-lg font-semibold">nanoPay</h1>
-        {maxflowScore && (
-          <button
-            onClick={() => setLocation('/signal')}
-            className="flex items-center gap-1.5 hover-elevate active-elevate-2 px-2 py-1 rounded-md border text-xs font-medium"
-            data-testid="badge-maxflow-score"
-            title="Network Signal"
-            aria-label={`Network Signal: ${Math.round(maxflowScore.localHealth)}`}
-          >
-            <Shield className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-            <span aria-hidden="true">{Math.round(maxflowScore.localHealth)}</span>
-          </button>
-        )}
       </div>
       <div className="flex gap-2">
         <Button 

@@ -29,22 +29,18 @@ export default function QRScanner({ onScan, onClose }: QRScannerProps) {
             qrbox: { width: 250, height: 250 },
           },
           async (decodedText) => {
-            // Prevent duplicate scans
             if (hasScannedRef.current) {
               return;
             }
             
             hasScannedRef.current = true;
             
-            // Stop scanner immediately to prevent further scans
             await stopScanner();
             
-            // Notify parent component and close scanner
             onScan(decodedText);
             onClose();
           },
           () => {
-            // Scan error callback - ignore individual scan failures
           }
         );
 
@@ -52,7 +48,6 @@ export default function QRScanner({ onScan, onClose }: QRScannerProps) {
       } catch (err: any) {
         console.error('Scanner error:', err);
         
-        // Provide user-friendly error messages
         let errorMessage = 'Failed to start camera';
         
         if (err.message?.includes('NotAllowedError') || err.message?.includes('Permission')) {
@@ -95,21 +90,21 @@ export default function QRScanner({ onScan, onClose }: QRScannerProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-background/95 z-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Scan QR Code</h2>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleClose}
-            data-testid="button-close-scanner"
-          >
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
+    <div className="fixed inset-0 bg-background z-50 flex flex-col">
+      <div className="flex items-center justify-between p-4 border-b">
+        <h2 className="text-lg font-semibold">Scan QR Code</h2>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={handleClose}
+          data-testid="button-close-scanner"
+        >
+          <X className="h-5 w-5" />
+        </Button>
+      </div>
 
-        <Card className="p-4">
+      <div className="flex-1 flex flex-col items-center justify-center p-4">
+        <Card className="p-4 w-full max-w-sm">
           {error ? (
             <div className="text-center py-8">
               <p className="text-destructive mb-4">{error}</p>
@@ -122,9 +117,20 @@ export default function QRScanner({ onScan, onClose }: QRScannerProps) {
           )}
         </Card>
 
-        <p className="text-sm text-muted-foreground text-center">
+        <p className="text-sm text-muted-foreground text-center mt-4">
           Position the QR code within the frame
         </p>
+      </div>
+
+      <div className="p-4 border-t">
+        <Button 
+          variant="outline" 
+          className="w-full"
+          onClick={handleClose}
+          data-testid="button-cancel-scanner"
+        >
+          Cancel
+        </Button>
       </div>
     </div>
   );
