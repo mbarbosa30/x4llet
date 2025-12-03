@@ -488,6 +488,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const CIRCLES_HUB_V2 = '0xc12C1E50ABB450d6205Ea2C3Fa861b3B834d13e8' as Address;
   const CIRCLES_RPC = 'https://rpc.aboutcircles.com';
 
+  const FACILITATOR_INVITER = '0xbf3E8C2f1191dC6e3cdbA3aD05626A5EEeF60731' as Address;
+
   const circlesHubAbi = [
     {
       name: 'inviteHuman',
@@ -497,6 +499,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { name: '_invitee', type: 'address' },
       ],
       outputs: [],
+    },
+    {
+      name: 'registerHuman',
+      type: 'function',
+      stateMutability: 'nonpayable',
+      inputs: [
+        { name: '_inviter', type: 'address' },
+        { name: '_metadataDigest', type: 'bytes32' },
+      ],
+      outputs: [{ type: 'address' }],
     },
     {
       name: 'isHuman',
@@ -600,6 +612,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('[Circles] Error inviting user:', error);
       res.status(500).json({ 
         error: 'Failed to invite user to Circles',
+        details: error.shortMessage || error.message,
+      });
+    }
+  });
+
+  app.post('/api/circles/register-facilitator', async (req, res) => {
+    try {
+      const facilitatorAccount = getFacilitatorAccount();
+      
+      console.log('[Circles] Registering facilitator as Circles avatar');
+      console.log('[Circles] Facilitator address:', facilitatorAccount.address);
+      console.log('[Circles] Inviter address:', FACILITATOR_INVITER);
+
+      const publicClient = createPublicClient({
+        chain: gnosis,
+        transport: http(CIRCLES_RPC),
+      });
+
+      const walletClient = createWalletClient({
+        account: facilitatorAccount,
+        chain: gnosis,
+        transport: http(CIRCLES_RPC),
+      });
+
+      const existingAvatar = await publicClient.readContract({
+        address: CIRCLES_HUB_V2,
+        abi: circlesHubAbi,
+        functionName: 'avatars',
+        args: [facilitatorAccount.address],
+      });
+
+      if (existingAvatar !== '0x0000000000000000000000000000000000000000') {
+        console.log('[Circles] Facilitator already registered:', existingAvatar);
+        return res.json({
+          success: true,
+          alreadyRegistered: true,
+          facilitatorAddress: facilitatorAccount.address,
+          avatarAddress: existingAvatar,
+        });
+      }
+
+      const metadataDigest = '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`;
+
+      const hash = await walletClient.writeContract({
+        address: CIRCLES_HUB_V2,
+        abi: circlesHubAbi,
+        functionName: 'registerHuman',
+        args: [FACILITATOR_INVITER, metadataDigest],
+      });
+
+      console.log('[Circles] Registration transaction submitted:', hash);
+
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      
+      console.log('[Circles] Registration confirmed:', receipt.transactionHash);
+
+      res.json({
+        success: true,
+        txHash: receipt.transactionHash,
+        facilitatorAddress: facilitatorAccount.address,
+        inviter: FACILITATOR_INVITER,
+      });
+    } catch (error: any) {
+      console.error('[Circles] Error registering facilitator:', error);
+      res.status(500).json({ 
+        error: 'Failed to register facilitator with Circles',
         details: error.shortMessage || error.message,
       });
     }
