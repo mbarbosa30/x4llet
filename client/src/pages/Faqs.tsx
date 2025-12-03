@@ -175,7 +175,7 @@ export default function Faqs() {
             <AccordionContent>
               <p className="text-sm text-muted-foreground">
                 USDC is a stablecoin - a cryptocurrency designed to maintain a value of $1.00 USD. It's issued by Circle and backed 
-                by US dollars held in reserve. This wallet supports native Circle USDC on both Celo and Base networks.
+                by US dollars held in reserve. This wallet supports native Circle USDC on Celo and Base, and Circle's bridged USDC (USDC.e) on Gnosis.
               </p>
             </AccordionContent>
           </AccordionItem>

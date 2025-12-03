@@ -47,7 +47,7 @@ export default function HowItWorks() {
         <section className="space-y-4 mb-8">
           <h2 className="text-xl font-semibold">Your Wallet</h2>
           <p className="text-sm text-muted-foreground">
-            This is a lightweight cryptocurrency wallet powered by x402 that lets you send and receive USDC on Base and Celo networks. 
+            This is a lightweight cryptocurrency wallet powered by x402 that lets you send and receive USDC on Base, Celo, and Gnosis networks. 
             Your private keys are encrypted and stored locally on your device - you have complete control over your funds.
           </p>
         </section>
