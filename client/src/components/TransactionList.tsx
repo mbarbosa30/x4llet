@@ -73,11 +73,13 @@ export default function TransactionList({ transactions, onTransactionClick }: Tr
               </div>
               {tx.chainId && (
                 <Badge 
-                  variant="secondary" 
-                  className={`text-[10px] px-1 py-0 h-4 ${
-                    tx.chainId === 8453 ? 'text-blue-500' : 
-                    tx.chainId === 100 ? 'text-purple-500' : 
-                    'text-yellow-500'
+                  variant="outline" 
+                  className={`text-[10px] px-1.5 py-0 h-4 border-0 ${
+                    tx.chainId === 8453 
+                      ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400' 
+                      : tx.chainId === 100 
+                        ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400' 
+                        : 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400'
                   }`}
                   data-testid={`badge-chain-${tx.chainId === 8453 ? 'base' : tx.chainId === 100 ? 'gnosis' : 'celo'}`}
                 >
