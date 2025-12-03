@@ -231,7 +231,8 @@ export async function getClaimStatus(address: Address): Promise<ClaimStatus> {
   const client = getCeloClient();
   
   try {
-    const [entitlement, currentDay, dailyUbi, lastClaimedDay] = await Promise.all([
+    // Fetch UBI scheme data and token decimals in parallel
+    const [entitlement, currentDay, dailyUbi, lastClaimedDay, tokenDecimals] = await Promise.all([
       client.readContract({
         address: GOODDOLLAR_CONTRACTS.ubi.celo,
         abi: UBI_SCHEME_ABI,
@@ -253,6 +254,11 @@ export async function getClaimStatus(address: Address): Promise<ClaimStatus> {
         abi: UBI_SCHEME_ABI,
         functionName: 'lastClaimed',
         args: [address],
+      }),
+      client.readContract({
+        address: GOODDOLLAR_CONTRACTS.token.celo,
+        abi: ERC20_ABI,
+        functionName: 'decimals',
       }),
     ]);
 
@@ -283,11 +289,11 @@ export async function getClaimStatus(address: Address): Promise<ClaimStatus> {
     return {
       canClaim,
       entitlement,
-      entitlementFormatted: formatGoodDollar(entitlement),
+      entitlementFormatted: formatGoodDollar(entitlement, tokenDecimals),
       lastClaimedDay: Number(lastClaimedDay),
       currentDay: Number(currentDay),
       dailyUbi,
-      dailyUbiFormatted: formatGoodDollar(dailyUbi),
+      dailyUbiFormatted: formatGoodDollar(dailyUbi, tokenDecimals),
       activeUsers,
       nextClaimTime,
     };
@@ -340,12 +346,23 @@ export async function getGoodDollarBalance(address: Address): Promise<GoodDollar
   }
 }
 
-export function formatGoodDollar(amount: bigint, decimals: number = 2): string {
-  const divisor = BigInt(10 ** decimals);
+// G$ token uses 2 decimals for display (like USD cents)
+const G_DOLLAR_DISPLAY_DECIMALS = 2;
+
+export function formatGoodDollar(amount: bigint, tokenDecimals: number = 2): string {
+  if (amount === 0n) return '0.00';
+  
+  // Use BigInt exponentiation to avoid Number precision loss for large decimals (e.g., 18)
+  const divisor = 10n ** BigInt(tokenDecimals);
   const wholePart = amount / divisor;
   const fractionalPart = amount % divisor;
-  const fractionalStr = fractionalPart.toString().padStart(decimals, '0');
-  return `${wholePart}.${fractionalStr}`;
+  
+  // Convert fractional part to display decimals (always show 2 decimal places)
+  let fractionalStr = fractionalPart.toString().padStart(tokenDecimals, '0');
+  // Take first 2 digits for display (truncate extra precision)
+  fractionalStr = fractionalStr.slice(0, G_DOLLAR_DISPLAY_DECIMALS).padEnd(G_DOLLAR_DISPLAY_DECIMALS, '0');
+  
+  return `${wholePart.toLocaleString()}.${fractionalStr}`;
 }
 
 export interface FVResult {
@@ -521,13 +538,20 @@ export async function claimGoodDollar(
       }
     }
     
-    // Step 2: Check entitlement before claiming
-    const entitlement = await client.readContract({
-      address: GOODDOLLAR_CONTRACTS.ubi.celo,
-      abi: UBI_SCHEME_ABI,
-      functionName: 'checkEntitlement',
-      account: address,
-    });
+    // Step 2: Check entitlement and get token decimals
+    const [entitlement, tokenDecimals] = await Promise.all([
+      client.readContract({
+        address: GOODDOLLAR_CONTRACTS.ubi.celo,
+        abi: UBI_SCHEME_ABI,
+        functionName: 'checkEntitlement',
+        account: address,
+      }),
+      client.readContract({
+        address: GOODDOLLAR_CONTRACTS.token.celo,
+        abi: ERC20_ABI,
+        functionName: 'decimals',
+      }),
+    ]);
     
     if (entitlement === 0n) {
       return { success: false, error: 'No G$ available to claim yet' };
@@ -549,7 +573,7 @@ export async function claimGoodDollar(
       return {
         success: true,
         txHash,
-        amountClaimed: formatGoodDollar(entitlement),
+        amountClaimed: formatGoodDollar(entitlement, tokenDecimals),
         gasDripTxHash,
       };
     } else {
@@ -615,19 +639,26 @@ export async function claimGoodDollarWithWallet(
       // If alreadyHasGas is true but no txHash, we can proceed (user already had enough)
     }
     
-    // Step 2: Check entitlement before claiming
-    const entitlement = await client.readContract({
-      address: GOODDOLLAR_CONTRACTS.ubi.celo,
-      abi: UBI_SCHEME_ABI,
-      functionName: 'checkEntitlement',
-      account: address,
-    });
+    // Step 2: Check entitlement and get token decimals
+    const [entitlement, tokenDecimals] = await Promise.all([
+      client.readContract({
+        address: GOODDOLLAR_CONTRACTS.ubi.celo,
+        abi: UBI_SCHEME_ABI,
+        functionName: 'checkEntitlement',
+        account: address,
+      }),
+      client.readContract({
+        address: GOODDOLLAR_CONTRACTS.token.celo,
+        abi: ERC20_ABI,
+        functionName: 'decimals',
+      }),
+    ]);
     
     if (entitlement === 0n) {
       return { success: false, error: 'No G$ available to claim yet' };
     }
     
-    console.log('[GoodDollar] Entitlement:', formatGoodDollar(entitlement), 'G$');
+    console.log('[GoodDollar] Entitlement:', formatGoodDollar(entitlement, tokenDecimals), 'G$');
     
     // Step 3: Create wallet client and send claim transaction (with fallback RPCs)
     const { fallback: fb } = await import('viem');
@@ -667,7 +698,7 @@ export async function claimGoodDollarWithWallet(
       return {
         success: true,
         txHash,
-        amountClaimed: formatGoodDollar(entitlement),
+        amountClaimed: formatGoodDollar(entitlement, tokenDecimals),
         gasDripTxHash,
       };
     } else {

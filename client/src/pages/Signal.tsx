@@ -1085,16 +1085,6 @@ export default function Signal() {
                     </div>
                   </div>
 
-                  <Button
-                    variant="ghost"
-                    className="w-full"
-                    onClick={() => window.open('https://wallet.gooddollar.org', '_blank', 'noopener,noreferrer')}
-                    data-testid="button-gd-wallet"
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Open GoodWallet
-                  </Button>
-
                   <p className="text-xs text-muted-foreground">
                     G$ is universal basic income on Celo, separate from your USDC.
                   </p>
@@ -1130,7 +1120,7 @@ export default function Signal() {
                       <h3 className="text-sm font-semibold">Get Started</h3>
                       <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
                         <li>Verify your face (takes ~1 minute)</li>
-                        <li>Claim G$ daily in GoodWallet</li>
+                        <li>Claim G$ daily right here in nanoPay</li>
                         <li>Use G$ for payments or support others</li>
                       </ol>
                     </div>
