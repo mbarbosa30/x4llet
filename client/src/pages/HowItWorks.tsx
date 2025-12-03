@@ -117,14 +117,55 @@ export default function HowItWorks() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">Networks</h2>
           <p className="text-sm text-muted-foreground">
-            The wallet supports two networks:
+            The wallet supports three networks:
           </p>
           <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-2">
-            <li><span className="font-medium">Celo</span> - Lower gas fees, good for everyday transactions</li>
+            <li><span className="font-medium">Celo</span> - Mobile-first blockchain, home to GoodDollar UBI</li>
             <li><span className="font-medium">Base</span> - Ethereum Layer 2, wider DeFi ecosystem</li>
+            <li><span className="font-medium">Gnosis</span> - Community-owned chain, home to Circles social money</li>
           </ul>
           <p className="text-sm text-muted-foreground">
-            You can switch networks in Settings. Your wallet address is the same on both networks.
+            You can switch networks in Settings. Your wallet address is the same on all networks.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold">GoodDollar UBI</h2>
+          <p className="text-sm text-muted-foreground">
+            GoodDollar is a non-profit protocol that distributes free G$ tokens daily to verified humans around the world. 
+            It's universal basic income on the blockchain — funded by interest from DeFi and donations.
+          </p>
+          <p className="text-sm text-muted-foreground font-medium">
+            How it works:
+          </p>
+          <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground ml-2">
+            <li>Verify your face once (privacy-preserving — only a hash is stored)</li>
+            <li>Claim your G$ every day right here in nanoPay</li>
+            <li>Re-verify every ~180 days to maintain your claim eligibility</li>
+          </ol>
+          <p className="text-sm text-muted-foreground">
+            Everyone who verifies gets the same daily distribution — no exceptions. G$ operates on Celo and can be 
+            used for payments or supporting others.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold">Circles Social Money</h2>
+          <p className="text-sm text-muted-foreground">
+            Circles is community-powered social money on Gnosis Chain. Every registered human can claim the same amount 
+            of CRC over time — it's not a cryptocurrency, it's social money designed to support people and local communities.
+          </p>
+          <p className="text-sm text-muted-foreground font-medium">
+            How it works:
+          </p>
+          <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground ml-2">
+            <li>Register your avatar (one per human)</li>
+            <li>Claim 1 CRC per hour, up to 24/day</li>
+            <li>Trust friends to expand your network and let CRC flow</li>
+          </ol>
+          <p className="text-sm text-muted-foreground">
+            CRC has a ~7% yearly demurrage (decay) to keep it circulating fairly. The trust network determines whose 
+            CRC you can accept — creating a web of mutual support.
           </p>
         </section>
 

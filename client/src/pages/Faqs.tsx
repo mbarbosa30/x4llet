@@ -101,18 +101,19 @@ export default function Faqs() {
 
           <AccordionItem value="networks">
             <AccordionTrigger data-testid="faq-networks">
-              What's the difference between Celo and Base?
+              What networks does nanoPay support?
             </AccordionTrigger>
             <AccordionContent>
               <p className="text-sm text-muted-foreground mb-2">
-                Both are blockchain networks where you can use USDC:
+                nanoPay supports three blockchain networks:
               </p>
               <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-2">
-                <li><span className="font-medium">Celo</span> - Mobile-first blockchain with low fees and fast transactions</li>
+                <li><span className="font-medium">Celo</span> - Mobile-first blockchain, home to GoodDollar UBI</li>
                 <li><span className="font-medium">Base</span> - Ethereum Layer 2 built by Coinbase with access to DeFi apps</li>
+                <li><span className="font-medium">Gnosis</span> - Community-owned chain, home to Circles social money</li>
               </ul>
               <p className="text-sm text-muted-foreground mt-2">
-                Your wallet address is the same on both networks. You can switch networks in Settings.
+                Your wallet address is the same on all networks. You can switch networks in Settings.
               </p>
             </AccordionContent>
           </AccordionItem>
@@ -271,6 +272,67 @@ export default function Faqs() {
               <p className="text-sm text-muted-foreground mt-2">
                 This makes MaxFlow signal useful for community coordination, resource allocation, and proving authenticity without 
                 centralized verification.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="gooddollar">
+            <AccordionTrigger data-testid="faq-gooddollar">
+              What is GoodDollar?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground mb-2">
+                GoodDollar is a non-profit protocol that distributes free G$ tokens daily to verified humans around the world. 
+                It's universal basic income on the blockchain.
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-2">
+                <li><span className="font-medium">Face verification:</span> Verify once using privacy-preserving technology (only a hash is stored)</li>
+                <li><span className="font-medium">Daily claims:</span> Claim your G$ every day right here in nanoPay</li>
+                <li><span className="font-medium">Equal distribution:</span> Everyone who verifies gets the same amount — no exceptions</li>
+              </ul>
+              <p className="text-sm text-muted-foreground mt-2">
+                G$ operates on Celo and is funded by interest from DeFi protocols and donations. Re-verify every ~180 days 
+                to maintain eligibility.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="circles">
+            <AccordionTrigger data-testid="faq-circles">
+              What is Circles?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground mb-2">
+                Circles is community-powered social money on Gnosis Chain. Every registered human can claim the same amount 
+                of CRC over time — it's designed to support people and local communities.
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-2">
+                <li><span className="font-medium">Claim rate:</span> 1 CRC per hour, up to 24/day</li>
+                <li><span className="font-medium">Trust network:</span> Trust friends to let CRC flow through your network</li>
+                <li><span className="font-medium">Demurrage:</span> ~7% yearly decay keeps CRC circulating fairly</li>
+              </ul>
+              <p className="text-sm text-muted-foreground mt-2">
+                Unlike regular crypto, CRC is social money. The trust network determines whose CRC you can accept, 
+                creating a web of mutual support within communities.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="claim-tokens">
+            <AccordionTrigger data-testid="faq-claim-tokens">
+              How do I claim free tokens?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground mb-2">
+                Go to the Claim page (tap the Coins icon in the bottom navigation) to access two token claiming systems:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-2">
+                <li><span className="font-medium">GoodDollar (G$):</span> Verify your face once, then claim daily on Celo</li>
+                <li><span className="font-medium">Circles (CRC):</span> Register your avatar on Gnosis, then claim hourly</li>
+              </ul>
+              <p className="text-sm text-muted-foreground mt-2">
+                Both are separate from your USDC balance. GoodDollar requires face verification; Circles requires 
+                building a trust network with other Circles users.
               </p>
             </AccordionContent>
           </AccordionItem>
