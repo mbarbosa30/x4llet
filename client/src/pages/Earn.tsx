@@ -240,6 +240,26 @@ export default function Earn() {
     refetchInterval: 30000,
   });
 
+  interface InterestChainData {
+    chainId: number;
+    currentBalanceMicro: string;
+    netPrincipalMicro: string;
+    interestEarnedMicro: string;
+    trackingStarted: string | null;
+    hasTrackingData: boolean;
+  }
+
+  const { data: interestEarnedData } = useQuery<{ chains: InterestChainData[]; totalInterestEarnedMicro: string }>({
+    queryKey: ['/api/aave/interest-earned', address],
+    enabled: !!address,
+    queryFn: async () => {
+      const res = await fetch(`/api/aave/interest-earned/${address}`);
+      if (!res.ok) throw new Error('Failed to fetch interest earned');
+      return res.json();
+    },
+    refetchInterval: 60000, // Refresh every minute
+  });
+
   // Use BigInt for precise micro-USDC arithmetic
   const baseAaveBalanceMicro = aaveBalanceBase?.aUsdcBalance ? BigInt(aaveBalanceBase.aUsdcBalance) : 0n;
   const celoAaveBalanceMicro = aaveBalanceCelo?.aUsdcBalance ? BigInt(aaveBalanceCelo.aUsdcBalance) : 0n;
@@ -1131,31 +1151,45 @@ export default function Earn() {
                 </div>
               </div>
               
-              {/* Per-chain current deposits */}
-              {(Number(baseAaveBalanceMicro) > 0 || Number(celoAaveBalanceMicro) > 0 || Number(gnosisAaveBalanceMicro) > 0) && (
+              {/* Interest earned to date per chain */}
+              {interestEarnedData && (
                 <div className="flex items-center justify-center gap-4 text-xs flex-wrap">
-                  {Number(baseAaveBalanceMicro) > 0 && (
-                    <span className="text-blue-400">
-                      Base: ${(Number(baseAaveBalanceMicro) / 1_000_000).toFixed(2)}
-                      <span className="text-muted-foreground ml-1">
-                        @{(aaveBalanceBase?.apy || aaveApyBase?.apy || 0).toFixed(1)}%
-                      </span>
-                    </span>
-                  )}
-                  {Number(celoAaveBalanceMicro) > 0 && (
-                    <span className="text-yellow-400">
-                      Celo: ${(Number(celoAaveBalanceMicro) / 1_000_000).toFixed(2)}
-                      <span className="text-muted-foreground ml-1">
-                        @{(aaveBalanceCelo?.apy || aaveApyCelo?.apy || 0).toFixed(1)}%
-                      </span>
-                    </span>
-                  )}
-                  {Number(gnosisAaveBalanceMicro) > 0 && (
-                    <span className="text-purple-400">
-                      Gnosis: ${(Number(gnosisAaveBalanceMicro) / 1_000_000).toFixed(2)}
-                      <span className="text-muted-foreground ml-1">
-                        @{(aaveBalanceGnosis?.apy || aaveApyGnosis?.apy || 0).toFixed(1)}%
-                      </span>
+                  {interestEarnedData.chains.some(c => c.hasTrackingData) ? (
+                    <>
+                      <span className="text-muted-foreground">Earned:</span>
+                      {(() => {
+                        const baseData = interestEarnedData.chains.find(c => c.chainId === 8453);
+                        const celoData = interestEarnedData.chains.find(c => c.chainId === 42220);
+                        const gnosisData = interestEarnedData.chains.find(c => c.chainId === 100);
+                        return (
+                          <>
+                            {baseData?.hasTrackingData && Number(baseData.interestEarnedMicro) > 0 && (
+                              <span className="text-blue-400">
+                                Base: +${(Number(baseData.interestEarnedMicro) / 1_000_000).toFixed(4)}
+                              </span>
+                            )}
+                            {celoData?.hasTrackingData && Number(celoData.interestEarnedMicro) > 0 && (
+                              <span className="text-yellow-400">
+                                Celo: +${(Number(celoData.interestEarnedMicro) / 1_000_000).toFixed(4)}
+                              </span>
+                            )}
+                            {gnosisData?.hasTrackingData && Number(gnosisData.interestEarnedMicro) > 0 && (
+                              <span className="text-purple-400">
+                                Gnosis: +${(Number(gnosisData.interestEarnedMicro) / 1_000_000).toFixed(4)}
+                              </span>
+                            )}
+                            {Number(interestEarnedData.totalInterestEarnedMicro) > 0 && (
+                              <span className="text-success font-medium">
+                                Total: +${(Number(interestEarnedData.totalInterestEarnedMicro) / 1_000_000).toFixed(4)}
+                              </span>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      Interest tracking starts with your next deposit
                     </span>
                   )}
                 </div>

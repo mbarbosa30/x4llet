@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { transferRequestSchema, transferResponseSchema, paymentRequestSchema, submitAuthorizationSchema, authorizationSchema, type Authorization } from "@shared/schema";
+import { transferRequestSchema, transferResponseSchema, paymentRequestSchema, submitAuthorizationSchema, authorizationSchema, type Authorization, aaveOperations } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { getNetworkConfig, getNetworkByChainId } from "@shared/networks";
 import { AAVE_POOL_ABI, ERC20_ABI, rayToPercent } from "@shared/aave";
@@ -792,6 +792,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching Aave balance:', error);
       res.status(500).json({ error: 'Failed to fetch Aave balance' });
+    }
+  });
+
+  // Get interest earned per chain (current balance - net principal)
+  app.get('/api/aave/interest-earned/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      const chainIds = [8453, 42220, 100]; // Base, Celo, Gnosis
+      
+      // Get net principal from tracked operations (always returns all 3 chains)
+      const netPrincipals = await storage.getAaveNetPrincipal(address);
+      
+      // Get current aUSDC balances for all chains
+      const fetchAaveBalance = async (chainId: number) => {
+        try {
+          const network = getNetworkByChainId(chainId);
+          if (!network || !network.aavePoolAddress || !network.aUsdcAddress) {
+            return { chainId, aUsdcBalance: '0' };
+          }
+
+          const chainInfo = resolveChain(chainId);
+          if (!chainInfo) {
+            return { chainId, aUsdcBalance: '0' };
+          }
+          
+          const publicClient = createPublicClient({
+            chain: chainInfo.viemChain,
+            transport: http(network.rpcUrl),
+          });
+
+          const balance = await publicClient.readContract({
+            address: network.aUsdcAddress as Address,
+            abi: ERC20_ABI,
+            functionName: 'balanceOf',
+            args: [address as Address],
+          });
+
+          return { chainId, aUsdcBalance: balance.toString() };
+        } catch {
+          return { chainId, aUsdcBalance: '0' };
+        }
+      };
+
+      const [baseBalance, celoBalance, gnosisBalance] = await Promise.all([
+        fetchAaveBalance(8453),
+        fetchAaveBalance(42220),
+        fetchAaveBalance(100),
+      ]);
+
+      const balances: Record<number, { chainId: number; aUsdcBalance: string }> = { 
+        8453: baseBalance, 
+        42220: celoBalance, 
+        100: gnosisBalance 
+      };
+      
+      // Build net principal map for quick lookup
+      const netPrincipalMap = new Map(netPrincipals.map(np => [np.chainId, np]));
+      
+      // Calculate interest earned per chain (always return all 3 chains)
+      const interestPerChain = chainIds.map(chainId => {
+        const np = netPrincipalMap.get(chainId) || { 
+          chainId, 
+          netPrincipalMicro: '0', 
+          trackingStarted: null 
+        };
+        const currentBalance = BigInt(balances[chainId]?.aUsdcBalance || '0');
+        const netPrincipal = BigInt(np.netPrincipalMicro);
+        
+        // Interest = current balance - net principal (clamped to 0 minimum)
+        let interestEarned = currentBalance - netPrincipal;
+        if (interestEarned < 0n) interestEarned = 0n;
+        
+        return {
+          chainId,
+          currentBalanceMicro: currentBalance.toString(),
+          netPrincipalMicro: np.netPrincipalMicro,
+          interestEarnedMicro: interestEarned.toString(),
+          trackingStarted: np.trackingStarted,
+          hasTrackingData: np.trackingStarted !== null,
+        };
+      });
+
+      // Calculate totals
+      const totalInterestMicro = interestPerChain.reduce(
+        (sum, c) => sum + BigInt(c.interestEarnedMicro), 
+        0n
+      );
+
+      res.json({
+        chains: interestPerChain,
+        totalInterestEarnedMicro: totalInterestMicro.toString(),
+      });
+    } catch (error) {
+      console.error('Error calculating interest earned:', error);
+      // Return empty but valid response on error
+      res.json({
+        chains: [
+          { chainId: 8453, currentBalanceMicro: '0', netPrincipalMicro: '0', interestEarnedMicro: '0', trackingStarted: null, hasTrackingData: false },
+          { chainId: 42220, currentBalanceMicro: '0', netPrincipalMicro: '0', interestEarnedMicro: '0', trackingStarted: null, hasTrackingData: false },
+          { chainId: 100, currentBalanceMicro: '0', netPrincipalMicro: '0', interestEarnedMicro: '0', trackingStarted: null, hasTrackingData: false },
+        ],
+        totalInterestEarnedMicro: '0',
+      });
     }
   });
 

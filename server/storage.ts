@@ -274,6 +274,7 @@ export interface IStorage {
   getAaveOperation(id: string): Promise<AaveOperation | null>;
   getPendingAaveOperations(): Promise<AaveOperation[]>;
   getFailedAaveOperations(): Promise<AaveOperation[]>;
+  getAaveNetPrincipal(userAddress: string): Promise<{ chainId: number; netPrincipalMicro: string; trackingStarted: string | null }[]>;
 }
 
 export interface GasDrip {
@@ -673,6 +674,10 @@ export class MemStorage implements IStorage {
   }
 
   async getFailedAaveOperations(): Promise<AaveOperation[]> {
+    return [];
+  }
+
+  async getAaveNetPrincipal(userAddress: string): Promise<{ chainId: number; netPrincipalMicro: string; trackingStarted: string | null }[]> {
     return [];
   }
 }
@@ -1928,6 +1933,60 @@ export class DbStorage extends MemStorage {
       console.error('[AaveOps] Error fetching failed operations:', error);
       return [];
     }
+  }
+
+  async getAaveNetPrincipal(userAddress: string): Promise<{ chainId: number; netPrincipalMicro: string; trackingStarted: string | null }[]> {
+    const chainIds = [8453, 42220, 100]; // Base, Celo, Gnosis
+    const results: { chainId: number; netPrincipalMicro: string; trackingStarted: string | null }[] = [];
+    const normalizedAddress = userAddress.toLowerCase();
+
+    for (const chainId of chainIds) {
+      try {
+        // Query using case-insensitive comparison via sql lower()
+        const operations = await db
+          .select()
+          .from(aaveOperations)
+          .where(
+            and(
+              sql`lower(${aaveOperations.userAddress}) = ${normalizedAddress}`,
+              eq(aaveOperations.chainId, chainId),
+              eq(aaveOperations.status, 'completed')
+            )
+          )
+          .orderBy(aaveOperations.createdAt);
+
+        let netPrincipal = 0n;
+        let trackingStarted: string | null = null;
+
+        for (const op of operations) {
+          const amount = BigInt(op.amount);
+          if (op.operationType === 'supply') {
+            netPrincipal += amount;
+          } else if (op.operationType === 'withdraw') {
+            netPrincipal -= amount;
+          }
+          if (!trackingStarted && op.createdAt) {
+            trackingStarted = op.createdAt.toISOString();
+          }
+        }
+
+        results.push({
+          chainId,
+          netPrincipalMicro: netPrincipal.toString(),
+          trackingStarted,
+        });
+      } catch (error) {
+        console.error(`[AaveOps] Error calculating net principal for chain ${chainId}:`, error);
+        // Always return an entry for each chain, even on error
+        results.push({
+          chainId,
+          netPrincipalMicro: '0',
+          trackingStarted: null,
+        });
+      }
+    }
+
+    return results;
   }
 }
 
