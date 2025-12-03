@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, QrCode, ScanLine, Share2 } from 'lucide-react';
+import { RefreshCw, QrCode, ScanLine, Share2, Shield } from 'lucide-react';
 import { getWallet } from '@/lib/wallet';
 import { queryClient } from '@/lib/queryClient';
+import { getMaxFlowScore } from '@/lib/maxflow';
 import { useToast } from '@/hooks/use-toast';
 
 interface AppHeaderProps {
@@ -11,7 +13,7 @@ interface AppHeaderProps {
 }
 
 export default function AppHeader({ onScanClick }: AppHeaderProps) {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [address, setAddress] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { toast } = useToast();
@@ -29,6 +31,15 @@ export default function AppHeader({ onScanClick }: AppHeaderProps) {
     };
     loadWallet();
   }, []);
+
+  const { data: scoreData } = useQuery({
+    queryKey: ['/maxflow/score', address],
+    queryFn: () => getMaxFlowScore(address!),
+    enabled: !!address,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const score = scoreData?.localHealth ?? 0;
 
 
   const handleRefresh = async () => {
@@ -118,6 +129,19 @@ export default function AppHeader({ onScanClick }: AppHeaderProps) {
       <div className="flex items-center justify-between px-4 h-16">
       <div className="flex items-center gap-3">
         <h1 className="text-lg font-semibold">nanoPay</h1>
+        <button
+          onClick={() => setLocation('/maxflow')}
+          className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+            location === '/maxflow' 
+              ? 'bg-primary text-primary-foreground' 
+              : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+          }`}
+          data-testid="button-maxflow-chip"
+          title="Your MaxFlow trust score"
+        >
+          <Shield className="h-3 w-3" />
+          <span className="font-mono">{Math.round(score)}</span>
+        </button>
       </div>
       <div className="flex gap-2">
         <Button 

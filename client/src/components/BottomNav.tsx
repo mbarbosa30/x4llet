@@ -1,6 +1,6 @@
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { Users, Wallet, Settings, TrendingUp } from 'lucide-react';
+import { Gift, Wallet, Settings, TrendingUp } from 'lucide-react';
 
 export default function BottomNav() {
   const [location, setLocation] = useLocation();
@@ -21,14 +21,14 @@ export default function BottomNav() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setLocation('/signal')}
+          onClick={() => setLocation('/claim')}
           className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-12 rounded-none px-1 ${
-            isActive('/signal') ? 'text-primary' : 'text-muted-foreground'
+            isActive('/claim') ? 'text-primary' : 'text-muted-foreground'
           }`}
-          data-testid="nav-trust"
+          data-testid="nav-claim"
         >
-          <Users className="h-5 w-5" />
-          <span className="text-[10px]">Trust</span>
+          <Gift className="h-5 w-5" />
+          <span className="text-[10px]">Claim</span>
         </Button>
 
         <Button
