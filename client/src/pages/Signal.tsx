@@ -198,13 +198,13 @@ export default function Signal() {
       return mintPersonalCRC(address);
     },
     onSuccess: () => {
-      toast({ title: "CRC minted" });
+      toast({ title: "CRC claimed" });
       queryClient.invalidateQueries({ queryKey: ['/circles/balance', address] });
     },
     onError: (error) => {
       toast({
-        title: "Mint Failed",
-        description: error instanceof Error ? error.message : "Failed to mint CRC",
+        title: "Claim Failed",
+        description: error instanceof Error ? error.message : "Failed to claim CRC",
         variant: "destructive",
       });
     },
@@ -541,70 +541,62 @@ export default function Signal() {
                   <p className="text-sm text-muted-foreground mt-2">Checking Circles status...</p>
                 </div>
               ) : circlesAvatar?.isRegistered ? (
-                <div className="space-y-6">
-                  <div className="text-center space-y-4">
-                    <CircleDot className="h-12 w-12 mx-auto text-primary" />
-                    <div>
-                      <h2 className="text-sm text-muted-foreground mb-2">Your CRC Balance</h2>
-                      <div className="text-5xl font-bold text-foreground" data-testid="text-crc-balance">
-                        {circlesBalance?.formattedCrc || '0.00'}
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">CRC</p>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t space-y-3">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">Avatar Type</span>
-                      <span className="font-medium">
-                        {circlesAvatar.isHuman ? 'Human' : circlesAvatar.isOrganization ? 'Organization' : circlesAvatar.isGroup ? 'Group' : 'Unknown'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">Network</span>
-                      <span className="font-medium">Gnosis Chain</span>
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground mb-1">CRC Balance</p>
+                    <div className="text-4xl font-bold text-foreground" data-testid="text-crc-balance">
+                      {circlesBalance?.formattedCrc || '0.00'}
                     </div>
                   </div>
 
                   {!showTrustInput && !showSendInput && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => mintMutation.mutate()}
-                        disabled={mintMutation.isPending}
-                        data-testid="button-mint-crc"
-                      >
-                        {mintMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <Coins className="h-4 w-4 mr-2" />
-                        )}
-                        Mint CRC
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => refetchBalance()}
-                        data-testid="button-refresh-balance"
-                      >
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Refresh
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowTrustInput(true)}
-                        data-testid="button-trust"
-                      >
-                        <Heart className="h-4 w-4 mr-2" />
-                        Trust
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowSendInput(true)}
-                        data-testid="button-send-crc"
-                      >
-                        <Send className="h-4 w-4 mr-2" />
-                        Send CRC
-                      </Button>
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <Button
+                          className="flex-1"
+                          onClick={() => mintMutation.mutate()}
+                          disabled={mintMutation.isPending}
+                          data-testid="button-mint-crc"
+                        >
+                          {mintMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Coins className="h-4 w-4 mr-2" />
+                          )}
+                          Claim
+                        </Button>
+                        <Button
+                          className="flex-1"
+                          variant="outline"
+                          onClick={() => setShowSendInput(true)}
+                          data-testid="button-send-crc"
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          Send
+                        </Button>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => setShowTrustInput(true)}
+                          data-testid="button-trust"
+                        >
+                          <Heart className="h-4 w-4 mr-2" />
+                          Trust
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => refetchBalance()}
+                          data-testid="button-refresh-balance"
+                        >
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Refresh
+                        </Button>
+                      </div>
                     </div>
                   )}
 
@@ -753,49 +745,36 @@ export default function Signal() {
                   </Button>
 
                   <p className="text-xs text-muted-foreground text-center">
-                    Circles is a decentralized universal basic income (UBI) system where each person mints 1 CRC per hour.
+                    CRC is social money, separate from your USDC.
                   </p>
                 </div>
               ) : (
-                <div className="space-y-6">
-                  <div className="text-center space-y-4">
-                    <CircleDot className="h-12 w-12 mx-auto text-muted-foreground" />
-                    <div>
-                      <h2 className="text-lg font-semibold mb-2">Join Circles</h2>
-                      <p className="text-sm text-muted-foreground">
-                        You don't have a Circles avatar yet. Register to start receiving 1 CRC per hour.
-                      </p>
-                    </div>
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <CircleDot className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                    <h2 className="text-lg font-semibold">Join Circles</h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Claim CRC daily to support people and communities on Gnosis Chain.
+                    </p>
                   </div>
 
-                  <div className="space-y-4 text-left">
-                    <div className="space-y-2">
-                      <h3 className="text-sm font-semibold">What is Circles?</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Circles is a decentralized UBI system on Gnosis Chain. Every registered human receives 1 CRC per hour, automatically minted.
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <h3 className="text-sm font-semibold">How It Works</h3>
-                      <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                        <li>Register as a human avatar</li>
-                        <li>Build trust connections with others</li>
-                        <li>Your CRC can flow through trust paths</li>
-                        <li>7% yearly demurrage prevents hoarding</li>
-                      </ul>
-                    </div>
-
-                    <div className="pt-2">
-                      <p className="text-xs text-muted-foreground">
-                        Your address: <span className="font-mono">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
-                      </p>
-                    </div>
-                  </div>
+                  <ul className="text-sm text-muted-foreground space-y-1.5">
+                    <li className="flex items-start gap-2">
+                      <span className="text-primary mt-0.5">1.</span>
+                      <span>Register your avatar (one per human)</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-primary mt-0.5">2.</span>
+                      <span>Claim up to 24 CRC/day (1 per hour)</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-primary mt-0.5">3.</span>
+                      <span>Send CRC to people you trust</span>
+                    </li>
+                  </ul>
 
                   <Button
                     className="w-full"
-                    size="lg"
                     onClick={() => registerMutation.mutate()}
                     disabled={registerMutation.isPending}
                     data-testid="button-register-circles"
@@ -808,13 +787,13 @@ export default function Signal() {
                     ) : (
                       <>
                         <UserPlus className="h-4 w-4 mr-2" />
-                        Register as Human
+                        Register
                       </>
                     )}
                   </Button>
 
                   <p className="text-xs text-muted-foreground text-center">
-                    Gas fees are covered by nanoPay's facilitator service.
+                    CRC is social money, separate from your USDC. Gas fees covered.
                   </p>
                 </div>
               )}
