@@ -1,4 +1,4 @@
-import { createPublicClient, http, type Address, type PublicClient } from 'viem';
+import { createPublicClient, http, type Address } from 'viem';
 import { celo } from 'viem/chains';
 
 export const GOODDOLLAR_CONTRACTS = {
@@ -113,15 +113,12 @@ const ERC20_ABI = [
   },
 ] as const;
 
-let celoClient: PublicClient | null = null;
+const celoClient = createPublicClient({
+  chain: celo,
+  transport: http('https://forno.celo.org'),
+});
 
-function getCeloClient(): PublicClient {
-  if (!celoClient) {
-    celoClient = createPublicClient({
-      chain: celo,
-      transport: http('https://forno.celo.org'),
-    });
-  }
+function getCeloClient() {
   return celoClient;
 }
 

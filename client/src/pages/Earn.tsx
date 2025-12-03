@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'wouter';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -17,7 +17,10 @@ import {
   ChevronRight,
   CheckCircle2,
   Clock,
-  Sparkles
+  Sparkles,
+  Gift,
+  CircleDot,
+  Coins
 } from 'lucide-react';
 import { ComposedChart, AreaChart, Area, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import {
@@ -50,6 +53,19 @@ import { supplyToAave, withdrawFromAave, parseAmountToMicroUsdc } from '@/lib/aa
 import { formatPrecisionBalance } from '@/components/PrecisionBalance';
 import { useEarningAnimation } from '@/hooks/use-earning-animation';
 import { apiRequest } from '@/lib/queryClient';
+import { 
+  getCirclesAvatar, 
+  getCirclesBalance, 
+  mintPersonalCRC,
+  type CirclesAvatar, 
+  type CirclesBalance 
+} from '@/lib/circles';
+import {
+  getIdentityStatus,
+  getClaimStatus,
+  type IdentityStatus,
+  type ClaimStatus,
+} from '@/lib/gooddollar';
 
 interface AaveApyData {
   chainId: number;
@@ -257,8 +273,59 @@ export default function Earn() {
       if (!res.ok) throw new Error('Failed to fetch interest earned');
       return res.json();
     },
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 60000,
   });
+
+  const { data: circlesAvatar } = useQuery<CirclesAvatar>({
+    queryKey: ['/circles/avatar', address],
+    queryFn: () => getCirclesAvatar(address!),
+    enabled: !!address,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: circlesBalance, refetch: refetchCirclesBalance } = useQuery<CirclesBalance>({
+    queryKey: ['/circles/balance', address],
+    queryFn: () => getCirclesBalance(address!),
+    enabled: !!address && circlesAvatar?.isRegistered,
+    staleTime: 60 * 1000,
+  });
+
+  const { data: gdIdentity } = useQuery<IdentityStatus>({
+    queryKey: ['/gooddollar/identity', address],
+    queryFn: () => getIdentityStatus(address! as `0x${string}`),
+    enabled: !!address,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: gdClaimStatus, refetch: refetchGdClaim } = useQuery<ClaimStatus>({
+    queryKey: ['/gooddollar/claim', address],
+    queryFn: () => getClaimStatus(address! as `0x${string}`),
+    enabled: !!address && gdIdentity?.isWhitelisted,
+    staleTime: 60 * 1000,
+  });
+
+  const localQueryClient = useQueryClient();
+
+  const mintCrcMutation = useMutation({
+    mutationFn: async () => {
+      if (!address) throw new Error('No wallet found');
+      return mintPersonalCRC(address);
+    },
+    onSuccess: () => {
+      toast({ title: "CRC claimed" });
+      localQueryClient.invalidateQueries({ queryKey: ['/circles/balance', address] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Claim Failed",
+        description: error instanceof Error ? error.message : "Failed to claim CRC",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const hasClaimableRewards = circlesAvatar?.isRegistered || 
+                              (gdIdentity?.isWhitelisted && gdClaimStatus?.canClaim);
 
   // Use BigInt for precise micro-USDC arithmetic
   const baseAaveBalanceMicro = aaveBalanceBase?.aUsdcBalance ? BigInt(aaveBalanceBase.aUsdcBalance) : 0n;
@@ -791,6 +858,77 @@ export default function Earn() {
             </Button>
           </div>
         </Card>
+
+        {/* Claimable Rewards Section */}
+        {hasClaimableRewards && (
+          <Card className="p-4 space-y-3" data-testid="card-claimable-rewards">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium flex items-center gap-2">
+                <Gift className="h-4 w-4 text-primary" />
+                Claimable Rewards
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              {/* Circles CRC */}
+              {circlesAvatar?.isRegistered && (
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-pink-500/10 flex items-center justify-center">
+                      <CircleDot className="h-4 w-4 text-pink-600" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium">Circles CRC</div>
+                      <div className="text-xs text-muted-foreground">1 CRC/hour, up to 24/day</div>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => mintCrcMutation.mutate()}
+                    disabled={mintCrcMutation.isPending}
+                    data-testid="button-claim-crc"
+                  >
+                    {mintCrcMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Coins className="h-3 w-3 mr-1" />
+                        Claim
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              {/* GoodDollar G$ */}
+              {gdIdentity?.isWhitelisted && gdClaimStatus?.canClaim && (
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center">
+                      <Gift className="h-4 w-4 text-green-600" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium">GoodDollar G$</div>
+                      <div className="text-xs text-muted-foreground">{gdClaimStatus.entitlementFormatted} available</div>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => window.open('https://wallet.gooddollar.org', '_blank', 'noopener,noreferrer')}
+                    data-testid="button-claim-gd"
+                  >
+                    <Coins className="h-3 w-3 mr-1" />
+                    Claim
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <p className="text-xs text-muted-foreground text-center">
+              These tokens are separate from your USDC balance
+            </p>
+          </Card>
+        )}
 
         {/* Earnings Preview for users with no deposits */}
         {!hasAaveBalance && aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && (

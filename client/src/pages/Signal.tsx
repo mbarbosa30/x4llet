@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Scan, Shield, CircleDot, Loader2, ExternalLink, UserPlus, Coins, Heart, HeartOff, Send, RefreshCw } from 'lucide-react';
+import { Scan, Shield, CircleDot, Loader2, ExternalLink, UserPlus, Coins, Heart, HeartOff, Send, RefreshCw, Gift, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { getWallet, getPrivateKey } from '@/lib/wallet';
 import { getMaxFlowScore, getCurrentEpoch, getNextNonce, submitVouch } from '@/lib/maxflow';
 import { 
@@ -22,6 +22,15 @@ import {
   type CirclesAvatar, 
   type CirclesBalance 
 } from '@/lib/circles';
+import {
+  getIdentityStatus,
+  getClaimStatus,
+  getGoodDollarBalance,
+  generateFaceVerificationLink,
+  type IdentityStatus,
+  type ClaimStatus,
+  type GoodDollarBalance,
+} from '@/lib/gooddollar';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getAddress } from 'viem';
 import { useToast } from '@/hooks/use-toast';
@@ -86,20 +95,44 @@ export default function Signal() {
     staleTime: 60 * 1000,
   });
 
+  const { data: gdIdentity, isLoading: isLoadingGdIdentity } = useQuery<IdentityStatus>({
+    queryKey: ['/gooddollar/identity', address],
+    queryFn: () => getIdentityStatus(address! as `0x${string}`),
+    enabled: !!address,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: gdClaimStatus, isLoading: isLoadingGdClaim, refetch: refetchGdClaim } = useQuery<ClaimStatus>({
+    queryKey: ['/gooddollar/claim', address],
+    queryFn: () => getClaimStatus(address! as `0x${string}`),
+    enabled: !!address && gdIdentity?.isWhitelisted,
+    staleTime: 60 * 1000,
+  });
+
+  const { data: gdBalance, refetch: refetchGdBalance } = useQuery<GoodDollarBalance>({
+    queryKey: ['/gooddollar/balance', address],
+    queryFn: () => getGoodDollarBalance(address! as `0x${string}`),
+    enabled: !!address,
+    staleTime: 60 * 1000,
+  });
+
   useEffect(() => {
-    if (activeTab === null && !isLoadingMaxFlow && !isLoadingCircles) {
+    if (activeTab === null && !isLoadingMaxFlow && !isLoadingCircles && !isLoadingGdIdentity) {
       const hasMaxFlow = scoreData && scoreData.localHealth > 0;
       const hasCircles = circlesAvatar?.isRegistered;
+      const hasGoodDollar = gdIdentity?.isWhitelisted;
       
       if (hasCircles) {
         setActiveTab('circles');
+      } else if (hasGoodDollar) {
+        setActiveTab('gooddollar');
       } else if (hasMaxFlow) {
         setActiveTab('maxflow');
       } else {
         setActiveTab('maxflow');
       }
     }
-  }, [activeTab, isLoadingMaxFlow, isLoadingCircles, scoreData, circlesAvatar]);
+  }, [activeTab, isLoadingMaxFlow, isLoadingCircles, isLoadingGdIdentity, scoreData, circlesAvatar, gdIdentity]);
 
   const vouchMutation = useMutation({
     mutationFn: async (endorsedAddress: string) => {
@@ -354,14 +387,18 @@ export default function Signal() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="maxflow" className="flex items-center gap-1.5" data-testid="tab-maxflow">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="maxflow" className="flex items-center gap-1.5 text-xs" data-testid="tab-maxflow">
               <Shield className="h-3.5 w-3.5" />
               MaxFlow
             </TabsTrigger>
-            <TabsTrigger value="circles" className="flex items-center gap-1.5" data-testid="tab-circles">
+            <TabsTrigger value="circles" className="flex items-center gap-1.5 text-xs" data-testid="tab-circles">
               <CircleDot className="h-3.5 w-3.5" />
               Circles
+            </TabsTrigger>
+            <TabsTrigger value="gooddollar" className="flex items-center gap-1.5 text-xs" data-testid="tab-gooddollar">
+              <Gift className="h-3.5 w-3.5" />
+              G$
             </TabsTrigger>
           </TabsList>
 
@@ -811,6 +848,161 @@ export default function Signal() {
 
                   <p className="text-xs text-muted-foreground text-center">
                     CRC is social money, separate from your USDC balance. Gas fees are covered.
+                  </p>
+                </div>
+              )}
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="gooddollar" className="mt-4">
+            <Card className="p-6 space-y-6">
+              {isLoadingGdIdentity ? (
+                <div className="text-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground mt-2">Checking GoodDollar status...</p>
+                </div>
+              ) : gdIdentity?.isWhitelisted ? (
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                      <span className="text-sm text-green-600 dark:text-green-400 font-medium">Face Verified</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-1">G$ Balance</p>
+                    <div className="text-4xl font-bold text-foreground" data-testid="text-gd-balance">
+                      {gdBalance?.balanceFormatted || '0.00'}
+                    </div>
+                    {gdIdentity.daysUntilExpiry !== null && gdIdentity.daysUntilExpiry <= 30 && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 flex items-center justify-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        Verification expires in {gdIdentity.daysUntilExpiry} days
+                      </p>
+                    )}
+                  </div>
+
+                  {gdClaimStatus?.canClaim ? (
+                    <div className="space-y-3">
+                      <div className="bg-primary/10 rounded-lg p-4 text-center">
+                        <p className="text-sm text-muted-foreground">Available to claim</p>
+                        <p className="text-2xl font-bold text-primary" data-testid="text-gd-entitlement">
+                          {gdClaimStatus.entitlementFormatted} G$
+                        </p>
+                      </div>
+                      <Button
+                        className="w-full"
+                        onClick={() => {
+                          window.open('https://wallet.gooddollar.org', '_blank', 'noopener,noreferrer');
+                        }}
+                        data-testid="button-claim-gd"
+                      >
+                        <Coins className="h-4 w-4 mr-2" />
+                        Claim in GoodWallet
+                      </Button>
+                      <p className="text-xs text-muted-foreground text-center">
+                        Claiming requires gas on Celo. Use GoodWallet for free claims.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="bg-muted rounded-lg p-4 text-center">
+                        <Clock className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">Next claim available</p>
+                        {gdClaimStatus?.nextClaimTime && (
+                          <p className="text-lg font-semibold" data-testid="text-gd-next-claim">
+                            {gdClaimStatus.nextClaimTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        )}
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => {
+                          refetchGdClaim();
+                          refetchGdBalance();
+                        }}
+                        data-testid="button-refresh-gd"
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Refresh Status
+                      </Button>
+                    </div>
+                  )}
+
+                  <div className="pt-4 border-t space-y-2">
+                    <h3 className="text-xs font-semibold text-muted-foreground mb-3">Daily UBI Stats</h3>
+                    <div className="grid grid-cols-1 gap-2 text-sm">
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Daily UBI</span>
+                        <span className="font-mono font-medium" data-testid="text-gd-daily-ubi">{gdClaimStatus?.dailyUbiFormatted || '0.00'} G$</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Active Claimers</span>
+                        <span className="font-mono font-medium" data-testid="text-gd-active-users">{gdClaimStatus?.activeUsers?.toLocaleString() || '0'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="ghost"
+                    className="w-full"
+                    onClick={() => window.open('https://wallet.gooddollar.org', '_blank', 'noopener,noreferrer')}
+                    data-testid="button-gd-wallet"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Open GoodWallet
+                  </Button>
+
+                  <p className="text-xs text-muted-foreground text-center">
+                    G$ is universal basic income on Celo, separate from your USDC.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <Gift className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                    <h2 className="text-lg font-semibold">Claim Daily UBI</h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      GoodDollar distributes free G$ tokens daily to verified humans. Prove you're unique with face verification to start claiming.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-medium">How it works</h3>
+                    <ul className="text-sm text-muted-foreground space-y-1.5">
+                      <li className="flex items-start gap-2">
+                        <span className="text-primary">•</span>
+                        <span>Verify your face once (privacy-preserving)</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-primary">•</span>
+                        <span>Claim free G$ tokens every day</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-primary">•</span>
+                        <span>Use G$ for payments or support others</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-primary">•</span>
+                        <span>Re-verify every {gdIdentity?.authenticationPeriod || 180} days</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <Button
+                    className="w-full"
+                    onClick={() => {
+                      const callbackUrl = window.location.origin + '/signal';
+                      const link = generateFaceVerificationLink(address! as `0x${string}`, callbackUrl, false);
+                      window.open(link, '_blank', 'noopener,noreferrer');
+                    }}
+                    data-testid="button-verify-face"
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Verify Face
+                  </Button>
+
+                  <p className="text-xs text-muted-foreground text-center">
+                    Your face data is not stored. Only a unique hash is kept to prevent duplicates.
                   </p>
                 </div>
               )}
