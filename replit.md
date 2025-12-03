@@ -37,7 +37,8 @@ Features a unified fixed header and bottom navigation. The header displays brand
 **Trust Hub (Signal Page)**: The Signal page serves as a Trust Hub with tabbed interface for sybil-resistant identity systems:
 - **MaxFlow Tab**: Network signal scoring via max-flow computation, vouch submission with EIP-712 signing
 - **Circles Tab**: Full Circles Protocol integration on Gnosis Chain - avatar registration, CRC minting, trust/untrust management, and CRC transfers. All operations use the x402 facilitator for xDAI gas drips.
-- Smart default tab selection based on user data (Circles avatar or MaxFlow score)
+- **GoodDollar Tab**: Face verification integration for UBI claiming. Uses SDK-compatible flow with signed messages (login + identifier), lz-string compression, and redirect to GoodID (https://goodid.gooddollar.org). Identity and claim status checked on Celo chain.
+- Smart default tab selection based on user data (Circles avatar, MaxFlow score, or GoodDollar identity)
 
 Multi-chain UX includes aggregated USDC balance display, chain badges for transactions, auto-selection of the chain with the highest USDC balance on the Send page, and network selection on the Receive page.
 
