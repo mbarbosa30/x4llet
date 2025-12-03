@@ -72,8 +72,16 @@ export default function TransactionList({ transactions, onTransactionClick }: Tr
                 {tx.type === 'send' ? 'Sent to' : 'Received from'}
               </div>
               {tx.chainId && (
-                <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4" data-testid={`badge-chain-${tx.chainId === 8453 ? 'base' : 'celo'}`}>
-                  {tx.chainId === 8453 ? 'Base' : 'Celo'}
+                <Badge 
+                  variant="secondary" 
+                  className={`text-[10px] px-1 py-0 h-4 ${
+                    tx.chainId === 8453 ? 'text-blue-500' : 
+                    tx.chainId === 100 ? 'text-purple-500' : 
+                    'text-yellow-500'
+                  }`}
+                  data-testid={`badge-chain-${tx.chainId === 8453 ? 'base' : tx.chainId === 100 ? 'gnosis' : 'celo'}`}
+                >
+                  {tx.chainId === 8453 ? 'Base' : tx.chainId === 100 ? 'Gnosis' : 'Celo'}
                 </Badge>
               )}
             </div>

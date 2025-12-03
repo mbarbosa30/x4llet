@@ -894,8 +894,8 @@ export default function Earn() {
             {gnosisBalanceNum > 0 && (
               <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                    <span className="text-xs font-bold text-emerald-600">G</span>
+                  <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center">
+                    <span className="text-xs font-bold text-purple-600">G</span>
                   </div>
                   <div>
                     <div className="text-sm font-medium">Gnosis</div>
@@ -963,10 +963,10 @@ export default function Earn() {
                       <stop offset="0%" stopColor="hsl(45, 93%, 58%)" stopOpacity={0.7}/>
                       <stop offset="100%" stopColor="hsl(45, 93%, 47%)" stopOpacity={0.3}/>
                     </linearGradient>
-                    {/* Gnosis chain colors - emerald/green */}
+                    {/* Gnosis chain colors - purple */}
                     <linearGradient id="gnosisInterestGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(160, 84%, 45%)" stopOpacity={0.7}/>
-                      <stop offset="100%" stopColor="hsl(160, 84%, 35%)" stopOpacity={0.3}/>
+                      <stop offset="0%" stopColor="hsl(270, 70%, 60%)" stopOpacity={0.7}/>
+                      <stop offset="100%" stopColor="hsl(270, 70%, 50%)" stopOpacity={0.3}/>
                     </linearGradient>
                     {/* Earnings mode gradient */}
                     <linearGradient id="earningsPercentGradient" x1="0" y1="0" x2="0" y2="1">
@@ -1041,7 +1041,7 @@ export default function Earn() {
                             )}
                             {data.gnosisInterest > 0 && (
                               <div className="flex items-center justify-between gap-3 text-xs mb-1">
-                                <span className="text-emerald-400">Gnosis:</span>
+                                <span className="text-purple-400">Gnosis:</span>
                                 <span className="text-success">
                                   +{formatSmartPrecision(data.gnosisInterest, '$')}
                                 </span>
@@ -1088,7 +1088,7 @@ export default function Earn() {
                     dataKey="gnosisInterest"
                     yAxisId="balance"
                     stackId="earnings"
-                    stroke="hsl(160, 84%, 45%)"
+                    stroke="hsl(270, 70%, 60%)"
                     strokeWidth={1.5}
                     fill="url(#gnosisInterestGradient)"
                     isAnimationActive={false}
@@ -1121,8 +1121,8 @@ export default function Earn() {
                   <span className="text-yellow-400">Celo</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(160, 84%, 40%)' }}></div>
-                  <span className="text-emerald-400">Gnosis</span>
+                  <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(270, 70%, 55%)' }}></div>
+                  <span className="text-purple-400">Gnosis</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-4 h-0.5 rounded-sm" style={{ background: 'hsl(142, 71%, 45%)', borderTop: '2px dashed hsl(142, 71%, 45%)' }}></div>
@@ -1149,7 +1149,7 @@ export default function Earn() {
                           </span>
                         )}
                         {threeYearPoint.gnosisInterest > 0 && (
-                          <span className="text-emerald-400">
+                          <span className="text-purple-400">
                             Gnosis: {formatSmartPrecision(threeYearPoint.gnosisInterest, '+$')}/3yr
                           </span>
                         )}
