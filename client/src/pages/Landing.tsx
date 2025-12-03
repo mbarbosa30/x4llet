@@ -123,9 +123,9 @@ export default function Landing() {
               
               <div className="space-y-1">
                 <div className="flex items-start gap-3">
-                  <Coins className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                  <Globe className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                   <div>
-                    <div className="text-sm font-medium">Gasless by default</div>
+                    <div className="text-sm font-medium">Gasless by default (x402)</div>
                     <div className="text-xs text-muted-foreground">Network fees are covered, automatically.</div>
                   </div>
                 </div>
@@ -133,10 +133,10 @@ export default function Landing() {
               
               <div className="space-y-1">
                 <div className="flex items-start gap-3">
-                  <Globe className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                  <Coins className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                   <div>
-                    <div className="text-sm font-medium">Pay over HTTP (x402)</div>
-                    <div className="text-xs text-muted-foreground">Transfer money over HTTP. Any amount, anywhere.</div>
+                    <div className="text-sm font-medium">Claim free tokens</div>
+                    <div className="text-xs text-muted-foreground">Earn daily UBI from GoodDollar and Circles.</div>
                   </div>
                 </div>
               </div>
