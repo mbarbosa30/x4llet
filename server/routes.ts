@@ -481,6 +481,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================
+  // CIRCLES PROTOCOL ENDPOINTS  
+  // ============================================
+
+  const CIRCLES_HUB_V2 = '0xc12C1E50ABB450d6205Ea2C3Fa861b3B834d13e8' as Address;
+  const CIRCLES_RPC = 'https://rpc.aboutcircles.com';
+
+  const circlesHubAbi = [
+    {
+      name: 'inviteHuman',
+      type: 'function',
+      stateMutability: 'nonpayable',
+      inputs: [
+        { name: '_invitee', type: 'address' },
+      ],
+      outputs: [],
+    },
+    {
+      name: 'isHuman',
+      type: 'function',
+      stateMutability: 'view',
+      inputs: [
+        { name: '_human', type: 'address' },
+      ],
+      outputs: [{ type: 'bool' }],
+    },
+    {
+      name: 'avatars',
+      type: 'function',
+      stateMutability: 'view',
+      inputs: [
+        { name: '', type: 'address' },
+      ],
+      outputs: [{ type: 'address' }],
+    },
+  ] as const;
+
+  app.post('/api/circles/invite', async (req, res) => {
+    try {
+      const { inviteeAddress } = req.body;
+
+      if (!inviteeAddress || !inviteeAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+        return res.status(400).json({ error: 'Invalid invitee address' });
+      }
+
+      console.log('[Circles] Processing invite request for:', inviteeAddress);
+
+      const facilitatorAccount = getFacilitatorAccount();
+      
+      const publicClient = createPublicClient({
+        chain: gnosis,
+        transport: http(CIRCLES_RPC),
+      });
+
+      const walletClient = createWalletClient({
+        account: facilitatorAccount,
+        chain: gnosis,
+        transport: http(CIRCLES_RPC),
+      });
+
+      // Check if the facilitator is registered as a Circles human
+      const facilitatorAvatar = await publicClient.readContract({
+        address: CIRCLES_HUB_V2,
+        abi: circlesHubAbi,
+        functionName: 'avatars',
+        args: [facilitatorAccount.address],
+      });
+
+      if (facilitatorAvatar === '0x0000000000000000000000000000000000000000') {
+        console.error('[Circles] Facilitator is not registered as a Circles avatar');
+        return res.status(503).json({ 
+          error: 'Service temporarily unavailable. Facilitator not registered with Circles.' 
+        });
+      }
+
+      // Check if invitee is already registered
+      const inviteeAvatar = await publicClient.readContract({
+        address: CIRCLES_HUB_V2,
+        abi: circlesHubAbi,
+        functionName: 'avatars',
+        args: [inviteeAddress as Address],
+      });
+
+      if (inviteeAvatar !== '0x0000000000000000000000000000000000000000') {
+        console.log('[Circles] Invitee already registered:', inviteeAddress);
+        return res.json({
+          success: true,
+          alreadyRegistered: true,
+          message: 'User is already registered with Circles',
+        });
+      }
+
+      console.log('[Circles] Sending invitation from facilitator:', facilitatorAccount.address);
+      console.log('[Circles] To invitee:', inviteeAddress);
+
+      // Call inviteHuman - this trusts the invitee and allows them to register
+      const hash = await walletClient.writeContract({
+        address: CIRCLES_HUB_V2,
+        abi: circlesHubAbi,
+        functionName: 'inviteHuman',
+        args: [inviteeAddress as Address],
+      });
+
+      console.log('[Circles] Invite transaction submitted:', hash);
+
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      
+      console.log('[Circles] Invite transaction confirmed:', receipt.transactionHash);
+
+      res.json({
+        success: true,
+        txHash: receipt.transactionHash,
+        inviter: facilitatorAccount.address,
+        invitee: inviteeAddress,
+      });
+    } catch (error: any) {
+      console.error('[Circles] Error inviting user:', error);
+      res.status(500).json({ 
+        error: 'Failed to invite user to Circles',
+        details: error.shortMessage || error.message,
+      });
+    }
+  });
+
   app.get('/api/aave/apy/:chainId', async (req, res) => {
     try {
       const chainId = parseInt(req.params.chainId);

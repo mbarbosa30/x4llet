@@ -14,8 +14,16 @@ import { getPrivateKey } from '@/lib/wallet';
 const CIRCLES_RPC = 'https://rpc.aboutcircles.com';
 
 const HUB_V2_ADDRESS = '0xc12C1E50ABB450d6205Ea2C3Fa861b3B834d13e8' as const;
-const DEFAULT_INVITER = '0xbf3E8C2f1191dC6e3cdbA3aD05626A5EEeF60731' as const;
 const FACILITATOR_URL = '/api/facilitator';
+
+async function getFacilitatorAddress(): Promise<string> {
+  const response = await fetch('/api/facilitator/address');
+  if (!response.ok) {
+    throw new Error('Failed to get facilitator address');
+  }
+  const data = await response.json();
+  return data.address;
+}
 
 const publicClient = createPublicClient({
   chain: gnosis,
@@ -206,20 +214,52 @@ async function requestGasDrip(address: string): Promise<void> {
   }
 }
 
-export async function registerHuman(address: string, inviterAddress?: string): Promise<string> {
+interface InvitationResult {
+  success: boolean;
+  alreadyRegistered?: boolean;
+  txHash?: string;
+}
+
+async function requestInvitation(inviteeAddress: string): Promise<InvitationResult> {
+  console.log('[Circles] Requesting invitation for:', inviteeAddress);
+  
+  const response = await fetch('/api/circles/invite', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ inviteeAddress }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.details || error.error || 'Failed to get invitation');
+  }
+
+  const result = await response.json();
+  console.log('[Circles] Invitation result:', result);
+  return result;
+}
+
+export async function registerHuman(address: string): Promise<string> {
   try {
+    const invitationResult = await requestInvitation(address);
+    
+    if (invitationResult.alreadyRegistered) {
+      console.log('[Circles] User already registered, skipping on-chain registration');
+      return 'already-registered';
+    }
+    
     await requestGasDrip(address);
 
     const walletClient = await getWalletClient();
     
-    const inviter = (inviterAddress || DEFAULT_INVITER) as Address;
+    const inviterAddress = await getFacilitatorAddress();
     const metadataDigest = '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`;
 
     const hash = await walletClient.writeContract({
       address: HUB_V2_ADDRESS,
       abi: hubAbi,
       functionName: 'registerHuman',
-      args: [inviter, metadataDigest],
+      args: [inviterAddress as Address, metadataDigest],
     });
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
