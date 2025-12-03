@@ -23,6 +23,7 @@ interface AaveBalance {
   chains: {
     base: AaveChainBalance;
     celo: AaveChainBalance;
+    gnosis?: AaveChainBalance;
   };
 }
 
@@ -182,20 +183,23 @@ export default function BalanceCard({
     enabled: totalBalanceMicro !== '0' && !!exchangeRate && !!inflationData,
   });
 
-  // Calculate balance-weighted APY across chains
+  // Calculate balance-weighted APY across chains (including Gnosis)
   const calculateWeightedApy = () => {
     if (!aaveBalance) return 0;
     
     const baseBalance = parseFloat(aaveBalance.chains.base.aUsdcBalance);
     const celoBalance = parseFloat(aaveBalance.chains.celo.aUsdcBalance);
-    const totalBalance = baseBalance + celoBalance;
+    const gnosisBalance = aaveBalance.chains.gnosis ? parseFloat(aaveBalance.chains.gnosis.aUsdcBalance) : 0;
+    const totalBalance = baseBalance + celoBalance + gnosisBalance;
     
     if (totalBalance === 0) return 0;
     
     // Weight APY by the actual balance distribution
+    const gnosisApy = aaveBalance.chains.gnosis?.apy || 0;
     const weightedApy = (
       (aaveBalance.chains.base.apy * baseBalance) + 
-      (aaveBalance.chains.celo.apy * celoBalance)
+      (aaveBalance.chains.celo.apy * celoBalance) +
+      (gnosisApy * gnosisBalance)
     ) / totalBalance;
     
     return weightedApy;
