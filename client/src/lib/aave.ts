@@ -91,8 +91,20 @@ export async function supplyToAaveGasless(
     const validBefore = now + 3600;
     const nonce = generateNonce();
 
+    // EIP-712 domain names vary by chain:
+    // - Celo: "USDC" (native Circle USDC)
+    // - Base: "USD Coin" (native Circle USDC)
+    // - Gnosis: "Bridged USDC (Gnosis)" (Circle Bridged USDC Standard)
+    const getDomainName = (chain: number): string => {
+      switch (chain) {
+        case 42220: return 'USDC';  // Celo
+        case 100: return 'Bridged USDC (Gnosis)';  // Gnosis
+        default: return 'USD Coin';  // Base and others
+      }
+    };
+
     const domain = {
-      name: chainId === 42220 ? 'USDC' : 'USD Coin',
+      name: getDomainName(chainId),
       version: '2',
       chainId: BigInt(chainId),
       verifyingContract: getAddress(network.usdcAddress) as Address,
