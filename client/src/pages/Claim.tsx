@@ -846,7 +846,7 @@ export default function Claim() {
                               
                               <div className="space-y-3">
                                 <a 
-                                  href="https://t.me/CirclesUBI" 
+                                  href="https://t.me/about_circles" 
                                   target="_blank" 
                                   rel="noopener noreferrer"
                                   className="flex items-center gap-3 p-2 rounded-md hover-elevate transition-colors"
@@ -863,7 +863,7 @@ export default function Claim() {
                                 </a>
 
                                 <a 
-                                  href="https://discord.gg/circlesubi" 
+                                  href="https://discord.com/invite/aboutcircles" 
                                   target="_blank" 
                                   rel="noopener noreferrer"
                                   className="flex items-center gap-3 p-2 rounded-md hover-elevate transition-colors"
