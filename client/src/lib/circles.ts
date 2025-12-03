@@ -244,20 +244,66 @@ async function requestInvitation(inviteeAddress: string): Promise<InvitationResu
   return result;
 }
 
-export async function registerHuman(address: string): Promise<string> {
+interface ValidateInviterResult {
+  valid: boolean;
+  error?: string;
+  alreadyRegistered?: boolean;
+  isHuman?: boolean;
+  isTrusted?: boolean;
+}
+
+export async function validateCustomInviter(inviterAddress: string, userAddress: string): Promise<ValidateInviterResult> {
+  console.log('[Circles] Validating custom inviter:', inviterAddress);
+  
+  const response = await fetch('/api/circles/validate-inviter', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ inviterAddress, userAddress }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.details || error.error || 'Failed to validate inviter');
+  }
+
+  return response.json();
+}
+
+export async function registerHuman(address: string, customInviter?: string): Promise<string> {
   try {
-    const invitationResult = await requestInvitation(address);
+    let inviterAddress: string;
     
-    if (invitationResult.alreadyRegistered) {
-      console.log('[Circles] User already registered, skipping on-chain registration');
-      return 'already-registered';
+    if (customInviter) {
+      // User is using a custom inviter (a Circles Human friend who already trusts them)
+      console.log('[Circles] Using custom inviter:', customInviter);
+      
+      // Validate the custom inviter before proceeding
+      const validation = await validateCustomInviter(customInviter, address);
+      
+      if (!validation.valid) {
+        if (validation.alreadyRegistered) {
+          return 'already-registered';
+        }
+        throw new Error(validation.error || 'Invalid inviter');
+      }
+      
+      inviterAddress = customInviter;
+    } else {
+      // Use default flow: request invitation from community inviter
+      const invitationResult = await requestInvitation(address);
+      
+      if (invitationResult.alreadyRegistered) {
+        console.log('[Circles] User already registered, skipping on-chain registration');
+        return 'already-registered';
+      }
+      
+      inviterAddress = await getFacilitatorAddress();
     }
     
     await requestGasDrip(address);
 
     const walletClient = await getWalletClient();
     
-    const inviterAddress = await getFacilitatorAddress();
     const metadataDigest = '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`;
 
     const hash = await walletClient.writeContract({

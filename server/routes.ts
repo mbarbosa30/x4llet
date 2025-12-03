@@ -528,7 +528,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ],
       outputs: [{ type: 'address' }],
     },
+    {
+      name: 'balanceOf',
+      type: 'function',
+      stateMutability: 'view',
+      inputs: [
+        { name: 'account', type: 'address' },
+        { name: 'id', type: 'uint256' },
+      ],
+      outputs: [{ type: 'uint256' }],
+    },
+    {
+      name: 'isTrusted',
+      type: 'function',
+      stateMutability: 'view',
+      inputs: [
+        { name: 'truster', type: 'address' },
+        { name: 'trustee', type: 'address' },
+      ],
+      outputs: [{ type: 'bool' }],
+    },
+    {
+      name: 'trust',
+      type: 'function',
+      stateMutability: 'nonpayable',
+      inputs: [
+        { name: 'trustee', type: 'address' },
+        { name: 'expiryTime', type: 'uint96' },
+      ],
+      outputs: [],
+    },
   ] as const;
+
+  const INVITATION_COST = 96n * 10n ** 18n; // 96 CRC in atto-CRC
 
   app.post('/api/circles/invite', async (req, res) => {
     try {
@@ -678,6 +710,207 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('[Circles] Error registering facilitator:', error);
       res.status(500).json({ 
         error: 'Failed to register facilitator with Circles',
+        details: error.shortMessage || error.message,
+      });
+    }
+  });
+
+  // Get community inviter status for Circles registration
+  app.get('/api/circles/inviter-status', async (req, res) => {
+    try {
+      const userAddress = req.query.userAddress as string | undefined;
+      
+      const publicClient = createPublicClient({
+        chain: gnosis,
+        transport: http(CIRCLES_RPC),
+      });
+
+      // Check if inviter is a registered human
+      const isHuman = await publicClient.readContract({
+        address: CIRCLES_HUB_V2,
+        abi: circlesHubAbi,
+        functionName: 'isHuman',
+        args: [FACILITATOR_INVITER],
+      });
+
+      if (!isHuman) {
+        return res.json({
+          inviterAddress: FACILITATOR_INVITER,
+          isHuman: false,
+          crcBalance: '0',
+          crcBalanceFormatted: '0.00',
+          crcRequired: '96',
+          isReady: false,
+          userTrusted: false,
+          message: 'Community inviter is not a registered Circles human',
+        });
+      }
+
+      // Get inviter's CRC balance (token ID is the address as uint256)
+      const tokenId = BigInt(FACILITATOR_INVITER);
+      const balance = await publicClient.readContract({
+        address: CIRCLES_HUB_V2,
+        abi: circlesHubAbi,
+        functionName: 'balanceOf',
+        args: [FACILITATOR_INVITER, tokenId],
+      }) as bigint;
+
+      const balanceFormatted = (Number(balance) / 1e18).toFixed(2);
+      const isReady = balance >= INVITATION_COST;
+
+      // Check if inviter already trusts the user (if provided)
+      let userTrusted = false;
+      if (userAddress && userAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+        userTrusted = await publicClient.readContract({
+          address: CIRCLES_HUB_V2,
+          abi: circlesHubAbi,
+          functionName: 'isTrusted',
+          args: [FACILITATOR_INVITER, userAddress as Address],
+        }) as boolean;
+      }
+
+      // Calculate hours until ready (1 CRC per hour)
+      const crcNeeded = Number(INVITATION_COST - balance) / 1e18;
+      const hoursUntilReady = isReady ? 0 : Math.ceil(crcNeeded);
+
+      res.json({
+        inviterAddress: FACILITATOR_INVITER,
+        isHuman: true,
+        crcBalance: balance.toString(),
+        crcBalanceFormatted: balanceFormatted,
+        crcRequired: '96',
+        isReady,
+        userTrusted,
+        hoursUntilReady,
+        message: isReady 
+          ? 'Community inviter is ready to invite new members'
+          : `Community inviter needs ${crcNeeded.toFixed(1)} more CRC (~${hoursUntilReady} hours)`,
+      });
+    } catch (error: any) {
+      console.error('[Circles] Error getting inviter status:', error);
+      res.status(500).json({ 
+        error: 'Failed to get inviter status',
+        details: error.shortMessage || error.message,
+      });
+    }
+  });
+
+  // Request trust from community inviter (so user can register)
+  app.post('/api/circles/request-trust', async (req, res) => {
+    try {
+      const { userAddress } = req.body;
+
+      if (!userAddress || !userAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+        return res.status(400).json({ error: 'Invalid user address' });
+      }
+
+      console.log('[Circles] Requesting trust for user:', userAddress);
+
+      // Note: This requires the community inviter's private key, which we don't have
+      // The facilitator (Organization) can provide gas drips but can't invite
+      // For now, return instructions for the user
+      
+      res.json({
+        success: false,
+        message: 'The community inviter must manually trust your address before you can register. Contact the inviter or find a Circles friend who can invite you.',
+        inviterAddress: FACILITATOR_INVITER,
+        userAddress,
+      });
+    } catch (error: any) {
+      console.error('[Circles] Error requesting trust:', error);
+      res.status(500).json({ 
+        error: 'Failed to request trust',
+        details: error.shortMessage || error.message,
+      });
+    }
+  });
+
+  // Validate a custom inviter for Circles registration
+  app.post('/api/circles/validate-inviter', async (req, res) => {
+    try {
+      const { inviterAddress: rawInviterAddress, userAddress: rawUserAddress } = req.body;
+
+      // Validate and checksum addresses using viem's getAddress
+      let inviterAddress: Address;
+      let userAddress: Address;
+      
+      try {
+        inviterAddress = getAddress(rawInviterAddress) as Address;
+      } catch {
+        return res.status(400).json({ error: 'Invalid inviter address format', valid: false });
+      }
+      
+      try {
+        userAddress = getAddress(rawUserAddress) as Address;
+      } catch {
+        return res.status(400).json({ error: 'Invalid user address format', valid: false });
+      }
+
+      const publicClient = createPublicClient({
+        chain: gnosis,
+        transport: http(CIRCLES_RPC),
+      });
+
+      // Check if user is already registered
+      const userAvatar = await publicClient.readContract({
+        address: CIRCLES_HUB_V2,
+        abi: circlesHubAbi,
+        functionName: 'avatars',
+        args: [userAddress],
+      });
+
+      if (userAvatar !== '0x0000000000000000000000000000000000000000') {
+        return res.json({
+          valid: false,
+          error: 'You are already registered with Circles',
+          alreadyRegistered: true,
+        });
+      }
+
+      // Check if inviter is a registered human (not organization/group)
+      const isHuman = await publicClient.readContract({
+        address: CIRCLES_HUB_V2,
+        abi: circlesHubAbi,
+        functionName: 'isHuman',
+        args: [inviterAddress],
+      }) as boolean;
+
+      if (!isHuman) {
+        return res.json({
+          valid: false,
+          error: 'This address is not a registered Circles Human. Only Humans can invite new members.',
+          isHuman: false,
+        });
+      }
+
+      // Check if inviter trusts the user
+      const trustsUser = await publicClient.readContract({
+        address: CIRCLES_HUB_V2,
+        abi: circlesHubAbi,
+        functionName: 'isTrusted',
+        args: [inviterAddress, userAddress],
+      }) as boolean;
+
+      if (!trustsUser) {
+        return res.json({
+          valid: false,
+          error: 'This inviter has not trusted your address yet. Ask them to trust you first.',
+          isTrusted: false,
+        });
+      }
+
+      res.json({
+        valid: true,
+        inviterAddress,
+        userAddress,
+        isHuman: true,
+        isTrusted: true,
+      });
+    } catch (error: any) {
+      console.error('[Circles] Error validating inviter:', error);
+      res.status(500).json({ 
+        error: 'Failed to validate inviter',
+        valid: false,
         details: error.shortMessage || error.message,
       });
     }

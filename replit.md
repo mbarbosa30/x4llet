@@ -40,7 +40,15 @@ Features a unified fixed header and bottom navigation. The header displays brand
 - **GoodDollar Tab**: Face verification integration for UBI claiming. Uses SDK-compatible flow with signed messages (login + identifier), lz-string compression, and redirect to GoodID (https://goodid.gooddollar.org). Identity and claim status checked on Celo chain.
 - Smart default tab selection based on user data (Circles avatar, MaxFlow score, or GoodDollar identity)
 
-**Circles Facilitator**: The x402 facilitator (0x2c696E742e07d92D9ae574865267C54B13930363) is registered as a Circles V2 **Organization** named "nanoPay" (tx: 0x49dcc114f788948e1598260928c88e3755a239c50ddf1f107321e5f74a5880da). Organizations can receive CRC, provide xDAI gas drips, and be trusted by the community, but cannot mint personal CRC tokens. For user onboarding, users will register as Humans using the Circles SDK with a community inviter.
+**Circles Facilitator & Registration**: The x402 facilitator (0x2c696E742e07d92D9ae574865267C54B13930363) is registered as a Circles V2 **Organization** named "nanoPay" (tx: 0x49dcc114f788948e1598260928c88e3755a239c50ddf1f107321e5f74a5880da). Organizations can receive CRC, provide xDAI gas drips, and be trusted by the community, but cannot mint personal CRC tokens.
+
+**Circles Registration Flow**:
+- Community inviter (0xbf3E8C2f1191dC6e3cdbA3aD05626A5EEeF60731) is a registered Human who can invite new users
+- After Nov 2024, inviting burns 96 CRC from the inviter as spam prevention
+- `/api/circles/inviter-status` endpoint shows CRC balance progress toward 96 CRC threshold
+- Users can also use their own inviter (a Circles Human friend) via `/api/circles/validate-inviter`
+- Validation checks: user not already registered, inviter is a registered Human, inviter trusts the user
+- The facilitator Organization provides gas drips but cannot invite (only Humans can invite)
 
 Multi-chain UX includes aggregated USDC balance display, chain badges for transactions, auto-selection of the chain with the highest USDC balance on the Send page, and network selection on the Receive page.
 

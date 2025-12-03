@@ -13,6 +13,7 @@ import {
   getCirclesBalance, 
   getCirclesExplorerUrl, 
   registerHuman,
+  validateCustomInviter,
   mintPersonalCRC,
   trustAddress,
   untrustAddress,
@@ -56,9 +57,12 @@ export default function Claim() {
   const [showSendInput, setShowSendInput] = useState(false);
   const [sendRecipient, setSendRecipient] = useState('');
   const [sendAmount, setSendAmount] = useState('');
-  const [scanContext, setScanContext] = useState<'trust' | 'send'>('trust');
+  const [scanContext, setScanContext] = useState<'trust' | 'send' | 'inviter'>('trust');
   const [isVerifyingFace, setIsVerifyingFace] = useState(false);
   const [countdown, setCountdown] = useState<string | null>(null);
+  const [showCustomInviter, setShowCustomInviter] = useState(false);
+  const [customInviterAddress, setCustomInviterAddress] = useState('');
+  const [inviterValidation, setInviterValidation] = useState<{ valid?: boolean; error?: string; checking?: boolean } | null>(null);
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -91,6 +95,29 @@ export default function Claim() {
     queryKey: ['/circles/balance', address],
     queryFn: () => getCirclesBalance(address!),
     enabled: !!address && circlesAvatar?.isRegistered,
+    staleTime: 60 * 1000,
+  });
+
+  interface InviterStatus {
+    inviterAddress: string;
+    isHuman: boolean;
+    crcBalance: string;
+    crcBalanceFormatted: string;
+    crcRequired: string;
+    isReady: boolean;
+    userTrusted: boolean;
+    hoursUntilReady?: number;
+    message: string;
+  }
+
+  const { data: inviterStatus, isLoading: isLoadingInviter } = useQuery<InviterStatus>({
+    queryKey: ['/api/circles/inviter-status', address],
+    queryFn: async () => {
+      const res = await fetch(`/api/circles/inviter-status?userAddress=${address}`);
+      if (!res.ok) throw new Error('Failed to fetch inviter status');
+      return res.json();
+    },
+    enabled: !!address && !circlesAvatar?.isRegistered,
     staleTime: 60 * 1000,
   });
 
@@ -172,6 +199,38 @@ export default function Claim() {
     return () => clearInterval(interval);
   }, [gdClaimStatus?.nextClaimTime, gdClaimStatus?.canClaim, refetchGdClaim]);
 
+  // Validate custom inviter when it changes
+  useEffect(() => {
+    if (!customInviterAddress || !address) {
+      setInviterValidation(null);
+      return;
+    }
+
+    if (!/^0x[a-fA-F0-9]{40}$/.test(customInviterAddress)) {
+      setInviterValidation({ valid: false, error: 'Invalid address format' });
+      return;
+    }
+
+    // Debounce validation
+    const timer = setTimeout(async () => {
+      setInviterValidation({ checking: true });
+      try {
+        const result = await validateCustomInviter(customInviterAddress, address);
+        setInviterValidation({
+          valid: result.valid,
+          error: result.error,
+        });
+      } catch (error) {
+        setInviterValidation({
+          valid: false,
+          error: error instanceof Error ? error.message : 'Validation failed',
+        });
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [customInviterAddress, address]);
+
   const handleFaceVerification = async () => {
     if (!address) return;
     
@@ -215,14 +274,16 @@ export default function Claim() {
   };
 
   const registerMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (customInviter?: string) => {
       if (!address) throw new Error('No wallet found');
-      return registerHuman(address);
+      return registerHuman(address, customInviter);
     },
     onSuccess: (txHash) => {
       toast({ title: "Registration successful", description: "You are now a Circles human!" });
       queryClient.invalidateQueries({ queryKey: ['/circles/avatar', address] });
       queryClient.invalidateQueries({ queryKey: ['/circles/balance', address] });
+      setShowCustomInviter(false);
+      setCustomInviterAddress('');
     },
     onError: (error) => {
       toast({
@@ -374,6 +435,8 @@ export default function Claim() {
       } else if (scanContext === 'send') {
         setSendRecipient(scannedAddress);
         setShowSendInput(true);
+      } else if (scanContext === 'inviter') {
+        setCustomInviterAddress(scannedAddress);
       }
     } else {
       toast({
@@ -384,7 +447,7 @@ export default function Claim() {
     }
   };
 
-  const openScanner = (context: 'trust' | 'send') => {
+  const openScanner = (context: 'trust' | 'send' | 'inviter') => {
     setScanContext(context);
     setShowScanner(true);
   };
@@ -693,7 +756,7 @@ export default function Claim() {
                     <div className="space-y-2">
                       <h3 className="text-sm font-semibold">What is Circles?</h3>
                       <p className="text-sm text-muted-foreground">
-                        Every human can claim the same amount of CRC over time. It's not a cryptocurrency — it's social money designed to support people and local communities.
+                        Every human can claim the same amount of CRC over time. It's social money designed to support people and local communities.
                       </p>
                     </div>
 
@@ -703,37 +766,175 @@ export default function Claim() {
                         You earn 1 CRC per hour (up to 24/day). Trust others to let your CRC flow through their network. A ~7% yearly decay keeps CRC circulating fairly.
                       </p>
                     </div>
-
-                    <div className="space-y-2">
-                      <h3 className="text-sm font-semibold">Get Started</h3>
-                      <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                        <li>Register your avatar (one per human)</li>
-                        <li>Claim your CRC each day</li>
-                        <li>Trust friends to expand your network</li>
-                      </ol>
-                    </div>
-
-                    <div className="pt-2">
-                      <p className="text-xs text-muted-foreground">
-                        Your address: <span className="font-mono">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
-                      </p>
-                    </div>
                   </div>
 
-                  <Button
-                    className="w-full"
-                    size="lg"
-                    onClick={() => registerMutation.mutate()}
-                    disabled={registerMutation.isPending}
-                    data-testid="button-register-circles"
-                  >
-                    {registerMutation.isPending ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Registering...
-                      </>
-                    ) : 'Register as Human'}
-                  </Button>
+                  {!showCustomInviter ? (
+                    <div className="space-y-4">
+                      {isLoadingInviter ? (
+                        <div className="text-center py-4">
+                          <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
+                          <p className="text-xs text-muted-foreground mt-2">Checking inviter status...</p>
+                        </div>
+                      ) : inviterStatus ? (
+                        <div className="border rounded-lg p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Community Inviter</span>
+                            {inviterStatus.isReady ? (
+                              <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                                <CheckCircle className="h-3 w-3" />
+                                Ready
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                                <Clock className="h-3 w-3" />
+                                Accumulating
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>Progress</span>
+                              <span>{inviterStatus.crcBalanceFormatted} / 96 CRC</span>
+                            </div>
+                            <div className="w-full bg-muted rounded-full h-2">
+                              <div 
+                                className={`h-2 rounded-full transition-all ${inviterStatus.isReady ? 'bg-green-500' : 'bg-amber-500'}`}
+                                style={{ width: `${Math.min(100, (parseFloat(inviterStatus.crcBalanceFormatted) / 96) * 100)}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {!inviterStatus.isReady && inviterStatus.hoursUntilReady && (
+                            <p className="text-xs text-muted-foreground">
+                              ~{inviterStatus.hoursUntilReady} hours until ready (1 CRC/hour)
+                            </p>
+                          )}
+                        </div>
+                      ) : null}
+
+                      <Button
+                        className="w-full"
+                        size="lg"
+                        onClick={() => registerMutation.mutate(undefined)}
+                        disabled={registerMutation.isPending || !inviterStatus?.isReady}
+                        data-testid="button-register-circles"
+                      >
+                        {registerMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Registering...
+                          </>
+                        ) : inviterStatus?.isReady ? (
+                          <>
+                            <UserPlus className="h-4 w-4 mr-2" />
+                            Register as Human
+                          </>
+                        ) : (
+                          'Inviter Not Ready'
+                        )}
+                      </Button>
+
+                      <div className="text-center">
+                        <button
+                          type="button"
+                          className="text-xs text-muted-foreground underline hover:text-foreground transition-colors"
+                          onClick={() => setShowCustomInviter(true)}
+                          data-testid="button-use-own-inviter"
+                        >
+                          Have a Circles friend? Use your own inviter
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <h3 className="text-sm font-semibold">Use Your Own Inviter</h3>
+                        <p className="text-xs text-muted-foreground">
+                          If a Circles Human friend has already trusted your address, enter their address below to register.
+                        </p>
+                        <div className="space-y-2">
+                          <Label htmlFor="custom-inviter">Inviter Address</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              id="custom-inviter"
+                              placeholder="0x..."
+                              value={customInviterAddress}
+                              onChange={(e) => setCustomInviterAddress(e.target.value)}
+                              className="font-mono text-sm flex-1"
+                              data-testid="input-custom-inviter"
+                            />
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => openScanner('inviter')}
+                              data-testid="button-scan-inviter"
+                            >
+                              <Scan className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          
+                          {inviterValidation && (
+                            <div className={`flex items-center gap-2 text-xs ${inviterValidation.valid ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                              {inviterValidation.checking ? (
+                                <>
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  <span>Checking inviter...</span>
+                                </>
+                              ) : inviterValidation.valid ? (
+                                <>
+                                  <CheckCircle className="h-3 w-3" />
+                                  <span>Valid inviter - they trust you!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <AlertCircle className="h-3 w-3" />
+                                  <span>{inviterValidation.error}</span>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setShowCustomInviter(false);
+                            setCustomInviterAddress('');
+                            setInviterValidation(null);
+                          }}
+                          className="flex-1"
+                          data-testid="button-cancel-custom-inviter"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={() => registerMutation.mutate(customInviterAddress)}
+                          disabled={!inviterValidation?.valid || registerMutation.isPending}
+                          className="flex-1"
+                          data-testid="button-register-custom"
+                        >
+                          {registerMutation.isPending ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Registering...
+                            </>
+                          ) : (
+                            <>
+                              <UserPlus className="h-4 w-4 mr-2" />
+                              Register
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-muted-foreground text-center">
+                    nanoPay covers gas fees for all Circles transactions
+                  </p>
                 </div>
               )}
             </Card>
