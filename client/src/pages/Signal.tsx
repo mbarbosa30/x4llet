@@ -28,9 +28,11 @@ import {
   getGoodDollarBalance,
   generateFVLink,
   parseFVCallback,
+  claimGoodDollarWithWallet,
   type IdentityStatus,
   type ClaimStatus,
   type GoodDollarBalance,
+  type ClaimResult,
 } from '@/lib/gooddollar';
 import { createWalletClient, http } from 'viem';
 import { celo } from 'viem/chains';
@@ -368,6 +370,40 @@ export default function Signal() {
       toast({
         title: "Send Failed",
         description: error instanceof Error ? error.message : "Failed to send CRC",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const claimGdMutation = useMutation<ClaimResult, Error>({
+    mutationFn: async () => {
+      if (!address) throw new Error('No wallet found');
+      
+      const privateKey = await getPrivateKey();
+      if (!privateKey) throw new Error('No private key found');
+      
+      return claimGoodDollarWithWallet(address as `0x${string}`, privateKey as `0x${string}`);
+    },
+    onSuccess: (result) => {
+      if (result.success) {
+        toast({ 
+          title: "G$ Claimed!", 
+          description: `Successfully claimed ${result.amountClaimed} G$` 
+        });
+        queryClient.invalidateQueries({ queryKey: ['/gooddollar/claim', address] });
+        queryClient.invalidateQueries({ queryKey: ['/gooddollar/balance', address] });
+      } else {
+        toast({
+          title: "Claim Failed",
+          description: result.error || "Failed to claim G$",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Claim Failed",
+        description: error.message || "Failed to claim G$",
         variant: "destructive",
       });
     },
@@ -997,13 +1033,21 @@ export default function Signal() {
                       <Button
                         size="lg"
                         className="w-full"
-                        onClick={() => {
-                          window.open('https://wallet.gooddollar.org', '_blank', 'noopener,noreferrer');
-                        }}
+                        onClick={() => claimGdMutation.mutate()}
+                        disabled={claimGdMutation.isPending}
                         data-testid="button-claim-gd"
                       >
-                        <Coins className="h-4 w-4 mr-2" />
-                        Claim in GoodWallet
+                        {claimGdMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Claiming...
+                          </>
+                        ) : (
+                          <>
+                            <Coins className="h-4 w-4 mr-2" />
+                            Claim G$
+                          </>
+                        )}
                       </Button>
                     </div>
                   ) : (

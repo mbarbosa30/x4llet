@@ -1,4 +1,4 @@
-import { createPublicClient, http, type Address } from 'viem';
+import { createPublicClient, http, fallback, type Address } from 'viem';
 import { celo } from 'viem/chains';
 
 export const GOODDOLLAR_CONTRACTS = {
@@ -113,9 +113,16 @@ const ERC20_ABI = [
   },
 ] as const;
 
+// Celo RPC endpoints with fallback
+const CELO_RPCS = [
+  'https://forno.celo.org',
+  'https://1rpc.io/celo',
+  'https://celo.drpc.org',
+];
+
 const celoClient = createPublicClient({
   chain: celo,
-  transport: http('https://forno.celo.org'),
+  transport: fallback(CELO_RPCS.map(url => http(url))),
 });
 
 function getCeloClient() {
@@ -439,4 +446,235 @@ export function getClaimTransaction(address: Address) {
     data: '0x4e71d92d' as `0x${string}`,
     chainId: 42220,
   };
+}
+
+const CELO_GAS_THRESHOLD = BigInt('10000000000000000'); // 0.01 CELO
+
+export interface ClaimResult {
+  success: boolean;
+  txHash?: string;
+  amountClaimed?: string;
+  error?: string;
+  gasDripTxHash?: string;
+}
+
+export async function getCeloBalance(address: Address): Promise<bigint> {
+  const client = getCeloClient();
+  try {
+    return await client.getBalance({ address });
+  } catch (error) {
+    console.error('Error fetching CELO balance:', error);
+    return 0n;
+  }
+}
+
+export async function requestCeloGasDrip(address: Address): Promise<{ success: boolean; txHash?: string; error?: string }> {
+  try {
+    const response = await fetch('/api/gas-drip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address, chainId: 42220 }),
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      return { success: false, error: data.error || 'Failed to get gas' };
+    }
+    
+    if (data.alreadyHasGas) {
+      return { success: true };
+    }
+    
+    return { success: true, txHash: data.txHash };
+  } catch (error) {
+    console.error('Error requesting CELO gas drip:', error);
+    return { success: false, error: 'Network error' };
+  }
+}
+
+export async function claimGoodDollar(
+  address: Address,
+  signTransaction: (tx: { to: Address; data: `0x${string}` }) => Promise<`0x${string}`>,
+  sendRawTransaction: (signedTx: `0x${string}`) => Promise<`0x${string}`>
+): Promise<ClaimResult> {
+  const client = getCeloClient();
+  
+  try {
+    // Step 1: Check CELO balance for gas
+    const celoBalance = await getCeloBalance(address);
+    let gasDripTxHash: string | undefined;
+    
+    if (celoBalance < CELO_GAS_THRESHOLD) {
+      console.log('[GoodDollar] Low CELO balance, requesting gas drip...');
+      const dripResult = await requestCeloGasDrip(address);
+      
+      if (!dripResult.success) {
+        return { success: false, error: dripResult.error || 'Failed to get gas for claim' };
+      }
+      
+      gasDripTxHash = dripResult.txHash;
+      
+      // Wait a bit for the drip transaction to be confirmed
+      if (gasDripTxHash) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+    }
+    
+    // Step 2: Check entitlement before claiming
+    const entitlement = await client.readContract({
+      address: GOODDOLLAR_CONTRACTS.ubi.celo,
+      abi: UBI_SCHEME_ABI,
+      functionName: 'checkEntitlement',
+      account: address,
+    });
+    
+    if (entitlement === 0n) {
+      return { success: false, error: 'No G$ available to claim yet' };
+    }
+    
+    // Step 3: Sign and send the claim transaction
+    const claimTx = getClaimTransaction(address);
+    const signedTx = await signTransaction({
+      to: claimTx.to,
+      data: claimTx.data,
+    });
+    
+    const txHash = await sendRawTransaction(signedTx);
+    
+    // Step 4: Wait for confirmation
+    const receipt = await client.waitForTransactionReceipt({ hash: txHash });
+    
+    if (receipt.status === 'success') {
+      return {
+        success: true,
+        txHash,
+        amountClaimed: formatGoodDollar(entitlement),
+        gasDripTxHash,
+      };
+    } else {
+      return { success: false, error: 'Transaction failed', txHash };
+    }
+  } catch (error: any) {
+    console.error('[GoodDollar] Claim error:', error);
+    return { success: false, error: error.message || 'Failed to claim G$' };
+  }
+}
+
+export async function claimGoodDollarWithWallet(
+  address: Address,
+  privateKey: `0x${string}`
+): Promise<ClaimResult> {
+  const { createWalletClient, http } = await import('viem');
+  const { privateKeyToAccount } = await import('viem/accounts');
+  const { celo } = await import('viem/chains');
+  
+  const account = privateKeyToAccount(privateKey);
+  const client = getCeloClient();
+  
+  try {
+    // Step 1: Check CELO balance for gas
+    let celoBalance = await getCeloBalance(address);
+    let gasDripTxHash: string | undefined;
+    
+    if (celoBalance < CELO_GAS_THRESHOLD) {
+      console.log('[GoodDollar] Low CELO balance:', celoBalance.toString(), 'requesting gas drip...');
+      const dripResult = await requestCeloGasDrip(address);
+      
+      if (!dripResult.success) {
+        return { success: false, error: dripResult.error || 'Failed to get gas for claim' };
+      }
+      
+      // If we got a txHash, wait for the drip transaction to be confirmed
+      if (dripResult.txHash) {
+        gasDripTxHash = dripResult.txHash;
+        console.log('[GoodDollar] Waiting for gas drip confirmation:', gasDripTxHash);
+        
+        try {
+          await client.waitForTransactionReceipt({ 
+            hash: gasDripTxHash as `0x${string}`,
+            timeout: 30_000,
+          });
+          console.log('[GoodDollar] Gas drip confirmed');
+        } catch (e) {
+          console.error('[GoodDollar] Failed to confirm gas drip:', e);
+          return { success: false, error: 'Gas drip failed to confirm. Please try again.' };
+        }
+        
+        // Verify we now have enough gas
+        celoBalance = await getCeloBalance(address);
+        console.log('[GoodDollar] CELO balance after drip:', celoBalance.toString());
+        
+        if (celoBalance < CELO_GAS_THRESHOLD) {
+          return { success: false, error: 'Insufficient gas after drip. Please try again later.' };
+        }
+      } else if (!dripResult.success) {
+        // Drip request failed without a txHash
+        return { success: false, error: dripResult.error || 'Failed to get gas for claim' };
+      }
+      // If alreadyHasGas is true but no txHash, we can proceed (user already had enough)
+    }
+    
+    // Step 2: Check entitlement before claiming
+    const entitlement = await client.readContract({
+      address: GOODDOLLAR_CONTRACTS.ubi.celo,
+      abi: UBI_SCHEME_ABI,
+      functionName: 'checkEntitlement',
+      account: address,
+    });
+    
+    if (entitlement === 0n) {
+      return { success: false, error: 'No G$ available to claim yet' };
+    }
+    
+    console.log('[GoodDollar] Entitlement:', formatGoodDollar(entitlement), 'G$');
+    
+    // Step 3: Create wallet client and send claim transaction (with fallback RPCs)
+    const { fallback: fb } = await import('viem');
+    const walletClient = createWalletClient({
+      account,
+      chain: celo,
+      transport: fb(CELO_RPCS.map(url => http(url))),
+    });
+    
+    // Estimate gas first to ensure transaction will succeed
+    const gasEstimate = await client.estimateContractGas({
+      address: GOODDOLLAR_CONTRACTS.ubi.celo,
+      abi: UBI_SCHEME_ABI,
+      functionName: 'claim',
+      account: address,
+    });
+    
+    console.log('[GoodDollar] Gas estimate:', gasEstimate.toString());
+    
+    const txHash = await walletClient.writeContract({
+      address: GOODDOLLAR_CONTRACTS.ubi.celo,
+      abi: UBI_SCHEME_ABI,
+      functionName: 'claim',
+      gas: gasEstimate + (gasEstimate / 10n), // Add 10% buffer
+    });
+    
+    console.log('[GoodDollar] Claim transaction submitted:', txHash);
+    
+    // Step 4: Wait for confirmation
+    const receipt = await client.waitForTransactionReceipt({ 
+      hash: txHash,
+      timeout: 60_000,
+    });
+    
+    if (receipt.status === 'success') {
+      console.log('[GoodDollar] Claim successful!');
+      return {
+        success: true,
+        txHash,
+        amountClaimed: formatGoodDollar(entitlement),
+        gasDripTxHash,
+      };
+    } else {
+      return { success: false, error: 'Transaction failed', txHash };
+    }
+  } catch (error: any) {
+    console.error('[GoodDollar] Claim error:', error);
+    return { success: false, error: error.shortMessage || error.message || 'Failed to claim G$' };
+  }
 }
