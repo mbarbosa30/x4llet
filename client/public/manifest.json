@@ -1,7 +1,7 @@
 {
-  "name": "nanoPay - Gasless USDC Payments",
+  "name": "nanoPay - Gasless USDC Wallet",
   "short_name": "nanoPay",
-  "description": "Send USDC offline without gas fees. Non-custodial crypto wallet on Base and Celo networks.",
+  "description": "Send USDC without gas fees on Base, Celo, and Gnosis. Earn yield with Aave. Build trust with Circles. Non-custodial, offline-first.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
