@@ -6,7 +6,8 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Scan, CircleDot, Loader2, ExternalLink, UserPlus, Coins, Heart, HeartOff, Send, RefreshCw, Gift, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Scan, CircleDot, Loader2, ExternalLink, UserPlus, Coins, Heart, HeartOff, Send, RefreshCw, Gift, CheckCircle, Clock, AlertCircle, ChevronDown, MessageCircle, Users, Share2 } from 'lucide-react';
 import { getWallet, getPrivateKey } from '@/lib/wallet';
 import { 
   getCirclesAvatar, 
@@ -63,6 +64,7 @@ export default function Claim() {
   const [showCustomInviter, setShowCustomInviter] = useState(false);
   const [customInviterAddress, setCustomInviterAddress] = useState('');
   const [inviterValidation, setInviterValidation] = useState<{ valid?: boolean; error?: string; checking?: boolean } | null>(null);
+  const [showWaitingTips, setShowWaitingTips] = useState(false);
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -812,6 +814,111 @@ export default function Claim() {
                           )}
                         </div>
                       ) : null}
+
+                      {/* While you wait - tips to speed up registration */}
+                      {inviterStatus && !inviterStatus.isReady && (
+                        <Collapsible open={showWaitingTips} onOpenChange={setShowWaitingTips}>
+                          <CollapsibleTrigger asChild>
+                            <Button 
+                              variant="outline"
+                              className="w-full justify-between"
+                              data-testid="button-waiting-tips"
+                            >
+                              <span>While you wait...</span>
+                              <ChevronDown className={`h-4 w-4 transition-transform ${showWaitingTips ? 'rotate-180' : ''}`} />
+                            </Button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="pt-3 space-y-4">
+                            {/* Why you need an inviter */}
+                            <div className="border rounded-lg p-4 space-y-2">
+                              <h4 className="text-sm font-semibold flex items-center gap-2">
+                                <Users className="h-4 w-4 text-primary" />
+                                Why do I need an inviter?
+                              </h4>
+                              <p className="text-xs text-muted-foreground">
+                                Circles uses a "web of trust" to prevent spam. When someone invites you, they vouch for your humanity by burning 96 CRC. This ensures only real people join.
+                              </p>
+                            </div>
+
+                            {/* Ways to speed up */}
+                            <div className="border rounded-lg p-4 space-y-3">
+                              <h4 className="text-sm font-semibold">Speed up your registration</h4>
+                              
+                              <div className="space-y-3">
+                                <a 
+                                  href="https://t.me/CirclesUBI" 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-3 p-2 rounded-md hover-elevate transition-colors"
+                                  data-testid="link-circles-telegram"
+                                >
+                                  <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+                                    <MessageCircle className="h-4 w-4 text-blue-500" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium">Join Circles Telegram</p>
+                                    <p className="text-xs text-muted-foreground truncate">Ask the community to trust you</p>
+                                  </div>
+                                  <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                </a>
+
+                                <a 
+                                  href="https://discord.gg/circlesubi" 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-3 p-2 rounded-md hover-elevate transition-colors"
+                                  data-testid="link-circles-discord"
+                                >
+                                  <div className="h-8 w-8 rounded-full bg-indigo-500/10 flex items-center justify-center">
+                                    <MessageCircle className="h-4 w-4 text-indigo-500" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium">Join Circles Discord</p>
+                                    <p className="text-xs text-muted-foreground truncate">Connect with Circles members</p>
+                                  </div>
+                                  <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                </a>
+
+                                <a 
+                                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Looking to join @CirclesUBI! If you're already on Circles, I'd appreciate a trust 🙏\n\nMy address: ${address}\n\n#CirclesUBI #BasicIncome`)}`}
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-3 p-2 rounded-md hover-elevate transition-colors"
+                                  data-testid="link-share-x"
+                                >
+                                  <div className="h-8 w-8 rounded-full bg-foreground/10 flex items-center justify-center">
+                                    <Share2 className="h-4 w-4" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium">Share on X</p>
+                                    <p className="text-xs text-muted-foreground truncate">Ask your network for a trust</p>
+                                  </div>
+                                  <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                </a>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setShowCustomInviter(true)}
+                                  className="flex items-center gap-3 p-2 rounded-md hover-elevate transition-colors w-full text-left"
+                                  data-testid="link-ask-friend"
+                                >
+                                  <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center">
+                                    <UserPlus className="h-4 w-4 text-green-500" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium">Ask a friend on Circles</p>
+                                    <p className="text-xs text-muted-foreground truncate">Have them trust you, then register with their address</p>
+                                  </div>
+                                </button>
+                              </div>
+                            </div>
+
+                            <p className="text-xs text-muted-foreground text-center">
+                              Once someone trusts you, use "Have a Circles friend?" below
+                            </p>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      )}
 
                       <Button
                         className="w-full"
