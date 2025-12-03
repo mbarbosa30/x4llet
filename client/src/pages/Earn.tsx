@@ -400,6 +400,7 @@ export default function Earn() {
       isProjected: point.isProjected,
       baseInterest: point.baseInterest,
       celoInterest: point.celoInterest,
+      gnosisInterest: point.gnosisInterest,
       totalInterestPercent: principal > 0 ? (point.interest / principal) * 100 : 0,
     }));
   }, [combinedChartData]);
@@ -1130,32 +1131,33 @@ export default function Earn() {
                 </div>
               </div>
               
-              {/* Per-chain interest earned summary (3-year projection) */}
-              {combinedChartData.length > 0 && (
+              {/* Per-chain current deposits */}
+              {(Number(baseAaveBalanceMicro) > 0 || Number(celoAaveBalanceMicro) > 0 || Number(gnosisAaveBalanceMicro) > 0) && (
                 <div className="flex items-center justify-center gap-4 text-xs flex-wrap">
-                  {(() => {
-                    const threeYearPoint = combinedChartData.find(p => p.label === '+3y');
-                    if (!threeYearPoint) return null;
-                    return (
-                      <>
-                        {threeYearPoint.baseInterest > 0 && (
-                          <span className="text-blue-400">
-                            Base: {formatSmartPrecision(threeYearPoint.baseInterest, '+$')}/3yr
-                          </span>
-                        )}
-                        {threeYearPoint.celoInterest > 0 && (
-                          <span className="text-yellow-400">
-                            Celo: {formatSmartPrecision(threeYearPoint.celoInterest, '+$')}/3yr
-                          </span>
-                        )}
-                        {threeYearPoint.gnosisInterest > 0 && (
-                          <span className="text-purple-400">
-                            Gnosis: {formatSmartPrecision(threeYearPoint.gnosisInterest, '+$')}/3yr
-                          </span>
-                        )}
-                      </>
-                    );
-                  })()}
+                  {Number(baseAaveBalanceMicro) > 0 && (
+                    <span className="text-blue-400">
+                      Base: ${(Number(baseAaveBalanceMicro) / 1_000_000).toFixed(2)}
+                      <span className="text-muted-foreground ml-1">
+                        @{(aaveBalanceBase?.apy || aaveApyBase?.apy || 0).toFixed(1)}%
+                      </span>
+                    </span>
+                  )}
+                  {Number(celoAaveBalanceMicro) > 0 && (
+                    <span className="text-yellow-400">
+                      Celo: ${(Number(celoAaveBalanceMicro) / 1_000_000).toFixed(2)}
+                      <span className="text-muted-foreground ml-1">
+                        @{(aaveBalanceCelo?.apy || aaveApyCelo?.apy || 0).toFixed(1)}%
+                      </span>
+                    </span>
+                  )}
+                  {Number(gnosisAaveBalanceMicro) > 0 && (
+                    <span className="text-purple-400">
+                      Gnosis: ${(Number(gnosisAaveBalanceMicro) / 1_000_000).toFixed(2)}
+                      <span className="text-muted-foreground ml-1">
+                        @{(aaveBalanceGnosis?.apy || aaveApyGnosis?.apy || 0).toFixed(1)}%
+                      </span>
+                    </span>
+                  )}
                 </div>
               )}
             </div>
