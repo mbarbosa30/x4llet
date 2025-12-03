@@ -872,9 +872,22 @@ export default function Claim() {
                     ) : null}
                   </div>
 
-                  <p className="text-xs text-muted-foreground">
-                    G$ is universal basic income on Celo, separate from your USDC.
-                  </p>
+                  <div className="pt-4 border-t">
+                    <div className="space-y-2 text-center">
+                      <p className="text-xs text-muted-foreground">
+                        GoodDollar is a non-profit protocol distributing free crypto to verified humans daily.
+                      </p>
+                      <Button
+                        variant="link"
+                        className="text-xs h-auto p-0"
+                        onClick={() => window.open('https://gooddollar.org', '_blank', 'noopener,noreferrer')}
+                        data-testid="button-gd-learn-more"
+                      >
+                        Learn more at gooddollar.org
+                        <ExternalLink className="h-3 w-3 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-6">
