@@ -2551,6 +2551,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return draw;
   }
 
+  // Fetch current Celo APY for pool calculations
+  async function getCeloApy(): Promise<number> {
+    try {
+      const celoNetwork = getNetworkByChainId(42220);
+      if (!celoNetwork?.aavePoolAddress) return 0;
+
+      const client = createPublicClient({
+        chain: celo,
+        transport: http(celoNetwork.rpcUrl),
+      });
+
+      const reserveData = await client.readContract({
+        address: celoNetwork.aavePoolAddress as Address,
+        abi: AAVE_POOL_ABI,
+        functionName: 'getReserveData',
+        args: [celoNetwork.usdcAddress as Address],
+      }) as any;
+
+      return rayToPercent(reserveData.currentLiquidityRate);
+    } catch (error) {
+      console.error('[Pool] Error fetching Celo APY:', error);
+      return 0;
+    }
+  }
+
+  // Calculate projected weekly pool from all opted-in users
+  async function calculateProjectedPool(): Promise<{
+    projectedYield: string;
+    projectedYieldFormatted: string;
+    participantProjections: Array<{
+      address: string;
+      aUsdcBalance: string;
+      optInPercent: number;
+      projectedYield: string;
+    }>;
+    apy: number;
+  }> {
+    try {
+      const [snapshotsWithOptIn, apy] = await Promise.all([
+        storage.getYieldSnapshotsWithOptIn(),
+        getCeloApy(),
+      ]);
+
+      if (apy === 0 || snapshotsWithOptIn.length === 0) {
+        return {
+          projectedYield: '0',
+          projectedYieldFormatted: '0.00',
+          participantProjections: [],
+          apy: 0,
+        };
+      }
+
+      let totalProjectedYield = 0n;
+      const participantProjections: Array<{
+        address: string;
+        aUsdcBalance: string;
+        optInPercent: number;
+        projectedYield: string;
+      }> = [];
+
+      for (const snapshot of snapshotsWithOptIn) {
+        const aUsdcBalance = BigInt(snapshot.lastAusdcBalance || '0');
+        if (aUsdcBalance === 0n) continue;
+
+        // Weekly yield = aUSDC_balance × (APY/100) / 52 × (optInPercent/100)
+        // Use micro-USDC precision (6 decimals)
+        const weeklyYieldMicro = Number(aUsdcBalance) * (apy / 100) / 52 * (snapshot.optInPercent / 100);
+        const projectedYieldMicro = BigInt(Math.floor(weeklyYieldMicro));
+
+        totalProjectedYield += projectedYieldMicro;
+        participantProjections.push({
+          address: snapshot.walletAddress,
+          aUsdcBalance: aUsdcBalance.toString(),
+          optInPercent: snapshot.optInPercent,
+          projectedYield: projectedYieldMicro.toString(),
+        });
+      }
+
+      return {
+        projectedYield: totalProjectedYield.toString(),
+        projectedYieldFormatted: (Number(totalProjectedYield) / 1_000_000).toFixed(4),
+        participantProjections,
+        apy,
+      };
+    } catch (error) {
+      console.error('[Pool] Error calculating projected pool:', error);
+      return {
+        projectedYield: '0',
+        projectedYieldFormatted: '0.00',
+        participantProjections: [],
+        apy: 0,
+      };
+    }
+  }
+
   // Get pool status (current pool, your tickets, countdown)
   app.get('/api/pool/status/:address', async (req, res) => {
     try {
@@ -2581,6 +2676,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get total contributed all-time from yield snapshot
       const totalContributedAllTime = yieldSnapshot?.totalYieldCollected || '0';
+      
+      // Calculate projected pool for this week (all users' expected yields)
+      const projectedPoolData = await calculateProjectedPool();
       
       // Fetch LIVE aUSDC balance from Celo chain (don't rely on snapshot)
       let aUsdcBalance = yieldSnapshot?.lastAusdcBalance || '0';
@@ -2616,6 +2714,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Fallback to snapshot already set as default
       }
       
+      // Calculate user's projected weekly yield contribution
+      const userOptIn = settings?.optInPercent ?? 0;
+      const aUsdcBalanceNum = Number(aUsdcBalance);
+      const userProjectedWeeklyYield = projectedPoolData.apy > 0 && userOptIn > 0
+        ? Math.floor(aUsdcBalanceNum * (projectedPoolData.apy / 100) / 52 * (userOptIn / 100))
+        : 0;
+      
+      // Calculate projected pool total (current pool + projected new contributions)
+      const currentPoolNum = Number(draw.totalPool || '0');
+      const projectedYieldNum = Number(projectedPoolData.projectedYield);
+      const projectedTotalPool = currentPoolNum + projectedYieldNum;
+      
+      // Calculate projected odds (tickets after user contributes their yield)
+      const currentTotalTickets = Number(draw.totalTickets || '0');
+      const projectedTotalTickets = currentTotalTickets + projectedYieldNum;
+      const userCurrentTickets = Number(contribution?.totalTickets || '0');
+      const userProjectedTickets = userCurrentTickets + userProjectedWeeklyYield;
+      const projectedOdds = projectedTotalTickets > 0 && userProjectedTickets > 0
+        ? (userProjectedTickets / projectedTotalTickets * 100).toFixed(2)
+        : odds;
+      
       res.json({
         draw: {
           id: draw.id,
@@ -2626,6 +2745,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalPoolFormatted: (Number(draw.totalPool) / 1_000_000).toFixed(2),
           totalTickets: draw.totalTickets,
           participantCount: draw.participantCount,
+          projectedPool: projectedTotalPool.toString(),
+          projectedPoolFormatted: (projectedTotalPool / 1_000_000).toFixed(2),
+          projectedTickets: projectedTotalTickets.toString(),
+          projectedYieldFromParticipants: projectedPoolData.projectedYield,
+          projectedYieldFromParticipantsFormatted: projectedPoolData.projectedYieldFormatted,
         },
         user: {
           optInPercent: settings?.optInPercent ?? 0,
@@ -2634,6 +2758,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           referralBonusTickets: contribution?.referralBonusTickets || '0',
           totalTickets: contribution?.totalTickets || '0',
           odds,
+          projectedOdds,
+          projectedWeeklyYield: userProjectedWeeklyYield.toString(),
+          projectedWeeklyYieldFormatted: (userProjectedWeeklyYield / 1_000_000).toFixed(4),
+          projectedTickets: userProjectedTickets.toString(),
           totalContributedAllTime,
           totalContributedAllTimeFormatted: (Number(totalContributedAllTime) / 1_000_000).toFixed(4),
           aUsdcBalance,
@@ -2652,6 +2780,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           hoursUntilDraw,
           minutesUntilDraw,
           drawTime: weekEnd.toISOString(),
+        },
+        projectedPool: {
+          apy: projectedPoolData.apy,
+          totalProjectedYield: projectedPoolData.projectedYield,
+          totalProjectedYieldFormatted: projectedPoolData.projectedYieldFormatted,
+          participantCount: projectedPoolData.participantProjections.length,
         },
       });
     } catch (error) {

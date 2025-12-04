@@ -50,6 +50,11 @@ interface PoolStatus {
     totalPoolFormatted: string;
     totalTickets: string;
     participantCount: number;
+    projectedPool?: string;
+    projectedPoolFormatted?: string;
+    projectedTickets?: string;
+    projectedYieldFromParticipants?: string;
+    projectedYieldFromParticipantsFormatted?: string;
   };
   user: {
     optInPercent: number;
@@ -58,6 +63,10 @@ interface PoolStatus {
     referralBonusTickets: string;
     totalTickets: string;
     odds: string;
+    projectedOdds?: string;
+    projectedWeeklyYield?: string;
+    projectedWeeklyYieldFormatted?: string;
+    projectedTickets?: string;
     totalContributedAllTime: string;
     totalContributedAllTimeFormatted: string;
     aUsdcBalance: string;
@@ -73,6 +82,12 @@ interface PoolStatus {
     hoursUntilDraw: number;
     minutesUntilDraw: number;
     drawTime: string;
+  };
+  projectedPool?: {
+    apy: number;
+    totalProjectedYield: string;
+    totalProjectedYieldFormatted: string;
+    participantCount: number;
   };
 }
 
@@ -135,6 +150,12 @@ export default function Pool() {
   const [showReferralDialog, setShowReferralDialog] = useState(false);
   const [showContributionDialog, setShowContributionDialog] = useState(false);
   const [pendingOptInPercent, setPendingOptInPercent] = useState<number | null>(null);
+  const [contributionSuccess, setContributionSuccess] = useState<{
+    success: boolean;
+    message?: string;
+    isOnChain?: boolean;
+    amount?: string;
+  } | null>(null);
   const [prepareData, setPrepareData] = useState<{
     success: boolean;
     requiresSignature?: boolean;
@@ -280,42 +301,47 @@ export default function Pool() {
       message?: string;
       onChain?: boolean;
     }) => {
-      // Clear modal state
-      setPrepareData(null);
-      
       // Sync local state to confirmed server value
       if (data?.optInPercent !== undefined) {
         setOptInPercent(data.optInPercent);
       }
       queryClient.invalidateQueries({ queryKey: ["/api/pool/status", address] });
       
-      // Show appropriate message
+      // Determine success message
+      let successMessage = "Settings saved";
       if (data.onChain && data.transferTxHash) {
-        toast({
-          title: "Yield contributed on-chain!",
-          description: `$${data.contributionAmountFormatted} transferred to the prize pool`,
-        });
+        successMessage = `$${data.contributionAmountFormatted} transferred to prize pool`;
       } else if (data.isFirstTime) {
-        toast({
-          title: "Joined the pool!",
-          description: data.message || "Your yield will be collected weekly",
-        });
+        successMessage = data.message || "Your yield will be collected weekly";
       } else if (data.noYieldToContribute) {
-        toast({
-          title: "Settings saved",
-          description: data.message || "No yield to contribute yet",
-        });
+        successMessage = data.message || "No yield to contribute yet";
       } else if ((data.optInPercent ?? 0) > 0) {
-        toast({
-          title: "Saved",
-          description: `Contributing ${data.optInPercent}% of your Celo yield to the pool`,
-        });
+        successMessage = `Contributing ${data.optInPercent}% of your yield`;
       } else {
-        toast({
-          title: "Saved",
-          description: "Pool contribution disabled",
-        });
+        successMessage = "Pool contribution disabled";
       }
+      
+      // Show success state in dialog briefly
+      setContributionSuccess({
+        success: true,
+        message: successMessage,
+        isOnChain: data.onChain,
+        amount: data.contributionAmountFormatted,
+      });
+      
+      // Close dialog after showing success
+      setTimeout(() => {
+        setShowContributionDialog(false);
+        setPrepareData(null);
+        setPendingOptInPercent(null);
+        setContributionSuccess(null);
+        
+        // Show toast as well
+        toast({
+          title: data.onChain ? "Yield contributed!" : "Saved",
+          description: successMessage,
+        });
+      }, 1500);
     },
     onError: (error: Error) => {
       console.error('[Pool] Contribution error:', error);
@@ -365,9 +391,8 @@ export default function Pool() {
 
   const confirmOptInChange = () => {
     if (pendingOptInPercent !== null) {
+      // Don't close the dialog - let the mutation handle it
       contributionMutation.mutate(pendingOptInPercent);
-      setShowContributionDialog(false);
-      setPendingOptInPercent(null);
     }
   };
 
@@ -378,6 +403,7 @@ export default function Pool() {
     setShowContributionDialog(false);
     setPendingOptInPercent(null);
     setPrepareData(null);
+    setContributionSuccess(null);
   };
 
   // Open modal and fetch prepare data to show amounts
@@ -597,15 +623,29 @@ export default function Pool() {
                 </div>
                 <div className="text-center py-4">
                   {(() => {
-                    const formatted = formatMicroUsdc(poolStatus.draw.totalPool);
+                    // Show projected pool (including expected yield from all participants)
+                    const projectedPool = poolStatus.draw.projectedPool || poolStatus.draw.totalPool;
+                    const currentPool = Number(poolStatus.draw.totalPool) / 1_000_000;
+                    const projectedNum = Number(projectedPool) / 1_000_000;
+                    const hasProjectedGrowth = projectedNum > currentPool && currentPool > 0;
+                    
+                    const formatted = formatMicroUsdc(projectedPool);
                     const [intPart = '0', decPart = '00'] = formatted.split('.');
                     return (
-                      <div className="text-5xl font-medium tabular-nums flex items-center justify-center" data-testid="text-prize-amount">
-                        <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
-                        <span className="inline-flex items-baseline">
-                          <span>{intPart}</span>
-                          <span className="opacity-90">.{decPart}</span>
-                        </span>
+                      <div className="space-y-1">
+                        <div className="text-5xl font-medium tabular-nums flex items-center justify-center" data-testid="text-prize-amount">
+                          <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
+                          <span className="inline-flex items-baseline">
+                            <span>{intPart}</span>
+                            <span className="opacity-90">.{decPart}</span>
+                          </span>
+                        </div>
+                        {hasProjectedGrowth && (
+                          <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                            <TrendingUp className="h-3 w-3" />
+                            Est. prize at draw (${currentPool.toFixed(2)} collected)
+                          </p>
+                        )}
                       </div>
                     );
                   })()}
@@ -637,26 +677,49 @@ export default function Pool() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="text-center p-3 bg-muted/50 rounded-lg">
-                    <p className="text-2xl font-bold" data-testid="text-your-tickets">
-                      {formatTickets(poolStatus.user.totalTickets)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Tickets</p>
+                    {(() => {
+                      const currentTickets = Number(poolStatus.user.totalTickets);
+                      const projectedTickets = Number(poolStatus.user.projectedTickets || poolStatus.user.totalTickets);
+                      const hasProjection = projectedTickets > currentTickets && currentTickets >= 0;
+                      return (
+                        <div className="space-y-0.5">
+                          <p className="text-2xl font-bold" data-testid="text-your-tickets">
+                            {formatTickets(hasProjection ? projectedTickets.toString() : poolStatus.user.totalTickets)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {hasProjection ? 'Projected tickets' : 'Tickets'}
+                          </p>
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div className="text-center p-3 bg-muted/50 rounded-lg">
-                    <p className="text-2xl font-bold text-primary" data-testid="text-your-odds">
-                      {poolStatus.user.odds}%
-                    </p>
-                    <p className="text-xs text-muted-foreground">Win Chance</p>
+                    {(() => {
+                      const currentOdds = parseFloat(poolStatus.user.odds);
+                      const projectedOdds = parseFloat(poolStatus.user.projectedOdds || poolStatus.user.odds);
+                      const hasProjection = projectedOdds > currentOdds && currentOdds >= 0;
+                      return (
+                        <div className="space-y-0.5">
+                          <p className="text-2xl font-bold text-primary" data-testid="text-your-odds">
+                            {hasProjection ? projectedOdds.toFixed(2) : poolStatus.user.odds}%
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {hasProjection ? 'Projected odds' : 'Win Chance'}
+                          </p>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </Card>
 
               {/* Kelly-Adjusted Opt-In Curve */}
               {(() => {
-                const prizePool = Number(poolStatus.draw.totalPool) / 1_000_000;
+                // Use projected pool data for more accurate calculations
+                const prizePool = Number(poolStatus.draw.projectedPool || poolStatus.draw.totalPool) / 1_000_000;
                 const aUsdcBalance = Number(poolStatus.user.aUsdcBalance) / 1_000_000;
-                const totalPoolTickets = Number(poolStatus.draw.totalTickets || poolStatus.draw.totalPool) / 1_000_000;
-                const apy = celoApyData?.apy;
+                const totalPoolTickets = Number(poolStatus.draw.projectedTickets || poolStatus.draw.totalTickets || poolStatus.draw.totalPool) / 1_000_000;
+                const apy = poolStatus.projectedPool?.apy || celoApyData?.apy;
                 const hasApyData = apy !== undefined && apy > 0;
                 
                 // Calculate Kelly curve data points
@@ -963,8 +1026,9 @@ export default function Pool() {
 
               {/* Cumulative Win Probability Curve */}
               {(() => {
-                const totalPoolTickets = Number(poolStatus.draw.totalTickets || poolStatus.draw.totalPool) / 1_000_000;
-                const userTickets = Number(poolStatus.user.totalTickets) / 1_000_000;
+                // Use projected pool data for more accurate calculations
+                const totalPoolTickets = Number(poolStatus.draw.projectedTickets || poolStatus.draw.totalTickets || poolStatus.draw.totalPool) / 1_000_000;
+                const userTickets = Number(poolStatus.user.projectedTickets || poolStatus.user.totalTickets) / 1_000_000;
                 const currentOdds = totalPoolTickets > 0 ? userTickets / totalPoolTickets : 0;
                 
                 // Calculate probability curves for different scenarios
@@ -1509,16 +1573,30 @@ export default function Pool() {
 
       {/* Contribution Confirmation Dialog */}
       <Dialog open={showContributionDialog} onOpenChange={(open) => {
-        if (!open) cancelOptInChange();
+        if (!open && !contributionMutation.isPending && !contributionSuccess) cancelOptInChange();
       }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>
-              {prepareData?.isFirstTime ? "Join Prize Pool" : "Confirm Contribution"}
+              {contributionSuccess ? "Success!" : prepareData?.isFirstTime ? "Join Prize Pool" : "Confirm Contribution"}
             </DialogTitle>
           </DialogHeader>
 
-          {isPreparing ? (
+          {contributionSuccess ? (
+            <div className="py-8 flex flex-col items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <Check className="h-8 w-8 text-green-600 dark:text-green-400" />
+              </div>
+              <div className="text-center space-y-1">
+                <p className="font-medium text-lg">
+                  {contributionSuccess.isOnChain ? "Transferred!" : "Settings Saved"}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {contributionSuccess.message}
+                </p>
+              </div>
+            </div>
+          ) : isPreparing ? (
             <div className="py-8 flex flex-col items-center gap-3">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               <p className="text-sm text-muted-foreground">Loading contribution details...</p>
@@ -1601,34 +1679,36 @@ export default function Pool() {
             </div>
           )}
 
-          <div className="flex gap-3 pt-2">
-            <Button 
-              variant="outline" 
-              className="flex-1"
-              onClick={cancelOptInChange}
-              disabled={contributionMutation.isPending}
-              data-testid="button-cancel-contribution"
-            >
-              Cancel
-            </Button>
-            <Button 
-              className="flex-1"
-              onClick={confirmOptInChange}
-              disabled={isPreparing || !prepareData || contributionMutation.isPending}
-              data-testid="button-confirm-contribution"
-            >
-              {contributionMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {prepareData?.requiresSignature ? "Signing..." : "Saving..."}
-                </>
-              ) : prepareData?.requiresSignature ? (
-                "Sign & Transfer"
-              ) : (
-                "Confirm"
-              )}
-            </Button>
-          </div>
+          {!contributionSuccess && (
+            <div className="flex gap-3 pt-2">
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={cancelOptInChange}
+                disabled={contributionMutation.isPending}
+                data-testid="button-cancel-contribution"
+              >
+                Cancel
+              </Button>
+              <Button 
+                className="flex-1"
+                onClick={confirmOptInChange}
+                disabled={isPreparing || !prepareData || contributionMutation.isPending}
+                data-testid="button-confirm-contribution"
+              >
+                {contributionMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {prepareData?.requiresSignature ? "Signing..." : "Saving..."}
+                  </>
+                ) : prepareData?.requiresSignature ? (
+                  "Sign & Transfer"
+                ) : (
+                  "Confirm"
+                )}
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
