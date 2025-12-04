@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Zap, Lock, Sparkles, TrendingUp, Gift, Layers, Fingerprint } from 'lucide-react';
+import { Zap, Lock, Sparkles, Sliders, Gift, Layers, Network } from 'lucide-react';
 import { hasWallet, isWalletUnlocked } from '@/lib/wallet';
 import Footer from '@/components/Footer';
 
@@ -95,7 +95,7 @@ export default function Landing() {
                 <Zap className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                 <div>
                   <div className="text-sm font-medium">It just works</div>
-                  <div className="text-xs text-muted-foreground">Any browser. Offline. Gasless.</div>
+                  <div className="text-xs text-muted-foreground">Any browser. Offline-ready. Gasless transfers.</div>
                 </div>
               </div>
               
@@ -103,7 +103,7 @@ export default function Landing() {
                 <Lock className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                 <div>
                   <div className="text-sm font-medium">Your keys, your control</div>
-                  <div className="text-xs text-muted-foreground">Encrypted on device, not servers.</div>
+                  <div className="text-xs text-muted-foreground">Encrypted on your device. Unlock with password or biometrics.</div>
                 </div>
               </div>
               
@@ -113,15 +113,15 @@ export default function Landing() {
                   <div className="text-sm font-medium">
                     Savings on autopilot{apyDisplay && <span className="text-success ml-1.5 font-normal">({apyDisplay} APY)</span>}
                   </div>
-                  <div className="text-xs text-muted-foreground">One tap to earn. No lock-ups.</div>
+                  <div className="text-xs text-muted-foreground">One tap to start earning. Withdraw anytime.</div>
                 </div>
               </div>
               
               <div className="flex items-start gap-3">
-                <TrendingUp className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                <Sliders className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                 <div>
-                  <div className="text-sm font-medium">Put your yield to work</div>
-                  <div className="text-xs text-muted-foreground">Allocate to prizes, causes, access, and more.</div>
+                  <div className="text-sm font-medium">Your yield, your choice</div>
+                  <div className="text-xs text-muted-foreground">Allocate to pool prizes, causes, AI credits, & more.</div>
                 </div>
               </div>
               
@@ -135,23 +135,35 @@ export default function Landing() {
             </div>
 
             <div className="pt-6 border-t border-border/50">
-              <div className="text-xs font-medium text-muted-foreground mb-3 text-center">Powered by</div>
-              <div className="grid grid-cols-2 gap-3 text-left max-w-sm mx-auto">
-                <div className="flex items-center gap-2">
-                  <Zap className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">x402 Protocol</span>
+              <div className="text-xs font-medium text-muted-foreground mb-4 text-center">Powered by</div>
+              <div className="space-y-3 text-left max-w-sm mx-auto">
+                <div className="flex items-start gap-2">
+                  <Zap className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="text-xs font-medium">x402 Protocol</span>
+                    <p className="text-xs text-muted-foreground">Gasless USDC transfers via EIP-3009, offline-ready</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Yield Allocation</span>
+                <div className="flex items-start gap-2">
+                  <Sliders className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="text-xs font-medium">Yield Allocation</span>
+                    <p className="text-xs text-muted-foreground">Prize-linked savings, vulnerable communities, Buy Now Pay Later, AI models access</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Fingerprint className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Sybil-resistant ID</span>
+                <div className="flex items-start gap-2">
+                  <Network className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="text-xs font-medium">Trust Infrastructure</span>
+                    <p className="text-xs text-muted-foreground">MaxFlow graph signals, Circles web of trust, GoodDollar verification</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Layers className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Multi-chain</span>
+                <div className="flex items-start gap-2">
+                  <Layers className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="text-xs font-medium">Multi-chain</span>
+                    <p className="text-xs text-muted-foreground">Seamless experience on Base, Celo, and Gnosis networks</p>
+                  </div>
                 </div>
               </div>
             </div>
