@@ -1249,7 +1249,7 @@ export default function Claim() {
             </Card>
 
             {gdIdentity?.isWhitelisted && (
-              <Card className="p-5 mt-4">
+              <Card className="p-4 mt-4">
                 <div className="space-y-3">
                   <h3 className="text-sm font-semibold">About GoodDollar</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">

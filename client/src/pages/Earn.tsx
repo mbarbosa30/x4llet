@@ -790,7 +790,7 @@ export default function Earn() {
           </div>
         )}
 
-        <Card className="p-5 space-y-4" data-testid="card-earning-balance">
+        <Card className="p-6 space-y-4" data-testid="card-earning-balance">
           <div className="flex items-center justify-between">
             <div className="text-sm text-muted-foreground">Total Earning</div>
             <Badge variant="outline" className="text-xs">
