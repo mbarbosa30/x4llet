@@ -1031,14 +1031,9 @@ export default function Pool() {
             <TabsContent value="tickets" className="mt-4 space-y-4">
               {/* Ticket Breakdown */}
               <Card className="p-4 space-y-3" data-testid="card-ticket-breakdown">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium flex items-center gap-2">
-                    <Ticket className="h-4 w-4 text-primary" />
-                    Ticket Breakdown
-                  </div>
-                  <Badge variant="secondary" className="text-xs">
-                    {formatTickets(poolStatus.user.totalTickets)} total
-                  </Badge>
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <Ticket className="h-4 w-4 text-primary" />
+                  Ticket Breakdown
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
@@ -1236,22 +1231,26 @@ export default function Pool() {
                   </Badge>
                 </div>
                 
-                <div className="flex gap-2">
-                  <div className="flex-1 p-3 bg-muted rounded-lg font-mono text-sm text-center">
-                    {poolStatus.referral.code}
+                {/* Shareable Link */}
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">Your referral link:</p>
+                  <div className="flex gap-2">
+                    <div className="flex-1 p-2.5 bg-muted rounded-lg font-mono text-xs text-muted-foreground truncate" data-testid="text-referral-link">
+                      {`${window.location.origin}/pool?ref=${poolStatus.referral.code}`}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={copyReferralCode}
+                      data-testid="button-copy-referral"
+                    >
+                      {copiedCode ? (
+                        <Check className="h-4 w-4 text-primary" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={copyReferralCode}
-                    data-testid="button-copy-referral"
-                  >
-                    {copiedCode ? (
-                      <Check className="h-4 w-4 text-primary" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
                 </div>
 
                 <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1">
@@ -1574,28 +1573,6 @@ export default function Pool() {
                   </Card>
                 );
               })()}
-
-              {/* How It Works */}
-              <Card className="p-4 space-y-3" data-testid="card-how-it-works">
-                <div className="text-sm font-medium flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  How It Works
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="space-y-1">
-                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold mx-auto">1</div>
-                    <p className="text-xs text-muted-foreground">Save in Aave</p>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold mx-auto">2</div>
-                    <p className="text-xs text-muted-foreground">Contribute yield</p>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold mx-auto">3</div>
-                    <p className="text-xs text-muted-foreground">Win weekly!</p>
-                  </div>
-                </div>
-              </Card>
 
               {/* Info Card */}
               <Card className="p-3 border-dashed">

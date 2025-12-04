@@ -7,6 +7,12 @@ import { getWallet } from '@/lib/wallet';
 import { getMaxFlowScore } from '@/lib/maxflow';
 import { useToast } from '@/hooks/use-toast';
 
+interface PoolStatus {
+  referral?: {
+    code: string;
+  };
+}
+
 export default function AppHeader() {
   const [location, setLocation] = useLocation();
   const [address, setAddress] = useState<string | null>(null);
@@ -33,20 +39,33 @@ export default function AppHeader() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Fetch pool referral code if user has one
+  const { data: poolStatus } = useQuery<PoolStatus>({
+    queryKey: ['/api/pool/status', address],
+    enabled: !!address,
+    staleTime: 60 * 1000,
+  });
+
   const score = scoreData?.localHealth ?? 0;
+  const referralCode = poolStatus?.referral?.code;
 
 
   const handleShare = async () => {
     if (!address) return;
 
     const baseUrl = window.location.origin;
-    const referralLink = `${baseUrl}/?ref=${address}`;
+    // Include pool referral code if user has one
+    const referralLink = referralCode 
+      ? `${baseUrl}/pool?ref=${referralCode}`
+      : `${baseUrl}/?ref=${address}`;
 
     try {
       if (navigator.share) {
         await navigator.share({
           title: 'Join nanoPay',
-          text: 'Join me on nanoPay - a lightweight crypto wallet',
+          text: referralCode 
+            ? 'Join the nanoPay prize pool - save and win weekly!'
+            : 'Join me on nanoPay - a lightweight crypto wallet',
           url: referralLink,
         });
       } else {
