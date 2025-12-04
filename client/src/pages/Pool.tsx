@@ -552,12 +552,6 @@ export default function Pool() {
                           )}
                         </span>
                       </div>
-                      {sponsoredPool > 0 && (
-                        <p className="text-xs text-primary flex items-center justify-center gap-1">
-                          <Gift className="h-3 w-3" />
-                          +${sponsoredPool.toFixed(2)} sponsored
-                        </p>
-                      )}
                     </div>
                   );
                 })()}
@@ -698,12 +692,6 @@ export default function Pool() {
                             )}
                           </span>
                         </div>
-                        {sponsoredPool > 0 && (
-                          <p className="text-xs text-primary flex items-center justify-center gap-1">
-                            <Gift className="h-3 w-3" />
-                            +${sponsoredPool.toFixed(2)} sponsored
-                          </p>
-                        )}
                         {hasProjectedGrowth && (
                           <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
                             <TrendingUp className="h-3 w-3" />
