@@ -26,8 +26,11 @@ import {
   Sparkles,
   Coins,
   Target,
-  History
+  History,
+  Info,
+  BarChart3
 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
 interface PoolStatus {
   draw: {
@@ -356,6 +359,17 @@ export default function Pool() {
                   <span>Keep all yield</span>
                   <span>Max tickets</span>
                 </div>
+                <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1">
+                  <Info className="h-3 w-3" />
+                  Higher contribution = more tickets = better odds
+                </p>
+              </Card>
+
+              {/* Info Card */}
+              <Card className="p-3 border-dashed">
+                <p className="text-xs text-muted-foreground text-center">
+                  Your savings stay safe in Aave - only the yield you choose enters the pool
+                </p>
               </Card>
             </TabsContent>
 
@@ -423,8 +437,16 @@ export default function Pool() {
                   </Button>
                 </div>
 
+                <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1">
+                  <Info className="h-3 w-3" />
+                  Earn 10% bonus tickets from each friend's contribution
+                </p>
+              </Card>
+
+              {/* Info Card */}
+              <Card className="p-3 border-dashed">
                 <p className="text-xs text-muted-foreground text-center">
-                  Invite friends to earn 10% of their tickets
+                  More tickets = better odds of winning the weekly prize
                 </p>
               </Card>
 
@@ -466,6 +488,52 @@ export default function Pool() {
 
             {/* History Tab */}
             <TabsContent value="history" className="mt-4 space-y-4">
+              {/* Prize Trend Chart */}
+              {historyData?.draws && historyData.draws.length > 1 && (
+                <Card className="p-4 space-y-3">
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-primary" />
+                    Prize Trend
+                  </div>
+                  <div className="h-32">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={[...historyData.draws].reverse().slice(-8).map(draw => ({
+                          week: `W${draw.weekNumber}`,
+                          amount: Number(draw.totalPool) / 1_000_000
+                        }))}
+                        margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+                      >
+                        <XAxis 
+                          dataKey="week" 
+                          axisLine={false} 
+                          tickLine={false}
+                          tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                        />
+                        <YAxis 
+                          hide 
+                          domain={[0, 'auto']}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px',
+                            fontSize: '12px'
+                          }}
+                          formatter={(value: number) => [`$${value.toFixed(2)}`, 'Prize']}
+                        />
+                        <Bar 
+                          dataKey="amount" 
+                          radius={[4, 4, 0, 0]}
+                          fill="hsl(var(--primary))"
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </Card>
+              )}
+
               {/* Past Draws */}
               <Card className="p-4 space-y-3">
                 <div className="text-sm font-medium flex items-center gap-2">
@@ -534,8 +602,12 @@ export default function Pool() {
                     <p className="text-xs text-muted-foreground">Win weekly!</p>
                   </div>
                 </div>
+              </Card>
+
+              {/* Info Card */}
+              <Card className="p-3 border-dashed">
                 <p className="text-xs text-muted-foreground text-center">
-                  Draws happen every Sunday. Winner takes the entire pool!
+                  Draws happen every Sunday using verifiable on-chain randomness
                 </p>
               </Card>
             </TabsContent>
