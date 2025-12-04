@@ -17,6 +17,15 @@ Developed using Express.js (TypeScript), Drizzle ORM, and PostgreSQL (via Neon s
 ### Cryptographic Architecture
 Wallet generation uses `viem` for secp256k1 private key creation. Private keys are encrypted with WebCrypto API (AES-GCM with PBKDF2) and stored in IndexedDB, protected by a user-defined password. EIP-712 typed data signing is used for gasless transfers, compatible with USDC's EIP-3009, handling domain differences across networks.
 
+**WebAuthn Passkey Support**: The wallet supports WebAuthn passkeys for biometric unlock (Face ID, fingerprint). Architecture uses a Data Encryption Key (DEK) pattern:
+- DEK encrypts the private key (AES-GCM)
+- DEK is wrapped twice: (1) by WebAuthn credential key, (2) by password-derived key (PBKDF2)
+- On unlock: prefer passkey unwrap, fall back to password
+- Recovery code/password remains canonical backup for new device onboarding
+- WebAuthn credential stored in IndexedDB with wrapped DEK blob
+- Platform authenticator required (UV=required, residentKey=required)
+- Passkey enrollment available in Settings > Security after wallet is unlocked
+
 ### Data Storage
 A PostgreSQL database with Drizzle ORM is used for intelligent caching. Tables store user data, wallets, authorizations, and cached blockchain data (balances, transactions, balance history, MaxFlow scores, exchange rates). USDC amounts are standardized to micro-USDC integers (6 decimals). Balance history uses automatic per-chain and aggregated snapshots.
 

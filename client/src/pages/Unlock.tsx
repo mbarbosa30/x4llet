@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { Shield, Eye, EyeOff } from 'lucide-react';
-import { getWallet } from '@/lib/wallet';
+import { Shield, Eye, EyeOff, Fingerprint, Loader2 } from 'lucide-react';
+import { getWallet, unlockWithPasskey, canUsePasskey } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Unlock() {
@@ -13,6 +13,61 @@ export default function Unlock() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isUnlocking, setIsUnlocking] = useState(false);
+  const [passkeyAvailable, setPasskeyAvailable] = useState(false);
+  const [isCheckingPasskey, setIsCheckingPasskey] = useState(true);
+
+  useEffect(() => {
+    const checkPasskey = async () => {
+      try {
+        const available = await canUsePasskey();
+        setPasskeyAvailable(available);
+        
+        if (available) {
+          const wallet = await unlockWithPasskey();
+          if (wallet) {
+            toast({
+              title: "Wallet unlocked",
+            });
+            setLocation('/home');
+            return;
+          }
+        }
+      } catch (error) {
+        console.log('[Unlock] Passkey check failed:', error);
+      } finally {
+        setIsCheckingPasskey(false);
+      }
+    };
+    
+    checkPasskey();
+  }, [setLocation, toast]);
+
+  const handlePasskeyUnlock = async () => {
+    try {
+      setIsUnlocking(true);
+      const wallet = await unlockWithPasskey();
+      if (wallet) {
+        toast({
+          title: "Wallet unlocked",
+        });
+        setLocation('/home');
+      } else {
+        toast({
+          title: "Passkey unlock failed",
+          description: "Please try again or use your password",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Passkey unlock failed",
+        description: "Please try again or use your password",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUnlocking(false);
+    }
+  };
 
   const handleUnlock = async () => {
     if (!password) {
@@ -66,6 +121,17 @@ export default function Unlock() {
     }
   };
 
+  if (isCheckingPasskey) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 mx-auto mb-4 text-primary animate-spin" />
+          <p className="text-sm text-muted-foreground">Checking for passkey...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       <div className="w-full max-w-md space-y-6">
@@ -73,9 +139,46 @@ export default function Unlock() {
           <Shield className="h-12 w-12 mx-auto mb-4 text-primary" />
           <h1 className="text-2xl font-semibold mb-2">Unlock Wallet</h1>
           <p className="text-sm text-muted-foreground">
-            Enter your password to unlock your wallet
+            {passkeyAvailable 
+              ? "Use Face ID, fingerprint, or your password" 
+              : "Enter your password to unlock your wallet"}
           </p>
         </div>
+
+        {passkeyAvailable && (
+          <Button
+            onClick={handlePasskeyUnlock}
+            disabled={isUnlocking}
+            className="w-full"
+            size="lg"
+            data-testid="button-passkey-unlock"
+          >
+            {isUnlocking ? (
+              <>
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                Unlocking...
+              </>
+            ) : (
+              <>
+                <Fingerprint className="h-5 w-5 mr-2" />
+                Unlock with Passkey
+              </>
+            )}
+          </Button>
+        )}
+
+        {passkeyAvailable && (
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                or use password
+              </span>
+            </div>
+          </div>
+        )}
 
         <Card className="p-6 space-y-4">
           <div className="space-y-2">
@@ -108,9 +211,10 @@ export default function Unlock() {
             disabled={!password || isUnlocking}
             className="w-full"
             size="lg"
+            variant={passkeyAvailable ? "outline" : "default"}
             data-testid="button-unlock"
           >
-            {isUnlocking ? 'Unlocking...' : 'Unlock'}
+            {isUnlocking ? 'Unlocking...' : 'Unlock with Password'}
           </Button>
         </Card>
 

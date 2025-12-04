@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette, BookOpen, HelpCircle, MessageCircleQuestion, TrendingDown, TrendingUp, RotateCcw, Loader2, AlertTriangle } from 'lucide-react';
+import { ChevronRight, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette, BookOpen, HelpCircle, MessageCircleQuestion, TrendingDown, TrendingUp, RotateCcw, Loader2, AlertTriangle, Fingerprint, Trash2 } from 'lucide-react';
 import { queryClient } from '@/lib/queryClient';
 import { Card } from '@/components/ui/card';
 import InstallPrompt from '@/components/InstallPrompt';
-import { getWallet, getPreferences, savePreferences, getPrivateKey, lockWallet } from '@/lib/wallet';
+import { getWallet, getPreferences, savePreferences, getPrivateKey, lockWallet, enrollWalletPasskey, removeWalletPasskey, canUsePasskey } from '@/lib/wallet';
+import { isPlatformAuthenticatorAvailable, hasPasskeyEnrolled, getPasskeyInfo } from '@/lib/webauthn';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -55,6 +56,11 @@ export default function Settings() {
   const [showTheme, setShowTheme] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [showPasskeyDialog, setShowPasskeyDialog] = useState(false);
+  const [passkeyAvailable, setPasskeyAvailable] = useState(false);
+  const [passkeyEnrolled, setPasskeyEnrolled] = useState(false);
+  const [isEnrollingPasskey, setIsEnrollingPasskey] = useState(false);
+  const [isRemovingPasskey, setIsRemovingPasskey] = useState(false);
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -76,6 +82,14 @@ export default function Settings() {
           document.documentElement.classList.add('dark');
         } else {
           document.documentElement.classList.remove('dark');
+        }
+
+        const available = await isPlatformAuthenticatorAvailable();
+        setPasskeyAvailable(available);
+        
+        if (available) {
+          const enrolled = await hasPasskeyEnrolled();
+          setPasskeyEnrolled(enrolled);
         }
       } catch (error) {
         console.error('Failed to load preferences:', error);
@@ -231,6 +245,50 @@ export default function Settings() {
     setShowTheme(false);
   };
 
+  const handleEnrollPasskey = async () => {
+    setIsEnrollingPasskey(true);
+    try {
+      const success = await enrollWalletPasskey();
+      if (success) {
+        setPasskeyEnrolled(true);
+        toast({
+          title: "Passkey enabled",
+          description: "You can now unlock with Face ID or fingerprint",
+        });
+        setShowPasskeyDialog(false);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Failed to enable passkey",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setIsEnrollingPasskey(false);
+    }
+  };
+
+  const handleRemovePasskey = async () => {
+    setIsRemovingPasskey(true);
+    try {
+      await removeWalletPasskey();
+      setPasskeyEnrolled(false);
+      toast({
+        title: "Passkey removed",
+        description: "You'll need to use your recovery code to unlock",
+      });
+      setShowPasskeyDialog(false);
+    } catch (error: any) {
+      toast({
+        title: "Failed to remove passkey",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRemovingPasskey(false);
+    }
+  };
+
   const { data: exchangeRate } = useQuery<ExchangeRateData>({
     queryKey: ['/api/exchange-rate', currency],
     enabled: currency !== 'USD',
@@ -267,6 +325,28 @@ export default function Settings() {
             Security
           </h2>
           <Card className="divide-y">
+            {passkeyAvailable && (
+              <button
+                onClick={() => setShowPasskeyDialog(true)}
+                className="w-full flex items-center justify-between p-4 hover-elevate"
+                data-testid="button-passkey"
+              >
+                <div className="flex items-center gap-3">
+                  <Fingerprint className="h-5 w-5 text-muted-foreground" />
+                  <div className="text-left">
+                    <div className="text-sm font-medium">Passkey Unlock</div>
+                    <div className="text-xs text-muted-foreground">
+                      {passkeyEnrolled ? 'Enabled' : 'Use Face ID or fingerprint'}
+                    </div>
+                  </div>
+                </div>
+                {passkeyEnrolled ? (
+                  <Check className="h-5 w-5 text-primary" />
+                ) : (
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                )}
+              </button>
+            )}
             <button
               onClick={() => setShowExportPrivateKey(true)}
               className="w-full flex items-center justify-between p-4 hover-elevate"
@@ -650,6 +730,89 @@ export default function Settings() {
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showPasskeyDialog} onOpenChange={setShowPasskeyDialog}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader className="text-center">
+            <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+              <Fingerprint className="h-6 w-6 text-primary" />
+            </div>
+            <DialogTitle>
+              {passkeyEnrolled ? 'Passkey Enabled' : 'Enable Passkey'}
+            </DialogTitle>
+            <DialogDescription>
+              {passkeyEnrolled 
+                ? 'Unlock your wallet instantly with Face ID or fingerprint' 
+                : 'Use biometrics instead of typing your recovery code'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-3 py-2">
+            {passkeyEnrolled ? (
+              <>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 bg-muted rounded-lg">
+                  <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                  <span>Passkey is active on this device</span>
+                </div>
+                <Button
+                  variant="outline"
+                  className="w-full text-destructive hover:text-destructive"
+                  onClick={handleRemovePasskey}
+                  disabled={isRemovingPasskey}
+                  data-testid="button-remove-passkey"
+                >
+                  {isRemovingPasskey ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Removing...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Remove Passkey
+                    </>
+                  )}
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="space-y-2 text-xs text-muted-foreground">
+                  <div className="flex items-start gap-2">
+                    <Check className="h-3 w-3 mt-0.5 text-primary flex-shrink-0" />
+                    <span>Unlock instantly with Face ID or fingerprint</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Check className="h-3 w-3 mt-0.5 text-primary flex-shrink-0" />
+                    <span>Recovery code still works as backup</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Check className="h-3 w-3 mt-0.5 text-primary flex-shrink-0" />
+                    <span>Stored securely on your device</span>
+                  </div>
+                </div>
+                <Button
+                  className="w-full"
+                  onClick={handleEnrollPasskey}
+                  disabled={isEnrollingPasskey}
+                  data-testid="button-enable-passkey"
+                >
+                  {isEnrollingPasskey ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Setting up...
+                    </>
+                  ) : (
+                    <>
+                      <Fingerprint className="h-4 w-4 mr-2" />
+                      Enable Passkey
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

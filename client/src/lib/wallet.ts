@@ -2,9 +2,43 @@ import { get, set, del } from 'idb-keyval';
 import { privateKeyToAccount } from 'viem/accounts';
 import { generatePrivateKey } from 'viem/accounts';
 import type { Wallet, UserPreferences } from '@shared/schema';
+import { 
+  isWebAuthnSupported, 
+  hasPasskeyEnrolled, 
+  enrollPasskey, 
+  authenticateWithPasskey,
+  removePasskey 
+} from './webauthn';
 
 const WALLET_KEY = 'wallet_encrypted_key';
+const WALLET_V2_KEY = 'wallet_v2';
 const PREFERENCES_KEY = 'user_preferences';
+const SESSION_DEK_KEY = 'session_dek';
+
+interface WalletV2Data {
+  encryptedPrivateKey: string;
+  dekWrappedByPassword: string;
+  salt: string;
+  version: 2;
+}
+
+function getSessionDek(): Uint8Array | null {
+  if (typeof window === 'undefined') return null;
+  const stored = sessionStorage.getItem(SESSION_DEK_KEY);
+  if (!stored) return null;
+  return Uint8Array.from(atob(stored), c => c.charCodeAt(0));
+}
+
+function setSessionDek(dek: Uint8Array): void {
+  if (typeof window === 'undefined') return;
+  sessionStorage.setItem(SESSION_DEK_KEY, btoa(String.fromCharCode(...dek)));
+}
+
+function clearSessionDek(): void {
+  if (typeof window === 'undefined') return;
+  sessionStorage.removeItem(SESSION_DEK_KEY);
+}
+
 const SESSION_PASSWORD_KEY = 'session_password';
 
 function getSessionPassword(): string | null {
@@ -65,6 +99,135 @@ export function formatRecoveryCode(code: string): string {
   }
   
   return formatted;
+}
+
+function generateDek(): Uint8Array {
+  return crypto.getRandomValues(new Uint8Array(32));
+}
+
+async function encryptWithDek(data: string, dek: Uint8Array): Promise<string> {
+  const encoder = new TextEncoder();
+  const dataBytes = encoder.encode(data);
+  
+  const key = await crypto.subtle.importKey(
+    'raw',
+    dek,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt']
+  );
+  
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    dataBytes
+  );
+  
+  const result = new Uint8Array(iv.length + encrypted.byteLength);
+  result.set(iv, 0);
+  result.set(new Uint8Array(encrypted), iv.length);
+  
+  return btoa(String.fromCharCode(...result));
+}
+
+async function decryptWithDek(encryptedData: string, dek: Uint8Array): Promise<string> {
+  const data = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
+  const iv = data.slice(0, 12);
+  const encrypted = data.slice(12);
+  
+  const key = await crypto.subtle.importKey(
+    'raw',
+    dek,
+    { name: 'AES-GCM' },
+    false,
+    ['decrypt']
+  );
+  
+  const decrypted = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    encrypted
+  );
+  
+  return new TextDecoder().decode(decrypted);
+}
+
+async function wrapDekWithPassword(dek: Uint8Array, password: string, salt: Uint8Array): Promise<string> {
+  const encoder = new TextEncoder();
+  const passwordKey = encoder.encode(password);
+  
+  const baseKey = await crypto.subtle.importKey(
+    'raw',
+    passwordKey,
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey']
+  );
+  
+  const wrappingKey = await crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt,
+      iterations: 100000,
+      hash: 'SHA-256',
+    },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt']
+  );
+  
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const wrapped = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    wrappingKey,
+    dek
+  );
+  
+  const result = new Uint8Array(iv.length + wrapped.byteLength);
+  result.set(iv, 0);
+  result.set(new Uint8Array(wrapped), iv.length);
+  
+  return btoa(String.fromCharCode(...result));
+}
+
+async function unwrapDekWithPassword(wrappedDek: string, password: string, salt: Uint8Array): Promise<Uint8Array> {
+  const data = Uint8Array.from(atob(wrappedDek), c => c.charCodeAt(0));
+  const iv = data.slice(0, 12);
+  const encrypted = data.slice(12);
+  
+  const encoder = new TextEncoder();
+  const passwordKey = encoder.encode(password);
+  
+  const baseKey = await crypto.subtle.importKey(
+    'raw',
+    passwordKey,
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey']
+  );
+  
+  const wrappingKey = await crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt,
+      iterations: 100000,
+      hash: 'SHA-256',
+    },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['decrypt']
+  );
+  
+  const unwrapped = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    wrappingKey,
+    encrypted
+  );
+  
+  return new Uint8Array(unwrapped);
 }
 
 async function encryptPrivateKey(privateKey: string, recoveryCode: string): Promise<string> {
@@ -159,15 +322,55 @@ export function getSessionRecoveryCode(): string | null {
 
 export function clearSessionRecoveryCode() {
   clearSessionPassword();
+  clearSessionDek();
+}
+
+async function isV2Wallet(): Promise<boolean> {
+  const v2Data = await get<WalletV2Data>(WALLET_V2_KEY);
+  return v2Data?.version === 2;
+}
+
+async function migrateToV2(privateKey: string, password: string): Promise<void> {
+  const dek = generateDek();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  
+  const encryptedPrivateKey = await encryptWithDek(privateKey, dek);
+  const dekWrappedByPassword = await wrapDekWithPassword(dek, password, salt);
+  
+  const v2Data: WalletV2Data = {
+    encryptedPrivateKey,
+    dekWrappedByPassword,
+    salt: btoa(String.fromCharCode(...salt)),
+    version: 2,
+  };
+  
+  await set(WALLET_V2_KEY, v2Data);
+  setSessionDek(dek);
 }
 
 export async function createWallet(password: string): Promise<{ wallet: Wallet; privateKey: string }> {
   const privateKey = generatePrivateKey();
   const account = privateKeyToAccount(privateKey);
   
-  const encryptedKey = await encryptPrivateKey(privateKey, password);
-  await set(WALLET_KEY, encryptedKey);
+  const dek = generateDek();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
   
+  const encryptedPrivateKey = await encryptWithDek(privateKey, dek);
+  const dekWrappedByPassword = await wrapDekWithPassword(dek, password, salt);
+  
+  const v2Data: WalletV2Data = {
+    encryptedPrivateKey,
+    dekWrappedByPassword,
+    salt: btoa(String.fromCharCode(...salt)),
+    version: 2,
+  };
+  
+  await set(WALLET_V2_KEY, v2Data);
+  
+  const legacyEncrypted = await encryptPrivateKey(privateKey, password);
+  await set(WALLET_KEY, legacyEncrypted);
+  
+  setSessionDek(dek);
   setSessionRecoveryCode(password);
   
   const wallet: Wallet = {
@@ -180,6 +383,23 @@ export async function createWallet(password: string): Promise<{ wallet: Wallet; 
 }
 
 export async function getWallet(recoveryCode?: string): Promise<Wallet | null> {
+  const sessionDek = getSessionDek();
+  if (sessionDek) {
+    const v2Data = await get<WalletV2Data>(WALLET_V2_KEY);
+    if (v2Data) {
+      try {
+        const privateKey = await decryptWithDek(v2Data.encryptedPrivateKey, sessionDek);
+        const account = privateKeyToAccount(privateKey as `0x${string}`);
+        return {
+          address: account.address,
+          publicKey: account.address,
+          createdAt: new Date().toISOString(),
+        };
+      } catch {
+      }
+    }
+  }
+
   const encrypted = await get<string>(WALLET_KEY);
   if (!encrypted) return null;
   
@@ -196,6 +416,11 @@ export async function getWallet(recoveryCode?: string): Promise<Wallet | null> {
       setSessionPassword(code);
     }
     
+    const isV2 = await isV2Wallet();
+    if (!isV2) {
+      await migrateToV2(privateKey, code);
+    }
+    
     return {
       address: account.address,
       publicKey: account.address,
@@ -204,6 +429,74 @@ export async function getWallet(recoveryCode?: string): Promise<Wallet | null> {
   } catch {
     throw new Error('INVALID_RECOVERY_CODE');
   }
+}
+
+export async function unlockWithPasskey(): Promise<Wallet | null> {
+  if (!isWebAuthnSupported()) {
+    return null;
+  }
+  
+  const hasPasskey = await hasPasskeyEnrolled();
+  if (!hasPasskey) {
+    return null;
+  }
+  
+  const dek = await authenticateWithPasskey();
+  if (!dek) {
+    return null;
+  }
+  
+  const v2Data = await get<WalletV2Data>(WALLET_V2_KEY);
+  if (!v2Data) {
+    return null;
+  }
+  
+  try {
+    const privateKey = await decryptWithDek(v2Data.encryptedPrivateKey, dek);
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+    
+    setSessionDek(dek);
+    
+    return {
+      address: account.address,
+      publicKey: account.address,
+      createdAt: new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function enrollWalletPasskey(): Promise<boolean> {
+  const sessionDek = getSessionDek();
+  if (!sessionDek) {
+    throw new Error('Wallet must be unlocked to enroll passkey');
+  }
+  
+  const v2Data = await get<WalletV2Data>(WALLET_V2_KEY);
+  if (!v2Data) {
+    throw new Error('Wallet not found');
+  }
+  
+  try {
+    const privateKey = await decryptWithDek(v2Data.encryptedPrivateKey, sessionDek);
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+    
+    const enrolled = await enrollPasskey(account.address, sessionDek);
+    return enrolled;
+  } catch (error) {
+    throw error;
+  }
+}
+
+export async function removeWalletPasskey(): Promise<void> {
+  await removePasskey();
+}
+
+export async function canUsePasskey(): Promise<boolean> {
+  if (!isWebAuthnSupported()) return false;
+  const hasPasskey = await hasPasskeyEnrolled();
+  return hasPasskey;
 }
 
 export async function exportWalletBackup(recoveryCode: string): Promise<string> {
@@ -223,6 +516,8 @@ export async function restoreWallet(encryptedBackup: string, recoveryCode: strin
   const account = privateKeyToAccount(privateKey as `0x${string}`);
   
   await set(WALLET_KEY, encryptedBackup);
+  
+  await migrateToV2(privateKey, recoveryCode);
   setSessionRecoveryCode(recoveryCode);
   
   return {
@@ -240,9 +535,25 @@ export async function importFromPrivateKey(privateKey: string, newPassword: stri
   
   const account = privateKeyToAccount(cleanedKey as `0x${string}`);
   
-  const encryptedKey = await encryptPrivateKey(cleanedKey, newPassword);
-  await set(WALLET_KEY, encryptedKey);
+  const dek = generateDek();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
   
+  const encryptedPrivateKey = await encryptWithDek(cleanedKey, dek);
+  const dekWrappedByPassword = await wrapDekWithPassword(dek, newPassword, salt);
+  
+  const v2Data: WalletV2Data = {
+    encryptedPrivateKey,
+    dekWrappedByPassword,
+    salt: btoa(String.fromCharCode(...salt)),
+    version: 2,
+  };
+  
+  await set(WALLET_V2_KEY, v2Data);
+  
+  const legacyEncrypted = await encryptPrivateKey(cleanedKey, newPassword);
+  await set(WALLET_KEY, legacyEncrypted);
+  
+  setSessionDek(dek);
   setSessionPassword(newPassword);
   
   return {
@@ -254,10 +565,23 @@ export async function importFromPrivateKey(privateKey: string, newPassword: stri
 
 export async function deleteWallet(): Promise<void> {
   await del(WALLET_KEY);
+  await del(WALLET_V2_KEY);
+  await removePasskey();
   clearSessionRecoveryCode();
 }
 
 export async function getPrivateKey(password?: string): Promise<string | null> {
+  const sessionDek = getSessionDek();
+  if (sessionDek) {
+    const v2Data = await get<WalletV2Data>(WALLET_V2_KEY);
+    if (v2Data) {
+      try {
+        return await decryptWithDek(v2Data.encryptedPrivateKey, sessionDek);
+      } catch {
+      }
+    }
+  }
+
   const encrypted = await get<string>(WALLET_KEY);
   if (!encrypted) return null;
   
@@ -273,64 +597,50 @@ export async function getPrivateKey(password?: string): Promise<string | null> {
 
 export async function hasWallet(): Promise<boolean> {
   const encrypted = await get<string>(WALLET_KEY);
-  return !!encrypted;
+  const v2Data = await get<WalletV2Data>(WALLET_V2_KEY);
+  return !!(encrypted || v2Data);
 }
 
 export function isWalletUnlocked(): boolean {
-  return !!getSessionPassword();
+  return !!(getSessionPassword() || getSessionDek());
 }
 
 export function lockWallet(): void {
   clearSessionPassword();
+  clearSessionDek();
 }
 
-// Country code to currency mapping
 const COUNTRY_CURRENCY_MAP: Record<string, string> = {
-  // North America
   'US': 'USD', 'CA': 'CAD', 'MX': 'MXN',
-  // Europe (Euro zone)
   'AT': 'EUR', 'BE': 'EUR', 'CY': 'EUR', 'EE': 'EUR', 'FI': 'EUR',
   'FR': 'EUR', 'DE': 'EUR', 'GR': 'EUR', 'IE': 'EUR', 'IT': 'EUR',
   'LV': 'EUR', 'LT': 'EUR', 'LU': 'EUR', 'MT': 'EUR', 'NL': 'EUR',
   'PT': 'EUR', 'SK': 'EUR', 'SI': 'EUR', 'ES': 'EUR',
-  // Europe (non-Euro)
   'GB': 'GBP', 'CH': 'CHF', 'NO': 'NOK', 'SE': 'SEK', 'DK': 'DKK',
   'PL': 'PLN', 'CZ': 'CZK', 'HU': 'HUF', 'RO': 'RON', 'BG': 'BGN',
   'HR': 'HRK', 'IS': 'ISK', 'TR': 'TRY', 'RU': 'RUB', 'UA': 'UAH',
-  // Asia
   'JP': 'JPY', 'CN': 'CNY', 'KR': 'KRW', 'IN': 'INR', 'ID': 'IDR',
   'TH': 'THB', 'MY': 'MYR', 'SG': 'SGD', 'PH': 'PHP', 'VN': 'VND',
   'HK': 'HKD', 'TW': 'TWD', 'BD': 'BDT', 'PK': 'PKR', 'LK': 'LKR',
   'IL': 'ILS', 'SA': 'SAR', 'AE': 'AED', 'KW': 'KWD', 'QA': 'QAR',
-  // Oceania
   'AU': 'AUD', 'NZ': 'NZD',
-  // South America
   'BR': 'BRL', 'AR': 'ARS', 'CL': 'CLP', 'CO': 'COP', 'PE': 'PEN',
   'UY': 'UYU', 'VE': 'VES', 'BO': 'BOB', 'PY': 'PYG', 'EC': 'USD',
-  // Africa
   'ZA': 'ZAR', 'NG': 'NGN', 'EG': 'EGP', 'KE': 'KES', 'GH': 'GHS',
   'MA': 'MAD', 'TN': 'TND', 'UG': 'UGX', 'TZ': 'TZS', 'ET': 'ETB',
 };
 
-/**
- * Detects the user's preferred currency based on their browser locale
- * @returns Currency code (e.g., 'USD', 'EUR', 'GBP') or 'USD' as fallback
- */
 export function detectCurrencyFromLocale(): string {
   if (typeof navigator === 'undefined') return 'USD';
   
   try {
-    // Get browser locale (e.g., "en-US", "fr-FR", "ja-JP")
     const locale = navigator.language || 'en-US';
-    
-    // Extract country code (last 2 characters after dash)
     const countryCode = locale.split('-')[1]?.toUpperCase();
     
     if (countryCode && COUNTRY_CURRENCY_MAP[countryCode]) {
       return COUNTRY_CURRENCY_MAP[countryCode];
     }
     
-    // Fallback to USD
     return 'USD';
   } catch (error) {
     console.error('Failed to detect currency from locale:', error);
