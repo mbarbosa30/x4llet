@@ -20,7 +20,14 @@ import {
   Sparkles,
   Gift,
   CircleDot,
-  Coins
+  Coins,
+  Trophy,
+  Heart,
+  Wallet,
+  Bot,
+  ArrowRightLeft,
+  Lock,
+  PiggyBank
 } from 'lucide-react';
 import { ComposedChart, AreaChart, Area, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import {
@@ -46,6 +53,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Slider } from '@/components/ui/slider';
 import { getWallet, getPreferences, savePreferences, getPrivateKey } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 import { NETWORKS, getNetworkByChainId } from '@shared/networks';
@@ -149,6 +158,9 @@ export default function Earn() {
   const [aaveOperationStep, setAaveOperationStep] = useState<'input' | 'gas_check' | 'gas_drip' | 'signing' | 'submitting' | 'complete'>('input');
   const [gasDripPending, setGasDripPending] = useState(false);
   const [isOperating, setIsOperating] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('savings');
+  const [localOptInPercent, setLocalOptInPercent] = useState<number | null>(null);
+  const [isSavingOptIn, setIsSavingOptIn] = useState(false);
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -304,6 +316,42 @@ export default function Earn() {
     staleTime: 60 * 1000,
   });
 
+  interface PoolStatusData {
+    user: {
+      optInPercent: number;
+      aUsdcBalance: string;
+      aUsdcBalanceFormatted: string;
+      projectedWeeklyYield?: string;
+      projectedWeeklyYieldFormatted?: string;
+    };
+    draw: {
+      totalPool: string;
+      totalPoolFormatted: string;
+      participantCount: number;
+    };
+    countdown: {
+      hoursUntilDraw: number;
+      minutesUntilDraw: number;
+    };
+  }
+
+  const { data: poolStatus, isLoading: isPoolLoading } = useQuery<PoolStatusData>({
+    queryKey: ['/api/pool/status', address],
+    queryFn: async () => {
+      const res = await fetch(`/api/pool/status/${address}`);
+      if (!res.ok) throw new Error('Failed to fetch pool status');
+      return res.json();
+    },
+    enabled: !!address,
+    staleTime: 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (poolStatus?.user?.optInPercent !== undefined && localOptInPercent === null) {
+      setLocalOptInPercent(poolStatus.user.optInPercent);
+    }
+  }, [poolStatus?.user?.optInPercent, localOptInPercent]);
+
   const localQueryClient = useQueryClient();
 
   const mintCrcMutation = useMutation({
@@ -323,6 +371,46 @@ export default function Earn() {
       });
     },
   });
+
+  const saveOptInMutation = useMutation({
+    mutationFn: async (percent: number) => {
+      if (!address) throw new Error('No wallet found');
+      const res = await apiRequest('POST', '/api/pool/opt-in', {
+        address,
+        optInPercent: percent,
+      });
+      return res;
+    },
+    onSuccess: () => {
+      toast({ title: "Allocation updated" });
+      localQueryClient.invalidateQueries({ queryKey: ['/api/pool/status', address] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Update Failed",
+        description: error instanceof Error ? error.message : "Failed to update allocation",
+        variant: "destructive",
+      });
+      if (poolStatus?.user?.optInPercent !== undefined) {
+        setLocalOptInPercent(poolStatus.user.optInPercent);
+      }
+    },
+  });
+
+  const handleOptInChange = async (value: number[]) => {
+    const newPercent = value[0];
+    setLocalOptInPercent(newPercent);
+  };
+
+  const handleOptInCommit = async () => {
+    if (localOptInPercent === null || localOptInPercent === poolStatus?.user?.optInPercent) return;
+    setIsSavingOptIn(true);
+    try {
+      await saveOptInMutation.mutateAsync(localOptInPercent);
+    } finally {
+      setIsSavingOptIn(false);
+    }
+  };
 
   const hasClaimableRewards = circlesAvatar?.isRegistered || 
                               (gdIdentity?.isWhitelisted && gdClaimStatus?.canClaim);
@@ -777,653 +865,799 @@ export default function Earn() {
         paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' 
       }}
     >
-      <main className="max-w-md mx-auto p-4 space-y-6">
-        {!hasAaveBalance && aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && (
-          <div className="text-center space-y-2">
-            <div className="flex items-center justify-center gap-2">
-              <Sparkles className="h-6 w-6 text-primary" />
-              <h1 className="text-2xl font-bold" data-testid="text-earn-title">Earn</h1>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Put your USDC to work and earn interest automatically
-            </p>
-          </div>
-        )}
+      <main className="max-w-md mx-auto p-4 space-y-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="savings" className="flex items-center gap-1.5 text-xs" data-testid="tab-savings">
+              <PiggyBank className="h-3.5 w-3.5" />
+              Savings
+            </TabsTrigger>
+            <TabsTrigger value="allocation" className="flex items-center gap-1.5 text-xs" data-testid="tab-allocation">
+              <ArrowRightLeft className="h-3.5 w-3.5" />
+              Allocation
+            </TabsTrigger>
+          </TabsList>
 
-        <Card className="p-6 space-y-4" data-testid="card-earning-balance">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">Total Earning</div>
-            <Badge variant="outline" className="text-xs">
-              <TrendingUp className="h-3 w-3 mr-1" />
-              {weightedApy > 0 ? `${weightedApy.toFixed(2)}%` : '—'} APY
-            </Badge>
-          </div>
-          
-          <div className="text-center py-4">
-            {isAaveBalanceBaseLoading || isAaveBalanceCeloLoading ? (
-              <div className="flex items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : hasAaveBalance ? (
-              <div className="space-y-1">
-                <div className="text-5xl font-medium tabular-nums flex items-center justify-center" data-testid="text-earning-amount">
-                  <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
-                  <span className="inline-flex items-baseline">
-                    <span>{Math.floor(totalEarningAnimation.animatedValue)}</span>
-                    <span className="opacity-90">.{totalEarningAnimation.mainDecimals}</span>
-                    {totalEarningAnimation.extraDecimals && (
-                      <span className="text-[0.28em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.65em' }}>
-                        {totalEarningAnimation.extraDecimals}
-                      </span>
-                    )}
-                  </span>
+          <TabsContent value="savings" className="mt-4 space-y-6">
+            {!hasAaveBalance && aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && (
+              <div className="text-center space-y-2">
+                <div className="flex items-center justify-center gap-2">
+                  <Sparkles className="h-6 w-6 text-primary" />
+                  <h1 className="text-2xl font-bold" data-testid="text-earn-title">Earn</h1>
                 </div>
-                <div className="text-xs text-muted-foreground">USDC earning interest</div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="text-5xl font-medium tabular-nums flex items-center justify-center">
-                  <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
-                  <span>0.00</span>
-                </div>
-                <div className="text-xs text-muted-foreground">No deposits yet</div>
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-2">
-            <Button 
-              className="flex-1" 
-              onClick={() => {
-                resetAaveDialog();
-                setShowAaveDeposit(true);
-              }}
-              data-testid="button-earn-deposit"
-            >
-              <ArrowUpToLine className="h-4 w-4 mr-2" />
-              Deposit
-            </Button>
-            <Button 
-              variant="outline"
-              className="flex-1" 
-              onClick={() => {
-                resetAaveDialog();
-                setShowAaveWithdraw(true);
-              }}
-              disabled={!hasAaveBalance}
-              data-testid="button-earn-withdraw"
-            >
-              <ArrowDownToLine className="h-4 w-4 mr-2" />
-              Withdraw
-            </Button>
-          </div>
-        </Card>
-
-        {/* Claimable Rewards Section */}
-        {hasClaimableRewards && (
-          <Card className="p-4 space-y-3" data-testid="card-claimable-rewards">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-medium flex items-center gap-2">
-                <Gift className="h-4 w-4 text-primary" />
-                Claimable Rewards
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              {/* Circles CRC */}
-              {circlesAvatar?.isRegistered && (
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-pink-500/10 flex items-center justify-center">
-                      <CircleDot className="h-4 w-4 text-pink-600" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium">Circles CRC</div>
-                      <div className="text-xs text-muted-foreground">1 CRC/hour, up to 24/day</div>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={() => mintCrcMutation.mutate()}
-                    disabled={mintCrcMutation.isPending}
-                    data-testid="button-claim-crc"
-                  >
-                    {mintCrcMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Coins className="h-3 w-3 mr-1" />
-                        Claim
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
-
-              {/* GoodDollar G$ */}
-              {gdIdentity?.isWhitelisted && gdClaimStatus?.canClaim && (
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center">
-                      <Gift className="h-4 w-4 text-green-600" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium">GoodDollar G$</div>
-                      <div className="text-xs text-muted-foreground">{gdClaimStatus.entitlementFormatted} available</div>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={() => window.open('https://wallet.gooddollar.org', '_blank', 'noopener,noreferrer')}
-                    data-testid="button-claim-gd"
-                  >
-                    <Coins className="h-3 w-3 mr-1" />
-                    Claim
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            <p className="text-xs text-muted-foreground text-center">
-              These tokens are separate from your USDC balance
-            </p>
-          </Card>
-        )}
-
-        {/* Earnings Preview for users with no deposits */}
-        {!hasAaveBalance && aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && (
-          <Card className="p-4 space-y-4 border-dashed" data-testid="card-earnings-preview">
-            <div className="text-sm font-medium flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              What You Could Earn
-            </div>
-            
-            {weightedApy > 0 ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                  <div className="text-sm text-muted-foreground">If you deposit</div>
-                  <div className="text-lg font-semibold">$100</div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="p-2 bg-success/10 rounded-lg">
-                    <div className="text-xs text-muted-foreground mb-1">1 month</div>
-                    <div className="text-sm font-medium text-success">
-                      +${(100 * (weightedApy / 100 / 12)).toFixed(2)}
-                    </div>
-                  </div>
-                  <div className="p-2 bg-success/10 rounded-lg">
-                    <div className="text-xs text-muted-foreground mb-1">6 months</div>
-                    <div className="text-sm font-medium text-success">
-                      +${(100 * (Math.pow(1 + weightedApy / 100 / 12, 6) - 1)).toFixed(2)}
-                    </div>
-                  </div>
-                  <div className="p-2 bg-success/10 rounded-lg">
-                    <div className="text-xs text-muted-foreground mb-1">1 year</div>
-                    <div className="text-sm font-medium text-success">
-                      +${(100 * (Math.pow(1 + weightedApy / 100 / 12, 12) - 1)).toFixed(2)}
-                    </div>
-                  </div>
-                </div>
-                
-                <p className="text-xs text-muted-foreground text-center">
-                  Based on current {weightedApy.toFixed(1)}% APY • Compounded monthly
+                <p className="text-sm text-muted-foreground">
+                  Put your USDC to work and earn interest automatically
                 </p>
               </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-center justify-center p-4 bg-muted/30 rounded-lg">
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  <span className="text-sm text-muted-foreground">Loading rates...</span>
-                </div>
-              </div>
-            )}
-            
-            <Button 
-              className="w-full" 
-              onClick={() => {
-                resetAaveDialog();
-                setShowAaveDeposit(true);
-              }}
-              disabled={weightedApy <= 0}
-              data-testid="button-start-earning"
-            >
-              <Sparkles className="h-4 w-4 mr-2" />
-              Start Earning Now
-            </Button>
-          </Card>
-        )}
-
-        {hasAaveBalance && (baseBalanceNum > 0 || celoBalanceNum > 0 || gnosisBalanceNum > 0) && [baseBalanceNum, celoBalanceNum, gnosisBalanceNum].filter(b => b > 0).length > 1 && (
-          <Card className="p-4 space-y-3" data-testid="card-chain-breakdown">
-            <div className="text-sm font-medium">Balance & Rates by Network</div>
-            
-            {baseBalanceNum > 0 && (
-              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
-                    <span className="text-xs font-bold text-blue-600">B</span>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium">Base</div>
-                    <div className="text-xs text-muted-foreground">{aaveApyBase?.apyFormatted || '—'} APY</div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-lg font-medium tabular-nums inline-flex items-baseline justify-end">
-                    <span className="text-sm opacity-50 mr-0.5">$</span>
-                    <span>{Math.floor(baseEarningAnimation.animatedValue)}</span>
-                    <span className="opacity-90">.{baseEarningAnimation.mainDecimals}</span>
-                    {baseEarningAnimation.extraDecimals && (
-                      <span className="text-[0.45em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.5em' }}>
-                        {baseEarningAnimation.extraDecimals}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {celoBalanceNum > 0 && (
-              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-yellow-500/10 flex items-center justify-center">
-                    <span className="text-xs font-bold text-yellow-600">C</span>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium">Celo</div>
-                    <div className="text-xs text-muted-foreground">{aaveApyCelo?.apyFormatted || '—'} APY</div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-lg font-medium tabular-nums inline-flex items-baseline justify-end">
-                    <span className="text-sm opacity-50 mr-0.5">$</span>
-                    <span>{Math.floor(celoEarningAnimation.animatedValue)}</span>
-                    <span className="opacity-90">.{celoEarningAnimation.mainDecimals}</span>
-                    {celoEarningAnimation.extraDecimals && (
-                      <span className="text-[0.45em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.5em' }}>
-                        {celoEarningAnimation.extraDecimals}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
             )}
 
-            {gnosisBalanceNum > 0 && (
-              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center">
-                    <span className="text-xs font-bold text-purple-600">G</span>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium">Gnosis</div>
-                    <div className="text-xs text-muted-foreground">{aaveApyGnosis?.apyFormatted || '—'} APY</div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-lg font-medium tabular-nums inline-flex items-baseline justify-end">
-                    <span className="text-sm opacity-50 mr-0.5">$</span>
-                    <span>{Math.floor(gnosisEarningAnimation.animatedValue)}</span>
-                    <span className="opacity-90">.{gnosisEarningAnimation.mainDecimals}</span>
-                    {gnosisEarningAnimation.extraDecimals && (
-                      <span className="text-[0.45em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.5em' }}>
-                        {gnosisEarningAnimation.extraDecimals}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </Card>
-        )}
-
-        {hasAaveBalance && combinedChartData.length > 0 && (
-          <Card className="p-4 space-y-3" data-testid="card-projected-earnings">
-            <div className="flex flex-col gap-1">
+            <Card className="p-6 space-y-4" data-testid="card-earning-balance">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">Projected Earnings</span>
-                  <span className="text-xs text-muted-foreground">
-                    on {formatSmartPrecision((() => {
-                      const microBalance = BigInt(totalAaveBalanceMicro || '0');
-                      // Safe conversion: check if value exceeds JS safe integer range
-                      if (microBalance > BigInt(Number.MAX_SAFE_INTEGER)) {
-                        // For extremely large balances, divide first to prevent overflow
-                        return Number(microBalance / 1_000_000n);
-                      }
-                      return Number(microBalance) / 1_000_000;
-                    })(), '$')} principal
-                  </span>
-                </div>
-                {yearlyEarnings > 0 && (
-                  <div className="text-xs">
-                    <span className="text-success font-medium">+{weightedApy.toFixed(2)}%</span>
-                    <span className="text-muted-foreground"> APY</span>
+                <div className="text-sm text-muted-foreground">Total Earning</div>
+                <Badge variant="outline" className="text-xs">
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                  {weightedApy > 0 ? `${weightedApy.toFixed(2)}%` : '—'} APY
+                </Badge>
+              </div>
+              
+              <div className="text-center py-4">
+                {isAaveBalanceBaseLoading || isAaveBalanceCeloLoading ? (
+                  <div className="flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : hasAaveBalance ? (
+                  <div className="space-y-1">
+                    <div className="text-5xl font-medium tabular-nums flex items-center justify-center" data-testid="text-earning-amount">
+                      <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
+                      <span className="inline-flex items-baseline">
+                        <span>{Math.floor(totalEarningAnimation.animatedValue)}</span>
+                        <span className="opacity-90">.{totalEarningAnimation.mainDecimals}</span>
+                        {totalEarningAnimation.extraDecimals && (
+                          <span className="text-[0.28em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.65em' }}>
+                            {totalEarningAnimation.extraDecimals}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">USDC earning interest</div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="text-5xl font-medium tabular-nums flex items-center justify-center">
+                      <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
+                      <span>0.00</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">No deposits yet</div>
                   </div>
                 )}
               </div>
-            </div>
-            
-            <div className="h-36 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart 
-                  data={displayChartData}
-                  margin={{ top: 10, right: 10, left: 10, bottom: 5 }}
+
+              <div className="flex gap-2">
+                <Button 
+                  className="flex-1" 
+                  onClick={() => {
+                    resetAaveDialog();
+                    setShowAaveDeposit(true);
+                  }}
+                  data-testid="button-earn-deposit"
                 >
-                  <defs>
-                    {/* Base chain colors - blue */}
-                    <linearGradient id="baseInterestGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(217, 91%, 70%)" stopOpacity={0.7}/>
-                      <stop offset="100%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0.3}/>
-                    </linearGradient>
-                    {/* Celo chain colors - yellow/gold */}
-                    <linearGradient id="celoInterestGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(45, 93%, 58%)" stopOpacity={0.7}/>
-                      <stop offset="100%" stopColor="hsl(45, 93%, 47%)" stopOpacity={0.3}/>
-                    </linearGradient>
-                    {/* Gnosis chain colors - purple */}
-                    <linearGradient id="gnosisInterestGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(270, 70%, 60%)" stopOpacity={0.7}/>
-                      <stop offset="100%" stopColor="hsl(270, 70%, 50%)" stopOpacity={0.3}/>
-                    </linearGradient>
-                    {/* Earnings mode gradient */}
-                    <linearGradient id="earningsPercentGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.5}/>
-                      <stop offset="100%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.1}/>
-                    </linearGradient>
-                  </defs>
-                  <XAxis 
-                    dataKey="label" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }}
-                  />
-                  {/* Left Y-axis for $ earnings - magnifies small growth */}
-                  <YAxis 
-                    yAxisId="balance"
-                    orientation="left"
-                    width={40}
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 8, fill: 'hsl(var(--muted-foreground))' }}
-                    tickFormatter={formatSmartCurrencyTick}
-                    domain={[0, 'auto']}
-                    tickCount={5}
-                  />
-                  {/* Right Y-axis for % growth */}
-                  <YAxis 
-                    yAxisId="percent"
-                    orientation="right"
-                    width={35}
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 8, fill: 'hsl(142, 71%, 45%)' }}
-                    tickFormatter={(val) => `+${val.toFixed(1)}%`}
-                    domain={[0, (dataMax: number) => dataMax * 1.6]}
-                    tickCount={4}
-                  />
-                  <Tooltip 
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const data = payload[0].payload;
-                        const totalInterest = (data.baseInterest || 0) + (data.celoInterest || 0) + (data.gnosisInterest || 0);
-                        
-                        if (data.isNow) {
-                          return (
-                            <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md min-w-[100px]">
-                              <div className="text-xs font-medium">Starting Point</div>
-                            </div>
-                          );
-                        }
-                        
+                  <ArrowUpToLine className="h-4 w-4 mr-2" />
+                  Deposit
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="flex-1" 
+                  onClick={() => {
+                    resetAaveDialog();
+                    setShowAaveWithdraw(true);
+                  }}
+                  disabled={!hasAaveBalance}
+                  data-testid="button-earn-withdraw"
+                >
+                  <ArrowDownToLine className="h-4 w-4 mr-2" />
+                  Withdraw
+                </Button>
+              </div>
+            </Card>
+
+            {/* Claimable Rewards Section */}
+            {hasClaimableRewards && (
+              <Card className="p-4 space-y-3" data-testid="card-claimable-rewards">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <Gift className="h-4 w-4 text-primary" />
+                    Claimable Rewards
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  {/* Circles CRC */}
+                  {circlesAvatar?.isRegistered && (
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-pink-500/10 flex items-center justify-center">
+                          <CircleDot className="h-4 w-4 text-pink-600" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium">Circles CRC</div>
+                          <div className="text-xs text-muted-foreground">1 CRC/hour, up to 24/day</div>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => mintCrcMutation.mutate()}
+                        disabled={mintCrcMutation.isPending}
+                        data-testid="button-claim-crc"
+                      >
+                        {mintCrcMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Coins className="h-3 w-3 mr-1" />
+                            Claim
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* GoodDollar G$ */}
+                  {gdIdentity?.isWhitelisted && gdClaimStatus?.canClaim && (
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center">
+                          <Gift className="h-4 w-4 text-green-600" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium">GoodDollar G$</div>
+                          <div className="text-xs text-muted-foreground">{gdClaimStatus.entitlementFormatted} available</div>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => window.open('https://wallet.gooddollar.org', '_blank', 'noopener,noreferrer')}
+                        data-testid="button-claim-gd"
+                      >
+                        <Coins className="h-3 w-3 mr-1" />
+                        Claim
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-xs text-muted-foreground text-center">
+                  These tokens are separate from your USDC balance
+                </p>
+              </Card>
+            )}
+
+            {/* Earnings Preview for users with no deposits */}
+            {!hasAaveBalance && aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && (
+              <Card className="p-4 space-y-4 border-dashed" data-testid="card-earnings-preview">
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  What You Could Earn
+                </div>
+                
+                {weightedApy > 0 ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                      <div className="text-sm text-muted-foreground">If you deposit</div>
+                      <div className="text-lg font-semibold">$100</div>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="p-2 bg-success/10 rounded-lg">
+                        <div className="text-xs text-muted-foreground mb-1">1 month</div>
+                        <div className="text-sm font-medium text-success">
+                          +${(100 * (weightedApy / 100 / 12)).toFixed(2)}
+                        </div>
+                      </div>
+                      <div className="p-2 bg-success/10 rounded-lg">
+                        <div className="text-xs text-muted-foreground mb-1">6 months</div>
+                        <div className="text-sm font-medium text-success">
+                          +${(100 * (Math.pow(1 + weightedApy / 100 / 12, 6) - 1)).toFixed(2)}
+                        </div>
+                      </div>
+                      <div className="p-2 bg-success/10 rounded-lg">
+                        <div className="text-xs text-muted-foreground mb-1">1 year</div>
+                        <div className="text-sm font-medium text-success">
+                          +${(100 * (Math.pow(1 + weightedApy / 100 / 12, 12) - 1)).toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                
+                    <p className="text-xs text-muted-foreground text-center">
+                      Based on current {weightedApy.toFixed(1)}% APY • Compounded monthly
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-center p-4 bg-muted/30 rounded-lg">
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      <span className="text-sm text-muted-foreground">Loading rates...</span>
+                    </div>
+                  </div>
+                )}
+                
+                <Button 
+                  className="w-full" 
+                  onClick={() => {
+                    resetAaveDialog();
+                    setShowAaveDeposit(true);
+                  }}
+                  disabled={weightedApy <= 0}
+                  data-testid="button-start-earning"
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Start Earning Now
+                </Button>
+              </Card>
+            )}
+
+            {hasAaveBalance && (baseBalanceNum > 0 || celoBalanceNum > 0 || gnosisBalanceNum > 0) && [baseBalanceNum, celoBalanceNum, gnosisBalanceNum].filter(b => b > 0).length > 1 && (
+              <Card className="p-4 space-y-3" data-testid="card-chain-breakdown">
+                <div className="text-sm font-medium">Balance & Rates by Network</div>
+                
+                {baseBalanceNum > 0 && (
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+                        <span className="text-xs font-bold text-blue-600">B</span>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium">Base</div>
+                        <div className="text-xs text-muted-foreground">{aaveApyBase?.apyFormatted || '—'} APY</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-medium tabular-nums inline-flex items-baseline justify-end">
+                        <span className="text-sm opacity-50 mr-0.5">$</span>
+                        <span>{Math.floor(baseEarningAnimation.animatedValue)}</span>
+                        <span className="opacity-90">.{baseEarningAnimation.mainDecimals}</span>
+                        {baseEarningAnimation.extraDecimals && (
+                          <span className="text-[0.45em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.5em' }}>
+                            {baseEarningAnimation.extraDecimals}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {celoBalanceNum > 0 && (
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-yellow-500/10 flex items-center justify-center">
+                        <span className="text-xs font-bold text-yellow-600">C</span>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium">Celo</div>
+                        <div className="text-xs text-muted-foreground">{aaveApyCelo?.apyFormatted || '—'} APY</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-medium tabular-nums inline-flex items-baseline justify-end">
+                        <span className="text-sm opacity-50 mr-0.5">$</span>
+                        <span>{Math.floor(celoEarningAnimation.animatedValue)}</span>
+                        <span className="opacity-90">.{celoEarningAnimation.mainDecimals}</span>
+                        {celoEarningAnimation.extraDecimals && (
+                          <span className="text-[0.45em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.5em' }}>
+                            {celoEarningAnimation.extraDecimals}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {gnosisBalanceNum > 0 && (
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center">
+                        <span className="text-xs font-bold text-purple-600">G</span>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium">Gnosis</div>
+                        <div className="text-xs text-muted-foreground">{aaveApyGnosis?.apyFormatted || '—'} APY</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-medium tabular-nums inline-flex items-baseline justify-end">
+                        <span className="text-sm opacity-50 mr-0.5">$</span>
+                        <span>{Math.floor(gnosisEarningAnimation.animatedValue)}</span>
+                        <span className="opacity-90">.{gnosisEarningAnimation.mainDecimals}</span>
+                        {gnosisEarningAnimation.extraDecimals && (
+                          <span className="text-[0.45em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.5em' }}>
+                            {gnosisEarningAnimation.extraDecimals}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            )}
+
+            {hasAaveBalance && combinedChartData.length > 0 && (
+              <Card className="p-4 space-y-3" data-testid="card-projected-earnings">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">Projected Earnings</span>
+                      <span className="text-xs text-muted-foreground">
+                        on {formatSmartPrecision((() => {
+                          const microBalance = BigInt(totalAaveBalanceMicro || '0');
+                          if (microBalance > BigInt(Number.MAX_SAFE_INTEGER)) {
+                            return Number(microBalance / 1_000_000n);
+                          }
+                          return Number(microBalance) / 1_000_000;
+                        })(), '$')} principal
+                      </span>
+                    </div>
+                    {yearlyEarnings > 0 && (
+                      <div className="text-xs">
+                        <span className="text-success font-medium">+{weightedApy.toFixed(2)}%</span>
+                        <span className="text-muted-foreground"> APY</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="h-36 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart 
+                      data={displayChartData}
+                      margin={{ top: 10, right: 10, left: 10, bottom: 5 }}
+                    >
+                      <defs>
+                        <linearGradient id="baseInterestGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="hsl(217, 91%, 70%)" stopOpacity={0.7}/>
+                          <stop offset="100%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0.3}/>
+                        </linearGradient>
+                        <linearGradient id="celoInterestGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="hsl(45, 93%, 58%)" stopOpacity={0.7}/>
+                          <stop offset="100%" stopColor="hsl(45, 93%, 47%)" stopOpacity={0.3}/>
+                        </linearGradient>
+                        <linearGradient id="gnosisInterestGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="hsl(270, 70%, 60%)" stopOpacity={0.7}/>
+                          <stop offset="100%" stopColor="hsl(270, 70%, 50%)" stopOpacity={0.3}/>
+                        </linearGradient>
+                        <linearGradient id="earningsPercentGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.5}/>
+                          <stop offset="100%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.1}/>
+                        </linearGradient>
+                      </defs>
+                      <XAxis 
+                        dataKey="label" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }}
+                      />
+                      <YAxis 
+                        yAxisId="balance"
+                        orientation="left"
+                        width={40}
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 8, fill: 'hsl(var(--muted-foreground))' }}
+                        tickFormatter={formatSmartCurrencyTick}
+                        domain={[0, 'auto']}
+                        tickCount={5}
+                      />
+                      <YAxis 
+                        yAxisId="percent"
+                        orientation="right"
+                        width={35}
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 8, fill: 'hsl(142, 71%, 45%)' }}
+                        tickFormatter={(val) => `+${val.toFixed(1)}%`}
+                        domain={[0, (dataMax: number) => dataMax * 1.6]}
+                        tickCount={4}
+                      />
+                      <Tooltip 
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload;
+                            const totalInterest = (data.baseInterest || 0) + (data.celoInterest || 0) + (data.gnosisInterest || 0);
+                            
+                            if (data.isNow) {
+                              return (
+                                <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md min-w-[100px]">
+                                  <div className="text-xs font-medium">Starting Point</div>
+                                </div>
+                              );
+                            }
+                            
+                            return (
+                              <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md min-w-[140px]">
+                                <div className="text-xs font-medium mb-1.5">
+                                  Projected ({data.label})
+                                </div>
+                                {data.baseInterest > 0 && (
+                                  <div className="flex items-center justify-between gap-3 text-xs mb-0.5">
+                                    <span className="text-blue-400">Base:</span>
+                                    <span className="text-success">
+                                      +{formatSmartPrecision(data.baseInterest, '$')}
+                                    </span>
+                                  </div>
+                                )}
+                                {data.celoInterest > 0 && (
+                                  <div className="flex items-center justify-between gap-3 text-xs mb-0.5">
+                                    <span className="text-yellow-400">Celo:</span>
+                                    <span className="text-success">
+                                      +{formatSmartPrecision(data.celoInterest, '$')}
+                                    </span>
+                                  </div>
+                                )}
+                                {data.gnosisInterest > 0 && (
+                                  <div className="flex items-center justify-between gap-3 text-xs mb-1">
+                                    <span className="text-purple-400">Gnosis:</span>
+                                    <span className="text-success">
+                                      +{formatSmartPrecision(data.gnosisInterest, '$')}
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="text-xs font-medium border-t border-border pt-1 mt-1 flex justify-between">
+                                  <span>Total earned:</span>
+                                  <span className="text-success">
+                                    +{formatSmartPrecision(totalInterest, '$')}
+                                    <span className="text-muted-foreground ml-1">
+                                      ({formatSmartPercent(data.totalInterestPercent || 0)})
+                                    </span>
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="baseInterest"
+                        yAxisId="balance"
+                        stackId="earnings"
+                        stroke="hsl(217, 91%, 70%)"
+                        strokeWidth={1.5}
+                        fill="url(#baseInterestGradient)"
+                        isAnimationActive={false}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="celoInterest"
+                        yAxisId="balance"
+                        stackId="earnings"
+                        stroke="hsl(45, 93%, 58%)"
+                        strokeWidth={1.5}
+                        fill="url(#celoInterestGradient)"
+                        isAnimationActive={false}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="gnosisInterest"
+                        yAxisId="balance"
+                        stackId="earnings"
+                        stroke="hsl(270, 70%, 60%)"
+                        strokeWidth={1.5}
+                        fill="url(#gnosisInterestGradient)"
+                        isAnimationActive={false}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="totalInterestPercent"
+                        yAxisId="percent"
+                        stroke="hsl(142, 71%, 45%)"
+                        strokeWidth={2}
+                        strokeDasharray="6 3"
+                        dot={false}
+                        isAnimationActive={false}
+                        connectNulls={true}
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+                
+                <div className="flex items-center justify-center gap-3 text-xs flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(217, 91%, 60%)' }}></div>
+                    <span className="text-blue-400">Base</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(45, 93%, 47%)' }}></div>
+                    <span className="text-yellow-400">Celo</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(270, 70%, 55%)' }}></div>
+                    <span className="text-purple-400">Gnosis</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-4 h-0.5 rounded-sm" style={{ background: 'hsl(142, 71%, 45%)', borderTop: '2px dashed hsl(142, 71%, 45%)' }}></div>
+                    <span className="text-success">% Growth</span>
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Interest Earned Subsection */}
+            {interestEarnedData && (
+              <Card className="p-4 space-y-2" data-testid="card-interest-earned">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-medium">Interest Earned</div>
+                  {Number(interestEarnedData.totalInterestEarnedMicro) > 0 && (
+                    <span className="text-sm font-medium text-success">
+                      +${(Number(interestEarnedData.totalInterestEarnedMicro) / 1_000_000).toFixed(4)}
+                    </span>
+                  )}
+                </div>
+                {interestEarnedData.chains.some(c => c.hasTrackingData) ? (
+                  <div>
+                    {(() => {
+                      const baseData = interestEarnedData.chains.find(c => c.chainId === 8453);
+                      const celoData = interestEarnedData.chains.find(c => c.chainId === 42220);
+                      const gnosisData = interestEarnedData.chains.find(c => c.chainId === 100);
+                      const hasAnyEarnings = [baseData, celoData, gnosisData].some(
+                        d => d?.hasTrackingData && Number(d.interestEarnedMicro) > 0
+                      );
+                      
+                      if (!hasAnyEarnings) {
                         return (
-                          <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md min-w-[140px]">
-                            <div className="text-xs font-medium mb-1.5">
-                              Projected ({data.label})
-                            </div>
-                            {data.baseInterest > 0 && (
-                              <div className="flex items-center justify-between gap-3 text-xs mb-0.5">
-                                <span className="text-blue-400">Base:</span>
-                                <span className="text-success">
-                                  +{formatSmartPrecision(data.baseInterest, '$')}
-                                </span>
-                              </div>
-                            )}
-                            {data.celoInterest > 0 && (
-                              <div className="flex items-center justify-between gap-3 text-xs mb-0.5">
-                                <span className="text-yellow-400">Celo:</span>
-                                <span className="text-success">
-                                  +{formatSmartPrecision(data.celoInterest, '$')}
-                                </span>
-                              </div>
-                            )}
-                            {data.gnosisInterest > 0 && (
-                              <div className="flex items-center justify-between gap-3 text-xs mb-1">
-                                <span className="text-purple-400">Gnosis:</span>
-                                <span className="text-success">
-                                  +{formatSmartPrecision(data.gnosisInterest, '$')}
-                                </span>
-                              </div>
-                            )}
-                            <div className="text-xs font-medium border-t border-border pt-1 mt-1 flex justify-between">
-                              <span>Total earned:</span>
-                              <span className="text-success">
-                                +{formatSmartPrecision(totalInterest, '$')}
-                                <span className="text-muted-foreground ml-1">
-                                  ({formatSmartPercent(data.totalInterestPercent || 0)})
-                                </span>
-                              </span>
-                            </div>
-                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Interest is accruing. Check back soon!
+                          </p>
                         );
                       }
-                      return null;
-                    }}
-                  />
-                  {/* Interest areas - stacked per chain */}
-                  <Area 
-                    type="monotone" 
-                    dataKey="baseInterest"
-                    yAxisId="balance"
-                    stackId="earnings"
-                    stroke="hsl(217, 91%, 70%)"
-                    strokeWidth={1.5}
-                    fill="url(#baseInterestGradient)"
-                    isAnimationActive={false}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="celoInterest"
-                    yAxisId="balance"
-                    stackId="earnings"
-                    stroke="hsl(45, 93%, 58%)"
-                    strokeWidth={1.5}
-                    fill="url(#celoInterestGradient)"
-                    isAnimationActive={false}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="gnosisInterest"
-                    yAxisId="balance"
-                    stackId="earnings"
-                    stroke="hsl(270, 70%, 60%)"
-                    strokeWidth={1.5}
-                    fill="url(#gnosisInterestGradient)"
-                    isAnimationActive={false}
-                  />
-                  {/* Overlay line for % growth (right Y-axis) */}
-                  <Line 
-                    type="monotone" 
-                    dataKey="totalInterestPercent"
-                    yAxisId="percent"
-                    stroke="hsl(142, 71%, 45%)"
-                    strokeWidth={2}
-                    strokeDasharray="6 3"
-                    dot={false}
-                    isAnimationActive={false}
-                    connectNulls={true}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-            
-            {/* Legend with per-chain breakdown */}
-            <div className="flex items-center justify-center gap-3 text-xs flex-wrap">
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(217, 91%, 60%)' }}></div>
-                <span className="text-blue-400">Base</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(45, 93%, 47%)' }}></div>
-                <span className="text-yellow-400">Celo</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(270, 70%, 55%)' }}></div>
-                <span className="text-purple-400">Gnosis</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-4 h-0.5 rounded-sm" style={{ background: 'hsl(142, 71%, 45%)', borderTop: '2px dashed hsl(142, 71%, 45%)' }}></div>
-                <span className="text-success">% Growth</span>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {/* Interest Earned Subsection */}
-        {interestEarnedData && (
-          <Card className="p-4 space-y-2" data-testid="card-interest-earned">
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-sm font-medium">Interest Earned</div>
-              {Number(interestEarnedData.totalInterestEarnedMicro) > 0 && (
-                <span className="text-sm font-medium text-success">
-                  +${(Number(interestEarnedData.totalInterestEarnedMicro) / 1_000_000).toFixed(4)}
-                </span>
-              )}
-            </div>
-            {interestEarnedData.chains.some(c => c.hasTrackingData) ? (
-              <div>
-                {(() => {
-                  const baseData = interestEarnedData.chains.find(c => c.chainId === 8453);
-                  const celoData = interestEarnedData.chains.find(c => c.chainId === 42220);
-                  const gnosisData = interestEarnedData.chains.find(c => c.chainId === 100);
-                  const hasAnyEarnings = [baseData, celoData, gnosisData].some(
-                    d => d?.hasTrackingData && Number(d.interestEarnedMicro) > 0
-                  );
-                  
-                  if (!hasAnyEarnings) {
-                    return (
-                      <p className="text-sm text-muted-foreground">
-                        Interest is accruing. Check back soon!
-                      </p>
-                    );
-                  }
-                  
-                  return (
-                    <div className="grid grid-cols-3 gap-3 text-center">
-                      {baseData?.hasTrackingData && (
-                        <div className="p-2 bg-muted/50 rounded-lg">
-                          <div className="text-xs text-muted-foreground mb-0.5">Base</div>
-                          <div className="text-sm font-medium text-blue-400">
-                            +${(Number(baseData.interestEarnedMicro) / 1_000_000).toFixed(4)}
-                          </div>
+                      
+                      return (
+                        <div className="grid grid-cols-3 gap-3 text-center">
+                          {baseData?.hasTrackingData && (
+                            <div className="p-2 bg-muted/50 rounded-lg">
+                              <div className="text-xs text-muted-foreground mb-0.5">Base</div>
+                              <div className="text-sm font-medium text-blue-400">
+                                +${(Number(baseData.interestEarnedMicro) / 1_000_000).toFixed(4)}
+                              </div>
+                            </div>
+                          )}
+                          {celoData?.hasTrackingData && (
+                            <div className="p-2 bg-muted/50 rounded-lg">
+                              <div className="text-xs text-muted-foreground mb-0.5">Celo</div>
+                              <div className="text-sm font-medium text-yellow-400">
+                                +${(Number(celoData.interestEarnedMicro) / 1_000_000).toFixed(4)}
+                              </div>
+                            </div>
+                          )}
+                          {gnosisData?.hasTrackingData && (
+                            <div className="p-2 bg-muted/50 rounded-lg">
+                              <div className="text-xs text-muted-foreground mb-0.5">Gnosis</div>
+                              <div className="text-sm font-medium text-purple-400">
+                                +${(Number(gnosisData.interestEarnedMicro) / 1_000_000).toFixed(4)}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
-                      {celoData?.hasTrackingData && (
-                        <div className="p-2 bg-muted/50 rounded-lg">
-                          <div className="text-xs text-muted-foreground mb-0.5">Celo</div>
-                          <div className="text-sm font-medium text-yellow-400">
-                            +${(Number(celoData.interestEarnedMicro) / 1_000_000).toFixed(4)}
-                          </div>
-                        </div>
-                      )}
-                      {gnosisData?.hasTrackingData && (
-                        <div className="p-2 bg-muted/50 rounded-lg">
-                          <div className="text-xs text-muted-foreground mb-0.5">Gnosis</div>
-                          <div className="text-sm font-medium text-purple-400">
-                            +${(Number(gnosisData.interestEarnedMicro) / 1_000_000).toFixed(4)}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Interest tracking starts with your next deposit
-              </p>
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Interest tracking starts with your next deposit
+                  </p>
+                )}
+              </Card>
             )}
-          </Card>
-        )}
 
-        <Card className="p-4 space-y-3" data-testid="card-how-it-works">
-          <div className="text-sm font-medium">How it works</div>
-          
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="p-2">
-              <ArrowUpToLine className="h-5 w-5 mx-auto mb-1.5 text-primary" />
-              <div className="text-xs font-medium">Deposit</div>
-              <div className="text-xs text-muted-foreground">One tap</div>
-            </div>
-            <div className="p-2">
-              <TrendingUp className="h-5 w-5 mx-auto mb-1.5 text-success" />
-              <div className="text-xs font-medium">Earn</div>
-              <div className="text-xs text-muted-foreground">Automatically</div>
-            </div>
-            <div className="p-2">
-              <ArrowDownToLine className="h-5 w-5 mx-auto mb-1.5 text-primary" />
-              <div className="text-xs font-medium">Withdraw</div>
-              <div className="text-xs text-muted-foreground">Anytime</div>
-            </div>
-          </div>
-          
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 pt-1 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Shield className="h-3 w-3 text-success" />
-              Secured by Aave
-            </span>
-            <span className="flex items-center gap-1">
-              <Zap className="h-3 w-3" />
-              Gasless
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              No lock-up
-            </span>
-          </div>
-        </Card>
+            <Card className="p-4 space-y-3" data-testid="card-how-it-works">
+              <div className="text-sm font-medium">How it works</div>
+              
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="p-2">
+                  <ArrowUpToLine className="h-5 w-5 mx-auto mb-1.5 text-primary" />
+                  <div className="text-xs font-medium">Deposit</div>
+                  <div className="text-xs text-muted-foreground">One tap</div>
+                </div>
+                <div className="p-2">
+                  <TrendingUp className="h-5 w-5 mx-auto mb-1.5 text-success" />
+                  <div className="text-xs font-medium">Earn</div>
+                  <div className="text-xs text-muted-foreground">Automatically</div>
+                </div>
+                <div className="p-2">
+                  <ArrowDownToLine className="h-5 w-5 mx-auto mb-1.5 text-primary" />
+                  <div className="text-xs font-medium">Withdraw</div>
+                  <div className="text-xs text-muted-foreground">Anytime</div>
+                </div>
+              </div>
+              
+              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 pt-1 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Shield className="h-3 w-3 text-success" />
+                  Secured by Aave
+                </span>
+                <span className="flex items-center gap-1">
+                  <Zap className="h-3 w-3" />
+                  Gasless
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  No lock-up
+                </span>
+              </div>
+            </Card>
 
-        <Accordion type="single" collapsible className="w-full">
-          <AccordionItem value="faq" className="border-none">
-            <AccordionTrigger className="text-sm py-2">
-              <span className="flex items-center gap-2">
-                <Info className="h-4 w-4" />
-                Learn more
-              </span>
-            </AccordionTrigger>
-            <AccordionContent className="space-y-3 pt-2">
-              <div className="text-sm">
-                <div className="font-medium mb-1">What is Aave?</div>
-                <p className="text-muted-foreground text-xs">
-                  A trusted lending protocol with billions in deposits. Your USDC earns interest from borrowers.
-                </p>
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="faq" className="border-none">
+                <AccordionTrigger className="text-sm py-2">
+                  <span className="flex items-center gap-2">
+                    <Info className="h-4 w-4" />
+                    Learn more
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-3 pt-2">
+                  <div className="text-sm">
+                    <div className="font-medium mb-1">What is Aave?</div>
+                    <p className="text-muted-foreground text-xs">
+                      A trusted lending protocol with billions in deposits. Your USDC earns interest from borrowers.
+                    </p>
+                  </div>
+                  <div className="text-sm">
+                    <div className="font-medium mb-1">How does interest work?</div>
+                    <p className="text-muted-foreground text-xs">
+                      Interest accrues every second based on market rates. You receive aUSDC tokens that grow in value automatically.
+                    </p>
+                  </div>
+                  <div className="text-sm">
+                    <div className="font-medium mb-1">Is it safe?</div>
+                    <p className="text-muted-foreground text-xs">
+                      Aave is battle-tested and audited. As with all DeFi, only deposit what you're comfortable with.
+                    </p>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </TabsContent>
+
+          <TabsContent value="allocation" className="mt-4 space-y-4">
+            <div className="text-center space-y-1 mb-2">
+              <p className="text-sm text-muted-foreground">
+                Choose where to direct your savings yield
+              </p>
+            </div>
+
+            {/* Prize Pool - Active */}
+            <Card className="p-4 space-y-4" data-testid="card-allocation-pool">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Trophy className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-medium">Prize Pool</h3>
+                    <Badge variant="outline" className="text-xs">Active</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Contribute yield for a chance to win weekly prizes
+                  </p>
+                </div>
               </div>
-              <div className="text-sm">
-                <div className="font-medium mb-1">How does interest work?</div>
-                <p className="text-muted-foreground text-xs">
-                  Interest accrues every second based on market rates. You receive aUSDC tokens that grow in value automatically.
-                </p>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Yield contribution</span>
+                  <span className="font-medium tabular-nums">{localOptInPercent ?? 0}%</span>
+                </div>
+                <Slider
+                  value={[localOptInPercent ?? 0]}
+                  onValueChange={handleOptInChange}
+                  onValueCommit={handleOptInCommit}
+                  max={100}
+                  step={5}
+                  className="w-full"
+                  disabled={isSavingOptIn || !hasAaveBalance}
+                  data-testid="slider-pool-allocation"
+                />
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>0%</span>
+                  <span>100%</span>
+                </div>
+                {isSavingOptIn && (
+                  <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Saving...
+                  </div>
+                )}
+                {!hasAaveBalance && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Deposit to Aave first to allocate yield
+                  </p>
+                )}
               </div>
-              <div className="text-sm">
-                <div className="font-medium mb-1">Is it safe?</div>
-                <p className="text-muted-foreground text-xs">
-                  Aave is battle-tested and audited. As with all DeFi, only deposit what you're comfortable with.
-                </p>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+
+              {poolStatus && (localOptInPercent ?? 0) > 0 && (
+                <div className="flex items-center justify-between text-xs pt-2 border-t">
+                  <span className="text-muted-foreground">This week's pool</span>
+                  <span className="font-medium">${poolStatus.draw.totalPoolFormatted}</span>
+                </div>
+              )}
+            </Card>
+
+            {/* Coming Soon Options */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Coming Soon</h3>
+              
+              {/* Support Causes */}
+              <Card className="p-4 opacity-60" data-testid="card-allocation-causes">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                    <Heart className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-medium text-muted-foreground">Support Causes</h3>
+                      <Lock className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Donate yield to communities
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Custom Address */}
+              <Card className="p-4 opacity-60" data-testid="card-allocation-address">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                    <Wallet className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-medium text-muted-foreground">Custom Address</h3>
+                      <Lock className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Send yield to any wallet
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Token Buyback */}
+              <Card className="p-4 opacity-60" data-testid="card-allocation-buyback">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                    <ArrowRightLeft className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-medium text-muted-foreground">Token Buyback</h3>
+                      <Lock className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Auto-convert yield to other tokens
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* AI Credits */}
+              <Card className="p-4 opacity-60" data-testid="card-allocation-ai">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                    <Bot className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-medium text-muted-foreground">AI Credits</h3>
+                      <Lock className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Earn credits for AI tools & models
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
       </main>
 
       <Dialog open={showAaveDeposit} onOpenChange={(open) => {
