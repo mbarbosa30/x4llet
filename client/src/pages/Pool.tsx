@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useEarningAnimation } from "@/hooks/use-earning-animation";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { getWallet, getPrivateKey } from "@/lib/wallet";
 import { privateKeyToAccount } from 'viem/accounts';
@@ -212,6 +213,15 @@ export default function Pool() {
   const { data: celoApyData } = useQuery<{ apy: number }>({
     queryKey: ["/api/aave/apy", 42220],
     enabled: !!address,
+  });
+
+  // Animate the prize pool amount (aUSDC earning interest)
+  const prizePoolAnimation = useEarningAnimation({
+    usdcMicro: '0',
+    aaveBalanceMicro: poolStatus?.draw?.totalPool || '0',
+    apyRate: (celoApyData?.apy || 0) / 100,
+    enabled: !!poolStatus && Number(poolStatus.draw.totalPool) > 0 && !!celoApyData?.apy,
+    minPrecision: 5,
   });
 
   // Sync opt-in from server
@@ -502,13 +512,22 @@ export default function Pool() {
               <div>
                 <p className="text-sm text-muted-foreground mb-2">This week's prize</p>
                 {(() => {
-                  const formatted = formatMicroUsdc(poolStatus.draw.totalPool);
-                  const [intPart = '0', decPart = '00'] = formatted.split('.');
+                  const projectedPool = poolStatus.draw.projectedPool || poolStatus.draw.totalPool;
+                  const projectedNum = Number(projectedPool) / 1_000_000;
+                  const isAnimating = prizePoolAnimation.animatedValue > 0 && !!celoApyData?.apy;
+                  
                   return (
-                    <div className="text-5xl font-bold tabular-nums flex items-center justify-center" data-testid="text-intro-prize">
-                      <span className="text-3xl font-normal opacity-50 mr-1">$</span>
-                      <span>{intPart}</span>
-                      <span className="opacity-80">.{decPart}</span>
+                    <div className="text-5xl font-medium tabular-nums flex items-center justify-center" data-testid="text-intro-prize">
+                      <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
+                      <span className="inline-flex items-baseline">
+                        <span>{Math.floor(isAnimating ? prizePoolAnimation.animatedValue : projectedNum)}</span>
+                        <span className="opacity-90">.{isAnimating ? prizePoolAnimation.mainDecimals : (projectedNum % 1).toFixed(2).slice(2)}</span>
+                        {isAnimating && prizePoolAnimation.extraDecimals && (
+                          <span className="text-[0.28em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.65em' }}>
+                            {prizePoolAnimation.extraDecimals}
+                          </span>
+                        )}
+                      </span>
                     </div>
                   );
                 })()}
@@ -623,21 +642,27 @@ export default function Pool() {
                     const projectedNum = Number(projectedPool) / 1_000_000;
                     const hasProjectedGrowth = projectedNum > currentPool && currentPool > 0;
                     
-                    const formatted = formatMicroUsdc(projectedPool);
-                    const [intPart = '0', decPart = '00'] = formatted.split('.');
+                    // Use animated value for current pool, show projected separately
+                    const isAnimating = prizePoolAnimation.animatedValue > 0 && !!celoApyData?.apy;
+                    
                     return (
                       <div className="space-y-1">
                         <div className="text-5xl font-medium tabular-nums flex items-center justify-center" data-testid="text-prize-amount">
                           <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
                           <span className="inline-flex items-baseline">
-                            <span>{intPart}</span>
-                            <span className="opacity-90">.{decPart}</span>
+                            <span>{Math.floor(isAnimating ? prizePoolAnimation.animatedValue : projectedNum)}</span>
+                            <span className="opacity-90">.{isAnimating ? prizePoolAnimation.mainDecimals : (projectedNum % 1).toFixed(2).slice(2)}</span>
+                            {isAnimating && prizePoolAnimation.extraDecimals && (
+                              <span className="text-[0.28em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.65em' }}>
+                                {prizePoolAnimation.extraDecimals}
+                              </span>
+                            )}
                           </span>
                         </div>
                         {hasProjectedGrowth && (
                           <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
                             <TrendingUp className="h-3 w-3" />
-                            Est. prize at draw (${currentPool.toFixed(2)} collected)
+                            Est. ${projectedNum.toFixed(2)} at draw
                           </p>
                         )}
                       </div>
