@@ -404,6 +404,156 @@ export default function Pool() {
                 </div>
               </Card>
 
+              {/* Risk/Return Analysis */}
+              {(() => {
+                const prizePool = Number(poolStatus.draw.totalPool) / 1_000_000;
+                const aUsdcBalance = Number(poolStatus.user.aUsdcBalance) / 1_000_000;
+                // Use actual ticket count (includes referral bonuses), not just prize pool dollars
+                const totalPoolTickets = Number(poolStatus.draw.totalTickets || poolStatus.draw.totalPool) / 1_000_000;
+                const apy = celoApyData?.apy;
+                const hasApyData = apy !== undefined && apy > 0;
+                
+                // Calculate weekly yield cost based on current slider (what you'd be "risking")
+                const weeklyYield = hasApyData ? aUsdcBalance * (apy / 100) / 52 : 0;
+                const weeklyCost = weeklyYield * (optInPercent / 100);
+                
+                // Estimate user's projected tickets at current slider opt-in
+                // Projected contribution = weeklyCost (yield × opt-in%)
+                const projectedTickets = weeklyCost;
+                
+                // Projected odds = (my projected tickets / (pool total + my new tickets)) × 100
+                // For simplicity, approximate as my tickets / pool total (assumes pool >> individual)
+                const projectedOdds = totalPoolTickets > 0 && projectedTickets > 0 
+                  ? (projectedTickets / (totalPoolTickets + projectedTickets)) * 100 
+                  : 0;
+                
+                // ROI multiple: prize / weekly cost (how many times your cost could you win?)
+                const roiMultiple = weeklyCost > 0 ? prizePool / weeklyCost : 0;
+                
+                // Expected Value: (prize × projected odds) - cost (all using same opt-in assumption)
+                const expectedValue = hasApyData && projectedOdds > 0 
+                  ? (prizePool * projectedOdds / 100) - weeklyCost 
+                  : 0;
+                
+                // No-brainer rating based on ROI multiple and EV
+                let rating: 'no-brainer' | 'high-upside' | 'fair' | 'not-participating' | 'estimate-unavailable' = 'not-participating';
+                let ratingColor = 'text-muted-foreground';
+                let ratingBg = 'bg-muted/50';
+                
+                if (optInPercent === 0) {
+                  rating = 'not-participating';
+                  ratingColor = 'text-muted-foreground';
+                  ratingBg = 'bg-muted/50';
+                } else if (!hasApyData || aUsdcBalance === 0) {
+                  rating = 'estimate-unavailable';
+                  ratingColor = 'text-muted-foreground';
+                  ratingBg = 'bg-muted/50';
+                } else if (expectedValue >= 0 && roiMultiple >= 100) {
+                  rating = 'no-brainer';
+                  ratingColor = 'text-green-600 dark:text-green-400';
+                  ratingBg = 'bg-green-100 dark:bg-green-900/30';
+                } else if (roiMultiple >= 50) {
+                  rating = 'high-upside';
+                  ratingColor = 'text-amber-600 dark:text-amber-400';
+                  ratingBg = 'bg-amber-100 dark:bg-amber-900/30';
+                } else if (roiMultiple > 0) {
+                  rating = 'fair';
+                  ratingColor = 'text-blue-600 dark:text-blue-400';
+                  ratingBg = 'bg-blue-100 dark:bg-blue-900/30';
+                }
+                
+                // Cost bar width as percentage of prize (capped for visual, use log scale for tiny costs)
+                const costRatio = prizePool > 0 && weeklyCost > 0 ? weeklyCost / prizePool : 0;
+                // Use log scale: tiny costs still visible but proportionally small
+                const costBarWidth = costRatio > 0 ? Math.max(Math.min(Math.log10(1 + costRatio * 1000) * 15, 40), 3) : 0;
+                
+                return (
+                  <Card className="p-4 space-y-3">
+                    <div className="text-sm font-medium flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-primary" />
+                      Risk / Return Analysis
+                    </div>
+                    
+                    {/* No-brainer meter */}
+                    <div className={`rounded-lg p-3 ${ratingBg}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-sm font-medium ${ratingColor}`} data-testid="text-rating">
+                          {rating === 'no-brainer' && 'No-brainer'}
+                          {rating === 'high-upside' && 'High upside'}
+                          {rating === 'fair' && 'Fair odds'}
+                          {rating === 'not-participating' && 'Not participating'}
+                          {rating === 'estimate-unavailable' && 'Add Celo savings to see analysis'}
+                        </span>
+                        {roiMultiple > 0 && (
+                          <span className="text-lg font-bold" data-testid="text-roi-multiple">
+                            {roiMultiple >= 1000 ? `${(roiMultiple/1000).toFixed(0)}k` : roiMultiple.toFixed(0)}x
+                          </span>
+                        )}
+                      </div>
+                      {roiMultiple > 0 && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Prize is {roiMultiple >= 1000 ? `${(roiMultiple/1000).toFixed(0)}k` : roiMultiple.toFixed(0)}x your weekly yield cost
+                        </p>
+                      )}
+                    </div>
+                    
+                    {/* Cost vs Prize visual */}
+                    {hasApyData && optInPercent > 0 && weeklyCost > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Your weekly cost</span>
+                          <span>Potential prize</span>
+                        </div>
+                        <div className="relative h-6 bg-muted/50 rounded-full overflow-hidden">
+                          {/* Cost portion (tiny) */}
+                          <div 
+                            className="absolute left-0 top-0 h-full bg-orange-400/70 dark:bg-orange-500/50 rounded-l-full"
+                            style={{ width: `${costBarWidth}%` }}
+                          />
+                          {/* Prize portion (rest) */}
+                          <div 
+                            className="absolute right-0 top-0 h-full bg-primary/70 rounded-r-full"
+                            style={{ width: `${100 - costBarWidth}%` }}
+                          />
+                          {/* Labels */}
+                          <div className="absolute inset-0 flex items-center justify-between px-2 text-[10px] font-medium">
+                            <span className="text-orange-800 dark:text-orange-200">
+                              ${weeklyCost < 0.01 ? weeklyCost.toFixed(4) : weeklyCost.toFixed(2)}
+                            </span>
+                            <span className="text-primary-foreground">
+                              ${formatMicroUsdc(poolStatus.draw.totalPool)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Expected Value & Odds */}
+                    {hasApyData && optInPercent > 0 && projectedOdds > 0 && (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Projected odds</span>
+                          <span className="font-medium" data-testid="text-projected-odds">
+                            {projectedOdds < 0.01 ? projectedOdds.toFixed(4) : projectedOdds.toFixed(2)}%
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Expected value</span>
+                          <span className={`font-medium ${expectedValue >= 0 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`} data-testid="text-expected-value">
+                            {expectedValue >= 0 ? '+' : ''}${Math.abs(expectedValue) < 0.01 ? expectedValue.toFixed(4) : expectedValue.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Key insight */}
+                    <p className="text-xs text-muted-foreground text-center pt-2 border-t">
+                      You never risk principal—only a slice of weekly yield. Worst case: you keep your savings.
+                    </p>
+                  </Card>
+                );
+              })()}
+
               {/* Contribution */}
               <Card className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
