@@ -183,18 +183,33 @@ export default function Home() {
     setShowVouchConfirmation(false);
   };
 
-  if (isLoadingWallet) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto" />
-          <p className="text-sm text-muted-foreground">Loading wallet...</p>
-        </div>
-      </div>
-    );
-  }
+  // Skeleton that matches BalanceCard height (p-8 = 2rem padding, content ~140px)
+  const BalanceCardSkeleton = () => (
+    <div className="animate-pulse rounded-lg border bg-card p-8 text-center space-y-3">
+      <div className="h-3 w-16 bg-muted rounded mx-auto"></div>
+      <div className="h-12 w-40 bg-muted rounded mx-auto"></div>
+      <div className="h-4 w-24 bg-muted rounded mx-auto"></div>
+    </div>
+  );
 
-  if (!address) {
+  // Transaction list skeleton - matches 3 transaction items
+  const TransactionListSkeleton = () => (
+    <div className="animate-pulse space-y-2">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex items-center gap-3 p-3 rounded-lg border">
+          <div className="w-10 h-10 bg-muted rounded-full"></div>
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-24 bg-muted rounded"></div>
+            <div className="h-3 w-16 bg-muted rounded"></div>
+          </div>
+          <div className="h-4 w-16 bg-muted rounded"></div>
+        </div>
+      ))}
+    </div>
+  );
+
+  // Always render the same layout structure - just show skeletons when loading
+  if (!address && !isLoadingWallet) {
     return null;
   }
 
@@ -207,12 +222,14 @@ export default function Home() {
       }}
     >
       <main className="max-w-md mx-auto p-4 space-y-6">
-        <AddressDisplay address={address} />
+        {isLoadingWallet ? (
+          <div className="animate-pulse h-6 w-32 bg-muted rounded mx-auto"></div>
+        ) : (
+          <AddressDisplay address={address!} />
+        )}
         
-        {isLoading ? (
-          <div className="animate-pulse">
-            <div className="h-32 bg-muted rounded-lg"></div>
-          </div>
+        {isLoadingWallet || isLoading ? (
+          <BalanceCardSkeleton />
         ) : (
           <BalanceCard 
             balance={balance}
@@ -220,7 +237,7 @@ export default function Home() {
             balanceMicro={balanceMicro}
             exchangeRate={exchangeRate?.rate}
             fiatCurrency={currency}
-            address={address}
+            address={address!}
             chains={chains}
             aaveBalance={aaveBalance}
             earnMode={earnMode}
@@ -251,21 +268,25 @@ export default function Home() {
 
         <div className="space-y-3">
           <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Recent Activity</h2>
-          <TransactionList 
-            transactions={transactions.map(tx => {
-              const fiatAmount = exchangeRate 
-                ? ((parseFloat(tx.amount) / 1e6) * exchangeRate.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                : null;
-              
-              return {
-                ...tx,
-                address: tx.type === 'send' ? tx.to : tx.from,
-                fiatAmount: fiatAmount || undefined,
-                fiatCurrency: currency !== 'USD' ? currency : undefined,
-              };
-            })}
-            onTransactionClick={handleTransactionClick}
-          />
+          {isLoadingWallet ? (
+            <TransactionListSkeleton />
+          ) : (
+            <TransactionList 
+              transactions={transactions.map(tx => {
+                const fiatAmount = exchangeRate 
+                  ? ((parseFloat(tx.amount) / 1e6) * exchangeRate.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                  : null;
+                
+                return {
+                  ...tx,
+                  address: tx.type === 'send' ? tx.to : tx.from,
+                  fiatAmount: fiatAmount || undefined,
+                  fiatCurrency: currency !== 'USD' ? currency : undefined,
+                };
+              })}
+              onTransactionClick={handleTransactionClick}
+            />
+          )}
         </div>
       </main>
 
