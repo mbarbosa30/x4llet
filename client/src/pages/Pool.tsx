@@ -30,7 +30,12 @@ import {
   Info,
   BarChart3,
   AlertCircle,
-  Loader2
+  Loader2,
+  Zap,
+  ArrowRight,
+  PiggyBank,
+  Shield,
+  UserPlus
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
@@ -121,7 +126,8 @@ export default function Pool() {
   const search = useSearch();
   const { toast } = useToast();
   const [address, setAddress] = useState<string | null>(null);
-  const [optInPercent, setOptInPercent] = useState<number>(0);
+  const [optInPercent, setOptInPercent] = useState<number>(50); // Default to 50% for intro
+  const [hasInitializedOptIn, setHasInitializedOptIn] = useState(false);
   const [isSavingOptIn, setIsSavingOptIn] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [referralInput, setReferralInput] = useState("");
@@ -165,12 +171,19 @@ export default function Pool() {
     enabled: !!address,
   });
 
-  // Set initial opt-in from server
+  // Sync opt-in from server
   useEffect(() => {
-    if (poolStatus?.user?.optInPercent !== undefined) {
-      setOptInPercent(poolStatus.user.optInPercent);
+    if (poolStatus?.user?.optInPercent !== undefined && !hasInitializedOptIn) {
+      // Distinguish between new users and returning opted-out users:
+      // - New users (no snapshot): keep 50% default for intro UX
+      // - Returning users (has snapshot): sync their saved value, even if 0
+      if (poolStatus.user.hasSnapshot || poolStatus.user.optInPercent > 0) {
+        setOptInPercent(poolStatus.user.optInPercent);
+      }
+      // New users without snapshot keep the default 50%
+      setHasInitializedOptIn(true);
     }
-  }, [poolStatus]);
+  }, [poolStatus, hasInitializedOptIn]);
 
   const optInMutation = useMutation({
     mutationFn: async (percent: number) => {
@@ -178,19 +191,24 @@ export default function Pool() {
       return result.json();
     },
     onSuccess: (data: { contributionMade?: string; contributionMadeFormatted?: string; optInPercent?: number }) => {
+      // Sync local state to confirmed server value
+      if (data?.optInPercent !== undefined) {
+        setOptInPercent(data.optInPercent);
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/pool/status", address] });
       
       // Show appropriate message based on yield collection
+      const savedPercent = data?.optInPercent ?? optInPercent;
       const contributionMade = parseFloat(data?.contributionMade || '0');
       if (contributionMade > 0) {
         toast({
           title: "Yield contributed!",
           description: `$${formatMicroUsdc(data?.contributionMade || '0')} added to this week's prize pool`,
         });
-      } else if (optInPercent > 0) {
+      } else if (savedPercent > 0) {
         toast({
           title: "Saved",
-          description: `Contributing ${optInPercent}% of your Celo yield to the pool`,
+          description: `Contributing ${savedPercent}% of your Celo yield to the pool`,
         });
       } else {
         toast({
@@ -317,6 +335,229 @@ export default function Pool() {
           <div className="space-y-4">
             <Skeleton className="h-40 w-full" />
             <Skeleton className="h-32 w-full" />
+          </div>
+        ) : poolStatus && (poolStatus.user.optInPercent ?? 0) === 0 ? (
+          /* Onboarding Intro for Non-Participants */
+          <div className="space-y-4">
+            {/* Hero Prize Display */}
+            <Card className="p-6 space-y-4 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+              <div className="text-center space-y-3">
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/10">
+                  <Trophy className="h-7 w-7 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">This week's prize</p>
+                  {(() => {
+                    const formatted = formatMicroUsdc(poolStatus.draw.totalPool);
+                    const [intPart = '0', decPart = '00'] = formatted.split('.');
+                    return (
+                      <div className="text-4xl font-bold tabular-nums flex items-center justify-center" data-testid="text-intro-prize">
+                        <span className="text-2xl font-normal opacity-50 mr-1">$</span>
+                        <span>{intPart}</span>
+                        <span className="opacity-80">.{decPart}</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+                <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Users className="h-3.5 w-3.5" />
+                    {poolStatus.draw.participantCount} players
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5" />
+                    {formatCountdown(poolStatus.countdown.hoursUntilDraw, poolStatus.countdown.minutesUntilDraw)}
+                  </span>
+                </div>
+              </div>
+            </Card>
+
+            {/* How It Works */}
+            <Card className="p-4 space-y-4">
+              <h3 className="text-sm font-medium">How it works</h3>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                    <PiggyBank className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Deposit USDC on Celo</p>
+                    <p className="text-xs text-muted-foreground">
+                      Add savings to Aave on the <button onClick={() => setLocation('/earn')} className="text-primary underline-offset-2 hover:underline">Earn page</button> to start earning yield
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Ticket className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Contribute yield for tickets</p>
+                    <p className="text-xs text-muted-foreground">
+                      Choose how much of your weekly yield goes to the prize pool
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Trophy className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Win the weekly prize</p>
+                    <p className="text-xs text-muted-foreground">
+                      More tickets = better odds. One winner takes all each Sunday
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Key Benefits */}
+            <div className="grid grid-cols-2 gap-3">
+              <Card className="p-3 space-y-1">
+                <Shield className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <p className="text-xs font-medium">Zero risk to savings</p>
+                <p className="text-[10px] text-muted-foreground">Only yield is used, never principal</p>
+              </Card>
+              <Card className="p-3 space-y-1">
+                <UserPlus className="h-4 w-4 text-primary" />
+                <p className="text-xs font-medium">Referral bonuses</p>
+                <p className="text-[10px] text-muted-foreground">Earn 10% bonus from friends' yield</p>
+              </Card>
+            </div>
+
+            {/* Risk/Return Preview */}
+            {(() => {
+              const prizePool = Number(poolStatus.draw.totalPool) / 1_000_000;
+              const aUsdcBalance = Number(poolStatus.user.aUsdcBalance) / 1_000_000;
+              const apy = celoApyData?.apy;
+              const hasApyData = apy !== undefined && apy > 0;
+              
+              // Calculate based on current slider value
+              const weeklyYield = hasApyData ? aUsdcBalance * (apy / 100) / 52 : 0;
+              const weeklyCost = weeklyYield * (optInPercent / 100);
+              const roiMultiple = weeklyCost > 0 ? prizePool / weeklyCost : 0;
+              
+              if (!hasApyData || aUsdcBalance === 0) {
+                return (
+                  <Card className="p-4 border-dashed">
+                    <div className="text-center space-y-2">
+                      <p className="text-sm text-muted-foreground">
+                        Add Celo savings on the Earn page to see your potential returns
+                      </p>
+                      <Button variant="outline" size="sm" onClick={() => setLocation('/earn')} data-testid="button-go-earn">
+                        Go to Earn
+                        <ArrowRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    </div>
+                  </Card>
+                );
+              }
+              
+              if (optInPercent === 0) {
+                return (
+                  <Card className="p-4 border-dashed">
+                    <div className="text-center space-y-1">
+                      <p className="text-sm text-muted-foreground">
+                        Move the slider above to see your potential returns
+                      </p>
+                    </div>
+                  </Card>
+                );
+              }
+              
+              return (
+                <Card className="p-4 space-y-3">
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-primary" />
+                    Your potential at {optInPercent}% contribution
+                  </div>
+                  
+                  {/* Upside display */}
+                  <div className="bg-green-100 dark:bg-green-900/30 rounded-lg p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                        Prize is {roiMultiple >= 1000 ? `${(roiMultiple/1000).toFixed(0)}k` : roiMultiple.toFixed(0)}x your cost
+                      </span>
+                      <span className="text-lg font-bold text-green-700 dark:text-green-300">
+                        {roiMultiple >= 1000 ? `${(roiMultiple/1000).toFixed(0)}k` : roiMultiple.toFixed(0)}x
+                      </span>
+                    </div>
+                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                      Risk ~${weeklyCost < 0.01 ? weeklyCost.toFixed(4) : weeklyCost.toFixed(2)}/week to win ${formatMicroUsdc(poolStatus.draw.totalPool)}
+                    </p>
+                  </div>
+                  
+                  {/* Visual bar */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>Your weekly cost</span>
+                      <span>Potential prize</span>
+                    </div>
+                    <div className="relative h-5 bg-muted/50 rounded-full overflow-hidden">
+                      <div className="absolute left-0 top-0 h-full bg-orange-400/70 dark:bg-orange-500/50 rounded-l-full" style={{ width: '5%' }} />
+                      <div className="absolute right-0 top-0 h-full bg-primary/70 rounded-r-full" style={{ width: '95%' }} />
+                    </div>
+                  </div>
+                </Card>
+              );
+            })()}
+
+            {/* Quick Start */}
+            <Card className="p-4 space-y-4">
+              <div className="text-sm font-medium flex items-center gap-2">
+                <Zap className="h-4 w-4 text-primary" />
+                Quick start
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Yield contribution</span>
+                  <Badge variant="outline" className="font-bold px-2" data-testid="text-intro-opt-in">
+                    {optInPercent}%
+                  </Badge>
+                </div>
+                <Slider
+                  value={[optInPercent]}
+                  onValueChange={handleOptInChange}
+                  max={100}
+                  step={5}
+                  className="w-full"
+                  data-testid="slider-intro-opt-in"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Keep all yield</span>
+                  <span>Max tickets</span>
+                </div>
+              </div>
+              
+              <Button 
+                className="w-full" 
+                size="lg"
+                disabled={optInPercent === 0 || Number(poolStatus.user.aUsdcBalance) === 0}
+                onClick={() => {
+                  setPendingOptInPercent(optInPercent);
+                  setShowContributionDialog(true);
+                }}
+                data-testid="button-activate"
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                {Number(poolStatus.user.aUsdcBalance) === 0 
+                  ? "Add savings first" 
+                  : optInPercent === 0 
+                    ? "Choose contribution %" 
+                    : "Activate & Join Pool"}
+              </Button>
+              
+              {Number(poolStatus.user.aUsdcBalance) === 0 && (
+                <p className="text-xs text-muted-foreground text-center">
+                  You need Celo Aave savings to participate.{' '}
+                  <button onClick={() => setLocation('/earn')} className="text-primary underline-offset-2 hover:underline">
+                    Add savings
+                  </button>
+                </p>
+              )}
+            </Card>
           </div>
         ) : poolStatus ? (
           <Tabs defaultValue="pool" className="w-full">
