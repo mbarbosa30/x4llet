@@ -117,6 +117,65 @@ export const aaveOperations = pgTable("aave_operations", {
 
 export type AaveOperation = typeof aaveOperations.$inferSelect;
 
+// Pool (Prize-Linked Savings) Tables
+
+export const poolSettings = pgTable("pool_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: text("wallet_address").notNull().unique(),
+  optInPercent: integer("opt_in_percent").notNull().default(0), // 0-100
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const referrals = pgTable("referrals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  referrerAddress: text("referrer_address").notNull(),
+  refereeAddress: text("referee_address").notNull().unique(), // Each address can only be referred once
+  referralCode: text("referral_code").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const poolDraws = pgTable("pool_draws", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  weekNumber: integer("week_number").notNull(), // ISO week number
+  year: integer("year").notNull(),
+  weekStart: timestamp("week_start").notNull(),
+  weekEnd: timestamp("week_end").notNull(),
+  totalPool: text("total_pool").notNull().default('0'), // Total yield in micro-USDC
+  totalTickets: text("total_tickets").notNull().default('0'), // Total tickets
+  participantCount: integer("participant_count").notNull().default(0),
+  winnerAddress: text("winner_address"),
+  winnerTickets: text("winner_tickets"),
+  status: text("status").notNull().default('active'), // active, drawing, completed
+  drawnAt: timestamp("drawn_at"),
+  winningNumber: text("winning_number"), // For transparency
+}, (table) => ({
+  weekYearUnique: unique().on(table.weekNumber, table.year),
+}));
+
+export const poolContributions = pgTable("pool_contributions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  drawId: varchar("draw_id").notNull(),
+  walletAddress: text("wallet_address").notNull(),
+  yieldContributed: text("yield_contributed").notNull().default('0'), // micro-USDC
+  referralBonusTickets: text("referral_bonus_tickets").notNull().default('0'), // 10% of referrals' yield
+  totalTickets: text("total_tickets").notNull().default('0'), // yieldContributed + referralBonusTickets
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  drawWalletUnique: unique().on(table.drawId, table.walletAddress),
+}));
+
+export type PoolSettings = typeof poolSettings.$inferSelect;
+export type PoolDraw = typeof poolDraws.$inferSelect;
+export type PoolContribution = typeof poolContributions.$inferSelect;
+export type Referral = typeof referrals.$inferSelect;
+
+export const insertPoolSettingsSchema = createInsertSchema(poolSettings).omit({ id: true, updatedAt: true });
+export type InsertPoolSettings = z.infer<typeof insertPoolSettingsSchema>;
+
+export const insertReferralSchema = createInsertSchema(referrals).omit({ id: true, createdAt: true });
+export type InsertReferral = z.infer<typeof insertReferralSchema>;
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
