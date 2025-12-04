@@ -213,8 +213,14 @@ export default function Pool() {
 
   if (!address) {
     return (
-      <div className="min-h-screen bg-background p-4 flex items-center justify-center">
-        <Card className="max-w-md w-full p-6 space-y-6">
+      <div 
+        className="min-h-screen bg-background flex items-center justify-center"
+        style={{ 
+          paddingTop: 'calc(4rem + env(safe-area-inset-top))',
+          paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))' 
+        }}
+      >
+        <Card className="max-w-md w-full mx-4 p-6 space-y-6">
           <div className="text-center space-y-2">
             <Trophy className="h-12 w-12 mx-auto text-muted-foreground" />
             <h2 className="text-lg font-semibold">Prize Pool</h2>
@@ -231,10 +237,16 @@ export default function Pool() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="p-4 space-y-4 max-w-md mx-auto">
+    <div 
+      className="min-h-screen bg-background"
+      style={{ 
+        paddingTop: 'calc(4rem + env(safe-area-inset-top))',
+        paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))' 
+      }}
+    >
+      <main className="max-w-md mx-auto p-4 space-y-6">
         {/* Header */}
-        <div className="text-center">
+        <div className="text-center space-y-1">
           <h1 className="text-lg font-semibold">Prize Pool</h1>
           <p className="text-xs text-muted-foreground">Win weekly prizes from your savings yield</p>
         </div>
@@ -526,7 +538,7 @@ export default function Pool() {
             </Button>
           </Card>
         )}
-      </div>
+      </main>
     </div>
   );
 }
