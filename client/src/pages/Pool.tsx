@@ -5,9 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -22,7 +20,6 @@ import {
   Share2, 
   Gift, 
   TrendingUp, 
-  Info, 
   Copy, 
   Check, 
   ChevronRight, 
@@ -241,14 +238,11 @@ export default function Pool() {
     <div className="min-h-screen bg-background pb-24">
       <div className="p-4 space-y-4 max-w-md mx-auto">
         {/* Header */}
-        <div className="text-center space-y-2">
+        <div className="text-center">
           <div className="flex items-center justify-center gap-2">
-            <Sparkles className="h-6 w-6 text-primary" />
+            <Trophy className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold">Prize Pool</h1>
           </div>
-          <p className="text-muted-foreground text-sm">
-            Contribute yield for a chance to win the weekly prize
-          </p>
         </div>
 
         {isLoadingStatus ? (
@@ -279,22 +273,23 @@ export default function Pool() {
               {/* Prize Pool Card */}
               <Card>
                 <CardContent className="pt-6">
-                  <div className="text-center space-y-4">
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">This Week's Prize</p>
-                      <p className="text-4xl font-bold text-primary" data-testid="text-prize-amount">
-                        ${poolStatus.draw.totalPoolFormatted}
-                      </p>
-                    </div>
+                  <div className="text-center space-y-3">
+                    <Badge variant="secondary" className="text-xs">
+                      Week {poolStatus.draw.weekNumber}, {poolStatus.draw.year}
+                    </Badge>
+                    
+                    <p className="text-5xl font-bold text-primary" data-testid="text-prize-amount">
+                      ${poolStatus.draw.totalPoolFormatted}
+                    </p>
 
-                    <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-center gap-4">
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Users className="h-4 w-4" />
                         <span data-testid="text-participant-count">
                           {poolStatus.draw.participantCount} players
                         </span>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Clock className="h-4 w-4" />
                         <span data-testid="text-countdown">
                           {formatCountdown(
@@ -304,31 +299,23 @@ export default function Pool() {
                         </span>
                       </div>
                     </div>
-
-                    <p className="text-xs text-muted-foreground">
-                      Week {poolStatus.draw.weekNumber}, {poolStatus.draw.year}
-                    </p>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Your Position */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Target className="h-4 w-4" />
-                    Your Position
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center p-3 bg-muted/50 rounded-lg">
+                <CardContent className="pt-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="text-center p-4 bg-muted/50 rounded-lg">
+                      <Ticket className="h-5 w-5 text-primary mx-auto mb-1" />
                       <p className="text-2xl font-bold" data-testid="text-your-tickets">
                         {(Number(poolStatus.user.totalTickets) / 1_000_000).toFixed(2)}
                       </p>
-                      <p className="text-xs text-muted-foreground">Your Tickets</p>
+                      <p className="text-xs text-muted-foreground">Tickets</p>
                     </div>
-                    <div className="text-center p-3 bg-muted/50 rounded-lg">
+                    <div className="text-center p-4 bg-muted/50 rounded-lg">
+                      <Target className="h-5 w-5 text-primary mx-auto mb-1" />
                       <p className="text-2xl font-bold text-primary" data-testid="text-your-odds">
                         {poolStatus.user.odds}%
                       </p>
@@ -338,88 +325,67 @@ export default function Pool() {
                 </CardContent>
               </Card>
 
-              {/* Opt-In Settings */}
+              {/* Opt-In Settings - Simplified */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Coins className="h-4 w-4" />
-                    Yield Contribution
-                  </CardTitle>
-                  <CardDescription>
-                    Choose how much of your Aave savings yield to contribute
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Contribution</span>
-                      <span className="text-lg font-bold" data-testid="text-opt-in-percent">
-                        {optInPercent}%
-                      </span>
+                <CardContent className="pt-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Coins className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Yield Contribution</span>
                     </div>
-                    <Slider
-                      value={[optInPercent]}
-                      onValueChange={handleOptInChange}
-                      onValueCommit={handleOptInCommit}
-                      max={100}
-                      step={5}
-                      className="w-full"
-                      data-testid="slider-opt-in"
-                    />
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>0% (Keep all yield)</span>
-                      <span>100% (Max tickets)</span>
-                    </div>
+                    <Badge variant="outline" className="text-lg font-bold px-3" data-testid="text-opt-in-percent">
+                      {optInPercent}%
+                    </Badge>
                   </div>
-
-                  <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg">
-                    <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-muted-foreground">
-                      The yield you contribute becomes tickets. More tickets = higher odds of winning.
-                      You keep {100 - optInPercent}% of your savings yield.
-                    </p>
+                  <Slider
+                    value={[optInPercent]}
+                    onValueChange={handleOptInChange}
+                    onValueCommit={handleOptInCommit}
+                    max={100}
+                    step={5}
+                    className="w-full"
+                    data-testid="slider-opt-in"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Keep all</span>
+                    <span>Max tickets</span>
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Pool Tab Footer Explanation */}
+              <p className="text-xs text-muted-foreground text-center px-4">
+                Your Aave savings yield converts to tickets. Higher contribution = more tickets = better odds!
+              </p>
             </TabsContent>
 
             {/* Tickets Tab */}
             <TabsContent value="tickets" className="space-y-4">
               {/* Ticket Breakdown */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Ticket className="h-4 w-4" />
-                    Ticket Breakdown
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4 text-green-500" />
-                        <span className="text-sm">From your yield</span>
-                      </div>
-                      <span className="font-medium" data-testid="text-yield-tickets">
-                        {poolStatus.user.yieldContributedFormatted}
-                      </span>
+                <CardContent className="pt-4 space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">Your yield</span>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <Gift className="h-4 w-4 text-purple-500" />
-                        <span className="text-sm">Referral bonus</span>
-                      </div>
-                      <span className="font-medium" data-testid="text-referral-tickets">
-                        {(Number(poolStatus.user.referralBonusTickets) / 1_000_000).toFixed(4)}
-                      </span>
+                    <span className="font-medium" data-testid="text-yield-tickets">
+                      {poolStatus.user.yieldContributedFormatted}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Gift className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">Referral bonus</span>
                     </div>
+                    <span className="font-medium" data-testid="text-referral-tickets">
+                      +{(Number(poolStatus.user.referralBonusTickets) / 1_000_000).toFixed(4)}
+                    </span>
                   </div>
 
-                  <Separator />
-
-                  <div className="flex items-center justify-between font-medium">
-                    <span>Total Tickets</span>
-                    <span className="text-lg text-primary" data-testid="text-total-tickets">
+                  <div className="flex items-center justify-between pt-2 border-t">
+                    <span className="font-medium">Total</span>
+                    <span className="text-xl font-bold text-primary" data-testid="text-total-tickets">
                       {(Number(poolStatus.user.totalTickets) / 1_000_000).toFixed(2)}
                     </span>
                   </div>
@@ -428,18 +394,17 @@ export default function Pool() {
 
               {/* Referral System */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Share2 className="h-4 w-4" />
-                    Invite Friends
-                  </CardTitle>
-                  <CardDescription>
-                    Earn 10% bonus tickets from your referrals' contributions
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="pt-4 space-y-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Share2 className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Share & Earn</span>
+                    <Badge variant="secondary" className="ml-auto" data-testid="badge-referral-count">
+                      {poolStatus.referral.activeReferrals} referred
+                    </Badge>
+                  </div>
+                  
                   <div className="flex gap-2">
-                    <div className="flex-1 p-3 bg-muted rounded-lg font-mono text-sm">
+                    <div className="flex-1 p-3 bg-muted rounded-lg font-mono text-sm text-center">
                       {poolStatus.referral.code}
                     </div>
                     <Button
@@ -449,100 +414,63 @@ export default function Pool() {
                       data-testid="button-copy-referral"
                     >
                       {copiedCode ? (
-                        <Check className="h-4 w-4 text-green-500" />
+                        <Check className="h-4 w-4 text-primary" />
                       ) : (
                         <Copy className="h-4 w-4" />
                       )}
                     </Button>
                   </div>
+                </CardContent>
+              </Card>
 
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <span className="text-sm">Active Referrals</span>
-                    <Badge variant="secondary" data-testid="badge-referral-count">
-                      {poolStatus.referral.activeReferrals}
-                    </Badge>
+              {/* Have a referral code? - Compact */}
+              <Dialog open={showReferralDialog} onOpenChange={setShowReferralDialog}>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" className="w-full text-muted-foreground" data-testid="button-enter-referral">
+                    Have a code? Enter it here
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Enter Referral Code</DialogTitle>
+                    <DialogDescription>
+                      8-character code from a friend
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-4">
+                    <Input
+                      placeholder="A1B2C3D4"
+                      value={referralInput}
+                      onChange={(e) => setReferralInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))}
+                      className="font-mono text-center text-lg"
+                      maxLength={8}
+                      data-testid="input-referral-code"
+                    />
+                    <Button
+                      className="w-full"
+                      onClick={() => applyReferralMutation.mutate(referralInput)}
+                      disabled={!referralInput || referralInput.length !== 8 || applyReferralMutation.isPending}
+                      data-testid="button-apply-referral"
+                    >
+                      {applyReferralMutation.isPending ? "Applying..." : "Apply Code"}
+                    </Button>
                   </div>
+                </DialogContent>
+              </Dialog>
 
-                  {poolStatus.referral.referralsList.length > 0 && (
-                    <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Your referrals</Label>
-                      <div className="space-y-1 max-h-32 overflow-y-auto">
-                        {poolStatus.referral.referralsList.map((ref) => (
-                          <div
-                            key={ref.address}
-                            className="flex items-center justify-between text-xs p-2 bg-muted/30 rounded"
-                          >
-                            <span className="font-mono">{formatAddress(ref.address)}</span>
-                            <span className="text-muted-foreground">
-                              {new Date(ref.createdAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Have a referral code? */}
-              <Card>
-                <CardContent className="pt-4">
-                  <Dialog open={showReferralDialog} onOpenChange={setShowReferralDialog}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" className="w-full" data-testid="button-enter-referral">
-                        Have a referral code?
-                        <ChevronRight className="h-4 w-4 ml-1" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Enter Referral Code</DialogTitle>
-                        <DialogDescription>
-                          Enter a friend's referral code to give them bonus tickets
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4 pt-4">
-                        <Input
-                          placeholder="Enter code (e.g., A1B2C3D4)"
-                          value={referralInput}
-                          onChange={(e) => setReferralInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))}
-                          className="font-mono text-center text-lg"
-                          maxLength={8}
-                          data-testid="input-referral-code"
-                        />
-                        {referralInput && referralInput.length < 8 && (
-                          <p className="text-xs text-muted-foreground text-center">
-                            Code should be 8 characters
-                          </p>
-                        )}
-                        <Button
-                          className="w-full"
-                          onClick={() => applyReferralMutation.mutate(referralInput)}
-                          disabled={!referralInput || referralInput.length !== 8 || applyReferralMutation.isPending}
-                          data-testid="button-apply-referral"
-                        >
-                          {applyReferralMutation.isPending ? "Applying..." : "Apply Code"}
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </CardContent>
-              </Card>
+              {/* Tickets Tab Footer Explanation */}
+              <p className="text-xs text-muted-foreground text-center px-4">
+                Invite friends to earn 10% of their ticket contributions as a bonus!
+              </p>
             </TabsContent>
 
             {/* History Tab */}
             <TabsContent value="history" className="space-y-4">
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Trophy className="h-4 w-4" />
-                    Past Winners
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+                <CardContent className="pt-4">
                   {isLoadingHistory ? (
                     <div className="space-y-2">
-                      <Skeleton className="h-12 w-full" />
                       <Skeleton className="h-12 w-full" />
                       <Skeleton className="h-12 w-full" />
                     </div>
@@ -556,7 +484,7 @@ export default function Pool() {
                         >
                           <div>
                             <p className="text-sm font-medium">
-                              Week {draw.weekNumber}, {draw.year}
+                              Week {draw.weekNumber}
                             </p>
                             <p className="text-xs text-muted-foreground">
                               {draw.participantCount} players
@@ -567,7 +495,7 @@ export default function Pool() {
                               ${draw.totalPoolFormatted}
                             </p>
                             {draw.winnerAddress && (
-                              <p className="text-xs text-muted-foreground">
+                              <p className="text-xs font-mono text-muted-foreground">
                                 {formatAddress(draw.winnerAddress)}
                               </p>
                             )}
@@ -576,10 +504,9 @@ export default function Pool() {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8 text-muted-foreground">
+                    <div className="text-center py-6 text-muted-foreground">
                       <Trophy className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">No completed draws yet</p>
-                      <p className="text-xs mt-1">The first draw happens at the end of this week</p>
+                      <p className="text-sm">First draw coming soon!</p>
                     </div>
                   )}
                 </CardContent>
@@ -587,48 +514,32 @@ export default function Pool() {
 
               {/* How it works */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Info className="h-4 w-4" />
-                    How It Works
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
-                      1
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Deposit to Aave</p>
-                      <p className="text-xs text-muted-foreground">
-                        Your USDC earns yield in Aave savings
-                      </p>
-                    </div>
+                <CardContent className="pt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">How It Works</span>
                   </div>
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
-                      2
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="space-y-1">
+                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold mx-auto">1</div>
+                      <p className="text-xs text-muted-foreground">Save in Aave</p>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">Choose your contribution</p>
-                      <p className="text-xs text-muted-foreground">
-                        Opt-in 0-100% of yield to the prize pool
-                      </p>
+                    <div className="space-y-1">
+                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold mx-auto">2</div>
+                      <p className="text-xs text-muted-foreground">Contribute yield</p>
                     </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
-                      3
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Win the weekly draw</p>
-                      <p className="text-xs text-muted-foreground">
-                        More tickets = higher odds. Winner takes all!
-                      </p>
+                    <div className="space-y-1">
+                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold mx-auto">3</div>
+                      <p className="text-xs text-muted-foreground">Win weekly!</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
+
+              {/* History Tab Footer */}
+              <p className="text-xs text-muted-foreground text-center px-4">
+                Draws happen every Sunday. Winner takes the entire pool!
+              </p>
             </TabsContent>
           </Tabs>
         ) : (
