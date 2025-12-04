@@ -1,7 +1,9 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { transferRequestSchema, transferResponseSchema, paymentRequestSchema, submitAuthorizationSchema, authorizationSchema, type Authorization, aaveOperations } from "@shared/schema";
+import { db } from "./db";
+import { transferRequestSchema, transferResponseSchema, paymentRequestSchema, submitAuthorizationSchema, authorizationSchema, type Authorization, aaveOperations, poolDraws } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { getNetworkConfig, getNetworkByChainId } from "@shared/networks";
 import { AAVE_POOL_ABI, ERC20_ABI, rayToPercent } from "@shared/aave";
@@ -3158,6 +3160,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('[Pool] Error getting stats:', error);
       res.status(500).json({ error: 'Failed to get pool stats' });
+    }
+  });
+
+  // ===== ANALYTICS DASHBOARD ENDPOINTS =====
+
+  // Get comprehensive analytics overview
+  app.get('/api/admin/analytics/overview', adminAuthMiddleware, async (req, res) => {
+    try {
+      const overview = await storage.getAnalyticsOverview();
+      res.json(overview);
+    } catch (error) {
+      console.error('[Analytics] Error getting overview:', error);
+      res.status(500).json({ error: 'Failed to get analytics overview' });
+    }
+  });
+
+  // Get wallet growth over time
+  app.get('/api/admin/analytics/wallet-growth', adminAuthMiddleware, async (req, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 30;
+      const growth = await storage.getWalletGrowth(days);
+      res.json(growth);
+    } catch (error) {
+      console.error('[Analytics] Error getting wallet growth:', error);
+      res.status(500).json({ error: 'Failed to get wallet growth' });
+    }
+  });
+
+  // Get transaction volume over time
+  app.get('/api/admin/analytics/transaction-volume', adminAuthMiddleware, async (req, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 30;
+      const volume = await storage.getTransactionVolume(days);
+      res.json(volume);
+    } catch (error) {
+      console.error('[Analytics] Error getting transaction volume:', error);
+      res.status(500).json({ error: 'Failed to get transaction volume' });
+    }
+  });
+
+  // Get per-chain breakdown
+  app.get('/api/admin/analytics/chain-breakdown', adminAuthMiddleware, async (req, res) => {
+    try {
+      const breakdown = await storage.getChainBreakdown();
+      res.json(breakdown);
+    } catch (error) {
+      console.error('[Analytics] Error getting chain breakdown:', error);
+      res.status(500).json({ error: 'Failed to get chain breakdown' });
+    }
+  });
+
+  // Get pool analytics
+  app.get('/api/admin/analytics/pool', adminAuthMiddleware, async (req, res) => {
+    try {
+      const poolAnalytics = await storage.getPoolAnalytics();
+      res.json(poolAnalytics);
+    } catch (error) {
+      console.error('[Analytics] Error getting pool analytics:', error);
+      res.status(500).json({ error: 'Failed to get pool analytics' });
+    }
+  });
+
+  // Get Aave/yield analytics
+  app.get('/api/admin/analytics/aave', adminAuthMiddleware, async (req, res) => {
+    try {
+      const aaveAnalytics = await storage.getAaveAnalytics();
+      res.json(aaveAnalytics);
+    } catch (error) {
+      console.error('[Analytics] Error getting Aave analytics:', error);
+      res.status(500).json({ error: 'Failed to get Aave analytics' });
+    }
+  });
+
+  // Get facilitator analytics
+  app.get('/api/admin/analytics/facilitator', adminAuthMiddleware, async (req, res) => {
+    try {
+      const facilitatorAnalytics = await storage.getFacilitatorAnalytics();
+      res.json(facilitatorAnalytics);
+    } catch (error) {
+      console.error('[Analytics] Error getting facilitator analytics:', error);
+      res.status(500).json({ error: 'Failed to get facilitator analytics' });
+    }
+  });
+
+  // Get MaxFlow analytics
+  app.get('/api/admin/analytics/maxflow', adminAuthMiddleware, async (req, res) => {
+    try {
+      const maxflowAnalytics = await storage.getMaxFlowAnalytics();
+      res.json(maxflowAnalytics);
+    } catch (error) {
+      console.error('[Analytics] Error getting MaxFlow analytics:', error);
+      res.status(500).json({ error: 'Failed to get MaxFlow analytics' });
+    }
+  });
+
+  // Donate to prize pool (admin can add funds)
+  app.post('/api/admin/pool/donate', adminAuthMiddleware, async (req, res) => {
+    try {
+      const { amount } = req.body; // Amount in micro-USDC
+      if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+        return res.status(400).json({ error: 'Invalid donation amount' });
+      }
+
+      const draw = await getOrCreateCurrentDraw();
+      const newTotal = (BigInt(draw.totalPool) + BigInt(amount)).toString();
+      
+      // Update the draw with the new total
+      await db
+        .update(poolDraws)
+        .set({ 
+          totalPool: newTotal,
+          totalTickets: (BigInt(draw.totalTickets) + BigInt(amount)).toString(),
+        })
+        .where(eq(poolDraws.id, draw.id));
+
+      res.json({
+        success: true,
+        donated: amount,
+        donatedFormatted: (Number(amount) / 1_000_000).toFixed(2),
+        newTotal,
+        newTotalFormatted: (Number(newTotal) / 1_000_000).toFixed(2),
+      });
+    } catch (error) {
+      console.error('[Pool] Error processing donation:', error);
+      res.status(500).json({ error: 'Failed to process donation' });
     }
   });
 

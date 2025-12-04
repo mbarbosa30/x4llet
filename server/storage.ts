@@ -2345,6 +2345,361 @@ export class DbStorage extends MemStorage {
       return [];
     }
   }
+
+  // ===== ANALYTICS METHODS =====
+
+  async getAnalyticsOverview(): Promise<{
+    totalWallets: number;
+    activeWallets: number;
+    totalTransactions: number;
+    totalVolumeUsd: string;
+    poolParticipants: number;
+    totalYieldCollected: string;
+  }> {
+    try {
+      const [walletsResult] = await db.select({ count: sql<number>`count(*)` }).from(wallets);
+      const [txResult] = await db.select({ count: sql<number>`count(*)` }).from(cachedTransactions);
+      
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const [activeResult] = await db.select({ count: sql<number>`count(*)` })
+        .from(wallets)
+        .where(gte(wallets.lastSeen, thirtyDaysAgo));
+      
+      const volumeResult = await db.select({ total: sql<string>`COALESCE(SUM(CAST(amount AS NUMERIC)), 0)` })
+        .from(cachedTransactions);
+      
+      const [poolResult] = await db.select({ count: sql<number>`count(*)` })
+        .from(poolSettings)
+        .where(sql`opt_in_percent > 0`);
+      
+      const [yieldResult] = await db.select({ total: sql<string>`COALESCE(SUM(CAST(total_yield_collected AS NUMERIC)), 0)` })
+        .from(poolYieldSnapshots);
+
+      return {
+        totalWallets: Number(walletsResult.count),
+        activeWallets: Number(activeResult.count),
+        totalTransactions: Number(txResult.count),
+        totalVolumeUsd: volumeResult[0]?.total || '0',
+        poolParticipants: Number(poolResult.count),
+        totalYieldCollected: yieldResult[0]?.total || '0',
+      };
+    } catch (error) {
+      console.error('[Analytics] Error getting overview:', error);
+      return {
+        totalWallets: 0,
+        activeWallets: 0,
+        totalTransactions: 0,
+        totalVolumeUsd: '0',
+        poolParticipants: 0,
+        totalYieldCollected: '0',
+      };
+    }
+  }
+
+  async getWalletGrowth(days: number = 30): Promise<Array<{ date: string; count: number }>> {
+    try {
+      const results = await db.execute(sql`
+        SELECT DATE(created_at) as date, COUNT(*) as count
+        FROM wallets
+        WHERE created_at >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+        GROUP BY DATE(created_at)
+        ORDER BY DATE(created_at)
+      `);
+      return (results.rows as any[]).map(row => ({
+        date: row.date,
+        count: Number(row.count),
+      }));
+    } catch (error) {
+      console.error('[Analytics] Error getting wallet growth:', error);
+      return [];
+    }
+  }
+
+  async getTransactionVolume(days: number = 30): Promise<Array<{ date: string; volume: string; count: number }>> {
+    try {
+      const results = await db.execute(sql`
+        SELECT DATE(timestamp) as date, 
+               COALESCE(SUM(CAST(amount AS NUMERIC)), 0) as volume,
+               COUNT(*) as count
+        FROM cached_transactions
+        WHERE timestamp >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+        GROUP BY DATE(timestamp)
+        ORDER BY DATE(timestamp)
+      `);
+      return (results.rows as any[]).map(row => ({
+        date: row.date,
+        volume: row.volume?.toString() || '0',
+        count: Number(row.count),
+      }));
+    } catch (error) {
+      console.error('[Analytics] Error getting transaction volume:', error);
+      return [];
+    }
+  }
+
+  async getChainBreakdown(): Promise<{
+    transactions: Array<{ chainId: number; count: number; volume: string }>;
+    balances: Array<{ chainId: number; totalBalance: string; walletCount: number }>;
+  }> {
+    try {
+      const txResults = await db.execute(sql`
+        SELECT chain_id as "chainId",
+               COUNT(*) as count,
+               COALESCE(SUM(CAST(amount AS NUMERIC)), 0) as volume
+        FROM cached_transactions
+        GROUP BY chain_id
+      `);
+
+      const balanceResults = await db.execute(sql`
+        SELECT chain_id as "chainId",
+               COALESCE(SUM(CAST(balance AS NUMERIC)), 0) as "totalBalance",
+               COUNT(DISTINCT address) as "walletCount"
+        FROM cached_balances
+        GROUP BY chain_id
+      `);
+
+      return {
+        transactions: (txResults.rows as any[]).map(row => ({
+          chainId: Number(row.chainId),
+          count: Number(row.count),
+          volume: row.volume?.toString() || '0',
+        })),
+        balances: (balanceResults.rows as any[]).map(row => ({
+          chainId: Number(row.chainId),
+          totalBalance: row.totalBalance?.toString() || '0',
+          walletCount: Number(row.walletCount),
+        })),
+      };
+    } catch (error) {
+      console.error('[Analytics] Error getting chain breakdown:', error);
+      return { transactions: [], balances: [] };
+    }
+  }
+
+  async getPoolAnalytics(): Promise<{
+    currentDraw: PoolDraw | null;
+    totalPrizesPaid: string;
+    totalContributions: string;
+    drawHistory: PoolDraw[];
+    participationByPercent: Array<{ percent: number; count: number }>;
+    referralStats: { total: number; activeReferrers: number };
+  }> {
+    try {
+      const currentDraw = await db.select()
+        .from(poolDraws)
+        .where(eq(poolDraws.status, 'active'))
+        .limit(1);
+
+      const draws = await db.select()
+        .from(poolDraws)
+        .orderBy(desc(poolDraws.year), desc(poolDraws.weekNumber))
+        .limit(12);
+
+      const completedDraws = draws.filter(d => d.status === 'completed');
+      const totalPrizesPaid = completedDraws.reduce((sum, d) => sum + BigInt(d.totalPool || '0'), 0n);
+
+      const [contribResult] = await db.select({ total: sql<string>`COALESCE(SUM(CAST(yield_contributed AS NUMERIC)), 0)` })
+        .from(poolContributions);
+
+      const percentGroups = await db.execute(sql`
+        SELECT 
+          CASE 
+            WHEN opt_in_percent = 0 THEN 0
+            WHEN opt_in_percent <= 25 THEN 25
+            WHEN opt_in_percent <= 50 THEN 50
+            WHEN opt_in_percent <= 75 THEN 75
+            ELSE 100
+          END as percent_group,
+          COUNT(*) as count
+        FROM pool_settings
+        GROUP BY percent_group
+        ORDER BY percent_group
+      `);
+
+      const [referralCount] = await db.select({ count: sql<number>`count(*)` }).from(referrals);
+      const activeReferrers = await db.execute(sql`
+        SELECT COUNT(DISTINCT referrer_address) as count FROM referrals
+      `);
+
+      return {
+        currentDraw: currentDraw[0] || null,
+        totalPrizesPaid: totalPrizesPaid.toString(),
+        totalContributions: contribResult?.total || '0',
+        drawHistory: draws,
+        participationByPercent: (percentGroups.rows as any[]).map(row => ({
+          percent: Number(row.percent_group),
+          count: Number(row.count),
+        })),
+        referralStats: {
+          total: Number(referralCount?.count || 0),
+          activeReferrers: Number((activeReferrers.rows[0] as any)?.count || 0),
+        },
+      };
+    } catch (error) {
+      console.error('[Analytics] Error getting pool analytics:', error);
+      return {
+        currentDraw: null,
+        totalPrizesPaid: '0',
+        totalContributions: '0',
+        drawHistory: [],
+        participationByPercent: [],
+        referralStats: { total: 0, activeReferrers: 0 },
+      };
+    }
+  }
+
+  async getAaveAnalytics(): Promise<{
+    totalDeposits: string;
+    totalWithdrawals: string;
+    activeOperations: number;
+    operationsByChain: Array<{ chainId: number; deposits: string; withdrawals: string }>;
+  }> {
+    try {
+      const results = await db.execute(sql`
+        SELECT 
+          chain_id as "chainId",
+          COALESCE(SUM(CASE WHEN operation_type = 'supply' AND status = 'completed' THEN CAST(amount AS NUMERIC) ELSE 0 END), 0) as deposits,
+          COALESCE(SUM(CASE WHEN operation_type = 'withdraw' AND status = 'completed' THEN CAST(amount AS NUMERIC) ELSE 0 END), 0) as withdrawals
+        FROM aave_operations
+        GROUP BY chain_id
+      `);
+
+      const [activeOps] = await db.select({ count: sql<number>`count(*)` })
+        .from(aaveOperations)
+        .where(or(
+          eq(aaveOperations.status, 'pending'),
+          eq(aaveOperations.status, 'transferring'),
+          eq(aaveOperations.status, 'approving'),
+          eq(aaveOperations.status, 'supplying')
+        ));
+
+      const chainResults = (results.rows as any[]).map(row => ({
+        chainId: Number(row.chainId),
+        deposits: row.deposits?.toString() || '0',
+        withdrawals: row.withdrawals?.toString() || '0',
+      }));
+
+      const totalDeposits = chainResults.reduce((sum, c) => sum + BigInt(c.deposits), 0n);
+      const totalWithdrawals = chainResults.reduce((sum, c) => sum + BigInt(c.withdrawals), 0n);
+
+      return {
+        totalDeposits: totalDeposits.toString(),
+        totalWithdrawals: totalWithdrawals.toString(),
+        activeOperations: Number(activeOps?.count || 0),
+        operationsByChain: chainResults,
+      };
+    } catch (error) {
+      console.error('[Analytics] Error getting Aave analytics:', error);
+      return {
+        totalDeposits: '0',
+        totalWithdrawals: '0',
+        activeOperations: 0,
+        operationsByChain: [],
+      };
+    }
+  }
+
+  async getFacilitatorAnalytics(): Promise<{
+    totalTransfersProcessed: number;
+    totalGasDrips: number;
+    gasDripsByChain: Array<{ chainId: number; count: number; totalAmount: string }>;
+    authorizationsByStatus: Array<{ status: string; count: number }>;
+  }> {
+    try {
+      const [authCount] = await db.select({ count: sql<number>`count(*)` })
+        .from(authorizations)
+        .where(eq(authorizations.status, 'used'));
+
+      const [dripCount] = await db.select({ count: sql<number>`count(*)` }).from(gasDrips);
+
+      const dripsByChain = await db.execute(sql`
+        SELECT chain_id as "chainId",
+               COUNT(*) as count,
+               COALESCE(SUM(CAST(amount AS NUMERIC)), 0) as "totalAmount"
+        FROM gas_drips
+        WHERE status = 'completed'
+        GROUP BY chain_id
+      `);
+
+      const authByStatus = await db.execute(sql`
+        SELECT status, COUNT(*) as count
+        FROM authorizations
+        GROUP BY status
+      `);
+
+      return {
+        totalTransfersProcessed: Number(authCount?.count || 0),
+        totalGasDrips: Number(dripCount?.count || 0),
+        gasDripsByChain: (dripsByChain.rows as any[]).map(row => ({
+          chainId: Number(row.chainId),
+          count: Number(row.count),
+          totalAmount: row.totalAmount?.toString() || '0',
+        })),
+        authorizationsByStatus: (authByStatus.rows as any[]).map(row => ({
+          status: row.status,
+          count: Number(row.count),
+        })),
+      };
+    } catch (error) {
+      console.error('[Analytics] Error getting facilitator analytics:', error);
+      return {
+        totalTransfersProcessed: 0,
+        totalGasDrips: 0,
+        gasDripsByChain: [],
+        authorizationsByStatus: [],
+      };
+    }
+  }
+
+  async getMaxFlowAnalytics(): Promise<{
+    totalScored: number;
+    scoreDistribution: Array<{ range: string; count: number }>;
+    averageScore: number;
+  }> {
+    try {
+      const scores = await db.select().from(cachedMaxflowScores);
+      
+      const scoreValues = scores.map(s => {
+        try {
+          const data = JSON.parse(s.scoreData);
+          return data.localHealth || 0;
+        } catch {
+          return 0;
+        }
+      }).filter(s => s > 0);
+
+      const ranges = [
+        { range: '0-1', min: 0, max: 1 },
+        { range: '1-3', min: 1, max: 3 },
+        { range: '3-5', min: 3, max: 5 },
+        { range: '5-10', min: 5, max: 10 },
+        { range: '10+', min: 10, max: Infinity },
+      ];
+
+      const distribution = ranges.map(r => ({
+        range: r.range,
+        count: scoreValues.filter(s => s >= r.min && s < r.max).length,
+      }));
+
+      const avgScore = scoreValues.length > 0 
+        ? scoreValues.reduce((a, b) => a + b, 0) / scoreValues.length 
+        : 0;
+
+      return {
+        totalScored: scores.length,
+        scoreDistribution: distribution,
+        averageScore: avgScore,
+      };
+    } catch (error) {
+      console.error('[Analytics] Error getting MaxFlow analytics:', error);
+      return {
+        totalScored: 0,
+        scoreDistribution: [],
+        averageScore: 0,
+      };
+    }
+  }
 }
 
 export const storage = new DbStorage();

@@ -21,6 +21,7 @@ import MaxFlow from "@/pages/MaxFlow";
 import Earn from "@/pages/Earn";
 import Pool from "@/pages/Pool";
 import Admin from "@/pages/Admin";
+import Dashboard from "@/pages/Dashboard";
 import HowItWorks from "@/pages/HowItWorks";
 import Faqs from "@/pages/Faqs";
 import Context from "@/pages/Context";
@@ -202,6 +203,7 @@ function Router() {
         </ProtectedRoute>
       </Route>
       <Route path="/admin" component={Admin} />
+      <Route path="/dashboard" component={Dashboard} />
       <Route path="/how-it-works" component={HowItWorks} />
       <Route path="/faqs" component={Faqs} />
       <Route path="/context" component={Context} />
