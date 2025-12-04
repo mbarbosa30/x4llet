@@ -340,40 +340,38 @@ export default function Pool() {
           /* Simplified Onboarding Intro */
           <div className="space-y-4">
             {/* Hero Prize Display */}
-            <Card className="p-6">
-              <div className="text-center space-y-4">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10">
-                  <Trophy className="h-8 w-8 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">This week's prize</p>
-                  {(() => {
-                    const formatted = formatMicroUsdc(poolStatus.draw.totalPool);
-                    const [intPart = '0', decPart = '00'] = formatted.split('.');
-                    return (
-                      <div className="text-5xl font-bold tabular-nums flex items-center justify-center" data-testid="text-intro-prize">
-                        <span className="text-3xl font-normal opacity-50 mr-1">$</span>
-                        <span>{intPart}</span>
-                        <span className="opacity-80">.{decPart}</span>
-                      </div>
-                    );
-                  })()}
-                </div>
-                <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                  Contribute some of your Aave savings yield for a chance to win the weekly prize
-                </p>
-                <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground pt-2">
-                  <span className="flex items-center gap-1">
-                    <Users className="h-3.5 w-3.5" />
-                    {poolStatus.draw.participantCount} players
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3.5 w-3.5" />
-                    {formatCountdown(poolStatus.countdown.hoursUntilDraw, poolStatus.countdown.minutesUntilDraw)}
-                  </span>
-                </div>
+            <div className="p-6 text-center space-y-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10">
+                <Trophy className="h-8 w-8 text-primary" />
               </div>
-            </Card>
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">This week's prize</p>
+                {(() => {
+                  const formatted = formatMicroUsdc(poolStatus.draw.totalPool);
+                  const [intPart = '0', decPart = '00'] = formatted.split('.');
+                  return (
+                    <div className="text-5xl font-bold tabular-nums flex items-center justify-center" data-testid="text-intro-prize">
+                      <span className="text-3xl font-normal opacity-50 mr-1">$</span>
+                      <span>{intPart}</span>
+                      <span className="opacity-80">.{decPart}</span>
+                    </div>
+                  );
+                })()}
+              </div>
+              <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                Contribute some of your Aave savings yield for a chance to win the weekly prize
+              </p>
+              <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground pt-2">
+                <span className="flex items-center gap-1">
+                  <Users className="h-3.5 w-3.5" />
+                  {poolStatus.draw.participantCount} players
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5" />
+                  {formatCountdown(poolStatus.countdown.hoursUntilDraw, poolStatus.countdown.minutesUntilDraw)}
+                </span>
+              </div>
+            </div>
 
             {/* Simple Join Card */}
             <Card className="p-4 space-y-4">
