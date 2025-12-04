@@ -207,28 +207,21 @@ export default function Pool() {
     }
   }, [poolStatus, hasInitializedOptIn]);
 
-  // New on-chain contribution mutation with permit signing
+  // On-chain contribution mutation - uses pre-fetched prepareData from modal
   const contributionMutation = useMutation({
     mutationFn: async (percent: number) => {
-      // Step 1: Prepare contribution - get yield amount and permit params
-      const prepareResult = await apiRequest("POST", "/api/pool/prepare-contribution", { 
-        address, 
-        optInPercent: percent 
-      });
-      const prepareData = await prepareResult.json();
-      
-      if (!prepareData.success) {
-        throw new Error(prepareData.error || 'Failed to prepare contribution');
+      // Use the pre-fetched prepareData from when modal was opened
+      if (!prepareData) {
+        throw new Error('No contribution data available');
       }
       
-      // If no yield to contribute, just return success (no signature needed)
-      // Note: isFirstTime users WITH balance will have requiresSignature=true
+      // If no yield to contribute, just return (includes first-time baseline saves)
       if (prepareData.noYieldToContribute) {
         return prepareData;
       }
       
-      // Step 2: If requires signature, sign the permit
-      if (prepareData.requiresSignature) {
+      // If requires signature, sign the permit and submit
+      if (prepareData.requiresSignature && prepareData.permitTypedData) {
         const privateKey = await getPrivateKey();
         if (!privateKey) throw new Error('No private key found');
         
@@ -236,19 +229,26 @@ export default function Pool() {
         
         // Sign the EIP-712 permit
         const signature = await account.signTypedData({
-          domain: prepareData.permitTypedData.domain,
-          types: prepareData.permitTypedData.types,
+          domain: prepareData.permitTypedData.domain as {
+            name: string;
+            version: string;
+            chainId: number;
+            verifyingContract: `0x${string}`;
+          },
+          types: prepareData.permitTypedData.types as {
+            Permit: { name: string; type: string }[];
+          },
           primaryType: 'Permit',
           message: {
-            owner: prepareData.permitTypedData.message.owner,
-            spender: prepareData.permitTypedData.message.spender,
+            owner: prepareData.permitTypedData.message.owner as `0x${string}`,
+            spender: prepareData.permitTypedData.message.spender as `0x${string}`,
             value: BigInt(prepareData.permitTypedData.message.value),
             nonce: BigInt(prepareData.permitTypedData.message.nonce),
             deadline: BigInt(prepareData.permitTypedData.message.deadline),
           },
         });
         
-        // Step 3: Submit signed contribution
+        // Submit signed contribution
         const submitResult = await apiRequest("POST", "/api/pool/submit-contribution", {
           address,
           optInPercent: percent,
@@ -280,6 +280,9 @@ export default function Pool() {
       message?: string;
       onChain?: boolean;
     }) => {
+      // Clear modal state
+      setPrepareData(null);
+      
       // Sync local state to confirmed server value
       if (data?.optInPercent !== undefined) {
         setOptInPercent(data.optInPercent);
