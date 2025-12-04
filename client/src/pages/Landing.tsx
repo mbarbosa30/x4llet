@@ -167,32 +167,32 @@ export default function Landing() {
             <div className="text-xs font-medium text-muted-foreground mb-4 text-center">Powered by</div>
             <div className="space-y-3 text-left max-w-sm mx-auto">
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <Zap className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <span className="text-xs font-medium">x402 Protocol</span>
                 </div>
-                <p className="text-xs text-muted-foreground pl-6">Gasless autonomous execution, by default. USDC transfers via EIP-3009. Works off-line.</p>
+                <p className="text-xs text-muted-foreground pl-7 mt-1">Gasless autonomous execution, by default. USDC transfers via EIP-3009. Works off-line.</p>
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <Sliders className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <span className="text-xs font-medium">Yield Allocation</span>
                 </div>
-                <p className="text-xs text-muted-foreground pl-6">Access prize-linked savings, vulnerable communities, AI tools & models, Buy Now Pay Later.</p>
+                <p className="text-xs text-muted-foreground pl-7 mt-1">Access prize-linked savings, vulnerable communities, AI tools & models, Buy Now Pay Later.</p>
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <Network className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <span className="text-xs font-medium">Trust Infrastructure</span>
                 </div>
-                <p className="text-xs text-muted-foreground pl-6">MaxFlow graph signals computation, Circles web of trust, GoodDollar verification.</p>
+                <p className="text-xs text-muted-foreground pl-7 mt-1">MaxFlow graph signals computation, Circles web of trust, GoodDollar verification.</p>
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <Layers className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <span className="text-xs font-medium">Multi-chain</span>
                 </div>
-                <p className="text-xs text-muted-foreground pl-6">Seamless experience on Base, Celo, and Gnosis networks. More soon.</p>
+                <p className="text-xs text-muted-foreground pl-7 mt-1">Seamless experience on Base, Celo, and Gnosis networks. More soon.</p>
               </div>
             </div>
           </div>
