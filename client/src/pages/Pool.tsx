@@ -779,13 +779,21 @@ export default function Pool() {
                     ? myTickets / (totalPoolTickets + myTickets)
                     : 0;
                   
-                  // Simplified growth rate approximation
-                  // g ≈ p * ln(prize/cost) - (1-p) * cost/balance
+                  // Proper Kelly growth rate using log-wealth formula:
+                  // g = p * ln((balance - cost + prize) / balance) + (1-p) * ln((balance - cost) / balance)
+                  // This correctly scales with prize pool size - donations increase optimal allocation
                   let growthRate = 0;
-                  if (cost > 0 && prizePool > 0 && aUsdcBalance > 0) {
-                    const upside = odds * Math.log(1 + prizePool / aUsdcBalance);
-                    const downside = (1 - odds) * (cost / aUsdcBalance);
-                    growthRate = (upside - downside) * 1000; // Scale for visibility
+                  if (cost > 0 && prizePool > 0 && aUsdcBalance > cost) {
+                    // When you win: balance becomes (aUsdcBalance - cost + prizePool)
+                    const wealthIfWin = aUsdcBalance - cost + prizePool;
+                    // When you lose: balance becomes (aUsdcBalance - cost)  
+                    const wealthIfLose = aUsdcBalance - cost;
+                    
+                    // Expected log growth rate
+                    const logGrowthWin = Math.log(wealthIfWin / aUsdcBalance);
+                    const logGrowthLose = Math.log(wealthIfLose / aUsdcBalance);
+                    
+                    growthRate = (odds * logGrowthWin + (1 - odds) * logGrowthLose) * 1000; // Scale for visibility
                   }
                   
                   if (growthRate > maxGrowthRate && pct > 0) {
