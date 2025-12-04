@@ -111,7 +111,7 @@ export default function Landing() {
                 <Sparkles className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                 <div>
                   <div className="text-sm font-medium">
-                    Savings on autopilot{apyDisplay && <span className="text-success ml-1.5 font-normal">({apyDisplay} APY)</span>}
+                    Savings on autopilot{apyDisplay && <span className="text-success text-xs ml-1.5 font-normal">(~{apyDisplay} APY)</span>}
                   </div>
                   <div className="text-xs text-muted-foreground">One tap to start earning. Withdraw anytime.</div>
                 </div>
@@ -138,28 +138,28 @@ export default function Landing() {
               <div className="text-xs font-medium text-muted-foreground mb-4 text-center">Powered by</div>
               <div className="space-y-3 text-left max-w-sm mx-auto">
                 <div className="flex items-start gap-2">
-                  <Zap className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <Zap className="h-3.5 w-3.5 text-muted-foreground mt-1 flex-shrink-0" />
                   <div>
                     <span className="text-xs font-medium">x402 Protocol</span>
-                    <p className="text-xs text-muted-foreground">Gasless execution, by default. USDC transfers via EIP-3009. Works off-line.</p>
+                    <p className="text-xs text-muted-foreground">Gasless autonomous execution, by default. USDC transfers via EIP-3009. Works off-line.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
-                  <Sliders className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <Sliders className="h-3.5 w-3.5 text-muted-foreground mt-1 flex-shrink-0" />
                   <div>
                     <span className="text-xs font-medium">Yield Allocation</span>
-                    <p className="text-xs text-muted-foreground">Prize-linked savings, vulnerable communities, Buy Now Pay Later, AI models access</p>
+                    <p className="text-xs text-muted-foreground">Prize-linked savings, vulnerable communities, Buy Now Pay Later, AI models access.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
-                  <Network className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <Network className="h-3.5 w-3.5 text-muted-foreground mt-1 flex-shrink-0" />
                   <div>
                     <span className="text-xs font-medium">Trust Infrastructure</span>
-                    <p className="text-xs text-muted-foreground">MaxFlow graph signals computation, Circles web of trust, GoodDollar verification</p>
+                    <p className="text-xs text-muted-foreground">MaxFlow graph signals computation, Circles web of trust, GoodDollar verification.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
-                  <Layers className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <Layers className="h-3.5 w-3.5 text-muted-foreground mt-1 flex-shrink-0" />
                   <div>
                     <span className="text-xs font-medium">Multi-chain</span>
                     <p className="text-xs text-muted-foreground">Seamless experience on Base, Celo, and Gnosis networks. More soon.</p>
