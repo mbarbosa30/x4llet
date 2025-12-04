@@ -774,7 +774,7 @@ export default function Earn() {
       className="min-h-screen bg-background"
       style={{ 
         paddingTop: 'calc(4rem + env(safe-area-inset-top))',
-        paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))' 
+        paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' 
       }}
     >
       <main className="max-w-md mx-auto p-4 space-y-6">

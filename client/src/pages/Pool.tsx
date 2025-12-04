@@ -458,7 +458,7 @@ export default function Pool() {
         className="min-h-screen bg-background flex items-center justify-center"
         style={{ 
           paddingTop: 'calc(4rem + env(safe-area-inset-top))',
-          paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))' 
+          paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' 
         }}
       >
         <Card className="max-w-md w-full mx-4 p-6 space-y-6">
@@ -482,10 +482,10 @@ export default function Pool() {
       className="min-h-screen bg-background"
       style={{ 
         paddingTop: 'calc(4rem + env(safe-area-inset-top))',
-        paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))' 
+        paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' 
       }}
     >
-      <main className="max-w-md mx-auto p-4 space-y-4">
+      <main className="max-w-md mx-auto p-4 space-y-6">
         {/* Header */}
         <div className="text-center space-y-1">
           <h1 className="text-lg font-semibold">Prize Pool</h1>
