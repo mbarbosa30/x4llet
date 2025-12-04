@@ -244,7 +244,7 @@ export default function Pool() {
         paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))' 
       }}
     >
-      <main className="max-w-md mx-auto p-4 space-y-6">
+      <main className="max-w-md mx-auto p-4 space-y-4">
         {/* Header */}
         <div className="text-center space-y-1">
           <h1 className="text-lg font-semibold">Prize Pool</h1>
@@ -255,7 +255,6 @@ export default function Pool() {
           <div className="space-y-4">
             <Skeleton className="h-40 w-full" />
             <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-24 w-full" />
           </div>
         ) : poolStatus ? (
           <Tabs defaultValue="pool" className="w-full">
@@ -276,90 +275,99 @@ export default function Pool() {
 
             {/* Pool Tab */}
             <TabsContent value="pool" className="mt-4 space-y-4">
-              {/* Prize Pool Card */}
-              <Card className="p-6 space-y-6">
-                <div className="text-center space-y-3">
+              {/* This Week's Prize */}
+              <Card className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <Trophy className="h-4 w-4 text-primary" />
+                    This Week's Prize
+                  </div>
                   <Badge variant="secondary" className="text-xs">
-                    Week {poolStatus.draw.weekNumber}, {poolStatus.draw.year}
+                    Week {poolStatus.draw.weekNumber}
                   </Badge>
-                  
-                  <p className="text-5xl font-bold text-primary" data-testid="text-prize-amount">
+                </div>
+                <div className="text-center py-2">
+                  <p className="text-4xl font-bold text-primary" data-testid="text-prize-amount">
                     ${poolStatus.draw.totalPoolFormatted}
                   </p>
-
-                  <div className="flex items-center justify-center gap-4">
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <Users className="h-4 w-4" />
-                      <span data-testid="text-participant-count">
-                        {poolStatus.draw.participantCount} players
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <Clock className="h-4 w-4" />
-                      <span data-testid="text-countdown">
-                        {formatCountdown(
-                          poolStatus.countdown.hoursUntilDraw,
-                          poolStatus.countdown.minutesUntilDraw
-                        )}
-                      </span>
-                    </div>
+                </div>
+                <div className="flex items-center justify-center gap-4">
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <Users className="h-4 w-4" />
+                    <span data-testid="text-participant-count">
+                      {poolStatus.draw.participantCount} players
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span data-testid="text-countdown">
+                      {formatCountdown(
+                        poolStatus.countdown.hoursUntilDraw,
+                        poolStatus.countdown.minutesUntilDraw
+                      )}
+                    </span>
                   </div>
                 </div>
+              </Card>
 
+              {/* Your Position */}
+              <Card className="p-4 space-y-3">
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <Target className="h-4 w-4 text-primary" />
+                  Your Position
+                </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="text-center p-4 bg-muted/50 rounded-lg">
-                    <Ticket className="h-5 w-5 text-primary mx-auto mb-1" />
+                  <div className="text-center p-3 bg-muted/50 rounded-lg">
                     <p className="text-2xl font-bold" data-testid="text-your-tickets">
                       {(Number(poolStatus.user.totalTickets) / 1_000_000).toFixed(2)}
                     </p>
                     <p className="text-xs text-muted-foreground">Tickets</p>
                   </div>
-                  <div className="text-center p-4 bg-muted/50 rounded-lg">
-                    <Target className="h-5 w-5 text-primary mx-auto mb-1" />
+                  <div className="text-center p-3 bg-muted/50 rounded-lg">
                     <p className="text-2xl font-bold text-primary" data-testid="text-your-odds">
                       {poolStatus.user.odds}%
                     </p>
                     <p className="text-xs text-muted-foreground">Win Chance</p>
                   </div>
                 </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Coins className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">Yield Contribution</span>
-                    </div>
-                    <Badge variant="outline" className="text-lg font-bold px-3" data-testid="text-opt-in-percent">
-                      {optInPercent}%
-                    </Badge>
-                  </div>
-                  <Slider
-                    value={[optInPercent]}
-                    onValueChange={handleOptInChange}
-                    onValueCommit={handleOptInCommit}
-                    max={100}
-                    step={5}
-                    className="w-full"
-                    data-testid="slider-opt-in"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Keep all</span>
-                    <span>Max tickets</span>
-                  </div>
-                </div>
               </Card>
 
-              {/* Pool Tab Footer Explanation */}
-              <p className="text-xs text-muted-foreground text-center px-4">
-                Your Aave savings yield converts to tickets. Higher contribution = more tickets = better odds!
-              </p>
+              {/* Contribution */}
+              <Card className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <Coins className="h-4 w-4 text-primary" />
+                    Yield Contribution
+                  </div>
+                  <Badge variant="outline" className="font-bold px-2" data-testid="text-opt-in-percent">
+                    {optInPercent}%
+                  </Badge>
+                </div>
+                <Slider
+                  value={[optInPercent]}
+                  onValueChange={handleOptInChange}
+                  onValueCommit={handleOptInCommit}
+                  max={100}
+                  step={5}
+                  className="w-full"
+                  data-testid="slider-opt-in"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Keep all yield</span>
+                  <span>Max tickets</span>
+                </div>
+              </Card>
             </TabsContent>
 
             {/* Tickets Tab */}
             <TabsContent value="tickets" className="mt-4 space-y-4">
-              {/* Ticket Breakdown & Referral */}
-              <Card className="p-6 space-y-6">
-                <div className="space-y-3">
+              {/* Ticket Breakdown */}
+              <Card className="p-4 space-y-3">
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <Ticket className="h-4 w-4 text-primary" />
+                  Ticket Breakdown
+                </div>
+                <div className="space-y-2">
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                     <div className="flex items-center gap-2">
                       <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -378,45 +386,48 @@ export default function Pool() {
                       +{(Number(poolStatus.user.referralBonusTickets) / 1_000_000).toFixed(4)}
                     </span>
                   </div>
-
-                  <div className="flex items-center justify-between pt-2 border-t">
-                    <span className="font-medium">Total</span>
-                    <span className="text-xl font-bold text-primary" data-testid="text-total-tickets">
-                      {(Number(poolStatus.user.totalTickets) / 1_000_000).toFixed(2)}
-                    </span>
-                  </div>
                 </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Share2 className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Share & Earn</span>
-                    <Badge variant="secondary" className="ml-auto" data-testid="badge-referral-count">
-                      {poolStatus.referral.activeReferrals} referred
-                    </Badge>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <div className="flex-1 p-3 bg-muted rounded-lg font-mono text-sm text-center">
-                      {poolStatus.referral.code}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={copyReferralCode}
-                      data-testid="button-copy-referral"
-                    >
-                      {copiedCode ? (
-                        <Check className="h-4 w-4 text-primary" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <span className="font-medium">Total</span>
+                  <span className="text-xl font-bold text-primary" data-testid="text-total-tickets">
+                    {(Number(poolStatus.user.totalTickets) / 1_000_000).toFixed(2)}
+                  </span>
                 </div>
               </Card>
 
-              {/* Have a referral code? - Compact */}
+              {/* Referral System */}
+              <Card className="p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Share2 className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">Share & Earn</span>
+                  <Badge variant="secondary" className="ml-auto" data-testid="badge-referral-count">
+                    {poolStatus.referral.activeReferrals} referred
+                  </Badge>
+                </div>
+                
+                <div className="flex gap-2">
+                  <div className="flex-1 p-3 bg-muted rounded-lg font-mono text-sm text-center">
+                    {poolStatus.referral.code}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={copyReferralCode}
+                    data-testid="button-copy-referral"
+                  >
+                    {copiedCode ? (
+                      <Check className="h-4 w-4 text-primary" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+
+                <p className="text-xs text-muted-foreground text-center">
+                  Invite friends to earn 10% of their tickets
+                </p>
+              </Card>
+
               <Dialog open={showReferralDialog} onOpenChange={setShowReferralDialog}>
                 <DialogTrigger asChild>
                   <Button variant="ghost" className="w-full text-muted-foreground" data-testid="button-enter-referral">
@@ -451,16 +462,16 @@ export default function Pool() {
                   </div>
                 </DialogContent>
               </Dialog>
-
-              {/* Tickets Tab Footer Explanation */}
-              <p className="text-xs text-muted-foreground text-center px-4">
-                Invite friends to earn 10% of their ticket contributions as a bonus!
-              </p>
             </TabsContent>
 
             {/* History Tab */}
             <TabsContent value="history" className="mt-4 space-y-4">
-              <Card className="p-6 space-y-6">
+              {/* Past Draws */}
+              <Card className="p-4 space-y-3">
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <History className="h-4 w-4 text-primary" />
+                  Past Draws
+                </div>
                 {isLoadingHistory ? (
                   <div className="space-y-2">
                     <Skeleton className="h-12 w-full" />
@@ -501,33 +512,32 @@ export default function Pool() {
                     <p className="text-sm">First draw coming soon!</p>
                   </div>
                 )}
-
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">How It Works</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="space-y-1">
-                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold mx-auto">1</div>
-                      <p className="text-xs text-muted-foreground">Save in Aave</p>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold mx-auto">2</div>
-                      <p className="text-xs text-muted-foreground">Contribute yield</p>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold mx-auto">3</div>
-                      <p className="text-xs text-muted-foreground">Win weekly!</p>
-                    </div>
-                  </div>
-                </div>
               </Card>
 
-              {/* History Tab Footer */}
-              <p className="text-xs text-muted-foreground text-center px-4">
-                Draws happen every Sunday. Winner takes the entire pool!
-              </p>
+              {/* How It Works */}
+              <Card className="p-4 space-y-3">
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  How It Works
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="space-y-1">
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold mx-auto">1</div>
+                    <p className="text-xs text-muted-foreground">Save in Aave</p>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold mx-auto">2</div>
+                    <p className="text-xs text-muted-foreground">Contribute yield</p>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold mx-auto">3</div>
+                    <p className="text-xs text-muted-foreground">Win weekly!</p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  Draws happen every Sunday. Winner takes the entire pool!
+                </p>
+              </Card>
             </TabsContent>
           </Tabs>
         ) : (
