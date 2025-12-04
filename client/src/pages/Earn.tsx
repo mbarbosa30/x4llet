@@ -1549,12 +1549,6 @@ export default function Earn() {
                     <span className="text-muted-foreground">Yield contribution</span>
                     <span className="font-medium tabular-nums text-success">{localOptInPercent}%</span>
                   </div>
-                  {poolStatus && (
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">This week's pool</span>
-                      <span className="font-medium">${poolStatus.draw.totalPoolFormatted}</span>
-                    </div>
-                  )}
                   <Link href="/pool">
                     <Button variant="outline" size="sm" className="w-full" data-testid="button-adjust-pool">
                       <Settings className="h-4 w-4 mr-2" />
