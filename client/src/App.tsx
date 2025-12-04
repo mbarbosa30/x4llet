@@ -28,9 +28,6 @@ import NotFound from "@/pages/not-found";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
-import QRScanner from "@/components/QRScanner";
-import { useToast } from "@/hooks/use-toast";
-import type { PaymentRequest } from "@shared/schema";
 
 // Emergency reset function - clears all cached data
 async function performEmergencyReset() {
@@ -214,10 +211,8 @@ function Router() {
 }
 
 function App() {
-  const [location, setLocation] = useLocation();
-  const [showScanner, setShowScanner] = useState(false);
+  const [location] = useLocation();
   const [isEmergencyResetting, setIsEmergencyResetting] = useState(false);
-  const { toast } = useToast();
 
   // Check for emergency reset URL parameter (?reset=1)
   useEffect(() => {
@@ -247,41 +242,13 @@ function App() {
   const protectedRoutes = ['/home', '/send', '/receive', '/settings', '/claim', '/maxflow', '/earn', '/pool'];
   const showLayout = protectedRoutes.includes(location);
 
-  const handleScanPaymentRequest = (data: string) => {
-    try {
-      const paymentRequest: PaymentRequest = JSON.parse(data);
-      
-      if (!paymentRequest.v || !paymentRequest.to || !paymentRequest.amount) {
-        throw new Error('Invalid payment request');
-      }
-      
-      setShowScanner(false);
-      
-      sessionStorage.setItem('payment_request', JSON.stringify(paymentRequest));
-      setLocation('/send');
-      
-    } catch (error) {
-      toast({
-        title: "Invalid QR Code",
-        description: "This doesn't appear to be a valid payment request",
-        variant: "destructive",
-      });
-    }
-  };
-
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        {showLayout && <AppHeader onScanClick={() => setShowScanner(true)} />}
+        {showLayout && <AppHeader />}
         <Router />
         {showLayout && <BottomNav />}
-        {showScanner && (
-          <QRScanner
-            onScan={handleScanPaymentRequest}
-            onClose={() => setShowScanner(false)}
-          />
-        )}
       </TooltipProvider>
     </QueryClientProvider>
   );
