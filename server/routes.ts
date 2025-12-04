@@ -2956,43 +2956,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const currentBalanceBigInt = BigInt(currentBalance.toString());
       
-      // Calculate yield (balance growth since last snapshot)
+      // Check if first-time user (no existing snapshot)
+      const isFirstTime = !existingSnapshot;
+      
+      // For first-time users: save baseline snapshot and don't collect anything
+      // Only actual yield (interest earned AFTER opting in) should be collected
+      if (isFirstTime) {
+        await storage.upsertPoolSettings(normalizedAddress, Math.round(optInPercent));
+        await storage.upsertYieldSnapshot(normalizedAddress, {
+          lastAusdcBalance: currentBalanceBigInt.toString(),
+          lastCollectedAt: new Date(),
+          totalYieldCollected: '0',
+        });
+        
+        return res.json({
+          success: true,
+          isFirstTime: true,
+          noYieldToContribute: true,
+          message: currentBalanceBigInt > 0n 
+            ? 'Opted in! Your current balance is now your baseline. Future yield will be collected weekly.'
+            : 'Opted in! Deposit aUSDC on Celo to start earning yield for the pool.',
+          yieldAmount: '0',
+          contributionAmount: '0',
+          currentBalance: currentBalanceBigInt.toString(),
+          optInPercent: Math.round(optInPercent),
+        });
+      }
+      
+      // Calculate yield (balance growth since last snapshot) - only for returning users
       let yieldAmount = 0n;
-      if (existingSnapshot && existingSnapshot.lastAusdcBalance && existingSnapshot.lastAusdcBalance !== '0') {
+      if (existingSnapshot.lastAusdcBalance && existingSnapshot.lastAusdcBalance !== '0') {
         const lastBalanceBigInt = BigInt(existingSnapshot.lastAusdcBalance);
         if (currentBalanceBigInt > lastBalanceBigInt) {
           yieldAmount = currentBalanceBigInt - lastBalanceBigInt;
         }
       }
       
-      // For first-time users, their entire aUSDC balance is considered "yield" 
-      // since it hasn't been snapshotted yet - they can contribute immediately
-      const isFirstTime = !existingSnapshot;
-      if (isFirstTime) {
-        // First-time user: treat current balance as available for contribution
-        yieldAmount = currentBalanceBigInt;
-      }
-      
       // Calculate contribution based on opt-in percentage
       const contributionAmount = (yieldAmount * BigInt(Math.round(optInPercent))) / 100n;
       
       if (contributionAmount === 0n) {
-        // Just save opt-in and update snapshot
+        // Returning user with no new yield - just save opt-in preference
         await storage.upsertPoolSettings(normalizedAddress, Math.round(optInPercent));
-        await storage.upsertYieldSnapshot(normalizedAddress, {
-          lastAusdcBalance: currentBalanceBigInt.toString(),
-          lastCollectedAt: new Date(),
-          totalYieldCollected: existingSnapshot?.totalYieldCollected || '0',
-        });
+        // Don't update snapshot if no yield - keep tracking from original baseline
         
         return res.json({
           success: true,
           noYieldToContribute: true,
-          isFirstTime,
-          message: isFirstTime 
-            ? 'Opted in! You have no aUSDC balance yet - deposit to start earning.'
-            : 'Settings saved. No new yield to contribute yet.',
-          yieldAmount: yieldAmount.toString(),
+          message: 'Settings saved. No new yield to contribute yet.',
+          yieldAmount: '0',
           contributionAmount: '0',
           currentBalance: currentBalanceBigInt.toString(),
           optInPercent: Math.round(optInPercent),
@@ -3047,7 +3059,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: true,
         requiresSignature: true,
-        isFirstTime,
         yieldAmount: yieldAmount.toString(),
         yieldAmountFormatted: (Number(yieldAmount) / 1_000_000).toFixed(6),
         contributionAmount: contributionAmount.toString(),
