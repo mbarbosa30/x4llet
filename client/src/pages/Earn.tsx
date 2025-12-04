@@ -966,7 +966,7 @@ export default function Earn() {
                         )}
                       </span>
                     </div>
-                    <div className="text-xs text-muted-foreground">USDC earning interest</div>
+                    <div className="text-xs text-muted-foreground">USDC yielding</div>
                   </div>
                 ) : (
                   <div className="space-y-3">

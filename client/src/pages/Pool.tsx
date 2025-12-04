@@ -697,9 +697,8 @@ export default function Pool() {
                           </span>
                         </div>
                         {hasProjectedGrowth && (
-                          <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
-                            <TrendingUp className="h-3 w-3" />
-                            USDC pledged to the pool
+                          <p className="text-xs text-muted-foreground text-center">
+                            USDC pledged
                           </p>
                         )}
                       </div>
