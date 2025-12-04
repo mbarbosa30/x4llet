@@ -388,25 +388,11 @@ export default function Pool() {
                   <span>Max tickets</span>
                 </div>
                 
-                {/* Save button - only show when value differs from server */}
-                {optInPercent !== (poolStatus.user.optInPercent ?? 0) && (
-                  <Button 
-                    className="w-full" 
-                    onClick={() => {
-                      setPendingOptInPercent(optInPercent);
-                      setShowContributionDialog(true);
-                    }}
-                    data-testid="button-save-contribution"
-                  >
-                    Save {optInPercent}% Contribution
-                  </Button>
-                )}
-                
                 {/* Yield Stats */}
                 <div className="space-y-2 pt-2 border-t">
                   {poolStatus.user.hasSnapshot && (
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Total contributed (all-time)</span>
+                      <span className="text-muted-foreground">Total (all-time)</span>
                       <span className="font-medium" data-testid="text-total-contributed">
                         ${poolStatus.user.totalContributedAllTimeFormatted}
                       </span>
@@ -415,13 +401,13 @@ export default function Pool() {
                   {celoApyData?.apy && Number(poolStatus.user.aUsdcBalance) > 0 && optInPercent > 0 ? (
                     <>
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Est. weekly contribution</span>
+                        <span className="text-muted-foreground">Est. weekly</span>
                         <span className="font-medium text-primary" data-testid="text-weekly-estimate">
                           ~${((Number(poolStatus.user.aUsdcBalance) / 1_000_000) * (celoApyData.apy / 100) / 52 * (optInPercent / 100)).toFixed(4)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Est. daily contribution</span>
+                        <span className="text-muted-foreground">Est. daily</span>
                         <span className="font-medium" data-testid="text-daily-estimate">
                           ~${((Number(poolStatus.user.aUsdcBalance) / 1_000_000) * (celoApyData.apy / 100) / 365 * (optInPercent / 100)).toFixed(4)}
                         </span>
@@ -433,6 +419,19 @@ export default function Pool() {
                     </div>
                   ) : null}
                 </div>
+                
+                {/* Save button - always visible, disabled when no change */}
+                <Button 
+                  className="w-full" 
+                  disabled={optInPercent === (poolStatus.user.optInPercent ?? 0)}
+                  onClick={() => {
+                    setPendingOptInPercent(optInPercent);
+                    setShowContributionDialog(true);
+                  }}
+                  data-testid="button-save-contribution"
+                >
+                  Save
+                </Button>
                 
                 <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1">
                   <Info className="h-3 w-3" />
