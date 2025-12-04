@@ -2751,10 +2751,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate user's projected referral bonus (from their referrals' contributions)
       const projectedReferralBonus = referrerBonusMap.get(normalizedAddress) || 0;
       
+      // Check if the user is already in participantProjections
+      const userInProjections = projectedPoolData.participantProjections.some(
+        p => p.address.toLowerCase() === normalizedAddress
+      );
+      
       // Calculate projected pool total (current pool + projected new contributions + sponsored)
       const currentPoolNum = Number(draw.totalPool || '0');
       const sponsoredPoolNum = Number(draw.sponsoredPool || '0');
-      const projectedYieldNum = Number(projectedPoolData.projectedYield);
+      let projectedYieldNum = Number(projectedPoolData.projectedYield);
+      
+      // If user is NOT in projections but has opt-in and yield, add their yield to the pool total
+      // This ensures consistency between userProjectedTickets and projectedTotalTickets
+      if (!userInProjections && userProjectedWeeklyYield > 0) {
+        projectedYieldNum += userProjectedWeeklyYield;
+        // Also check if this user has a referrer - if so, add their referral bonus to total
+        const userReferrer = refereeToReferrer.get(normalizedAddress);
+        if (userReferrer) {
+          const userBonus = Math.floor(userProjectedWeeklyYield * 0.10);
+          projectedReferralBonusTotal += userBonus;
+        }
+      }
+      
       const projectedTotalPool = currentPoolNum + sponsoredPoolNum + projectedYieldNum;
       
       // Calculate projected odds (tickets after user contributes their yield + referral bonus)
@@ -2764,9 +2782,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userCurrentTickets = Number(contribution?.totalTickets || '0');
       // User's projected tickets include their yield + their projected referral bonus
       const userProjectedTickets = userCurrentTickets + userProjectedWeeklyYield + projectedReferralBonus;
-      const projectedOdds = projectedTotalTickets > 0 && userProjectedTickets > 0
-        ? (userProjectedTickets / projectedTotalTickets * 100).toFixed(2)
-        : odds;
+      // Safety check: odds cannot exceed 100%
+      let projectedOddsValue = projectedTotalTickets > 0 && userProjectedTickets > 0
+        ? Math.min(100, userProjectedTickets / projectedTotalTickets * 100)
+        : Number(odds);
+      const projectedOdds = projectedOddsValue.toFixed(2);
       
       // Total prize pool includes participant yield + sponsored donations
       const totalPrizePool = currentPoolNum + sponsoredPoolNum;
