@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useLocation } from 'wouter';
+import { useLocation, Link } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,8 @@ import {
   Bot,
   ArrowRightLeft,
   Lock,
-  PiggyBank
+  PiggyBank,
+  Settings
 } from 'lucide-react';
 import { ComposedChart, AreaChart, Area, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import {
@@ -1523,8 +1524,8 @@ export default function Earn() {
               </p>
             </div>
 
-            {/* Prize Pool - Active */}
-            <Card className="p-4 space-y-4" data-testid="card-allocation-pool">
+            {/* Prize Pool */}
+            <Card className="p-4" data-testid="card-allocation-pool">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                   <Trophy className="h-5 w-5 text-primary" />
@@ -1532,7 +1533,9 @@ export default function Earn() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-medium">Prize Pool</h3>
-                    <Badge variant="outline" className="text-xs">Active</Badge>
+                    {(localOptInPercent ?? 0) > 0 && (
+                      <Badge variant="outline" className="text-xs text-success border-success/30">Active</Badge>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     Contribute yield for a chance to win weekly prizes
@@ -1540,42 +1543,33 @@ export default function Earn() {
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Yield contribution</span>
-                  <span className="font-medium tabular-nums">{localOptInPercent ?? 0}%</span>
-                </div>
-                <Slider
-                  value={[localOptInPercent ?? 0]}
-                  onValueChange={handleOptInChange}
-                  onValueCommit={handleOptInCommit}
-                  max={100}
-                  step={5}
-                  className="w-full"
-                  disabled={isSavingOptIn || !hasAaveBalance}
-                  data-testid="slider-pool-allocation"
-                />
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>0%</span>
-                  <span>100%</span>
-                </div>
-                {isSavingOptIn && (
-                  <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Saving...
+              {(localOptInPercent ?? 0) > 0 ? (
+                <div className="mt-4 space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Yield contribution</span>
+                    <span className="font-medium tabular-nums text-success">{localOptInPercent}%</span>
                   </div>
-                )}
-                {!hasAaveBalance && (
-                  <p className="text-xs text-muted-foreground text-center">
-                    Deposit to Aave first to allocate yield
-                  </p>
-                )}
-              </div>
-
-              {poolStatus && (localOptInPercent ?? 0) > 0 && (
-                <div className="flex items-center justify-between text-xs pt-2 border-t">
-                  <span className="text-muted-foreground">This week's pool</span>
-                  <span className="font-medium">${poolStatus.draw.totalPoolFormatted}</span>
+                  {poolStatus && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">This week's pool</span>
+                      <span className="font-medium">${poolStatus.draw.totalPoolFormatted}</span>
+                    </div>
+                  )}
+                  <Link href="/pool">
+                    <Button variant="outline" size="sm" className="w-full" data-testid="button-adjust-pool">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Adjust Settings
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <div className="mt-4">
+                  <Link href="/pool">
+                    <Button className="w-full" data-testid="button-activate-pool">
+                      <Trophy className="h-4 w-4 mr-2" />
+                      Activate Prize Pool
+                    </Button>
+                  </Link>
                 </div>
               )}
             </Card>
