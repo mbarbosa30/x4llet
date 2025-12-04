@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
@@ -214,21 +214,17 @@ export default function Pool() {
   if (!address) {
     return (
       <div className="min-h-screen bg-background p-4 flex items-center justify-center">
-        <Card className="max-w-md w-full">
-          <CardHeader className="text-center">
-            <CardTitle className="flex items-center justify-center gap-2">
-              <Sparkles className="h-6 w-6 text-primary" />
-              Prize Pool
-            </CardTitle>
-            <CardDescription>
-              Connect your wallet to participate in the weekly prize pool
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button className="w-full" onClick={() => setLocation("/unlock")} data-testid="button-connect-wallet">
-              Connect Wallet
-            </Button>
-          </CardContent>
+        <Card className="max-w-md w-full p-6 space-y-6">
+          <div className="text-center space-y-2">
+            <Trophy className="h-12 w-12 mx-auto text-muted-foreground" />
+            <h2 className="text-lg font-semibold">Prize Pool</h2>
+            <p className="text-sm text-muted-foreground">
+              Connect your wallet to participate
+            </p>
+          </div>
+          <Button className="w-full" onClick={() => setLocation("/unlock")} data-testid="button-connect-wallet">
+            Connect Wallet
+          </Button>
         </Card>
       </div>
     );
@@ -239,10 +235,8 @@ export default function Pool() {
       <div className="p-4 space-y-4 max-w-md mx-auto">
         {/* Header */}
         <div className="text-center">
-          <div className="flex items-center justify-center gap-2">
-            <Trophy className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold">Prize Pool</h1>
-          </div>
+          <h1 className="text-lg font-semibold">Prize Pool</h1>
+          <p className="text-xs text-muted-foreground">Win weekly prizes from your savings yield</p>
         </div>
 
         {isLoadingStatus ? (
@@ -252,82 +246,72 @@ export default function Pool() {
             <Skeleton className="h-24 w-full" />
           </div>
         ) : poolStatus ? (
-          <Tabs defaultValue="pool" className="space-y-4">
+          <Tabs defaultValue="pool" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="pool" data-testid="tab-pool">
-                <Trophy className="h-4 w-4 mr-1" />
+              <TabsTrigger value="pool" className="flex items-center gap-1.5 text-xs" data-testid="tab-pool">
+                <Trophy className="h-3.5 w-3.5" />
                 Pool
               </TabsTrigger>
-              <TabsTrigger value="tickets" data-testid="tab-tickets">
-                <Ticket className="h-4 w-4 mr-1" />
+              <TabsTrigger value="tickets" className="flex items-center gap-1.5 text-xs" data-testid="tab-tickets">
+                <Ticket className="h-3.5 w-3.5" />
                 Tickets
               </TabsTrigger>
-              <TabsTrigger value="history" data-testid="tab-history">
-                <History className="h-4 w-4 mr-1" />
+              <TabsTrigger value="history" className="flex items-center gap-1.5 text-xs" data-testid="tab-history">
+                <History className="h-3.5 w-3.5" />
                 History
               </TabsTrigger>
             </TabsList>
 
             {/* Pool Tab */}
-            <TabsContent value="pool" className="space-y-4">
+            <TabsContent value="pool" className="mt-4 space-y-4">
               {/* Prize Pool Card */}
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="text-center space-y-3">
-                    <Badge variant="secondary" className="text-xs">
-                      Week {poolStatus.draw.weekNumber}, {poolStatus.draw.year}
-                    </Badge>
-                    
-                    <p className="text-5xl font-bold text-primary" data-testid="text-prize-amount">
-                      ${poolStatus.draw.totalPoolFormatted}
+              <Card className="p-6 space-y-6">
+                <div className="text-center space-y-3">
+                  <Badge variant="secondary" className="text-xs">
+                    Week {poolStatus.draw.weekNumber}, {poolStatus.draw.year}
+                  </Badge>
+                  
+                  <p className="text-5xl font-bold text-primary" data-testid="text-prize-amount">
+                    ${poolStatus.draw.totalPoolFormatted}
+                  </p>
+
+                  <div className="flex items-center justify-center gap-4">
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Users className="h-4 w-4" />
+                      <span data-testid="text-participant-count">
+                        {poolStatus.draw.participantCount} players
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                      <span data-testid="text-countdown">
+                        {formatCountdown(
+                          poolStatus.countdown.hoursUntilDraw,
+                          poolStatus.countdown.minutesUntilDraw
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="text-center p-4 bg-muted/50 rounded-lg">
+                    <Ticket className="h-5 w-5 text-primary mx-auto mb-1" />
+                    <p className="text-2xl font-bold" data-testid="text-your-tickets">
+                      {(Number(poolStatus.user.totalTickets) / 1_000_000).toFixed(2)}
                     </p>
-
-                    <div className="flex items-center justify-center gap-4">
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <Users className="h-4 w-4" />
-                        <span data-testid="text-participant-count">
-                          {poolStatus.draw.participantCount} players
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <Clock className="h-4 w-4" />
-                        <span data-testid="text-countdown">
-                          {formatCountdown(
-                            poolStatus.countdown.hoursUntilDraw,
-                            poolStatus.countdown.minutesUntilDraw
-                          )}
-                        </span>
-                      </div>
-                    </div>
+                    <p className="text-xs text-muted-foreground">Tickets</p>
                   </div>
-                </CardContent>
-              </Card>
-
-              {/* Your Position */}
-              <Card>
-                <CardContent className="pt-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="text-center p-4 bg-muted/50 rounded-lg">
-                      <Ticket className="h-5 w-5 text-primary mx-auto mb-1" />
-                      <p className="text-2xl font-bold" data-testid="text-your-tickets">
-                        {(Number(poolStatus.user.totalTickets) / 1_000_000).toFixed(2)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Tickets</p>
-                    </div>
-                    <div className="text-center p-4 bg-muted/50 rounded-lg">
-                      <Target className="h-5 w-5 text-primary mx-auto mb-1" />
-                      <p className="text-2xl font-bold text-primary" data-testid="text-your-odds">
-                        {poolStatus.user.odds}%
-                      </p>
-                      <p className="text-xs text-muted-foreground">Win Chance</p>
-                    </div>
+                  <div className="text-center p-4 bg-muted/50 rounded-lg">
+                    <Target className="h-5 w-5 text-primary mx-auto mb-1" />
+                    <p className="text-2xl font-bold text-primary" data-testid="text-your-odds">
+                      {poolStatus.user.odds}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">Win Chance</p>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
 
-              {/* Opt-In Settings - Simplified */}
-              <Card>
-                <CardContent className="pt-4 space-y-4">
+                <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Coins className="h-4 w-4 text-muted-foreground" />
@@ -350,7 +334,7 @@ export default function Pool() {
                     <span>Keep all</span>
                     <span>Max tickets</span>
                   </div>
-                </CardContent>
+                </div>
               </Card>
 
               {/* Pool Tab Footer Explanation */}
@@ -360,10 +344,10 @@ export default function Pool() {
             </TabsContent>
 
             {/* Tickets Tab */}
-            <TabsContent value="tickets" className="space-y-4">
-              {/* Ticket Breakdown */}
-              <Card>
-                <CardContent className="pt-4 space-y-3">
+            <TabsContent value="tickets" className="mt-4 space-y-4">
+              {/* Ticket Breakdown & Referral */}
+              <Card className="p-6 space-y-6">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                     <div className="flex items-center gap-2">
                       <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -389,13 +373,10 @@ export default function Pool() {
                       {(Number(poolStatus.user.totalTickets) / 1_000_000).toFixed(2)}
                     </span>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
 
-              {/* Referral System */}
-              <Card>
-                <CardContent className="pt-4 space-y-3">
-                  <div className="flex items-center gap-2 mb-2">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
                     <Share2 className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm font-medium">Share & Earn</span>
                     <Badge variant="secondary" className="ml-auto" data-testid="badge-referral-count">
@@ -420,7 +401,7 @@ export default function Pool() {
                       )}
                     </Button>
                   </div>
-                </CardContent>
+                </div>
               </Card>
 
               {/* Have a referral code? - Compact */}
@@ -466,56 +447,51 @@ export default function Pool() {
             </TabsContent>
 
             {/* History Tab */}
-            <TabsContent value="history" className="space-y-4">
-              <Card>
-                <CardContent className="pt-4">
-                  {isLoadingHistory ? (
-                    <div className="space-y-2">
-                      <Skeleton className="h-12 w-full" />
-                      <Skeleton className="h-12 w-full" />
-                    </div>
-                  ) : historyData?.draws && historyData.draws.length > 0 ? (
-                    <div className="space-y-2">
-                      {historyData.draws.map((draw) => (
-                        <div
-                          key={draw.id}
-                          className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                          data-testid={`row-draw-${draw.id}`}
-                        >
-                          <div>
-                            <p className="text-sm font-medium">
-                              Week {draw.weekNumber}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {draw.participantCount} players
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-bold text-primary">
-                              ${draw.totalPoolFormatted}
-                            </p>
-                            {draw.winnerAddress && (
-                              <p className="text-xs font-mono text-muted-foreground">
-                                {formatAddress(draw.winnerAddress)}
-                              </p>
-                            )}
-                          </div>
+            <TabsContent value="history" className="mt-4 space-y-4">
+              <Card className="p-6 space-y-6">
+                {isLoadingHistory ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                  </div>
+                ) : historyData?.draws && historyData.draws.length > 0 ? (
+                  <div className="space-y-2">
+                    {historyData.draws.map((draw) => (
+                      <div
+                        key={draw.id}
+                        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                        data-testid={`row-draw-${draw.id}`}
+                      >
+                        <div>
+                          <p className="text-sm font-medium">
+                            Week {draw.weekNumber}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {draw.participantCount} players
+                          </p>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-6 text-muted-foreground">
-                      <Trophy className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">First draw coming soon!</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-primary">
+                            ${draw.totalPoolFormatted}
+                          </p>
+                          {draw.winnerAddress && (
+                            <p className="text-xs font-mono text-muted-foreground">
+                              {formatAddress(draw.winnerAddress)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground">
+                    <Trophy className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">First draw coming soon!</p>
+                  </div>
+                )}
 
-              {/* How it works */}
-              <Card>
-                <CardContent className="pt-4">
-                  <div className="flex items-center gap-2 mb-3">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm font-medium">How It Works</span>
                   </div>
@@ -533,7 +509,7 @@ export default function Pool() {
                       <p className="text-xs text-muted-foreground">Win weekly!</p>
                     </div>
                   </div>
-                </CardContent>
+                </div>
               </Card>
 
               {/* History Tab Footer */}
@@ -543,13 +519,11 @@ export default function Pool() {
             </TabsContent>
           </Tabs>
         ) : (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              <p>Failed to load pool data</p>
-              <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
-                Retry
-              </Button>
-            </CardContent>
+          <Card className="p-6 text-center text-muted-foreground">
+            <p>Failed to load pool data</p>
+            <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
+              Retry
+            </Button>
           </Card>
         )}
       </div>
