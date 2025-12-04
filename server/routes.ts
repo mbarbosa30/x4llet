@@ -2724,17 +2724,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? Math.floor(aUsdcBalanceNum * (projectedPoolData.apy / 100) / 52 * (userOptIn / 100))
         : 0;
       
+      // Get all referrals to calculate actual referral bonuses
+      const allReferrals = await storage.getAllReferrals();
+      
+      // Build a map: referee address -> referrer address
+      const refereeToReferrer = new Map<string, string>();
+      for (const ref of allReferrals) {
+        refereeToReferrer.set(ref.refereeAddress.toLowerCase(), ref.referrerAddress.toLowerCase());
+      }
+      
+      // Calculate total projected referral bonuses (only for participants who have referrers)
+      // Each participant with a referrer generates 10% bonus for their referrer
+      let projectedReferralBonusTotal = 0;
+      const referrerBonusMap = new Map<string, number>(); // referrer -> their total projected bonus
+      
+      for (const projection of projectedPoolData.participantProjections) {
+        const participantAddress = projection.address.toLowerCase();
+        const referrerAddress = refereeToReferrer.get(participantAddress);
+        if (referrerAddress) {
+          const bonus = Math.floor(Number(projection.projectedYield) * 0.10);
+          projectedReferralBonusTotal += bonus;
+          referrerBonusMap.set(referrerAddress, (referrerBonusMap.get(referrerAddress) || 0) + bonus);
+        }
+      }
+      
+      // Calculate user's projected referral bonus (from their referrals' contributions)
+      const projectedReferralBonus = referrerBonusMap.get(normalizedAddress) || 0;
+      
       // Calculate projected pool total (current pool + projected new contributions + sponsored)
       const currentPoolNum = Number(draw.totalPool || '0');
       const sponsoredPoolNum = Number(draw.sponsoredPool || '0');
       const projectedYieldNum = Number(projectedPoolData.projectedYield);
       const projectedTotalPool = currentPoolNum + sponsoredPoolNum + projectedYieldNum;
       
-      // Calculate projected odds (tickets after user contributes their yield)
+      // Calculate projected odds (tickets after user contributes their yield + referral bonus)
       const currentTotalTickets = Number(draw.totalTickets || '0');
-      const projectedTotalTickets = currentTotalTickets + projectedYieldNum;
+      // Total projected tickets = current + new yield contributions + actual referral bonuses
+      const projectedTotalTickets = currentTotalTickets + projectedYieldNum + projectedReferralBonusTotal;
       const userCurrentTickets = Number(contribution?.totalTickets || '0');
-      const userProjectedTickets = userCurrentTickets + userProjectedWeeklyYield;
+      // User's projected tickets include their yield + their projected referral bonus
+      const userProjectedTickets = userCurrentTickets + userProjectedWeeklyYield + projectedReferralBonus;
       const projectedOdds = projectedTotalTickets > 0 && userProjectedTickets > 0
         ? (userProjectedTickets / projectedTotalTickets * 100).toFixed(2)
         : odds;

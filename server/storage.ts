@@ -2234,6 +2234,15 @@ export class DbStorage extends MemStorage {
     }
   }
 
+  async getAllReferrals(): Promise<Referral[]> {
+    try {
+      return await db.select().from(referrals);
+    } catch (error) {
+      console.error('[Pool] Error getting all referrals:', error);
+      return [];
+    }
+  }
+
   async getReferralByReferee(refereeAddress: string): Promise<Referral | null> {
     try {
       const result = await db

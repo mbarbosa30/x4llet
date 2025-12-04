@@ -838,23 +838,20 @@ export default function Pool() {
               {(() => {
                 // Use total prize pool (participant yield + sponsored donations) for Kelly calculation
                 // Backend projectedPool already includes: currentPool + sponsoredPool + projectedYield
-                // So projectedPool is the correct value to use for Kelly (includes sponsorship)
                 const prizePool = Number(poolStatus.draw.projectedPool || poolStatus.draw.totalPrizePool || poolStatus.draw.totalPool) / 1_000_000;
-                const sponsoredAmount = Number(poolStatus.draw.sponsoredPool || '0') / 1_000_000;
                 const aUsdcBalance = Number(poolStatus.user.aUsdcBalance) / 1_000_000;
-                // Use tickets data only - don't fall back to totalPool (wrong unit: $ vs tickets)
-                // Tickets come only from participants, NOT from sponsors (donations don't add tickets)
-                const totalPoolTickets = Number(poolStatus.draw.projectedTickets || poolStatus.draw.totalTickets || '0') / 1_000_000;
                 const apy = poolStatus.projectedPool?.apy || celoApyData?.apy;
                 const hasApyData = apy !== undefined && apy > 0;
                 
-                // Debug: Log Kelly inputs to verify sponsorship is included
-                console.log('[Kelly] Prize pool (includes sponsored):', prizePool, 'Sponsored:', sponsoredAmount, 'Tickets:', totalPoolTickets);
+                // Get user's current projected tickets (already included in projectedTickets)
+                const userCurrentProjectedTickets = Number(poolStatus.user.projectedTickets || '0') / 1_000_000;
+                const totalPoolTickets = Number(poolStatus.draw.projectedTickets || poolStatus.draw.totalTickets || '0') / 1_000_000;
+                
+                // Calculate "others' tickets" by subtracting user's current projected contribution
+                // This avoids double-counting when we simulate different allocation levels
+                const othersTickets = Math.max(0, totalPoolTickets - userCurrentProjectedTickets);
                 
                 // Calculate Kelly curve data points
-                // Kelly formula adapted: f* = (p*b - q) / b where:
-                // p = probability of winning, b = net odds (prize/cost - 1), q = 1-p
-                // Growth rate g = p*ln(1 + f*b) + q*ln(1 - f)
                 const kellyData = [];
                 let optimalOptIn = 0;
                 let maxGrowthRate = -Infinity;
@@ -863,27 +860,24 @@ export default function Pool() {
                   const weeklyYield = hasApyData ? aUsdcBalance * (apy / 100) / 52 : 0;
                   const cost = weeklyYield * (pct / 100);
                   
-                  // Projected odds at this opt-in level
+                  // User's tickets at this allocation level (yield contribution only, referral bonus handled separately)
                   const myTickets = cost;
-                  const odds = totalPoolTickets > 0 && myTickets > 0 
-                    ? myTickets / (totalPoolTickets + myTickets)
+                  
+                  // Correct odds: myTickets / (othersTickets + myTickets)
+                  // This ensures total odds across all participants sum to 100%
+                  const totalTicketsAtLevel = othersTickets + myTickets;
+                  const odds = totalTicketsAtLevel > 0 && myTickets > 0 
+                    ? myTickets / totalTicketsAtLevel
                     : 0;
                   
-                  // Proper Kelly growth rate using log-wealth formula:
-                  // g = p * ln((balance - cost + prize) / balance) + (1-p) * ln((balance - cost) / balance)
-                  // This correctly scales with prize pool size - donations increase optimal allocation
+                  // Kelly growth rate using log-wealth formula
                   let growthRate = 0;
                   if (cost > 0 && prizePool > 0 && aUsdcBalance > cost) {
-                    // When you win: balance becomes (aUsdcBalance - cost + prizePool)
                     const wealthIfWin = aUsdcBalance - cost + prizePool;
-                    // When you lose: balance becomes (aUsdcBalance - cost)  
                     const wealthIfLose = aUsdcBalance - cost;
-                    
-                    // Expected log growth rate
                     const logGrowthWin = Math.log(wealthIfWin / aUsdcBalance);
                     const logGrowthLose = Math.log(wealthIfLose / aUsdcBalance);
-                    
-                    growthRate = (odds * logGrowthWin + (1 - odds) * logGrowthLose) * 1000; // Scale for visibility
+                    growthRate = (odds * logGrowthWin + (1 - odds) * logGrowthLose) * 1000;
                   }
                   
                   if (growthRate > maxGrowthRate && pct > 0) {
