@@ -94,7 +94,7 @@ export default function Landing() {
               <div className="flex items-start gap-3">
                 <Zap className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                 <div>
-                  <div className="text-sm font-medium">It just works</div>
+                  <div className="text-sm font-medium">It just works, anywhere</div>
                   <div className="text-xs text-muted-foreground">Any browser. Offline-ready. Gasless transfers.</div>
                 </div>
               </div>
@@ -102,8 +102,8 @@ export default function Landing() {
               <div className="flex items-start gap-3">
                 <Lock className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                 <div>
-                  <div className="text-sm font-medium">Your keys, your control</div>
-                  <div className="text-xs text-muted-foreground">Encrypted on your device. Unlock with password or biometrics.</div>
+                  <div className="text-sm font-medium">Your keys stay with you</div>
+                  <div className="text-xs text-muted-foreground">Encrypted on your device, locally. Nowhere else.</div>
                 </div>
               </div>
               
@@ -141,7 +141,7 @@ export default function Landing() {
                   <Zap className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
                   <div>
                     <span className="text-xs font-medium">x402 Protocol</span>
-                    <p className="text-xs text-muted-foreground">Gasless USDC transfers via EIP-3009, offline-ready</p>
+                    <p className="text-xs text-muted-foreground">Gasless execution, by default. USDC transfers via EIP-3009. Works off-line.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
@@ -155,14 +155,14 @@ export default function Landing() {
                   <Network className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
                   <div>
                     <span className="text-xs font-medium">Trust Infrastructure</span>
-                    <p className="text-xs text-muted-foreground">MaxFlow graph signals, Circles web of trust, GoodDollar verification</p>
+                    <p className="text-xs text-muted-foreground">MaxFlow graph signals computation, Circles web of trust, GoodDollar verification</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <Layers className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
                   <div>
                     <span className="text-xs font-medium">Multi-chain</span>
-                    <p className="text-xs text-muted-foreground">Seamless experience on Base, Celo, and Gnosis networks</p>
+                    <p className="text-xs text-muted-foreground">Seamless experience on Base, Celo, and Gnosis networks. More soon.</p>
                   </div>
                 </div>
               </div>
