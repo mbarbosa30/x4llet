@@ -477,11 +477,6 @@ export default function Claim() {
       }}
     >
       <main className="max-w-md mx-auto p-4 space-y-4">
-        <div className="text-center space-y-1">
-          <h1 className="text-lg font-semibold">Claim Tokens</h1>
-          <p className="text-xs text-muted-foreground">Claim GoodDollar UBI and Circles CRC</p>
-        </div>
-
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="gooddollar" className="flex items-center gap-1.5 text-xs" data-testid="tab-gooddollar">

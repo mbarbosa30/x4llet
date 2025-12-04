@@ -486,12 +486,6 @@ export default function Pool() {
       }}
     >
       <main className="max-w-md mx-auto p-4 space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-1">
-          <h1 className="text-lg font-semibold">Prize Pool</h1>
-          <p className="text-xs text-muted-foreground">Win weekly prizes from your savings yield</p>
-        </div>
-
         {isLoadingStatus ? (
           <div className="space-y-4">
             <Skeleton className="h-40 w-full" />
