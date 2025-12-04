@@ -374,6 +374,40 @@ export default function Pool() {
     }
     setShowContributionDialog(false);
     setPendingOptInPercent(null);
+    setPrepareData(null);
+  };
+
+  // Open modal and fetch prepare data to show amounts
+  const openContributionModal = async (percent: number) => {
+    setPendingOptInPercent(percent);
+    setShowContributionDialog(true);
+    setPrepareData(null);
+    setIsPreparing(true);
+    
+    try {
+      const prepareResult = await apiRequest("POST", "/api/pool/prepare-contribution", { 
+        address, 
+        optInPercent: percent 
+      });
+      const data = await prepareResult.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to prepare contribution');
+      }
+      
+      setPrepareData(data);
+    } catch (error) {
+      console.error('[Pool] Error preparing contribution:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to load contribution details",
+        variant: "destructive",
+      });
+      setShowContributionDialog(false);
+      setPendingOptInPercent(null);
+    } finally {
+      setIsPreparing(false);
+    }
   };
 
   const copyReferralCode = async () => {
@@ -514,10 +548,7 @@ export default function Pool() {
                   className="w-full" 
                   size="lg"
                   disabled={optInPercent === 0}
-                  onClick={() => {
-                    setPendingOptInPercent(optInPercent);
-                    setShowContributionDialog(true);
-                  }}
+                  onClick={() => openContributionModal(optInPercent)}
                   data-testid="button-activate"
                 >
                   <Sparkles className="h-4 w-4 mr-2" />
@@ -827,10 +858,7 @@ export default function Pool() {
                 <Button 
                   className="w-full" 
                   disabled={optInPercent === (poolStatus.user.optInPercent ?? 0)}
-                  onClick={() => {
-                    setPendingOptInPercent(optInPercent);
-                    setShowContributionDialog(true);
-                  }}
+                  onClick={() => openContributionModal(optInPercent)}
                   data-testid="button-save-contribution"
                 >
                   Save
