@@ -232,11 +232,15 @@ export default function Pool() {
   });
 
   // Animate the prize pool amount (aUSDC earning interest)
+  // Total prize = participant pool + sponsored pool (donations)
+  const totalPrizeMicro = poolStatus 
+    ? (BigInt(poolStatus.draw.totalPool || '0') + BigInt(poolStatus.draw.sponsoredPool || '0')).toString()
+    : '0';
   const prizePoolAnimation = useEarningAnimation({
     usdcMicro: '0',
-    aaveBalanceMicro: poolStatus?.draw?.totalPool || '0',
+    aaveBalanceMicro: totalPrizeMicro,
     apyRate: (celoApyData?.apy || 0) / 100,
-    enabled: !!poolStatus && Number(poolStatus.draw.totalPool) > 0 && !!celoApyData?.apy,
+    enabled: !!poolStatus && Number(totalPrizeMicro) > 0 && !!celoApyData?.apy,
     minPrecision: 5,
   });
 
@@ -695,7 +699,7 @@ export default function Pool() {
                         {hasProjectedGrowth && (
                           <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
                             <TrendingUp className="h-3 w-3" />
-                            Est. ${projectedNum.toFixed(2)} at draw
+                            ${projectedNum.toFixed(2)} USDC pledged to pool
                           </p>
                         )}
                       </div>
