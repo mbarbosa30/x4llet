@@ -147,6 +147,23 @@ function formatSmartCurrencyTick(value: number): string {
   }
 }
 
+// Cache keys for view state persistence
+const EARN_VIEW_STATE_KEY = 'earn_view_state';
+
+function getCachedEarnViewState(): { hasAaveBalance: boolean } | null {
+  try {
+    const cached = localStorage.getItem(EARN_VIEW_STATE_KEY);
+    if (cached) return JSON.parse(cached);
+  } catch {}
+  return null;
+}
+
+function setCachedEarnViewState(hasAaveBalance: boolean) {
+  try {
+    localStorage.setItem(EARN_VIEW_STATE_KEY, JSON.stringify({ hasAaveBalance }));
+  } catch {}
+}
+
 export default function Earn() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -164,6 +181,11 @@ export default function Earn() {
   const [activeTab, setActiveTab] = useState<string>('savings');
   const [localOptInPercent, setLocalOptInPercent] = useState<number | null>(null);
   const [isSavingOptIn, setIsSavingOptIn] = useState(false);
+  // Cached view state - prevents flash between different views on navigation
+  const [cachedHasAaveBalance, setCachedHasAaveBalance] = useState<boolean | null>(() => {
+    const cached = getCachedEarnViewState();
+    return cached?.hasAaveBalance ?? null;
+  });
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -901,6 +923,19 @@ export default function Earn() {
   const baseBalanceNum = Number(baseAaveBalanceMicro) / 1e6;
   const celoBalanceNum = Number(celoAaveBalanceMicro) / 1e6;
   const gnosisBalanceNum = Number(gnosisAaveBalanceMicro) / 1e6;
+  
+  // Cache view state when balance data loads to prevent flash on navigation
+  useEffect(() => {
+    if (aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && aaveBalanceGnosis !== undefined) {
+      const newHasBalance = hasAaveBalance;
+      setCachedHasAaveBalance(newHasBalance);
+      setCachedEarnViewState(newHasBalance);
+    }
+  }, [aaveBalanceBase, aaveBalanceCelo, aaveBalanceGnosis, hasAaveBalance]);
+  
+  // Use cached state during loading to prevent view flash
+  const isBalanceLoading = isAaveBalanceBaseLoading || isAaveBalanceCeloLoading || isAaveBalanceGnosisLoading;
+  const effectiveHasAaveBalance = isBalanceLoading ? (cachedHasAaveBalance ?? false) : hasAaveBalance;
 
   return (
     <div 
@@ -924,7 +959,7 @@ export default function Earn() {
           </TabsList>
 
           <TabsContent value="savings" className="mt-4 space-y-6">
-            {!hasAaveBalance && aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && (
+            {!effectiveHasAaveBalance && aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && (
               <div className="text-center space-y-2">
                 <div className="flex items-center justify-center gap-2">
                   <Sparkles className="h-6 w-6 text-primary" />
@@ -952,7 +987,7 @@ export default function Earn() {
                   <div className="flex items-center justify-center">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                   </div>
-                ) : hasAaveBalance ? (
+                ) : effectiveHasAaveBalance ? (
                   <div className="space-y-1">
                     <div className="text-5xl font-medium tabular-nums flex items-center justify-center" data-testid="text-earning-amount">
                       <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
@@ -1079,7 +1114,7 @@ export default function Earn() {
             )}
 
             {/* Earnings Preview for users with no deposits */}
-            {!hasAaveBalance && aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && (
+            {!effectiveHasAaveBalance && aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && (
               <Card className="p-4 space-y-4 border-dashed" data-testid="card-earnings-preview">
                 <div className="text-sm font-medium flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary" />
@@ -1142,7 +1177,7 @@ export default function Earn() {
               </Card>
             )}
 
-            {hasAaveBalance && (baseBalanceNum > 0 || celoBalanceNum > 0 || gnosisBalanceNum > 0) && [baseBalanceNum, celoBalanceNum, gnosisBalanceNum].filter(b => b > 0).length > 1 && (
+            {effectiveHasAaveBalance && (baseBalanceNum > 0 || celoBalanceNum > 0 || gnosisBalanceNum > 0) && [baseBalanceNum, celoBalanceNum, gnosisBalanceNum].filter(b => b > 0).length > 1 && (
               <Card className="p-4 space-y-3" data-testid="card-chain-breakdown">
                 <div className="text-sm font-medium flex items-center gap-2">
                   <Layers className="h-4 w-4 text-primary" />
@@ -1229,7 +1264,7 @@ export default function Earn() {
               </Card>
             )}
 
-            {hasAaveBalance && combinedChartData.length > 0 && (
+            {effectiveHasAaveBalance && combinedChartData.length > 0 && (
               <Card className="p-4 space-y-3" data-testid="card-projected-earnings">
                 <div className="text-sm font-medium flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-primary" />

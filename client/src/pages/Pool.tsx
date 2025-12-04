@@ -154,6 +154,23 @@ function formatSmallAmount(amount: number): string {
   return amount.toExponential(2);
 }
 
+// Cache keys for view state persistence
+const POOL_VIEW_STATE_KEY = 'pool_view_state';
+
+function getCachedViewState(): { hasParticipated: boolean } | null {
+  try {
+    const cached = localStorage.getItem(POOL_VIEW_STATE_KEY);
+    if (cached) return JSON.parse(cached);
+  } catch {}
+  return null;
+}
+
+function setCachedViewState(hasParticipated: boolean) {
+  try {
+    localStorage.setItem(POOL_VIEW_STATE_KEY, JSON.stringify({ hasParticipated }));
+  } catch {}
+}
+
 export default function Pool() {
   const [, setLocation] = useLocation();
   const search = useSearch();
@@ -161,6 +178,11 @@ export default function Pool() {
   const [address, setAddress] = useState<string | null>(null);
   const [optInPercent, setOptInPercent] = useState<number>(50); // Default to 50% for intro
   const [hasInitializedOptIn, setHasInitializedOptIn] = useState(false);
+  // Cached view state - prevents flash between intro and main views on navigation
+  const [cachedHasParticipated, setCachedHasParticipated] = useState<boolean | null>(() => {
+    const cached = getCachedViewState();
+    return cached?.hasParticipated ?? null;
+  });
   const [isSavingOptIn, setIsSavingOptIn] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [referralInput, setReferralInput] = useState("");
@@ -244,7 +266,7 @@ export default function Pool() {
     minPrecision: 5,
   });
 
-  // Sync opt-in from server
+  // Sync opt-in from server and cache view state
   useEffect(() => {
     if (poolStatus?.user?.optInPercent !== undefined && !hasInitializedOptIn) {
       // Distinguish between new users and returning opted-out users:
@@ -255,6 +277,11 @@ export default function Pool() {
       }
       // New users without snapshot keep the default 50%
       setHasInitializedOptIn(true);
+      
+      // Cache the view state to prevent flash on navigation
+      const hasParticipated = poolStatus.user.optInPercent > 0;
+      setCachedHasParticipated(hasParticipated);
+      setCachedViewState(hasParticipated);
     }
   }, [poolStatus, hasInitializedOptIn]);
 
@@ -516,11 +543,22 @@ export default function Pool() {
       }}
     >
       <main className="max-w-md mx-auto p-4 space-y-6">
+        {/* Use cached view state during loading to prevent flash between intro/main views */}
         {isLoadingStatus ? (
-          <div className="space-y-4">
-            <Skeleton className="h-40 w-full" />
-            <Skeleton className="h-32 w-full" />
-          </div>
+          cachedHasParticipated === true ? (
+            /* Show main view skeleton if user was participating */
+            <div className="space-y-4">
+              <Skeleton className="h-64 w-full" />
+              <Skeleton className="h-48 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+          ) : (
+            /* Show intro skeleton for new users or those who haven't participated */
+            <div className="space-y-4">
+              <Skeleton className="h-40 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+          )
         ) : poolStatus && (poolStatus.user.optInPercent ?? 0) === 0 ? (
           /* Simplified Onboarding Intro */
           <div className="space-y-4">
