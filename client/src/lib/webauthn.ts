@@ -57,7 +57,7 @@ export async function isPlatformAuthenticatorAvailable(): Promise<boolean> {
   }
 }
 
-async function isPrfSupported(): Promise<boolean> {
+export async function isPrfSupported(): Promise<boolean> {
   if (!isWebAuthnSupported()) return false;
   
   try {
@@ -70,6 +70,46 @@ async function isPrfSupported(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export interface PasskeySupportStatus {
+  supported: boolean;
+  reason: 'supported' | 'no_webauthn' | 'no_platform_authenticator' | 'no_prf';
+  message: string;
+}
+
+export async function getPasskeySupportStatus(): Promise<PasskeySupportStatus> {
+  if (!isWebAuthnSupported()) {
+    return {
+      supported: false,
+      reason: 'no_webauthn',
+      message: 'WebAuthn not supported in this browser',
+    };
+  }
+  
+  const platformAvailable = await isPlatformAuthenticatorAvailable();
+  if (!platformAvailable) {
+    return {
+      supported: false,
+      reason: 'no_platform_authenticator',
+      message: 'No biometric authenticator available',
+    };
+  }
+  
+  const prfAvailable = await isPrfSupported();
+  if (!prfAvailable) {
+    return {
+      supported: false,
+      reason: 'no_prf',
+      message: 'Browser lacks PRF support. Use Chrome 116+ or Android.',
+    };
+  }
+  
+  return {
+    supported: true,
+    reason: 'supported',
+    message: 'Passkey unlock available',
+  };
 }
 
 export async function hasPasskeyEnrolled(): Promise<boolean> {

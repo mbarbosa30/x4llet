@@ -7,7 +7,7 @@ import { queryClient } from '@/lib/queryClient';
 import { Card } from '@/components/ui/card';
 import InstallPrompt from '@/components/InstallPrompt';
 import { getWallet, getPreferences, savePreferences, getPrivateKey, lockWallet, enrollWalletPasskey, removeWalletPasskey, canUsePasskey } from '@/lib/wallet';
-import { isPlatformAuthenticatorAvailable, hasPasskeyEnrolled, getPasskeyInfo } from '@/lib/webauthn';
+import { getPasskeySupportStatus, hasPasskeyEnrolled, getPasskeyInfo, type PasskeySupportStatus } from '@/lib/webauthn';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -57,7 +57,7 @@ export default function Settings() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [showPasskeyDialog, setShowPasskeyDialog] = useState(false);
-  const [passkeyAvailable, setPasskeyAvailable] = useState(false);
+  const [passkeySupportStatus, setPasskeySupportStatus] = useState<PasskeySupportStatus | null>(null);
   const [passkeyEnrolled, setPasskeyEnrolled] = useState(false);
   const [isEnrollingPasskey, setIsEnrollingPasskey] = useState(false);
   const [isRemovingPasskey, setIsRemovingPasskey] = useState(false);
@@ -84,10 +84,10 @@ export default function Settings() {
           document.documentElement.classList.remove('dark');
         }
 
-        const available = await isPlatformAuthenticatorAvailable();
-        setPasskeyAvailable(available);
+        const supportStatus = await getPasskeySupportStatus();
+        setPasskeySupportStatus(supportStatus);
         
-        if (available) {
+        if (supportStatus.supported) {
           const enrolled = await hasPasskeyEnrolled();
           setPasskeyEnrolled(enrolled);
         }
@@ -325,28 +325,34 @@ export default function Settings() {
             Security
           </h2>
           <Card className="divide-y">
-            {passkeyAvailable && (
-              <button
-                onClick={() => setShowPasskeyDialog(true)}
-                className="w-full flex items-center justify-between p-4 hover-elevate"
-                data-testid="button-passkey"
-              >
-                <div className="flex items-center gap-3">
-                  <Fingerprint className="h-5 w-5 text-muted-foreground" />
-                  <div className="text-left">
-                    <div className="text-sm font-medium">Passkey Unlock</div>
-                    <div className="text-xs text-muted-foreground">
-                      {passkeyEnrolled ? 'Enabled' : 'Use Face ID or fingerprint'}
-                    </div>
+            <button
+              onClick={() => setShowPasskeyDialog(true)}
+              className="w-full flex items-center justify-between p-4 hover-elevate"
+              data-testid="button-passkey"
+            >
+              <div className="flex items-center gap-3">
+                <Fingerprint className={`h-5 w-5 ${passkeySupportStatus?.supported ? 'text-muted-foreground' : 'text-muted-foreground/50'}`} />
+                <div className="text-left">
+                  <div className={`text-sm font-medium ${!passkeySupportStatus?.supported ? 'text-muted-foreground' : ''}`}>
+                    Passkey Unlock
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {passkeyEnrolled 
+                      ? 'Enabled' 
+                      : passkeySupportStatus?.supported 
+                        ? 'Use Face ID or fingerprint'
+                        : passkeySupportStatus?.message || 'Checking availability...'}
                   </div>
                 </div>
-                {passkeyEnrolled ? (
-                  <Check className="h-5 w-5 text-primary" />
-                ) : (
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                )}
-              </button>
-            )}
+              </div>
+              {passkeyEnrolled ? (
+                <Check className="h-5 w-5 text-primary" />
+              ) : passkeySupportStatus?.supported ? (
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              ) : (
+                <AlertTriangle className="h-5 w-5 text-muted-foreground/50" />
+              )}
+            </button>
             <button
               onClick={() => setShowExportPrivateKey(true)}
               className="w-full flex items-center justify-between p-4 hover-elevate"
@@ -736,21 +742,65 @@ export default function Settings() {
       <Dialog open={showPasskeyDialog} onOpenChange={setShowPasskeyDialog}>
         <DialogContent className="max-w-xs">
           <DialogHeader className="text-center">
-            <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-              <Fingerprint className="h-6 w-6 text-primary" />
+            <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-2 ${passkeySupportStatus?.supported ? 'bg-primary/10' : 'bg-muted'}`}>
+              <Fingerprint className={`h-6 w-6 ${passkeySupportStatus?.supported ? 'text-primary' : 'text-muted-foreground'}`} />
             </div>
             <DialogTitle>
-              {passkeyEnrolled ? 'Passkey Enabled' : 'Enable Passkey'}
+              {!passkeySupportStatus?.supported 
+                ? 'Passkey Not Available'
+                : passkeyEnrolled 
+                  ? 'Passkey Enabled' 
+                  : 'Enable Passkey'}
             </DialogTitle>
             <DialogDescription>
-              {passkeyEnrolled 
-                ? 'Unlock your wallet instantly with Face ID or fingerprint' 
-                : 'Use biometrics instead of typing your recovery code'}
+              {!passkeySupportStatus?.supported
+                ? 'This feature requires specific browser support'
+                : passkeyEnrolled 
+                  ? 'Unlock your wallet instantly with Face ID or fingerprint' 
+                  : 'Use biometrics instead of typing your recovery code'}
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-3 py-2">
-            {passkeyEnrolled ? (
+            {!passkeySupportStatus?.supported ? (
+              <>
+                <div className="flex items-start gap-2 text-sm text-muted-foreground p-3 bg-destructive/10 rounded-lg border border-destructive/20">
+                  <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-destructive mb-1">
+                      {passkeySupportStatus?.reason === 'no_prf' 
+                        ? 'Browser lacks PRF extension'
+                        : passkeySupportStatus?.reason === 'no_platform_authenticator'
+                          ? 'No biometric authenticator'
+                          : 'WebAuthn not supported'}
+                    </p>
+                    <p className="text-xs">
+                      {passkeySupportStatus?.reason === 'no_prf' 
+                        ? 'Passkey unlock requires the WebAuthn PRF extension which is not available in this browser. Safari/iOS and some browsers do not support this yet.'
+                        : passkeySupportStatus?.reason === 'no_platform_authenticator'
+                          ? 'Your device does not have a biometric authenticator (Face ID, Touch ID, or fingerprint) available.'
+                          : 'Your browser does not support WebAuthn, which is required for passkey unlock.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground p-3 bg-muted rounded-lg">
+                  <p className="font-medium mb-1">Supported browsers:</p>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    <li>Chrome 116+ (Desktop & Android)</li>
+                    <li>Edge 116+</li>
+                    <li>Android with fingerprint</li>
+                  </ul>
+                </div>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setShowPasskeyDialog(false)}
+                  data-testid="button-close-passkey-dialog"
+                >
+                  Got it
+                </Button>
+              </>
+            ) : passkeyEnrolled ? (
               <>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 bg-muted rounded-lg">
                   <Check className="h-4 w-4 text-primary flex-shrink-0" />
