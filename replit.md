@@ -52,6 +52,12 @@ Features a unified fixed header and bottom navigation. The header displays brand
 
 Multi-chain UX includes aggregated USDC balance display, chain badges for transactions, auto-selection of the chain with the highest USDC balance on the Send page, and network selection on the Receive page.
 
+**Pool (Prize-Linked Savings)**: Weekly prize pool where users opt-in a percentage (0-100%) of their Aave savings yield. Tickets are earned based on yield contributed plus 10% of referrals' contributions. Features include:
+- `/pool` page with opt-in slider, pool stats, countdown to weekly draw, and past winners
+- Referral system: 8-character codes derived from wallet address, 10% bonus tickets from referrals' yield
+- Database tables: `pool_settings` (user opt-in %), `pool_draws` (weekly draws), `pool_contributions` (per-draw tickets), `referrals` (referrer-referee links with unique constraint)
+- Admin endpoint `/api/admin/pool/draw` for executing weekly draws with weighted random selection
+
 ## External Dependencies
 
 ### Blockchain Infrastructure
