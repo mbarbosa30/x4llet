@@ -699,7 +699,7 @@ export default function Pool() {
                         {hasProjectedGrowth && (
                           <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
                             <TrendingUp className="h-3 w-3" />
-                            ${projectedNum.toFixed(2)} USDC pledged to pool
+                            USDC pledged to the pool
                           </p>
                         )}
                       </div>
