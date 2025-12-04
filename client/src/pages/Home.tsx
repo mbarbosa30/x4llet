@@ -270,77 +270,32 @@ export default function Home() {
       </main>
 
       <Dialog open={!!selectedTransaction} onOpenChange={() => setSelectedTransaction(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Transaction Details</DialogTitle>
-            <DialogDescription>
-              {selectedTransaction?.type === 'send' ? 'Sent' : 'Received'} {formatAmount(selectedTransaction?.amount || '0')} USDC
-            </DialogDescription>
+        <DialogContent className="max-w-xs">
+          <DialogHeader className="text-center">
+            <DialogTitle className="text-2xl font-bold">
+              {selectedTransaction?.type === 'send' ? '-' : '+'}{formatAmount(selectedTransaction?.amount || '0')} USDC
+            </DialogTitle>
+            {exchangeRate && selectedTransaction && (
+              <DialogDescription>
+                ≈ {(parseFloat(selectedTransaction.amount) / 1e6 * exchangeRate.rate).toFixed(2)} {currency}
+              </DialogDescription>
+            )}
           </DialogHeader>
 
           {selectedTransaction && (
-            <div className="space-y-2 py-2">
-              <div className="space-y-2">
-                <div>
-                  <div className="text-xs text-muted-foreground mb-0.5">From</div>
-                  <div className="font-mono text-xs break-all bg-muted p-1.5 rounded-md">
-                    {selectedTransaction.from}
-                  </div>
-                </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {selectedTransaction.type === 'send' ? 'To' : 'From'}
+                </span>
+                <span className="font-mono">
+                  {(selectedTransaction.type === 'send' ? selectedTransaction.to : selectedTransaction.from).slice(0, 6)}...{(selectedTransaction.type === 'send' ? selectedTransaction.to : selectedTransaction.from).slice(-4)}
+                </span>
+              </div>
 
-                <div>
-                  <div className="text-xs text-muted-foreground mb-0.5">To</div>
-                  <div className="font-mono text-xs break-all bg-muted p-1.5 rounded-md">
-                    {selectedTransaction.to}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-xs text-muted-foreground mb-0.5">Amount</div>
-                  <div className="text-sm font-medium">
-                    {formatAmount(selectedTransaction.amount)} USDC
-                    {exchangeRate && (
-                      <span className="text-xs text-muted-foreground ml-2">
-                        ≈ {(parseFloat(selectedTransaction.amount) * exchangeRate.rate).toFixed(2)} {currency}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-xs text-muted-foreground mb-0.5">Timestamp</div>
-                  <div className="text-sm">
-                    {new Date(selectedTransaction.timestamp).toLocaleString()}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-xs text-muted-foreground mb-0.5">Status</div>
-                  <div className="text-sm capitalize">{selectedTransaction.status}</div>
-                </div>
-
-                {selectedTransaction.txHash && (
-                  <div>
-                    <div className="text-xs text-muted-foreground mb-0.5">Transaction Hash</div>
-                    <div className="flex items-center gap-2">
-                      <div className="font-mono text-xs break-all bg-muted p-1.5 rounded-md flex-1">
-                        {selectedTransaction.txHash}
-                      </div>
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={() => handleCopyHash(selectedTransaction.txHash!)}
-                        data-testid="button-copy-tx-hash"
-                      >
-                        {copiedHash ? (
-                          <Check className="h-4 w-4" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                )}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">When</span>
+                <span>{new Date(selectedTransaction.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
               </div>
 
               {selectedTransaction.txHash && (
@@ -351,7 +306,7 @@ export default function Home() {
                   data-testid="button-view-explorer"
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
-                  View on {((selectedTransaction as any).chainId || 42220) === 42220 ? 'Celoscan' : ((selectedTransaction as any).chainId === 100 ? 'Gnosisscan' : 'Basescan')}
+                  View details
                 </Button>
               )}
             </div>

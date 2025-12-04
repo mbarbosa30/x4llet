@@ -1231,54 +1231,53 @@ export default function Pool() {
                   </Badge>
                 </div>
                 
-                {/* Shareable Link */}
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground">Your referral link:</p>
-                  <div className="flex gap-2">
-                    <div className="flex-1 p-2.5 bg-muted rounded-lg font-mono text-xs text-muted-foreground truncate" data-testid="text-referral-link">
-                      {`${window.location.origin}/pool?ref=${poolStatus.referral.code}`}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={copyReferralCode}
-                      data-testid="button-copy-referral"
-                    >
-                      {copiedCode ? (
-                        <Check className="h-4 w-4 text-primary" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </Button>
+                {/* Your Code - Prominent Display */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 p-3 bg-muted rounded-lg font-mono text-lg font-bold text-center tracking-wider" data-testid="text-referral-code">
+                    {poolStatus.referral.code}
                   </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={copyReferralCode}
+                    data-testid="button-copy-referral"
+                  >
+                    {copiedCode ? (
+                      <Check className="h-4 w-4 text-primary" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
                 </div>
+
+                {/* Shareable Link - Secondary */}
+                <p className="text-xs text-muted-foreground text-center truncate" data-testid="text-referral-link">
+                  {`${window.location.origin}/pool?ref=${poolStatus.referral.code}`}
+                </p>
 
                 <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1">
                   <Info className="h-3 w-3" />
-                  Earn 10% bonus tickets from each friend's contribution
+                  +10% bonus from each friend's contribution
                 </p>
               </Card>
 
               <Dialog open={showReferralDialog} onOpenChange={setShowReferralDialog}>
                 <DialogTrigger asChild>
-                  <Button variant="ghost" className="w-full text-muted-foreground" data-testid="button-enter-referral">
+                  <Button variant="ghost" className="w-full text-muted-foreground text-xs" data-testid="button-enter-referral">
                     Have a code? Enter it here
-                    <ChevronRight className="h-4 w-4 ml-1" />
+                    <ChevronRight className="h-3 w-3 ml-1" />
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-xs">
                   <DialogHeader>
-                    <DialogTitle>Enter Referral Code</DialogTitle>
-                    <DialogDescription>
-                      8-character code from a friend
-                    </DialogDescription>
+                    <DialogTitle className="text-center">Enter Code</DialogTitle>
                   </DialogHeader>
-                  <div className="space-y-4 pt-4">
+                  <div className="space-y-3">
                     <Input
                       placeholder="A1B2C3D4"
                       value={referralInput}
                       onChange={(e) => setReferralInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))}
-                      className="font-mono text-center text-lg"
+                      className="font-mono text-center text-lg tracking-wider"
                       maxLength={8}
                       data-testid="input-referral-code"
                     />
@@ -1288,7 +1287,7 @@ export default function Pool() {
                       disabled={!referralInput || referralInput.length !== 8 || applyReferralMutation.isPending}
                       data-testid="button-apply-referral"
                     >
-                      {applyReferralMutation.isPending ? "Applying..." : "Apply Code"}
+                      {applyReferralMutation.isPending ? "Applying..." : "Apply"}
                     </Button>
                   </div>
                 </DialogContent>
