@@ -704,15 +704,29 @@ export default function Pool() {
       <Dialog open={showContributionDialog} onOpenChange={(open) => {
         if (!open) cancelOptInChange();
       }}>
-        <DialogContent className="max-w-xs">
+        <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Set to {pendingOptInPercent}%?</DialogTitle>
-            <DialogDescription>
-              {pendingOptInPercent === 0 
-                ? "You'll keep all your Celo yield" 
-                : `${pendingOptInPercent}% of your yield enters the weekly prize pool`}
-            </DialogDescription>
+            <DialogTitle>Confirm contribution</DialogTitle>
           </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-center gap-3 py-2">
+              <span className="text-lg font-medium">{poolStatus?.user?.optInPercent ?? 0}%</span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <span className="text-lg font-bold text-primary">{pendingOptInPercent ?? 0}%</span>
+            </div>
+            
+            <p className="text-sm text-center">
+              {pendingOptInPercent === 0 
+                ? "You'll keep 100% of your Celo aUSDC yield" 
+                : `${pendingOptInPercent}% of your Celo aUSDC yield goes to the weekly prize pool`}
+            </p>
+            
+            <div className="text-xs text-muted-foreground text-center space-y-1">
+              <p>Collected weekly on Sunday at 00:00 UTC</p>
+              <p>Your principal stays safe in Aave</p>
+            </div>
+          </div>
 
           <div className="flex gap-3 pt-2">
             <Button 
