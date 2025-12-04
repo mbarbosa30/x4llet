@@ -1538,23 +1538,17 @@ export default function Earn() {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Contribute yield for a chance to win weekly prizes
+                    Chance to win weekly prizes
                   </p>
                 </div>
               </div>
 
               {(localOptInPercent ?? 0) > 0 ? (
-                <div className="mt-4 space-y-3">
+                <div className="mt-3">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Yield contribution</span>
                     <span className="font-medium tabular-nums text-success">{localOptInPercent}%</span>
                   </div>
-                  <Link href="/pool">
-                    <Button variant="outline" size="sm" className="w-full" data-testid="button-adjust-pool">
-                      <Settings className="h-4 w-4 mr-2" />
-                      Adjust Settings
-                    </Button>
-                  </Link>
                 </div>
               ) : (
                 <div className="mt-4">
