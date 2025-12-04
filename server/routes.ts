@@ -2523,7 +2523,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get total contributed all-time from yield snapshot
       const totalContributedAllTime = yieldSnapshot?.totalYieldCollected || '0';
-      const aUsdcBalance = yieldSnapshot?.lastAusdcBalance || '0';
+      
+      // Fetch LIVE aUSDC balance from Celo chain (don't rely on snapshot)
+      let aUsdcBalance = yieldSnapshot?.lastAusdcBalance || '0';
+      try {
+        const celoNetwork = getNetworkByChainId(42220);
+        if (celoNetwork?.aUsdcAddress) {
+          const CELO_AUSDC_ADDRESS = getAddress(celoNetwork.aUsdcAddress);
+          // Use normalizedAddress which is already validated above
+          const userAddress = getAddress(normalizedAddress);
+          
+          const client = createPublicClient({
+            chain: celo,
+            transport: http('https://forno.celo.org'),
+          });
+          
+          const liveBalance = await client.readContract({
+            address: CELO_AUSDC_ADDRESS,
+            abi: [{
+              inputs: [{ name: 'account', type: 'address' }],
+              name: 'balanceOf',
+              outputs: [{ name: '', type: 'uint256' }],
+              stateMutability: 'view',
+              type: 'function',
+            }],
+            functionName: 'balanceOf',
+            args: [userAddress],
+          });
+          
+          aUsdcBalance = liveBalance.toString();
+        }
+      } catch (balanceError) {
+        console.error('[Pool] Error fetching live aUSDC balance:', balanceError);
+        // Fallback to snapshot already set as default
+      }
       
       res.json({
         draw: {
