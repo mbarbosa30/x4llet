@@ -248,7 +248,7 @@ export default function Dashboard() {
 
       toast({
         title: 'Donation successful',
-        description: `Added $${result.donatedFormatted} to prize pool. New total: $${result.newTotalFormatted}`,
+        description: `Added $${result.donatedFormatted} to sponsored pool. New total prize: $${result.totalPrizePoolFormatted}`,
       });
 
       setDonationAmount('');
