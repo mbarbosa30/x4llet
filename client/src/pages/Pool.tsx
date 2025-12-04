@@ -757,7 +757,8 @@ export default function Pool() {
                 // Use projected pool data for more accurate calculations
                 const prizePool = Number(poolStatus.draw.projectedPool || poolStatus.draw.totalPool) / 1_000_000;
                 const aUsdcBalance = Number(poolStatus.user.aUsdcBalance) / 1_000_000;
-                const totalPoolTickets = Number(poolStatus.draw.projectedTickets || poolStatus.draw.totalTickets || poolStatus.draw.totalPool) / 1_000_000;
+                // Use tickets data only - don't fall back to totalPool (wrong unit: $ vs tickets)
+                const totalPoolTickets = Number(poolStatus.draw.projectedTickets || poolStatus.draw.totalTickets || '0') / 1_000_000;
                 const apy = poolStatus.projectedPool?.apy || celoApyData?.apy;
                 const hasApyData = apy !== undefined && apy > 0;
                 
@@ -1073,9 +1074,9 @@ export default function Pool() {
 
               {/* Cumulative Win Probability Curve */}
               {(() => {
-                // Use projected pool data for more accurate calculations
-                const totalPoolTickets = Number(poolStatus.draw.projectedTickets || poolStatus.draw.totalTickets || poolStatus.draw.totalPool) / 1_000_000;
-                const userTickets = Number(poolStatus.user.projectedTickets || poolStatus.user.totalTickets) / 1_000_000;
+                // Use tickets data only - don't fall back to totalPool (wrong unit: $ vs tickets)
+                const totalPoolTickets = Number(poolStatus.draw.projectedTickets || poolStatus.draw.totalTickets || '0') / 1_000_000;
+                const userTickets = Number(poolStatus.user.projectedTickets || poolStatus.user.totalTickets || '0') / 1_000_000;
                 const currentOdds = totalPoolTickets > 0 ? userTickets / totalPoolTickets : 0;
                 
                 // Calculate probability curves for different scenarios
