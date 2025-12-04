@@ -223,10 +223,7 @@ export default function Home() {
     >
       <main className="max-w-md mx-auto p-4 space-y-4">
         {isLoadingWallet ? (
-          <div className="flex items-center gap-2 animate-pulse">
-            <div className="h-9 bg-muted rounded-md flex-1"></div>
-            <div className="h-9 w-9 bg-muted rounded-md"></div>
-          </div>
+          <div className="h-10 bg-muted rounded-md animate-pulse"></div>
         ) : (
           <AddressDisplay address={address!} />
         )}

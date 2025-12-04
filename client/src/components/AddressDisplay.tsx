@@ -30,13 +30,14 @@ export default function AddressDisplay({ address, truncate = true }: AddressDisp
   };
 
   return (
-    <div className="flex items-center gap-2">
-      <code className="font-mono text-sm bg-muted px-3 py-2 rounded-md flex-1 text-center break-all" data-testid="text-address">
+    <div className="flex h-10 items-center justify-center rounded-md bg-muted p-1 gap-1">
+      <code className="font-mono text-sm px-3 flex-1 text-center text-muted-foreground" data-testid="text-address">
         {displayAddress}
       </code>
       <Button 
-        variant="outline" 
-        size="icon"
+        variant="ghost" 
+        size="sm"
+        className="h-8 w-8 p-0"
         onClick={handleCopy}
         data-testid="button-copy-address"
       >
