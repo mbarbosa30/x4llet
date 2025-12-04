@@ -1143,9 +1143,16 @@ export default function Earn() {
 
             {hasAaveBalance && (baseBalanceNum > 0 || celoBalanceNum > 0 || gnosisBalanceNum > 0) && [baseBalanceNum, celoBalanceNum, gnosisBalanceNum].filter(b => b > 0).length > 1 && (
               <Card className="p-4 space-y-3" data-testid="card-chain-breakdown">
-                <div className="text-sm font-medium flex items-center gap-2">
-                  <Layers className="h-4 w-4 text-primary" />
-                  Balance & Rates by Network
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-primary" />
+                    Balance & Rates by Network
+                  </div>
+                  {weightedApy > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      {weightedApy.toFixed(1)}% blended
+                    </Badge>
+                  )}
                 </div>
                 
                 {baseBalanceNum > 0 && (
@@ -1235,7 +1242,7 @@ export default function Earn() {
                     <TrendingUp className="h-4 w-4 text-primary" />
                     Projected Earnings
                   </div>
-                  {yearlyEarnings > 0 && (
+                  {weightedApy > 0 && (
                     <Badge variant="secondary" className="text-xs">
                       +{weightedApy.toFixed(2)}% APY
                     </Badge>
