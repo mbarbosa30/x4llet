@@ -249,8 +249,8 @@ export default function Home() {
           </Button>
         </div>
 
-        <div>
-          <h2 className="text-sm font-medium mb-4">Recent Activity</h2>
+        <div className="space-y-3">
+          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Recent Activity</h2>
           <TransactionList 
             transactions={transactions.map(tx => {
               const fiatAmount = exchangeRate 
