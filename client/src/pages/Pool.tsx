@@ -96,6 +96,26 @@ function formatCountdown(hours: number, minutes: number): string {
   return `${hours}h ${minutes}m`;
 }
 
+// Smart formatting for micro-USDC amounts - shows more decimals for tiny amounts
+function formatMicroUsdc(microUsdc: string | number): string {
+  const amount = Number(microUsdc) / 1_000_000;
+  if (amount === 0) return '0.00';
+  if (amount < 0.0001) return amount.toFixed(6);
+  if (amount < 0.01) return amount.toFixed(4);
+  if (amount < 1) return amount.toFixed(3);
+  return amount.toFixed(2);
+}
+
+// Format ticket counts (same logic, no $ prefix)
+function formatTickets(microAmount: string | number): string {
+  const amount = Number(microAmount) / 1_000_000;
+  if (amount === 0) return '0';
+  if (amount < 0.0001) return amount.toFixed(6);
+  if (amount < 0.01) return amount.toFixed(4);
+  if (amount < 1) return amount.toFixed(3);
+  return amount.toFixed(2);
+}
+
 export default function Pool() {
   const [, setLocation] = useLocation();
   const search = useSearch();
@@ -165,7 +185,7 @@ export default function Pool() {
       if (contributionMade > 0) {
         toast({
           title: "Yield contributed!",
-          description: `$${data?.contributionMadeFormatted || '0.00'} added to this week's prize pool`,
+          description: `$${formatMicroUsdc(data?.contributionMade || '0')} added to this week's prize pool`,
         });
       } else if (optInPercent > 0) {
         toast({
@@ -330,7 +350,8 @@ export default function Pool() {
                 </div>
                 <div className="text-center py-4">
                   {(() => {
-                    const [intPart = '0', decPart = '00'] = (poolStatus.draw.totalPoolFormatted ?? '0.00').split('.');
+                    const formatted = formatMicroUsdc(poolStatus.draw.totalPool);
+                    const [intPart = '0', decPart = '00'] = formatted.split('.');
                     return (
                       <div className="text-5xl font-medium tabular-nums flex items-center justify-center" data-testid="text-prize-amount">
                         <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
@@ -370,7 +391,7 @@ export default function Pool() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="text-center p-3 bg-muted/50 rounded-lg">
                     <p className="text-2xl font-bold" data-testid="text-your-tickets">
-                      {(Number(poolStatus.user.totalTickets) / 1_000_000).toFixed(2)}
+                      {formatTickets(poolStatus.user.totalTickets)}
                     </p>
                     <p className="text-xs text-muted-foreground">Tickets</p>
                   </div>
@@ -485,7 +506,7 @@ export default function Pool() {
                       <span className="text-sm">Your yield</span>
                     </div>
                     <span className="font-medium" data-testid="text-yield-tickets">
-                      {poolStatus.user.yieldContributedFormatted}
+                      {formatTickets(poolStatus.user.yieldContributed)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
@@ -494,14 +515,14 @@ export default function Pool() {
                       <span className="text-sm">Referral bonus</span>
                     </div>
                     <span className="font-medium" data-testid="text-referral-tickets">
-                      +{(Number(poolStatus.user.referralBonusTickets) / 1_000_000).toFixed(4)}
+                      +{formatTickets(poolStatus.user.referralBonusTickets)}
                     </span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t">
                   <span className="font-medium">Total</span>
                   <span className="text-xl font-bold text-primary" data-testid="text-total-tickets">
-                    {(Number(poolStatus.user.totalTickets) / 1_000_000).toFixed(2)}
+                    {formatTickets(poolStatus.user.totalTickets)}
                   </span>
                 </div>
               </Card>
@@ -586,7 +607,7 @@ export default function Pool() {
             {/* History Tab */}
             <TabsContent value="history" className="mt-4 space-y-4">
               {/* Prize Trend Chart */}
-              {historyData?.draws && historyData.draws.length > 1 && (
+              {historyData?.draws && historyData.draws.length > 1 ? (
                 <Card className="p-4 space-y-3">
                   <div className="text-sm font-medium flex items-center gap-2">
                     <BarChart3 className="h-4 w-4 text-primary" />
@@ -618,7 +639,7 @@ export default function Pool() {
                             borderRadius: '8px',
                             fontSize: '12px'
                           }}
-                          formatter={(value: number) => [`$${value.toFixed(2)}`, 'Prize']}
+                          formatter={(value: number) => [`$${formatMicroUsdc(String(value * 1_000_000))}`, 'Prize']}
                         />
                         <Bar 
                           dataKey="amount" 
@@ -627,6 +648,18 @@ export default function Pool() {
                         />
                       </BarChart>
                     </ResponsiveContainer>
+                  </div>
+                </Card>
+              ) : (
+                <Card className="p-4 space-y-3 border-dashed">
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                    Prize Trend
+                  </div>
+                  <div className="h-24 flex items-center justify-center">
+                    <p className="text-sm text-muted-foreground text-center">
+                      Chart will appear after 2+ completed draws
+                    </p>
                   </div>
                 </Card>
               )}
@@ -660,7 +693,7 @@ export default function Pool() {
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-bold text-primary">
-                            ${draw.totalPoolFormatted}
+                            ${formatMicroUsdc(draw.totalPool)}
                           </p>
                           {draw.winnerAddress && (
                             <p className="text-xs font-mono text-muted-foreground">
