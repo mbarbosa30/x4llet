@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type Referral, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, referrals } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo, gnosis } from 'viem/chains';
@@ -1987,6 +1987,285 @@ export class DbStorage extends MemStorage {
     }
 
     return results;
+  }
+
+  // ===== POOL (Prize-Linked Savings) METHODS =====
+
+  async getPoolSettings(walletAddress: string): Promise<PoolSettings | null> {
+    try {
+      const result = await db
+        .select()
+        .from(poolSettings)
+        .where(eq(poolSettings.walletAddress, walletAddress.toLowerCase()))
+        .limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error('[Pool] Error getting settings:', error);
+      return null;
+    }
+  }
+
+  async upsertPoolSettings(walletAddress: string, optInPercent: number): Promise<void> {
+    try {
+      const existing = await this.getPoolSettings(walletAddress);
+      if (existing) {
+        await db
+          .update(poolSettings)
+          .set({ optInPercent, updatedAt: new Date() })
+          .where(eq(poolSettings.walletAddress, walletAddress.toLowerCase()));
+      } else {
+        await db.insert(poolSettings).values({
+          walletAddress: walletAddress.toLowerCase(),
+          optInPercent,
+        });
+      }
+    } catch (error) {
+      console.error('[Pool] Error upserting settings:', error);
+      throw error;
+    }
+  }
+
+  async getAllPoolSettings(): Promise<PoolSettings[]> {
+    try {
+      return await db.select().from(poolSettings);
+    } catch (error) {
+      console.error('[Pool] Error getting all settings:', error);
+      return [];
+    }
+  }
+
+  async getPoolDraw(weekNumber: number, year: number): Promise<PoolDraw | null> {
+    try {
+      const result = await db
+        .select()
+        .from(poolDraws)
+        .where(and(
+          eq(poolDraws.weekNumber, weekNumber),
+          eq(poolDraws.year, year)
+        ))
+        .limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error('[Pool] Error getting draw:', error);
+      return null;
+    }
+  }
+
+  async createPoolDraw(data: { weekNumber: number; year: number; weekStart: Date; weekEnd: Date }): Promise<PoolDraw> {
+    try {
+      const result = await db
+        .insert(poolDraws)
+        .values({
+          weekNumber: data.weekNumber,
+          year: data.year,
+          weekStart: data.weekStart,
+          weekEnd: data.weekEnd,
+        })
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error('[Pool] Error creating draw:', error);
+      throw error;
+    }
+  }
+
+  async getPoolDrawHistory(limit: number): Promise<PoolDraw[]> {
+    try {
+      return await db
+        .select()
+        .from(poolDraws)
+        .where(eq(poolDraws.status, 'completed'))
+        .orderBy(desc(poolDraws.drawnAt))
+        .limit(limit);
+    } catch (error) {
+      console.error('[Pool] Error getting draw history:', error);
+      return [];
+    }
+  }
+
+  async completeDraw(drawId: string, data: { winnerAddress: string; winnerTickets: string; winningNumber: string }): Promise<void> {
+    try {
+      await db
+        .update(poolDraws)
+        .set({
+          status: 'completed',
+          winnerAddress: data.winnerAddress,
+          winnerTickets: data.winnerTickets,
+          winningNumber: data.winningNumber,
+          drawnAt: new Date(),
+        })
+        .where(eq(poolDraws.id, drawId));
+    } catch (error) {
+      console.error('[Pool] Error completing draw:', error);
+      throw error;
+    }
+  }
+
+  async getPoolContribution(drawId: string, walletAddress: string): Promise<PoolContribution | null> {
+    try {
+      const result = await db
+        .select()
+        .from(poolContributions)
+        .where(and(
+          eq(poolContributions.drawId, drawId),
+          eq(poolContributions.walletAddress, walletAddress.toLowerCase())
+        ))
+        .limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error('[Pool] Error getting contribution:', error);
+      return null;
+    }
+  }
+
+  async getPoolContributionsForDraw(drawId: string): Promise<PoolContribution[]> {
+    try {
+      return await db
+        .select()
+        .from(poolContributions)
+        .where(eq(poolContributions.drawId, drawId));
+    } catch (error) {
+      console.error('[Pool] Error getting contributions for draw:', error);
+      return [];
+    }
+  }
+
+  async addPoolContribution(drawId: string, walletAddress: string, amount: string): Promise<void> {
+    try {
+      const existing = await this.getPoolContribution(drawId, walletAddress);
+      if (existing) {
+        const newYield = (BigInt(existing.yieldContributed) + BigInt(amount)).toString();
+        const newTotal = (BigInt(newYield) + BigInt(existing.referralBonusTickets)).toString();
+        await db
+          .update(poolContributions)
+          .set({ 
+            yieldContributed: newYield, 
+            totalTickets: newTotal,
+            updatedAt: new Date() 
+          })
+          .where(eq(poolContributions.id, existing.id));
+      } else {
+        await db.insert(poolContributions).values({
+          drawId,
+          walletAddress: walletAddress.toLowerCase(),
+          yieldContributed: amount,
+          totalTickets: amount,
+        });
+      }
+    } catch (error) {
+      console.error('[Pool] Error adding contribution:', error);
+      throw error;
+    }
+  }
+
+  async addReferralBonus(drawId: string, referrerAddress: string, bonusAmount: string): Promise<void> {
+    try {
+      const existing = await this.getPoolContribution(drawId, referrerAddress);
+      if (existing) {
+        const newBonus = (BigInt(existing.referralBonusTickets) + BigInt(bonusAmount)).toString();
+        const newTotal = (BigInt(existing.yieldContributed) + BigInt(newBonus)).toString();
+        await db
+          .update(poolContributions)
+          .set({ 
+            referralBonusTickets: newBonus, 
+            totalTickets: newTotal,
+            updatedAt: new Date() 
+          })
+          .where(eq(poolContributions.id, existing.id));
+      } else {
+        await db.insert(poolContributions).values({
+          drawId,
+          walletAddress: referrerAddress.toLowerCase(),
+          referralBonusTickets: bonusAmount,
+          totalTickets: bonusAmount,
+        });
+      }
+    } catch (error) {
+      console.error('[Pool] Error adding referral bonus:', error);
+      throw error;
+    }
+  }
+
+  async updateDrawTotals(drawId: string): Promise<void> {
+    try {
+      const contributions = await this.getPoolContributionsForDraw(drawId);
+      
+      let totalPool = 0n;
+      let totalTickets = 0n;
+      
+      for (const c of contributions) {
+        totalPool += BigInt(c.yieldContributed);
+        totalTickets += BigInt(c.totalTickets);
+      }
+      
+      await db
+        .update(poolDraws)
+        .set({
+          totalPool: totalPool.toString(),
+          totalTickets: totalTickets.toString(),
+          participantCount: contributions.length,
+        })
+        .where(eq(poolDraws.id, drawId));
+    } catch (error) {
+      console.error('[Pool] Error updating draw totals:', error);
+      throw error;
+    }
+  }
+
+  async getReferralsByReferrer(referrerAddress: string): Promise<Referral[]> {
+    try {
+      return await db
+        .select()
+        .from(referrals)
+        .where(eq(referrals.referrerAddress, referrerAddress.toLowerCase()));
+    } catch (error) {
+      console.error('[Pool] Error getting referrals:', error);
+      return [];
+    }
+  }
+
+  async getReferralByReferee(refereeAddress: string): Promise<Referral | null> {
+    try {
+      const result = await db
+        .select()
+        .from(referrals)
+        .where(eq(referrals.refereeAddress, refereeAddress.toLowerCase()))
+        .limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error('[Pool] Error getting referral by referee:', error);
+      return null;
+    }
+  }
+
+  async createReferral(data: { referrerAddress: string; refereeAddress: string; referralCode: string }): Promise<void> {
+    try {
+      await db.insert(referrals).values({
+        referrerAddress: data.referrerAddress.toLowerCase(),
+        refereeAddress: data.refereeAddress.toLowerCase(),
+        referralCode: data.referralCode,
+      });
+    } catch (error) {
+      console.error('[Pool] Error creating referral:', error);
+      throw error;
+    }
+  }
+
+  async findAddressByReferralCode(code: string): Promise<string | null> {
+    try {
+      // Referral code is first 8 chars of address (without 0x prefix)
+      // We need to find a wallet that has been seen in the system
+      const pattern = `0x${code.toLowerCase()}%`;
+      const result = await db
+        .select()
+        .from(wallets)
+        .where(sql`lower(${wallets.address}) LIKE ${pattern}`)
+        .limit(1);
+      return result[0]?.address || null;
+    } catch (error) {
+      console.error('[Pool] Error finding address by referral code:', error);
+      return null;
+    }
   }
 }
 

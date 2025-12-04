@@ -5,7 +5,7 @@ import { transferRequestSchema, transferResponseSchema, paymentRequestSchema, su
 import { randomUUID } from "crypto";
 import { getNetworkConfig, getNetworkByChainId } from "@shared/networks";
 import { AAVE_POOL_ABI, ERC20_ABI, rayToPercent } from "@shared/aave";
-import { createPublicClient, createWalletClient, http, type Address, type Hex, hexToSignature, recoverAddress, hashTypedData } from 'viem';
+import { createPublicClient, createWalletClient, http, type Address, type Hex, hexToSignature, recoverAddress, hashTypedData, getAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, celo, gnosis } from 'viem/chains';
 
@@ -2441,6 +2441,377 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return false;
     }
   }
+
+  // ===== POOL (Prize-Linked Savings) ENDPOINTS =====
+
+  // Helper to get current ISO week info
+  function getCurrentWeekInfo() {
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const days = Math.floor((now.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
+    const weekNumber = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+    
+    // Calculate week start (Monday) and end (Sunday)
+    const dayOfWeek = now.getDay() || 7; // Sunday = 7
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - dayOfWeek + 1);
+    weekStart.setHours(0, 0, 0, 0);
+    
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+    
+    return {
+      weekNumber,
+      year: now.getFullYear(),
+      weekStart,
+      weekEnd,
+      now,
+    };
+  }
+
+  // Generate a short referral code from address
+  function generateReferralCode(address: string): string {
+    return address.slice(2, 10).toUpperCase();
+  }
+
+  // Get or create current week's draw
+  async function getOrCreateCurrentDraw() {
+    const { weekNumber, year, weekStart, weekEnd } = getCurrentWeekInfo();
+    
+    let draw = await storage.getPoolDraw(weekNumber, year);
+    if (!draw) {
+      draw = await storage.createPoolDraw({
+        weekNumber,
+        year,
+        weekStart,
+        weekEnd,
+      });
+    }
+    return draw;
+  }
+
+  // Get pool status (current pool, your tickets, countdown)
+  app.get('/api/pool/status/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      const normalizedAddress = address.toLowerCase();
+      
+      const draw = await getOrCreateCurrentDraw();
+      const settings = await storage.getPoolSettings(normalizedAddress);
+      const contribution = await storage.getPoolContribution(draw.id, normalizedAddress);
+      const referrals = await storage.getReferralsByReferrer(normalizedAddress);
+      
+      // Get referral code (generate if doesn't exist)
+      const referralCode = generateReferralCode(normalizedAddress);
+      
+      // Calculate time until draw (end of week)
+      const { weekEnd, now } = getCurrentWeekInfo();
+      const msUntilDraw = weekEnd.getTime() - now.getTime();
+      const hoursUntilDraw = Math.floor(msUntilDraw / (1000 * 60 * 60));
+      const minutesUntilDraw = Math.floor((msUntilDraw % (1000 * 60 * 60)) / (1000 * 60));
+      
+      // Calculate odds
+      const totalTickets = BigInt(draw.totalTickets || '0');
+      const yourTickets = BigInt(contribution?.totalTickets || '0');
+      const odds = totalTickets > 0n 
+        ? (Number(yourTickets) / Number(totalTickets) * 100).toFixed(2)
+        : '0.00';
+      
+      res.json({
+        draw: {
+          id: draw.id,
+          weekNumber: draw.weekNumber,
+          year: draw.year,
+          status: draw.status,
+          totalPool: draw.totalPool,
+          totalPoolFormatted: (Number(draw.totalPool) / 1_000_000).toFixed(2),
+          totalTickets: draw.totalTickets,
+          participantCount: draw.participantCount,
+        },
+        user: {
+          optInPercent: settings?.optInPercent ?? 0,
+          yieldContributed: contribution?.yieldContributed || '0',
+          yieldContributedFormatted: ((Number(contribution?.yieldContributed || '0') / 1_000_000)).toFixed(4),
+          referralBonusTickets: contribution?.referralBonusTickets || '0',
+          totalTickets: contribution?.totalTickets || '0',
+          odds,
+        },
+        referral: {
+          code: referralCode,
+          activeReferrals: referrals.length,
+          referralsList: referrals.map((r: { refereeAddress: string; createdAt: Date }) => ({
+            address: r.refereeAddress,
+            createdAt: r.createdAt,
+          })),
+        },
+        countdown: {
+          hoursUntilDraw,
+          minutesUntilDraw,
+          drawTime: weekEnd.toISOString(),
+        },
+      });
+    } catch (error) {
+      console.error('[Pool] Error getting status:', error);
+      res.status(500).json({ error: 'Failed to get pool status' });
+    }
+  });
+
+  // Set opt-in percentage
+  app.post('/api/pool/opt-in', async (req, res) => {
+    try {
+      const { address, optInPercent } = req.body;
+      
+      if (typeof optInPercent !== 'number' || optInPercent < 0 || optInPercent > 100) {
+        return res.status(400).json({ error: 'optInPercent must be between 0 and 100' });
+      }
+      
+      const normalizedAddress = address.toLowerCase();
+      await storage.upsertPoolSettings(normalizedAddress, Math.round(optInPercent));
+      
+      res.json({ 
+        success: true, 
+        optInPercent: Math.round(optInPercent),
+      });
+    } catch (error) {
+      console.error('[Pool] Error setting opt-in:', error);
+      res.status(500).json({ error: 'Failed to set opt-in percentage' });
+    }
+  });
+
+  // Get referral code
+  app.get('/api/pool/referral-code/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      const normalizedAddress = address.toLowerCase();
+      const code = generateReferralCode(normalizedAddress);
+      
+      res.json({
+        code,
+        link: `${req.protocol}://${req.get('host')}/pool?ref=${code}`,
+      });
+    } catch (error) {
+      console.error('[Pool] Error getting referral code:', error);
+      res.status(500).json({ error: 'Failed to get referral code' });
+    }
+  });
+
+  // Apply referral code
+  app.post('/api/pool/apply-referral', async (req, res) => {
+    try {
+      const { address, referralCode } = req.body;
+      const normalizedAddress = address.toLowerCase();
+      
+      // Check if already referred
+      const existingReferral = await storage.getReferralByReferee(normalizedAddress);
+      if (existingReferral) {
+        return res.status(400).json({ 
+          error: 'You have already been referred',
+          referrerAddress: existingReferral.referrerAddress,
+        });
+      }
+      
+      // Find referrer by code (code is first 8 chars of address)
+      const referrerAddress = await storage.findAddressByReferralCode(referralCode.toLowerCase());
+      if (!referrerAddress) {
+        return res.status(404).json({ error: 'Invalid referral code' });
+      }
+      
+      // Can't refer yourself
+      if (referrerAddress.toLowerCase() === normalizedAddress) {
+        return res.status(400).json({ error: 'Cannot refer yourself' });
+      }
+      
+      // Create referral
+      await storage.createReferral({
+        referrerAddress: referrerAddress.toLowerCase(),
+        refereeAddress: normalizedAddress,
+        referralCode: referralCode.toUpperCase(),
+      });
+      
+      res.json({ 
+        success: true,
+        referrerAddress: referrerAddress.toLowerCase(),
+      });
+    } catch (error) {
+      console.error('[Pool] Error applying referral:', error);
+      res.status(500).json({ error: 'Failed to apply referral code' });
+    }
+  });
+
+  // Get pool history (past draws)
+  app.get('/api/pool/history', async (req, res) => {
+    try {
+      const draws = await storage.getPoolDrawHistory(10);
+      
+      res.json({
+        draws: draws.map(d => ({
+          id: d.id,
+          weekNumber: d.weekNumber,
+          year: d.year,
+          totalPool: d.totalPool,
+          totalPoolFormatted: (Number(d.totalPool) / 1_000_000).toFixed(2),
+          participantCount: d.participantCount,
+          winnerAddress: d.winnerAddress,
+          status: d.status,
+          drawnAt: d.drawnAt,
+        })),
+      });
+    } catch (error) {
+      console.error('[Pool] Error getting history:', error);
+      res.status(500).json({ error: 'Failed to get pool history' });
+    }
+  });
+
+  // Contribute yield to pool (called when user earns yield with opt-in > 0)
+  app.post('/api/pool/contribute', async (req, res) => {
+    try {
+      const { address, yieldAmount } = req.body; // yieldAmount in micro-USDC
+      const normalizedAddress = address.toLowerCase();
+      
+      // Get user's opt-in percentage
+      const settings = await storage.getPoolSettings(normalizedAddress);
+      if (!settings || settings.optInPercent === 0) {
+        return res.json({ success: true, contributed: '0', message: 'User not opted in' });
+      }
+      
+      const draw = await getOrCreateCurrentDraw();
+      
+      // Calculate contribution based on opt-in percentage
+      const yieldBigInt = BigInt(yieldAmount);
+      const contribution = (yieldBigInt * BigInt(settings.optInPercent)) / 100n;
+      
+      if (contribution === 0n) {
+        return res.json({ success: true, contributed: '0', message: 'Contribution too small' });
+      }
+      
+      // Update user's contribution
+      await storage.addPoolContribution(draw.id, normalizedAddress, contribution.toString());
+      
+      // Update referrer's bonus tickets (10% of this contribution)
+      const referral = await storage.getReferralByReferee(normalizedAddress);
+      if (referral) {
+        const referrerBonus = contribution / 10n; // 10% bonus
+        if (referrerBonus > 0n) {
+          await storage.addReferralBonus(draw.id, referral.referrerAddress, referrerBonus.toString());
+        }
+      }
+      
+      // Update draw totals
+      await storage.updateDrawTotals(draw.id);
+      
+      res.json({ 
+        success: true, 
+        contributed: contribution.toString(),
+        contributedFormatted: (Number(contribution) / 1_000_000).toFixed(4),
+      });
+    } catch (error) {
+      console.error('[Pool] Error contributing:', error);
+      res.status(500).json({ error: 'Failed to contribute to pool' });
+    }
+  });
+
+  // Admin: Run weekly draw
+  app.post('/api/admin/pool/draw', adminAuthMiddleware, async (req, res) => {
+    try {
+      const { weekNumber, year } = req.body;
+      
+      const draw = await storage.getPoolDraw(weekNumber, year);
+      if (!draw) {
+        return res.status(404).json({ error: 'Draw not found' });
+      }
+      
+      if (draw.status === 'completed') {
+        return res.status(400).json({ error: 'Draw already completed' });
+      }
+      
+      // Get all contributions for this draw
+      const contributions = await storage.getPoolContributionsForDraw(draw.id);
+      
+      if (contributions.length === 0) {
+        return res.json({ 
+          success: false, 
+          message: 'No participants in this draw',
+        });
+      }
+      
+      // Calculate total tickets and build weighted list
+      const totalTickets = contributions.reduce(
+        (sum, c) => sum + BigInt(c.totalTickets), 
+        0n
+      );
+      
+      // Generate random number for selection
+      const randomBytes = randomUUID().replace(/-/g, '');
+      const randomBigInt = BigInt('0x' + randomBytes) % totalTickets;
+      
+      // Select winner using weighted random
+      let cumulative = 0n;
+      let winner = contributions[0];
+      for (const contribution of contributions) {
+        cumulative += BigInt(contribution.totalTickets);
+        if (randomBigInt < cumulative) {
+          winner = contribution;
+          break;
+        }
+      }
+      
+      // Update draw with winner
+      await storage.completeDraw(draw.id, {
+        winnerAddress: winner.walletAddress,
+        winnerTickets: winner.totalTickets,
+        winningNumber: randomBigInt.toString(),
+      });
+      
+      res.json({
+        success: true,
+        winner: {
+          address: winner.walletAddress,
+          tickets: winner.totalTickets,
+          prize: draw.totalPool,
+          prizeFormatted: (Number(draw.totalPool) / 1_000_000).toFixed(2),
+        },
+        totalParticipants: contributions.length,
+        totalTickets: totalTickets.toString(),
+        winningNumber: randomBigInt.toString(),
+      });
+    } catch (error) {
+      console.error('[Pool] Error running draw:', error);
+      res.status(500).json({ error: 'Failed to run draw' });
+    }
+  });
+
+  // Admin: Get pool stats
+  app.get('/api/admin/pool/stats', adminAuthMiddleware, async (req, res) => {
+    try {
+      const draw = await getOrCreateCurrentDraw();
+      const allSettings = await storage.getAllPoolSettings();
+      const totalOptedIn = allSettings.filter(s => s.optInPercent > 0).length;
+      const avgOptIn = allSettings.length > 0 
+        ? allSettings.reduce((sum, s) => sum + s.optInPercent, 0) / allSettings.length 
+        : 0;
+      
+      res.json({
+        currentDraw: {
+          id: draw.id,
+          weekNumber: draw.weekNumber,
+          year: draw.year,
+          status: draw.status,
+          totalPool: draw.totalPool,
+          totalPoolFormatted: (Number(draw.totalPool) / 1_000_000).toFixed(2),
+          participantCount: draw.participantCount,
+        },
+        stats: {
+          totalUsersOptedIn: totalOptedIn,
+          averageOptInPercent: avgOptIn.toFixed(1),
+          totalRegisteredUsers: allSettings.length,
+        },
+      });
+    } catch (error) {
+      console.error('[Pool] Error getting stats:', error);
+      res.status(500).json({ error: 'Failed to get pool stats' });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;
