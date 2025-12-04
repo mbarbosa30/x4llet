@@ -36,41 +36,74 @@ export default function Faqs() {
       <main className="flex-1 overflow-y-auto pb-6">
         <div className="max-w-md mx-auto p-4">
         <Accordion type="single" collapsible className="w-full">
+
+          {/* Basics */}
           <AccordionItem value="x402">
             <AccordionTrigger data-testid="faq-x402">
               What is x402?
             </AccordionTrigger>
             <AccordionContent>
-              <p className="text-sm text-muted-foreground mb-2">
-                x402 is the protocol that powers this wallet, enabling offline gasless USDC payments. It solves two major problems with traditional crypto:
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-2">
-                <li><span className="font-medium">No internet required:</span> Sign transactions offline and submit them later</li>
-                <li><span className="font-medium">No gas tokens needed:</span> Send USDC without holding ETH or CELO</li>
-                <li><span className="font-medium">Non-custodial:</span> Your keys stay on your device, you stay in control</li>
-              </ul>
-              <p className="text-sm text-muted-foreground mt-2">
-                x402 uses EIP-3009 authorization and a facilitator service to make crypto accessible in low-bandwidth environments and remove the complexity of managing multiple tokens.
+              <p className="text-sm text-muted-foreground">
+                x402 is the protocol that enables gasless USDC payments that work offline. You sign an authorization on your device; 
+                our facilitator submits it on-chain and covers gas. No ETH or CELO needed, no internet required to sign.
               </p>
             </AccordionContent>
           </AccordionItem>
 
-          <AccordionItem value="why-x402">
-            <AccordionTrigger data-testid="faq-why-x402">
-              Why use x402 instead of regular crypto transfers?
+          <AccordionItem value="offline">
+            <AccordionTrigger data-testid="faq-offline">
+              How do offline payments work?
             </AccordionTrigger>
             <AccordionContent>
-              <p className="text-sm text-muted-foreground mb-2">
-                x402 removes the biggest barriers to crypto adoption:
+              <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
+                <li>Receiver shows Payment Request QR (works offline)</li>
+                <li>Payer scans and signs locally (works offline)</li>
+                <li>Payer shows Authorization QR to receiver</li>
+                <li>Anyone with the authorization submits when online</li>
+              </ol>
+              <p className="text-sm text-muted-foreground mt-2">
+                EIP-3009 allows anyone possessing the signed authorization to execute it—that's what enables both offline and gasless payments.
               </p>
-              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-2">
-                <li><span className="font-medium">Works offline:</span> Perfect for areas with poor connectivity or unstable internet</li>
-                <li><span className="font-medium">No gas fees to manage:</span> You don't need to buy, hold, or spend native tokens for transactions</li>
-                <li><span className="font-medium">Simpler user experience:</span> Just hold USDC and sign messages - no complex token management</li>
-                <li><span className="font-medium">Gasless for users:</span> The facilitator covers transaction costs, making payments frictionless</li>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="networks">
+            <AccordionTrigger data-testid="faq-networks">
+              What networks are supported?
+            </AccordionTrigger>
+            <AccordionContent>
+              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                <li><span className="font-medium">Base</span> — Native USDC. Aave V3 savings.</li>
+                <li><span className="font-medium">Celo</span> — Native USDC. Aave V3 savings. GoodDollar UBI.</li>
+                <li><span className="font-medium">Gnosis</span> — Circle bridged USDC.e. Circles social money.</li>
               </ul>
               <p className="text-sm text-muted-foreground mt-2">
-                Regular crypto transfers require you to be online, hold native tokens for gas, and manage multiple assets. x402 makes crypto as simple as cash.
+                Same wallet address on all networks. Switch in Settings.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Security */}
+          <AccordionItem value="security">
+            <AccordionTrigger data-testid="faq-security">
+              Is my wallet secure?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground">
+                Your private key is encrypted with AES-GCM and stored locally in IndexedDB. It never leaves your device. 
+                All transactions are signed locally. This is non-custodial—you're responsible for your password and backup.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="passkey">
+            <AccordionTrigger data-testid="faq-passkey">
+              What are passkeys?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground">
+                Passkeys let you unlock your wallet with Face ID or fingerprint instead of typing your password. 
+                Enable in Settings after unlocking your wallet. Uses WebAuthn—your biometric never leaves your device.
               </p>
             </AccordionContent>
           </AccordionItem>
@@ -81,8 +114,8 @@ export default function Faqs() {
             </AccordionTrigger>
             <AccordionContent>
               <p className="text-sm text-muted-foreground">
-                There is no password recovery. Your password is used to encrypt your private key locally - we don't store it anywhere. 
-                If you lose your password, you'll need to restore your wallet using the private key backup you saved when creating the wallet.
+                No password recovery exists. Restore your wallet using the private key backup you saved when creating it. 
+                That's why backing up is critical.
               </p>
             </AccordionContent>
           </AccordionItem>
@@ -93,89 +126,143 @@ export default function Faqs() {
             </AccordionTrigger>
             <AccordionContent>
               <p className="text-sm text-muted-foreground">
-                When you create a wallet, you must save your private key. Go to Settings and export your private key to create a new backup. 
-                Store it securely - anyone with your private key can access your funds.
+                Go to Settings and export your private key. Store it securely offline. Anyone with your private key can access your funds.
               </p>
             </AccordionContent>
           </AccordionItem>
 
-          <AccordionItem value="networks">
-            <AccordionTrigger data-testid="faq-networks">
-              What networks does nanoPay support?
-            </AccordionTrigger>
-            <AccordionContent>
-              <p className="text-sm text-muted-foreground mb-2">
-                nanoPay supports three blockchain networks:
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-2">
-                <li><span className="font-medium">Celo</span> - Mobile-first blockchain, home to GoodDollar UBI</li>
-                <li><span className="font-medium">Base</span> - Ethereum Layer 2 built by Coinbase with access to DeFi apps</li>
-                <li><span className="font-medium">Gnosis</span> - Community-owned chain, home to Circles social money</li>
-              </ul>
-              <p className="text-sm text-muted-foreground mt-2">
-                Your wallet address is the same on all networks. You can switch networks in Settings.
-              </p>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="gas">
-            <AccordionTrigger data-testid="faq-gas">
-              Do I need to pay gas fees?
-            </AccordionTrigger>
-            <AccordionContent>
-              <p className="text-sm text-muted-foreground mb-2">
-                No. The x402 protocol eliminates gas fees for users through EIP-3009, which separates signing from execution.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                When you send USDC, you only sign an authorization message. Because EIP-3009 allows <span className="font-medium">anyone who possesses the authorization</span> to 
-                execute it, the x402 facilitator service can submit it to the blockchain and pay the gas fees on your behalf. 
-                You only need USDC - no need to hold CELO or ETH for gas.
-              </p>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="offline">
-            <AccordionTrigger data-testid="faq-offline">
-              How do offline payments work?
-            </AccordionTrigger>
-            <AccordionContent>
-              <p className="text-sm text-muted-foreground mb-2">
-                The x402 protocol enables offline payments using EIP-3009 pre-signed authorizations:
-              </p>
-              <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground ml-2">
-                <li>Receiver creates a Payment Request (works offline)</li>
-                <li>Payer scans it and signs the authorization locally (works offline)</li>
-                <li>Payer shows Authorization QR to receiver</li>
-                <li>Receiver (or anyone with the authorization) submits it when they have internet</li>
-              </ol>
-              <p className="text-sm text-muted-foreground mt-2">
-                EIP-3009 makes this possible by allowing <span className="font-medium">anyone who possesses the authorization</span> to execute it - 
-                not just the sender or receiver. In practice, the authorization is submitted to the x402 facilitator service, which executes 
-                the blockchain transaction and pays the gas. Both parties can complete their part without internet - that's the power of x402.
-              </p>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="private-key">
-            <AccordionTrigger data-testid="faq-private-key">
-              Where is my private key stored?
+          {/* Savings & Yield */}
+          <AccordionItem value="earn-mode">
+            <AccordionTrigger data-testid="faq-earn-mode">
+              How does Earn Mode work?
             </AccordionTrigger>
             <AccordionContent>
               <p className="text-sm text-muted-foreground">
-                Your private key is encrypted with your password and stored locally in your browser's IndexedDB. 
-                It never leaves your device and is never sent to any server. You have complete control over your funds.
+                Deposit USDC into Aave V3 to earn interest. You receive aUSDC tokens representing your deposit plus accrued yield. 
+                No gas tokens needed—sign an authorization and we handle the rest. Withdraw anytime.
               </p>
             </AccordionContent>
           </AccordionItem>
 
+          <AccordionItem value="earn-safe">
+            <AccordionTrigger data-testid="faq-earn-safe">
+              Is Aave safe?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground">
+                Aave is battle-tested (since 2020), audited, and holds billions in TVL. Funds are held by smart contracts, not a company. 
+                However, all DeFi carries smart contract risk. Only deposit what you're comfortable with.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="yield-allocation">
+            <AccordionTrigger data-testid="faq-yield-allocation">
+              What is yield allocation?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground">
+                Choose what happens to your Aave yield. Keep 100%, or direct a percentage to the weekly prize pool. 
+                Adjust anytime in the Pool page. Your principal is never touched—only yield gets redirected.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Prize Pool */}
+          <AccordionItem value="pool">
+            <AccordionTrigger data-testid="faq-pool">
+              What is the Prize Pool?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground">
+                A weekly prize-linked savings pool funded entirely by participant yield contributions. 
+                Contribute a percentage of your Aave yield to earn tickets. One winner drawn each week takes the pool. 
+                Your principal is never at risk—only yield goes in.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="pool-tickets">
+            <AccordionTrigger data-testid="faq-pool-tickets">
+              How do tickets work?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground">
+                You earn tickets based on how much yield you contribute. More yield = more tickets = better odds. 
+                Even small contributions get you in the draw.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="referrals">
+            <AccordionTrigger data-testid="faq-referrals">
+              How do referrals work?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground">
+                Share your referral code (found in the Pool page). When someone uses it and contributes yield, you earn 10% of their ticket earnings as bonus tickets. 
+                Their tickets are not reduced—it's extra.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="pool-sponsors">
+            <AccordionTrigger data-testid="faq-pool-sponsors">
+              What are sponsored prizes?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground">
+                Donations from sponsors boost the prize pool but don't add tickets. This increases the prize without changing anyone's odds—everyone benefits equally.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Trust Infrastructure */}
+          <AccordionItem value="maxflow">
+            <AccordionTrigger data-testid="faq-maxflow">
+              What is MaxFlow?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground">
+                A graph-based trust signal that measures your network health through flow computation. Anti-sybil by design. 
+                Vouching for fake accounts hurts your own score—creating a self-policing system.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="gooddollar">
+            <AccordionTrigger data-testid="faq-gooddollar">
+              What is GoodDollar?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground">
+                Daily UBI tokens (G$) on Celo for verified humans. Verify your face once (privacy-preserving), then claim daily in nanoPay. 
+                Re-verify every ~180 days to maintain eligibility.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="circles">
+            <AccordionTrigger data-testid="faq-circles">
+              What is Circles?
+            </AccordionTrigger>
+            <AccordionContent>
+              <p className="text-sm text-muted-foreground">
+                Community social money on Gnosis. Register your avatar, claim 1 CRC per hour (up to 24/day), and trust friends to let CRC flow between you. 
+                ~7% yearly demurrage keeps it circulating.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Other */}
           <AccordionItem value="usdc">
             <AccordionTrigger data-testid="faq-usdc">
               What is USDC?
             </AccordionTrigger>
             <AccordionContent>
               <p className="text-sm text-muted-foreground">
-                USDC is a stablecoin - a cryptocurrency designed to maintain a value of $1.00 USD. It's issued by Circle and backed 
-                by US dollars held in reserve. This wallet supports native Circle USDC on Celo and Base, and Circle's bridged USDC (USDC.e) on Gnosis.
+                A stablecoin designed to maintain $1.00 USD value. Issued by Circle, backed by US dollar reserves. 
+                nanoPay supports native USDC on Base and Celo, and Circle's bridged USDC.e on Gnosis.
               </p>
             </AccordionContent>
           </AccordionItem>
@@ -186,241 +273,12 @@ export default function Faqs() {
             </AccordionTrigger>
             <AccordionContent>
               <p className="text-sm text-muted-foreground">
-                Balances are fetched from the blockchain in real-time and refresh every 10 seconds. If you just received funds, 
-                wait a few seconds for the blockchain to confirm the transaction. You can also pull down on the home screen to refresh manually.
+                Balances refresh every 10 seconds. After receiving funds, wait a few seconds for blockchain confirmation. 
+                Pull down on the home screen to refresh manually.
               </p>
             </AccordionContent>
           </AccordionItem>
 
-          <AccordionItem value="security">
-            <AccordionTrigger data-testid="faq-security">
-              Is this wallet safe to use?
-            </AccordionTrigger>
-            <AccordionContent>
-              <p className="text-sm text-muted-foreground">
-                Your private key is encrypted with strong cryptography (AES-GCM with PBKDF2) and stored only on your device. 
-                All transactions are signed locally. However, this is a non-custodial wallet - you are responsible for keeping your 
-                password and private key backup safe. Never share your private key with anyone.
-              </p>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="maxflow">
-            <AccordionTrigger data-testid="faq-maxflow">
-              What is MaxFlow network signal?
-            </AccordionTrigger>
-            <AccordionContent>
-              <p className="text-sm text-muted-foreground mb-2">
-                MaxFlow measures your trust network health through flow-driven computation. It's not a reputation score — it's based on 
-                how well you're connected through authentic vouches.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Your signal score is calculated using network flow properties including path redundancy, maximum flow capacity, and 
-                average residual flow. The stronger and more authentic your connections, the higher your signal.
-              </p>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="vouching">
-            <AccordionTrigger data-testid="faq-vouching">
-              How does vouching work?
-            </AccordionTrigger>
-            <AccordionContent>
-              <p className="text-sm text-muted-foreground mb-2">
-                When you vouch for someone, you add them to your trust network. But here's the key: <span className="font-medium">who you 
-                vouch for affects your own score</span>.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Vouching indiscriminately dilutes your network quality. This creates an anti-sybil mechanism — it becomes costly to vouch 
-                for fake accounts because doing so hurts your own signal. This incentivizes people to vouch only for genuine connections 
-                they actually trust.
-              </p>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="signal-score">
-            <AccordionTrigger data-testid="faq-signal-score">
-              What affects my signal score?
-            </AccordionTrigger>
-            <AccordionContent>
-              <p className="text-sm text-muted-foreground mb-2">
-                Your MaxFlow signal is influenced by:
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-2">
-                <li><span className="font-medium">Who vouches for you:</span> More authentic vouches from well-connected people strengthen your signal</li>
-                <li><span className="font-medium">Who you vouch for:</span> Vouching for authentic people helps; vouching for fake accounts hurts your score</li>
-                <li><span className="font-medium">Network structure:</span> How many independent paths exist in your trust network (path redundancy)</li>
-                <li><span className="font-medium">Flow capacity:</span> The overall strength and depth of your network connections</li>
-              </ul>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="anti-sybil">
-            <AccordionTrigger data-testid="faq-anti-sybil">
-              What is anti-sybil and why does it matter?
-            </AccordionTrigger>
-            <AccordionContent>
-              <p className="text-sm text-muted-foreground mb-2">
-                Anti-sybil mechanisms prevent one person from creating many fake accounts to gain unfair advantages or resources. 
-                MaxFlow's vouching system makes this difficult because:
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-2">
-                <li>Creating fake accounts doesn't help unless real people vouch for them</li>
-                <li>Real people are disincentivized to vouch for fakes because it hurts their own score</li>
-                <li>The flow-based computation detects weak or artificial network structures</li>
-              </ul>
-              <p className="text-sm text-muted-foreground mt-2">
-                This makes MaxFlow signal useful for community coordination, resource allocation, and proving authenticity without 
-                centralized verification.
-              </p>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="gooddollar">
-            <AccordionTrigger data-testid="faq-gooddollar">
-              What is GoodDollar?
-            </AccordionTrigger>
-            <AccordionContent>
-              <p className="text-sm text-muted-foreground mb-2">
-                GoodDollar is a non-profit protocol that distributes free G$ tokens daily to verified humans around the world. 
-                It's universal basic income on the blockchain.
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-2">
-                <li><span className="font-medium">Face verification:</span> Verify once using privacy-preserving technology (only a hash is stored)</li>
-                <li><span className="font-medium">Daily claims:</span> Claim your G$ every day right here in nanoPay</li>
-                <li><span className="font-medium">Equal distribution:</span> Everyone who verifies gets the same amount — no exceptions</li>
-              </ul>
-              <p className="text-sm text-muted-foreground mt-2">
-                G$ operates on Celo and is funded by interest from DeFi protocols and donations. Re-verify every ~180 days 
-                to maintain eligibility.
-              </p>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="circles">
-            <AccordionTrigger data-testid="faq-circles">
-              What is Circles?
-            </AccordionTrigger>
-            <AccordionContent>
-              <p className="text-sm text-muted-foreground mb-2">
-                Circles is community-powered social money on Gnosis Chain. Every registered human can claim the same amount 
-                of CRC over time — it's designed to support people and local communities.
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-2">
-                <li><span className="font-medium">Claim rate:</span> 1 CRC per hour, up to 24/day</li>
-                <li><span className="font-medium">Trust network:</span> Trust friends to let CRC flow through your network</li>
-                <li><span className="font-medium">Demurrage:</span> ~7% yearly decay keeps CRC circulating fairly</li>
-              </ul>
-              <p className="text-sm text-muted-foreground mt-2">
-                Unlike regular crypto, CRC is social money. The trust network determines whose CRC you can accept, 
-                creating a web of mutual support within communities.
-              </p>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="claim-tokens">
-            <AccordionTrigger data-testid="faq-claim-tokens">
-              How do I claim free tokens?
-            </AccordionTrigger>
-            <AccordionContent>
-              <p className="text-sm text-muted-foreground mb-2">
-                Go to the Claim page (tap the Coins icon in the bottom navigation) to access two token claiming systems:
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-2">
-                <li><span className="font-medium">GoodDollar (G$):</span> Verify your face once, then claim daily on Celo</li>
-                <li><span className="font-medium">Circles (CRC):</span> Register your avatar on Gnosis, then claim hourly</li>
-              </ul>
-              <p className="text-sm text-muted-foreground mt-2">
-                Both are separate from your USDC balance. GoodDollar requires face verification; Circles requires 
-                building a trust network with other Circles users.
-              </p>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="earn-mode">
-            <AccordionTrigger data-testid="faq-earn-mode">
-              What is Earn Mode?
-            </AccordionTrigger>
-            <AccordionContent>
-              <p className="text-sm text-muted-foreground mb-2">
-                Earn Mode lets you deposit your USDC into Aave V3 to earn interest automatically. Instead of your money sitting 
-                idle in your wallet, it earns yield by being supplied to a decentralized lending protocol.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                You can enable Earn Mode in Settings or go directly to the Earn page. You don't need to hold gas tokens - 
-                just sign an authorization and our relayer handles the blockchain transactions for you.
-              </p>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="earn-safe">
-            <AccordionTrigger data-testid="faq-earn-safe">
-              Is my money safe in Earn Mode?
-            </AccordionTrigger>
-            <AccordionContent>
-              <p className="text-sm text-muted-foreground mb-2">
-                Your USDC is deposited into Aave V3, one of the largest and most trusted DeFi protocols:
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-2">
-                <li><span className="font-medium">Battle-tested:</span> Running since 2020 with billions in deposits</li>
-                <li><span className="font-medium">Audited:</span> Multiple security audits by leading firms</li>
-                <li><span className="font-medium">Non-custodial:</span> Funds held by smart contracts, not a company</li>
-              </ul>
-              <p className="text-sm text-muted-foreground mt-2">
-                However, all DeFi protocols carry smart contract risk. While Aave has an excellent track record, only deposit 
-                what you're comfortable having exposed to this risk.
-              </p>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="earn-withdraw">
-            <AccordionTrigger data-testid="faq-earn-withdraw">
-              How do I withdraw my savings?
-            </AccordionTrigger>
-            <AccordionContent>
-              <p className="text-sm text-muted-foreground mb-2">
-                Go to the Earn page and tap "Withdraw". Choose how much to withdraw (or tap "Max" for everything), then sign 
-                the authorization. Our relayer will process the withdrawal and return USDC to your wallet.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                There are no lock-up periods - you can withdraw anytime. If a withdrawal fails due to network issues, 
-                you can retry. Your funds remain safe in Aave until successfully withdrawn.
-              </p>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="earn-apy">
-            <AccordionTrigger data-testid="faq-earn-apy">
-              What APY can I expect?
-            </AccordionTrigger>
-            <AccordionContent>
-              <p className="text-sm text-muted-foreground mb-2">
-                APY (Annual Percentage Yield) varies based on supply and demand in the Aave lending pool. Current rates are 
-                displayed on the Earn page and in Settings, and update when you refresh.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Rates typically range from 1-5% for USDC, but can be higher or lower depending on market conditions. The rate 
-                is variable and changes over time.
-              </p>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="earn-ausdc">
-            <AccordionTrigger data-testid="faq-earn-ausdc">
-              What is aUSDC?
-            </AccordionTrigger>
-            <AccordionContent>
-              <p className="text-sm text-muted-foreground mb-2">
-                When you deposit USDC to Aave, you receive aUSDC (Aave USDC) tokens in return. These tokens represent your 
-                deposit plus any interest earned.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                The aUSDC balance increases as interest accrues in the Aave protocol. The Earn page shows an estimated balance 
-                based on current APY - pull down to refresh for the latest on-chain value. When you withdraw, your aUSDC is 
-                converted back to regular USDC.
-              </p>
-            </AccordionContent>
-          </AccordionItem>
         </Accordion>
         </div>
       </main>
