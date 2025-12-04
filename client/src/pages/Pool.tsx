@@ -11,7 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { getWallet } from "@/lib/wallet";
+import { getWallet, getPrivateKey } from "@/lib/wallet";
+import { privateKeyToAccount } from 'viem/accounts';
 import { 
   Trophy, 
   Ticket, 
@@ -185,30 +186,104 @@ export default function Pool() {
     }
   }, [poolStatus, hasInitializedOptIn]);
 
-  const optInMutation = useMutation({
+  // New on-chain contribution mutation with permit signing
+  const contributionMutation = useMutation({
     mutationFn: async (percent: number) => {
-      const result = await apiRequest("POST", "/api/pool/opt-in", { address, optInPercent: percent });
-      return result.json();
+      // Step 1: Prepare contribution - get yield amount and permit params
+      const prepareResult = await apiRequest("POST", "/api/pool/prepare-contribution", { 
+        address, 
+        optInPercent: percent 
+      });
+      const prepareData = await prepareResult.json();
+      
+      if (!prepareData.success) {
+        throw new Error(prepareData.error || 'Failed to prepare contribution');
+      }
+      
+      // If first time or no yield, just return success (no signature needed)
+      if (prepareData.isFirstTime || prepareData.noYieldToContribute) {
+        return prepareData;
+      }
+      
+      // Step 2: If requires signature, sign the permit
+      if (prepareData.requiresSignature) {
+        const privateKey = await getPrivateKey();
+        if (!privateKey) throw new Error('No private key found');
+        
+        const account = privateKeyToAccount(privateKey as `0x${string}`);
+        
+        // Sign the EIP-712 permit
+        const signature = await account.signTypedData({
+          domain: prepareData.permitTypedData.domain,
+          types: prepareData.permitTypedData.types,
+          primaryType: 'Permit',
+          message: {
+            owner: prepareData.permitTypedData.message.owner,
+            spender: prepareData.permitTypedData.message.spender,
+            value: BigInt(prepareData.permitTypedData.message.value),
+            nonce: BigInt(prepareData.permitTypedData.message.nonce),
+            deadline: BigInt(prepareData.permitTypedData.message.deadline),
+          },
+        });
+        
+        // Step 3: Submit signed contribution
+        const submitResult = await apiRequest("POST", "/api/pool/submit-contribution", {
+          address,
+          optInPercent: percent,
+          contributionAmount: prepareData.contributionAmount,
+          deadline: prepareData.deadline,
+          signature,
+        });
+        const submitData = await submitResult.json();
+        
+        if (!submitData.success) {
+          throw new Error(submitData.error || 'Failed to submit contribution');
+        }
+        
+        return {
+          ...submitData,
+          onChain: true,
+        };
+      }
+      
+      return prepareData;
     },
-    onSuccess: (data: { contributionMade?: string; contributionMadeFormatted?: string; optInPercent?: number }) => {
+    onSuccess: (data: { 
+      optInPercent?: number; 
+      contributionAmount?: string;
+      contributionAmountFormatted?: string;
+      transferTxHash?: string;
+      isFirstTime?: boolean;
+      noYieldToContribute?: boolean;
+      message?: string;
+      onChain?: boolean;
+    }) => {
       // Sync local state to confirmed server value
       if (data?.optInPercent !== undefined) {
         setOptInPercent(data.optInPercent);
       }
       queryClient.invalidateQueries({ queryKey: ["/api/pool/status", address] });
       
-      // Show appropriate message based on yield collection
-      const savedPercent = data?.optInPercent ?? optInPercent;
-      const contributionMade = parseFloat(data?.contributionMade || '0');
-      if (contributionMade > 0) {
+      // Show appropriate message
+      if (data.onChain && data.transferTxHash) {
         toast({
-          title: "Yield contributed!",
-          description: `$${formatMicroUsdc(data?.contributionMade || '0')} added to this week's prize pool`,
+          title: "Yield contributed on-chain!",
+          description: `$${data.contributionAmountFormatted} transferred to the prize pool`,
         });
-      } else if (savedPercent > 0) {
+      } else if (data.isFirstTime) {
+        toast({
+          title: "Joined the pool!",
+          description: data.message || "Your yield will be collected weekly",
+        });
+      } else if (data.noYieldToContribute) {
+        toast({
+          title: "Settings saved",
+          description: data.message || "No yield to contribute yet",
+        });
+      } else if ((data.optInPercent ?? 0) > 0) {
         toast({
           title: "Saved",
-          description: `Contributing ${savedPercent}% of your Celo yield to the pool`,
+          description: `Contributing ${data.optInPercent}% of your Celo yield to the pool`,
         });
       } else {
         toast({
@@ -217,10 +292,11 @@ export default function Pool() {
         });
       }
     },
-    onError: () => {
+    onError: (error: Error) => {
+      console.error('[Pool] Contribution error:', error);
       toast({
-        title: "Failed to save",
-        description: "Please try again",
+        title: "Failed to contribute",
+        description: error.message || "Please try again",
         variant: "destructive",
       });
     },
@@ -264,7 +340,7 @@ export default function Pool() {
 
   const confirmOptInChange = () => {
     if (pendingOptInPercent !== null) {
-      optInMutation.mutate(pendingOptInPercent);
+      contributionMutation.mutate(pendingOptInPercent);
       setShowContributionDialog(false);
       setPendingOptInPercent(null);
     }
@@ -1057,13 +1133,13 @@ export default function Pool() {
             <Button 
               className="flex-1"
               onClick={confirmOptInChange}
-              disabled={optInMutation.isPending}
+              disabled={contributionMutation.isPending}
               data-testid="button-confirm-contribution"
             >
-              {optInMutation.isPending ? (
+              {contributionMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
+                  Signing & submitting...
                 </>
               ) : (
                 "Confirm"

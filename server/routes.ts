@@ -51,6 +51,64 @@ const USDC_ABI = [
   },
 ] as const;
 
+// aUSDC EIP-2612 Permit ABI for gasless yield transfers
+const AUSDC_PERMIT_ABI = [
+  {
+    name: 'permit',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' },
+      { name: 'value', type: 'uint256' },
+      { name: 'deadline', type: 'uint256' },
+      { name: 'v', type: 'uint8' },
+      { name: 'r', type: 'bytes32' },
+      { name: 's', type: 'bytes32' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'transferFrom',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'from', type: 'address' },
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+  {
+    name: 'nonces',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'owner', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    name: 'DOMAIN_SEPARATOR',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'bytes32' }],
+  },
+  {
+    name: 'name',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'string' }],
+  },
+  {
+    name: 'balanceOf',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+] as const;
+
 function getFacilitatorAccount() {
   const privateKey = process.env.FACILITATOR_PRIVATE_KEY;
   if (!privateKey) {
@@ -2852,6 +2910,320 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('[Pool] Error contributing:', error);
       res.status(500).json({ error: 'Failed to contribute to pool' });
+    }
+  });
+
+  // Prepare yield contribution - returns permit parameters for signing
+  app.post('/api/pool/prepare-contribution', async (req, res) => {
+    try {
+      const { address, optInPercent } = req.body;
+      
+      if (!address) {
+        return res.status(400).json({ error: 'Address required' });
+      }
+      if (typeof optInPercent !== 'number' || optInPercent < 0 || optInPercent > 100) {
+        return res.status(400).json({ error: 'optInPercent must be between 0 and 100' });
+      }
+      
+      const normalizedAddress = address.toLowerCase();
+      const userAddress = getAddress(normalizedAddress);
+      
+      // Get Celo aUSDC config
+      const celoNetwork = getNetworkByChainId(42220);
+      if (!celoNetwork?.aUsdcAddress) {
+        return res.status(500).json({ error: 'Celo aUSDC not configured' });
+      }
+      
+      const CELO_AUSDC_ADDRESS = getAddress(celoNetwork.aUsdcAddress);
+      const facilitatorAccount = getFacilitatorAccount();
+      
+      // Create public client for Celo
+      const client = createPublicClient({
+        chain: celo,
+        transport: http('https://forno.celo.org'),
+      });
+      
+      // Check if user has an existing snapshot
+      const existingSnapshot = await storage.getYieldSnapshot(normalizedAddress);
+      
+      // Fetch current aUSDC balance
+      const currentBalance = await client.readContract({
+        address: CELO_AUSDC_ADDRESS,
+        abi: AUSDC_PERMIT_ABI,
+        functionName: 'balanceOf',
+        args: [userAddress],
+      });
+      
+      const currentBalanceBigInt = BigInt(currentBalance.toString());
+      
+      // Calculate yield (balance growth since last snapshot)
+      let yieldAmount = 0n;
+      if (existingSnapshot && existingSnapshot.lastAusdcBalance && existingSnapshot.lastAusdcBalance !== '0') {
+        const lastBalanceBigInt = BigInt(existingSnapshot.lastAusdcBalance);
+        if (currentBalanceBigInt > lastBalanceBigInt) {
+          yieldAmount = currentBalanceBigInt - lastBalanceBigInt;
+        }
+      }
+      
+      // For first-time users without a snapshot, there's no yield to contribute yet
+      // They need to opt-in first, then yield accrues over time
+      if (!existingSnapshot) {
+        // Save opt-in percentage and create initial snapshot
+        await storage.upsertPoolSettings(normalizedAddress, Math.round(optInPercent));
+        await storage.upsertYieldSnapshot(normalizedAddress, {
+          lastAusdcBalance: currentBalanceBigInt.toString(),
+          lastCollectedAt: new Date(),
+          totalYieldCollected: '0',
+        });
+        
+        return res.json({
+          success: true,
+          isFirstTime: true,
+          message: 'Opted in! Your yield will be collected weekly.',
+          yieldAmount: '0',
+          contributionAmount: '0',
+          currentBalance: currentBalanceBigInt.toString(),
+          optInPercent: Math.round(optInPercent),
+        });
+      }
+      
+      // Calculate contribution based on opt-in percentage
+      const contributionAmount = (yieldAmount * BigInt(Math.round(optInPercent))) / 100n;
+      
+      if (contributionAmount === 0n) {
+        // Just save opt-in and update snapshot
+        await storage.upsertPoolSettings(normalizedAddress, Math.round(optInPercent));
+        await storage.upsertYieldSnapshot(normalizedAddress, {
+          lastAusdcBalance: currentBalanceBigInt.toString(),
+          lastCollectedAt: new Date(),
+          totalYieldCollected: existingSnapshot.totalYieldCollected || '0',
+        });
+        
+        return res.json({
+          success: true,
+          noYieldToContribute: true,
+          message: 'Settings saved. No yield to contribute yet.',
+          yieldAmount: yieldAmount.toString(),
+          contributionAmount: '0',
+          optInPercent: Math.round(optInPercent),
+        });
+      }
+      
+      // Get nonce and build permit parameters for signing
+      const nonce = await client.readContract({
+        address: CELO_AUSDC_ADDRESS,
+        abi: AUSDC_PERMIT_ABI,
+        functionName: 'nonces',
+        args: [userAddress],
+      });
+      
+      // Get token name for domain
+      const tokenName = await client.readContract({
+        address: CELO_AUSDC_ADDRESS,
+        abi: AUSDC_PERMIT_ABI,
+        functionName: 'name',
+      });
+      
+      // Deadline: 10 minutes from now
+      const deadline = Math.floor(Date.now() / 1000) + 600;
+      
+      // Build EIP-712 permit typed data
+      const permitTypedData = {
+        types: {
+          Permit: [
+            { name: 'owner', type: 'address' },
+            { name: 'spender', type: 'address' },
+            { name: 'value', type: 'uint256' },
+            { name: 'nonce', type: 'uint256' },
+            { name: 'deadline', type: 'uint256' },
+          ],
+        },
+        primaryType: 'Permit' as const,
+        domain: {
+          name: tokenName as string,
+          version: '1',
+          chainId: 42220,
+          verifyingContract: CELO_AUSDC_ADDRESS,
+        },
+        message: {
+          owner: userAddress,
+          spender: facilitatorAccount.address,
+          value: contributionAmount.toString(),
+          nonce: nonce.toString(),
+          deadline: deadline.toString(),
+        },
+      };
+      
+      res.json({
+        success: true,
+        requiresSignature: true,
+        yieldAmount: yieldAmount.toString(),
+        yieldAmountFormatted: (Number(yieldAmount) / 1_000_000).toFixed(6),
+        contributionAmount: contributionAmount.toString(),
+        contributionAmountFormatted: (Number(contributionAmount) / 1_000_000).toFixed(6),
+        optInPercent: Math.round(optInPercent),
+        permitTypedData,
+        deadline,
+        nonce: nonce.toString(),
+        spender: facilitatorAccount.address,
+        aUsdcAddress: CELO_AUSDC_ADDRESS,
+      });
+    } catch (error: unknown) {
+      console.error('[Pool] Error preparing contribution:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({ error: errorMessage.slice(0, 200) });
+    }
+  });
+
+  // Submit signed yield contribution - executes permit + transferFrom
+  app.post('/api/pool/submit-contribution', async (req, res) => {
+    try {
+      const { address, optInPercent, contributionAmount, deadline, signature } = req.body;
+      
+      if (!address || !signature || !contributionAmount) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+      
+      const normalizedAddress = address.toLowerCase();
+      const userAddress = getAddress(normalizedAddress);
+      const contributionBigInt = BigInt(contributionAmount);
+      
+      if (contributionBigInt === 0n) {
+        return res.status(400).json({ error: 'Contribution amount must be greater than 0' });
+      }
+      
+      // Get Celo aUSDC config
+      const celoNetwork = getNetworkByChainId(42220);
+      if (!celoNetwork?.aUsdcAddress) {
+        return res.status(500).json({ error: 'Celo aUSDC not configured' });
+      }
+      
+      const CELO_AUSDC_ADDRESS = getAddress(celoNetwork.aUsdcAddress);
+      const facilitatorAccount = getFacilitatorAccount();
+      
+      // Extract v, r, s from signature
+      const sig = signature as Hex;
+      const { r, s, v } = hexToSignature(sig);
+      
+      // Create wallet client for facilitator
+      const walletClient = createWalletClient({
+        account: facilitatorAccount,
+        chain: celo,
+        transport: http('https://forno.celo.org'),
+      });
+      
+      const publicClient = createPublicClient({
+        chain: celo,
+        transport: http('https://forno.celo.org'),
+      });
+      
+      console.log('[Pool] Executing permit + transferFrom:', {
+        owner: userAddress,
+        spender: facilitatorAccount.address,
+        amount: contributionAmount,
+        deadline,
+      });
+      
+      // Step 1: Execute permit to approve facilitator
+      const permitHash = await walletClient.writeContract({
+        address: CELO_AUSDC_ADDRESS,
+        abi: AUSDC_PERMIT_ABI,
+        functionName: 'permit',
+        args: [
+          userAddress,
+          facilitatorAccount.address,
+          contributionBigInt,
+          BigInt(deadline),
+          Number(v),
+          r,
+          s,
+        ],
+      });
+      
+      console.log('[Pool] Permit tx hash:', permitHash);
+      
+      // Wait for permit to be mined
+      await publicClient.waitForTransactionReceipt({ hash: permitHash });
+      
+      // Step 2: Execute transferFrom to move aUSDC to facilitator (pool vault)
+      const transferHash = await walletClient.writeContract({
+        address: CELO_AUSDC_ADDRESS,
+        abi: AUSDC_PERMIT_ABI,
+        functionName: 'transferFrom',
+        args: [
+          userAddress,
+          facilitatorAccount.address,
+          contributionBigInt,
+        ],
+      });
+      
+      console.log('[Pool] TransferFrom tx hash:', transferHash);
+      
+      // Wait for transfer to be mined
+      const transferReceipt = await publicClient.waitForTransactionReceipt({ hash: transferHash });
+      
+      if (transferReceipt.status !== 'success') {
+        throw new Error('Transfer transaction failed');
+      }
+      
+      // Update database records
+      const roundedOptIn = Math.round(optInPercent);
+      await storage.upsertPoolSettings(normalizedAddress, roundedOptIn);
+      
+      // Get or create current draw
+      const draw = await getOrCreateCurrentDraw();
+      
+      // Add contribution to pool
+      await storage.addPoolContribution(draw.id, normalizedAddress, contributionAmount);
+      
+      // Update referrer's bonus tickets (10%)
+      const referral = await storage.getReferralByReferee(normalizedAddress);
+      if (referral) {
+        const referrerBonus = contributionBigInt / 10n;
+        if (referrerBonus > 0n) {
+          await storage.addReferralBonus(draw.id, referral.referrerAddress, referrerBonus.toString());
+        }
+      }
+      
+      // Update draw totals
+      await storage.updateDrawTotals(draw.id);
+      
+      // Update yield snapshot with new balance
+      const newBalance = await publicClient.readContract({
+        address: CELO_AUSDC_ADDRESS,
+        abi: AUSDC_PERMIT_ABI,
+        functionName: 'balanceOf',
+        args: [userAddress],
+      });
+      
+      const existingSnapshot = await storage.getYieldSnapshot(normalizedAddress);
+      const newTotalCollected = existingSnapshot 
+        ? (BigInt(existingSnapshot.totalYieldCollected || '0') + contributionBigInt).toString()
+        : contributionAmount;
+        
+      await storage.upsertYieldSnapshot(normalizedAddress, {
+        lastAusdcBalance: newBalance.toString(),
+        lastCollectedAt: new Date(),
+        totalYieldCollected: newTotalCollected,
+      });
+      
+      console.log(`[Pool] On-chain yield contribution complete: ${normalizedAddress} contributed ${contributionAmount}`);
+      
+      res.json({
+        success: true,
+        permitTxHash: permitHash,
+        transferTxHash: transferHash,
+        contributionAmount,
+        contributionAmountFormatted: (Number(contributionAmount) / 1_000_000).toFixed(6),
+        optInPercent: roundedOptIn,
+      });
+    } catch (error: unknown) {
+      console.error('[Pool] Error submitting contribution:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const shortError = errorMessage.includes('revert') 
+        ? 'Transaction reverted - permit may be invalid or expired'
+        : errorMessage.slice(0, 200);
+      res.status(500).json({ error: shortError });
     }
   });
 
