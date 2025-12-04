@@ -2577,11 +2577,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const normalizedAddress = address.toLowerCase();
-      await storage.upsertPoolSettings(normalizedAddress, Math.round(optInPercent));
+      const roundedOptIn = Math.round(optInPercent);
+      
+      // Save the opt-in percentage first
+      await storage.upsertPoolSettings(normalizedAddress, roundedOptIn);
+      
+      // If opting in (> 0%), try to collect any accrued yield immediately
+      let yieldCollected = '0';
+      let contributionMade = '0';
+      
+      if (roundedOptIn > 0) {
+        try {
+          // Get Celo aUSDC address
+          const celoNetwork = getNetworkByChainId(42220);
+          if (celoNetwork?.aUsdcAddress) {
+            const CELO_AUSDC_ADDRESS = getAddress(celoNetwork.aUsdcAddress);
+            
+            // Check if user has an existing snapshot
+            const existingSnapshot = await storage.getYieldSnapshot(normalizedAddress);
+            
+            // Create viem client for Celo
+            const client = createPublicClient({
+              chain: celo,
+              transport: http(),
+            });
+            
+            // Fetch current aUSDC balance
+            const userAddress = getAddress(normalizedAddress);
+            const currentBalance = await client.readContract({
+              address: CELO_AUSDC_ADDRESS,
+              abi: [{
+                inputs: [{ name: 'account', type: 'address' }],
+                name: 'balanceOf',
+                outputs: [{ name: '', type: 'uint256' }],
+                stateMutability: 'view',
+                type: 'function',
+              }],
+              functionName: 'balanceOf',
+              args: [userAddress],
+            });
+            
+            const currentBalanceBigInt = BigInt(currentBalance.toString());
+            
+            // If they have an existing snapshot with a valid balance, calculate yield
+            if (existingSnapshot && existingSnapshot.lastAusdcBalance && existingSnapshot.lastAusdcBalance !== '0') {
+              const lastBalanceBigInt = BigInt(existingSnapshot.lastAusdcBalance);
+              
+              // Only count positive yield (growth, not principal)
+              if (currentBalanceBigInt > lastBalanceBigInt) {
+                const yieldEarned = currentBalanceBigInt - lastBalanceBigInt;
+                yieldCollected = yieldEarned.toString();
+                
+                // Calculate contribution based on new opt-in percentage
+                const contribution = (yieldEarned * BigInt(roundedOptIn)) / 100n;
+                
+                if (contribution > 0n) {
+                  contributionMade = contribution.toString();
+                  
+                  // Get or create current draw
+                  const draw = await getOrCreateCurrentDraw();
+                  
+                  // Add contribution to pool
+                  await storage.addPoolContribution(draw.id, normalizedAddress, contribution.toString());
+                  
+                  // Update referrer's bonus tickets (10%)
+                  const referral = await storage.getReferralByReferee(normalizedAddress);
+                  if (referral) {
+                    const referrerBonus = contribution / 10n;
+                    if (referrerBonus > 0n) {
+                      await storage.addReferralBonus(draw.id, referral.referrerAddress, referrerBonus.toString());
+                    }
+                  }
+                  
+                  // Update draw totals
+                  await storage.updateDrawTotals(draw.id);
+                  
+                  console.log(`[Pool] Immediate yield collection for ${normalizedAddress}: yield=${yieldCollected}, contribution=${contributionMade}`);
+                }
+              }
+            }
+            
+            // Update snapshot with current balance (whether they had one or not)
+            const newTotalCollected = existingSnapshot 
+              ? (BigInt(existingSnapshot.totalYieldCollected || '0') + BigInt(contributionMade)).toString()
+              : contributionMade;
+              
+            await storage.upsertYieldSnapshot(normalizedAddress, {
+              lastAusdcBalance: currentBalanceBigInt.toString(),
+              lastCollectedAt: new Date(),
+              totalYieldCollected: newTotalCollected,
+            });
+          }
+        } catch (yieldError) {
+          // Log but don't fail the opt-in - yield collection is best-effort
+          console.error('[Pool] Error during immediate yield collection:', yieldError);
+        }
+      }
       
       res.json({ 
         success: true, 
-        optInPercent: Math.round(optInPercent),
+        optInPercent: roundedOptIn,
+        yieldCollected,
+        yieldCollectedFormatted: (Number(yieldCollected) / 1_000_000).toFixed(6),
+        contributionMade,
+        contributionMadeFormatted: (Number(contributionMade) / 1_000_000).toFixed(6),
       });
     } catch (error) {
       console.error('[Pool] Error setting opt-in:', error);

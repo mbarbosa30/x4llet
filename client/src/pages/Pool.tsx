@@ -155,19 +155,29 @@ export default function Pool() {
   const optInMutation = useMutation({
     mutationFn: async (percent: number) => {
       const result = await apiRequest("POST", "/api/pool/opt-in", { address, optInPercent: percent });
-      if (percent > 0) {
-        await apiRequest("POST", "/api/pool/init-snapshot", { address });
-      }
-      return result;
+      return result.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: { contributionMade?: string; contributionMadeFormatted?: string; optInPercent?: number }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/pool/status", address] });
-      toast({
-        title: "Saved",
-        description: optInPercent > 0 
-          ? `Contributing ${optInPercent}% of your Celo yield to the pool`
-          : "Pool contribution disabled",
-      });
+      
+      // Show appropriate message based on yield collection
+      const contributionMade = parseFloat(data?.contributionMade || '0');
+      if (contributionMade > 0) {
+        toast({
+          title: "Yield contributed!",
+          description: `$${data?.contributionMadeFormatted || '0.00'} added to this week's prize pool`,
+        });
+      } else if (optInPercent > 0) {
+        toast({
+          title: "Saved",
+          description: `Contributing ${optInPercent}% of your Celo yield to the pool`,
+        });
+      } else {
+        toast({
+          title: "Saved",
+          description: "Pool contribution disabled",
+        });
+      }
     },
     onError: () => {
       toast({
