@@ -52,6 +52,11 @@ interface PoolStatus {
     referralBonusTickets: string;
     totalTickets: string;
     odds: string;
+    totalContributedAllTime: string;
+    totalContributedAllTimeFormatted: string;
+    aUsdcBalance: string;
+    aUsdcBalanceFormatted: string;
+    hasSnapshot: boolean;
   };
   referral: {
     code: string;
@@ -134,6 +139,12 @@ export default function Pool() {
     enabled: !!address,
   });
 
+  // Fetch Celo APY for yield estimates
+  const { data: celoApyData } = useQuery<{ apy: number }>({
+    queryKey: ["/api/aave/apy", 42220],
+    enabled: !!address,
+  });
+
   // Set initial opt-in from server
   useEffect(() => {
     if (poolStatus?.user?.optInPercent !== undefined) {
@@ -201,14 +212,6 @@ export default function Pool() {
 
   const handleOptInChange = (value: number[]) => {
     setOptInPercent(value[0]);
-  };
-
-  const handleOptInCommit = () => {
-    const currentOptIn = poolStatus?.user?.optInPercent ?? 0;
-    if (optInPercent !== currentOptIn) {
-      setPendingOptInPercent(optInPercent);
-      setShowContributionDialog(true);
-    }
   };
 
   const confirmOptInChange = () => {
@@ -375,7 +378,6 @@ export default function Pool() {
                 <Slider
                   value={[optInPercent]}
                   onValueChange={handleOptInChange}
-                  onValueCommit={handleOptInCommit}
                   max={100}
                   step={5}
                   className="w-full"
@@ -385,16 +387,67 @@ export default function Pool() {
                   <span>Keep all yield</span>
                   <span>Max tickets</span>
                 </div>
+                
+                {/* Save button - only show when value differs from server */}
+                {optInPercent !== (poolStatus.user.optInPercent ?? 0) && (
+                  <Button 
+                    className="w-full" 
+                    onClick={() => {
+                      setPendingOptInPercent(optInPercent);
+                      setShowContributionDialog(true);
+                    }}
+                    data-testid="button-save-contribution"
+                  >
+                    Save {optInPercent}% Contribution
+                  </Button>
+                )}
+                
+                {/* Yield Stats */}
+                <div className="space-y-2 pt-2 border-t">
+                  {poolStatus.user.hasSnapshot && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Total contributed (all-time)</span>
+                      <span className="font-medium" data-testid="text-total-contributed">
+                        ${poolStatus.user.totalContributedAllTimeFormatted}
+                      </span>
+                    </div>
+                  )}
+                  {celoApyData?.apy && Number(poolStatus.user.aUsdcBalance) > 0 && optInPercent > 0 ? (
+                    <>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Est. weekly contribution</span>
+                        <span className="font-medium text-primary" data-testid="text-weekly-estimate">
+                          ~${((Number(poolStatus.user.aUsdcBalance) / 1_000_000) * (celoApyData.apy / 100) / 52 * (optInPercent / 100)).toFixed(4)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Est. daily contribution</span>
+                        <span className="font-medium" data-testid="text-daily-estimate">
+                          ~${((Number(poolStatus.user.aUsdcBalance) / 1_000_000) * (celoApyData.apy / 100) / 365 * (optInPercent / 100)).toFixed(4)}
+                        </span>
+                      </div>
+                    </>
+                  ) : optInPercent > 0 && (!poolStatus.user.hasSnapshot || Number(poolStatus.user.aUsdcBalance) === 0) ? (
+                    <div className="text-xs text-muted-foreground text-center">
+                      Add savings to Celo Aave to see yield estimates
+                    </div>
+                  ) : null}
+                </div>
+                
                 <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1">
                   <Info className="h-3 w-3" />
                   Higher contribution = more tickets = better odds
                 </p>
               </Card>
 
-              {/* Info Card */}
-              <Card className="p-3 border-dashed">
+              {/* Collection Timing Info */}
+              <Card className="p-3 border-dashed space-y-1">
                 <p className="text-xs text-muted-foreground text-center">
                   Celo aUSDC yield only - your principal stays safe in Aave
+                </p>
+                <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Yield collected weekly on Sunday at midnight UTC
                 </p>
               </Card>
             </TabsContent>
@@ -684,6 +737,18 @@ export default function Pool() {
                     ? "You'll keep 100% of your Celo aUSDC yield" 
                     : `${pendingOptInPercent}% of your Celo aUSDC yield will enter the weekly prize pool`}
                 </p>
+              </div>
+              {celoApyData?.apy && poolStatus?.user?.aUsdcBalance && Number(poolStatus.user.aUsdcBalance) > 0 && pendingOptInPercent && pendingOptInPercent > 0 && (
+                <div className="flex items-start gap-2">
+                  <TrendingUp className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <p>
+                    Est. ~${((Number(poolStatus.user.aUsdcBalance) / 1_000_000) * (celoApyData.apy / 100) / 52 * (pendingOptInPercent / 100)).toFixed(4)}/week
+                  </p>
+                </div>
+              )}
+              <div className="flex items-start gap-2">
+                <Clock className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <p>Yield collected weekly on Sundays</p>
               </div>
               <div className="flex items-start gap-2">
                 <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />

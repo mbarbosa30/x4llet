@@ -2501,6 +2501,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const settings = await storage.getPoolSettings(normalizedAddress);
       const contribution = await storage.getPoolContribution(draw.id, normalizedAddress);
       const referrals = await storage.getReferralsByReferrer(normalizedAddress);
+      const yieldSnapshot = await storage.getYieldSnapshot(normalizedAddress);
       
       // Get referral code (generate if doesn't exist)
       const referralCode = generateReferralCode(normalizedAddress);
@@ -2517,6 +2518,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const odds = totalTickets > 0n 
         ? (Number(yourTickets) / Number(totalTickets) * 100).toFixed(2)
         : '0.00';
+      
+      // Get total contributed all-time from yield snapshot
+      const totalContributedAllTime = yieldSnapshot?.totalYieldCollected || '0';
+      const aUsdcBalance = yieldSnapshot?.lastAusdcBalance || '0';
       
       res.json({
         draw: {
@@ -2536,6 +2541,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           referralBonusTickets: contribution?.referralBonusTickets || '0',
           totalTickets: contribution?.totalTickets || '0',
           odds,
+          totalContributedAllTime,
+          totalContributedAllTimeFormatted: (Number(totalContributedAllTime) / 1_000_000).toFixed(4),
+          aUsdcBalance,
+          aUsdcBalanceFormatted: (Number(aUsdcBalance) / 1_000_000).toFixed(2),
+          hasSnapshot: !!yieldSnapshot,
         },
         referral: {
           code: referralCode,
