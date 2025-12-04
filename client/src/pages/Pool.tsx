@@ -542,15 +542,15 @@ export default function Pool() {
         paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' 
       }}
     >
-      <main className="max-w-md mx-auto p-4 space-y-6">
+      <main className="max-w-md mx-auto p-4 space-y-4">
         {/* Use cached view state during loading to prevent flash between intro/main views */}
         {isLoadingStatus ? (
           cachedHasParticipated === true ? (
-            /* Show main view skeleton if user was participating */
+            /* Show main view skeleton if user was participating - includes h-10 for TabsList */
             <div className="space-y-4">
+              <Skeleton className="h-10 w-full rounded-md" />
               <Skeleton className="h-64 w-full" />
               <Skeleton className="h-48 w-full" />
-              <Skeleton className="h-32 w-full" />
             </div>
           ) : (
             /* Show intro skeleton for new users or those who haven't participated */
