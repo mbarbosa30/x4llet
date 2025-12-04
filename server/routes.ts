@@ -2965,26 +2965,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // For first-time users without a snapshot, there's no yield to contribute yet
-      // They need to opt-in first, then yield accrues over time
-      if (!existingSnapshot) {
-        // Save opt-in percentage and create initial snapshot
-        await storage.upsertPoolSettings(normalizedAddress, Math.round(optInPercent));
-        await storage.upsertYieldSnapshot(normalizedAddress, {
-          lastAusdcBalance: currentBalanceBigInt.toString(),
-          lastCollectedAt: new Date(),
-          totalYieldCollected: '0',
-        });
-        
-        return res.json({
-          success: true,
-          isFirstTime: true,
-          message: 'Opted in! Your yield will be collected weekly.',
-          yieldAmount: '0',
-          contributionAmount: '0',
-          currentBalance: currentBalanceBigInt.toString(),
-          optInPercent: Math.round(optInPercent),
-        });
+      // For first-time users, their entire aUSDC balance is considered "yield" 
+      // since it hasn't been snapshotted yet - they can contribute immediately
+      const isFirstTime = !existingSnapshot;
+      if (isFirstTime) {
+        // First-time user: treat current balance as available for contribution
+        yieldAmount = currentBalanceBigInt;
       }
       
       // Calculate contribution based on opt-in percentage
@@ -2996,15 +2982,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.upsertYieldSnapshot(normalizedAddress, {
           lastAusdcBalance: currentBalanceBigInt.toString(),
           lastCollectedAt: new Date(),
-          totalYieldCollected: existingSnapshot.totalYieldCollected || '0',
+          totalYieldCollected: existingSnapshot?.totalYieldCollected || '0',
         });
         
         return res.json({
           success: true,
           noYieldToContribute: true,
-          message: 'Settings saved. No yield to contribute yet.',
+          isFirstTime,
+          message: isFirstTime 
+            ? 'Opted in! You have no aUSDC balance yet - deposit to start earning.'
+            : 'Settings saved. No new yield to contribute yet.',
           yieldAmount: yieldAmount.toString(),
           contributionAmount: '0',
+          currentBalance: currentBalanceBigInt.toString(),
           optInPercent: Math.round(optInPercent),
         });
       }
@@ -3057,10 +3047,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: true,
         requiresSignature: true,
+        isFirstTime,
         yieldAmount: yieldAmount.toString(),
         yieldAmountFormatted: (Number(yieldAmount) / 1_000_000).toFixed(6),
         contributionAmount: contributionAmount.toString(),
         contributionAmountFormatted: (Number(contributionAmount) / 1_000_000).toFixed(6),
+        currentBalance: currentBalanceBigInt.toString(),
         optInPercent: Math.round(optInPercent),
         permitTypedData,
         deadline,
