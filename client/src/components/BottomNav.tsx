@@ -28,7 +28,7 @@ export default function BottomNav() {
           data-testid="nav-claim"
         >
           <Coins className="h-5 w-5" />
-          <span className="text-[10px]">Claim</span>
+          <span className="text-xs">Claim</span>
         </Button>
 
         <Button
@@ -41,7 +41,7 @@ export default function BottomNav() {
           data-testid="nav-wallet"
         >
           <Wallet className="h-5 w-5" />
-          <span className="text-[10px]">Wallet</span>
+          <span className="text-xs">Wallet</span>
         </Button>
 
         <Button
@@ -54,7 +54,7 @@ export default function BottomNav() {
           data-testid="nav-earn"
         >
           <TrendingUp className="h-5 w-5" />
-          <span className="text-[10px]">Earn</span>
+          <span className="text-xs">Earn</span>
         </Button>
 
         <Button
@@ -67,7 +67,7 @@ export default function BottomNav() {
           data-testid="nav-pool"
         >
           <Sparkles className="h-5 w-5" />
-          <span className="text-[10px]">Pool</span>
+          <span className="text-xs">Pool</span>
         </Button>
       </div>
     </nav>
