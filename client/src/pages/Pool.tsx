@@ -901,8 +901,8 @@ export default function Pool() {
                       {status !== 'none' && status !== 'no-data' && (
                         <p className="text-xs text-muted-foreground mt-1">
                           {status === 'optimal' && 'Your allocation maximizes expected growth'}
-                          {status === 'under' && `Increase to ${optimalOptIn}% for optimal odds`}
-                          {status === 'over' && `Consider ${optimalOptIn}% for balanced risk`}
+                          {status === 'under' && 'You could increase for better odds'}
+                          {status === 'over' && 'Consider reducing for balanced risk'}
                         </p>
                       )}
                     </div>
@@ -978,7 +978,7 @@ export default function Pool() {
                     
                     {/* Key insight */}
                     <p className="text-xs text-muted-foreground text-center pt-2 border-t">
-                      Based on Kelly Criterion—optimal allocation balances upside vs yield cost
+                      Calculated risk-reward balance (upside vs yield cost)
                     </p>
                   </Card>
                 );
