@@ -17,13 +17,17 @@ Developed using Express.js (TypeScript), Drizzle ORM, and PostgreSQL (via Neon s
 ### Cryptographic Architecture
 Wallet generation uses `viem` for secp256k1 private key creation. Private keys are encrypted with WebCrypto API (AES-GCM with PBKDF2) and stored in IndexedDB, protected by a user-defined password. EIP-712 typed data signing is used for gasless transfers, compatible with USDC's EIP-3009, handling domain differences across networks.
 
-**WebAuthn Passkey Support**: The wallet supports WebAuthn passkeys for biometric unlock (Face ID, fingerprint). Architecture uses a Data Encryption Key (DEK) pattern:
+**WebAuthn Passkey Support**: The wallet supports WebAuthn passkeys for biometric unlock (Face ID, fingerprint). Architecture uses a Data Encryption Key (DEK) pattern with PRF extension for secure key derivation:
 - DEK encrypts the private key (AES-GCM)
-- DEK is wrapped twice: (1) by WebAuthn credential key, (2) by password-derived key (PBKDF2)
+- DEK is wrapped twice: (1) by passkey PRF-derived key, (2) by password-derived key (PBKDF2)
+- PRF (Pseudo-Random Function) extension: wrapping key derived inside authenticator, never stored
+- HKDF with domain separation: salt includes `nanoPay:{rpId}:{credentialId}` for cross-context isolation
 - On unlock: prefer passkey unwrap, fall back to password
 - Recovery code/password remains canonical backup for new device onboarding
-- WebAuthn credential stored in IndexedDB with wrapped DEK blob
+- Stored data: credentialId, rpId, prfSalt (input), wrappedDek (output encrypted with PRF-derived key)
 - Platform authenticator required (UV=required, residentKey=required)
+- PRF extension required for enrollment; unsupported platforms fall back to password-only
+- Automatic migration: legacy insecure passkey data purged on first check, re-enrollment required
 - Passkey enrollment available in Settings > Security after wallet is unlocked
 
 ### Data Storage
