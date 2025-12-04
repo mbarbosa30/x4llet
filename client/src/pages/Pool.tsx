@@ -318,10 +318,19 @@ export default function Pool() {
                     Week {poolStatus.draw.weekNumber}
                   </Badge>
                 </div>
-                <div className="text-center py-2">
-                  <p className="text-4xl font-bold text-primary" data-testid="text-prize-amount">
-                    ${poolStatus.draw.totalPoolFormatted}
-                  </p>
+                <div className="text-center py-4">
+                  {(() => {
+                    const [intPart = '0', decPart = '00'] = (poolStatus.draw.totalPoolFormatted ?? '0.00').split('.');
+                    return (
+                      <div className="text-5xl font-medium tabular-nums flex items-center justify-center" data-testid="text-prize-amount">
+                        <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
+                        <span className="inline-flex items-baseline">
+                          <span>{intPart}</span>
+                          <span className="opacity-90">.{decPart}</span>
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="flex items-center justify-center gap-4">
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
