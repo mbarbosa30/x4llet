@@ -149,6 +149,7 @@ function formatSmartCurrencyTick(value: number): string {
 
 // Cache keys for view state persistence
 const EARN_VIEW_STATE_KEY = 'earn_view_state';
+const EARN_TAB_KEY = 'earn_active_tab';
 
 function getCachedEarnViewState(): { hasAaveBalance: boolean } | null {
   try {
@@ -161,6 +162,20 @@ function getCachedEarnViewState(): { hasAaveBalance: boolean } | null {
 function setCachedEarnViewState(hasAaveBalance: boolean) {
   try {
     localStorage.setItem(EARN_VIEW_STATE_KEY, JSON.stringify({ hasAaveBalance }));
+  } catch {}
+}
+
+function getCachedEarnTab(): string {
+  try {
+    return localStorage.getItem(EARN_TAB_KEY) || 'savings';
+  } catch {
+    return 'savings';
+  }
+}
+
+function setCachedEarnTab(tab: string) {
+  try {
+    localStorage.setItem(EARN_TAB_KEY, tab);
   } catch {}
 }
 
@@ -178,7 +193,7 @@ export default function Earn() {
   const [aaveOperationStep, setAaveOperationStep] = useState<'input' | 'gas_check' | 'gas_drip' | 'signing' | 'submitting' | 'complete'>('input');
   const [gasDripPending, setGasDripPending] = useState(false);
   const [isOperating, setIsOperating] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>('savings');
+  const [activeTab, setActiveTab] = useState<string>(() => getCachedEarnTab());
   const [localOptInPercent, setLocalOptInPercent] = useState<number | null>(null);
   const [isSavingOptIn, setIsSavingOptIn] = useState(false);
   // Cached view state - prevents flash between different views on navigation
@@ -946,7 +961,7 @@ export default function Earn() {
       }}
     >
       <main className="max-w-md mx-auto p-4 space-y-4">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={(tab) => { setActiveTab(tab); setCachedEarnTab(tab); }} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="savings" className="flex items-center gap-1.5 text-xs" data-testid="tab-savings">
               <PiggyBank className="h-3.5 w-3.5" />

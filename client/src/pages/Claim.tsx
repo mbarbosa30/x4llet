@@ -44,6 +44,23 @@ import { getAddress } from 'viem';
 import { useToast } from '@/hooks/use-toast';
 import QRScanner from '@/components/QRScanner';
 
+// Cache key for tab state persistence
+const CLAIM_TAB_KEY = 'claim_active_tab';
+
+function getCachedTab(): string {
+  try {
+    return localStorage.getItem(CLAIM_TAB_KEY) || 'gooddollar';
+  } catch {
+    return 'gooddollar';
+  }
+}
+
+function setCachedTab(tab: string) {
+  try {
+    localStorage.setItem(CLAIM_TAB_KEY, tab);
+  } catch {}
+}
+
 export default function Claim() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -51,7 +68,7 @@ export default function Claim() {
   
   const [address, setAddress] = useState<string | null>(null);
   const [showScanner, setShowScanner] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>('gooddollar');
+  const [activeTab, setActiveTab] = useState<string>(() => getCachedTab());
   
   const [showTrustInput, setShowTrustInput] = useState(false);
   const [trusteeAddress, setTrusteeAddress] = useState('');
@@ -477,7 +494,7 @@ export default function Claim() {
       }}
     >
       <main className="max-w-md mx-auto p-4 space-y-4">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={(tab) => { setActiveTab(tab); setCachedTab(tab); }} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="gooddollar" className="flex items-center gap-1.5 text-xs" data-testid="tab-gooddollar">
               <Gift className="h-3.5 w-3.5" />
