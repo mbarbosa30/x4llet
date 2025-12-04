@@ -619,6 +619,48 @@ export default function Earn() {
     refetchInterval: 30000,
   });
 
+  // Auto-select first chain with USDC balance when deposit dialog opens
+  useEffect(() => {
+    if (showAaveDeposit) {
+      const hasBase = parseFloat(liquidBalanceBase?.balanceMicro || '0') > 0;
+      const hasCelo = parseFloat(liquidBalanceCelo?.balanceMicro || '0') > 0;
+      const hasGnosis = parseFloat(liquidBalanceGnosis?.balanceMicro || '0') > 0;
+      
+      // Check if current selection is still valid
+      const currentValid = (selectedChain === 8453 && hasBase) ||
+                          (selectedChain === 42220 && hasCelo) ||
+                          (selectedChain === 100 && hasGnosis);
+      
+      if (!currentValid) {
+        // Select first available chain
+        if (hasBase) setSelectedChain(8453);
+        else if (hasCelo) setSelectedChain(42220);
+        else if (hasGnosis) setSelectedChain(100);
+      }
+    }
+  }, [showAaveDeposit, liquidBalanceBase?.balanceMicro, liquidBalanceCelo?.balanceMicro, liquidBalanceGnosis?.balanceMicro, selectedChain]);
+
+  // Auto-select first chain with Aave balance when withdraw dialog opens  
+  useEffect(() => {
+    if (showAaveWithdraw) {
+      const hasBase = (aaveBalanceBase?.aUsdcBalance && parseFloat(aaveBalanceBase.aUsdcBalance) > 0) || false;
+      const hasCelo = (aaveBalanceCelo?.aUsdcBalance && parseFloat(aaveBalanceCelo.aUsdcBalance) > 0) || false;
+      const hasGnosis = (aaveBalanceGnosis?.aUsdcBalance && parseFloat(aaveBalanceGnosis.aUsdcBalance) > 0) || false;
+      
+      // Check if current selection is still valid
+      const currentValid = (selectedChain === 8453 && hasBase) ||
+                          (selectedChain === 42220 && hasCelo) ||
+                          (selectedChain === 100 && hasGnosis);
+      
+      if (!currentValid) {
+        // Select first available chain
+        if (hasBase) setSelectedChain(8453);
+        else if (hasCelo) setSelectedChain(42220);
+        else if (hasGnosis) setSelectedChain(100);
+      }
+    }
+  }, [showAaveWithdraw, aaveBalanceBase?.aUsdcBalance, aaveBalanceCelo?.aUsdcBalance, aaveBalanceGnosis?.aUsdcBalance, selectedChain]);
+
   const checkGasBalance = async (chainId: number): Promise<{ hasEnoughGas: boolean; balance: string; required: string }> => {
     if (!address) throw new Error('No wallet address');
     const res = await fetch(`/api/gas-balance/${address}?chainId=${chainId}`);
@@ -1315,36 +1357,42 @@ export default function Earn() {
                           return null;
                         }}
                       />
-                      <Area 
-                        type="monotone" 
-                        dataKey="baseInterest"
-                        yAxisId="balance"
-                        stackId="earnings"
-                        stroke="hsl(217, 91%, 70%)"
-                        strokeWidth={1.5}
-                        fill="url(#baseInterestGradient)"
-                        isAnimationActive={false}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="celoInterest"
-                        yAxisId="balance"
-                        stackId="earnings"
-                        stroke="hsl(45, 93%, 58%)"
-                        strokeWidth={1.5}
-                        fill="url(#celoInterestGradient)"
-                        isAnimationActive={false}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="gnosisInterest"
-                        yAxisId="balance"
-                        stackId="earnings"
-                        stroke="hsl(270, 70%, 60%)"
-                        strokeWidth={1.5}
-                        fill="url(#gnosisInterestGradient)"
-                        isAnimationActive={false}
-                      />
+                      {baseBalanceNum > 0 && (
+                        <Area 
+                          type="monotone" 
+                          dataKey="baseInterest"
+                          yAxisId="balance"
+                          stackId="earnings"
+                          stroke="hsl(217, 91%, 70%)"
+                          strokeWidth={1.5}
+                          fill="url(#baseInterestGradient)"
+                          isAnimationActive={false}
+                        />
+                      )}
+                      {celoBalanceNum > 0 && (
+                        <Area 
+                          type="monotone" 
+                          dataKey="celoInterest"
+                          yAxisId="balance"
+                          stackId="earnings"
+                          stroke="hsl(45, 93%, 58%)"
+                          strokeWidth={1.5}
+                          fill="url(#celoInterestGradient)"
+                          isAnimationActive={false}
+                        />
+                      )}
+                      {gnosisBalanceNum > 0 && (
+                        <Area 
+                          type="monotone" 
+                          dataKey="gnosisInterest"
+                          yAxisId="balance"
+                          stackId="earnings"
+                          stroke="hsl(270, 70%, 60%)"
+                          strokeWidth={1.5}
+                          fill="url(#gnosisInterestGradient)"
+                          isAnimationActive={false}
+                        />
+                      )}
                       <Line 
                         type="monotone" 
                         dataKey="totalInterestPercent"
@@ -1361,18 +1409,24 @@ export default function Earn() {
                 </div>
                 
                 <div className="flex items-center justify-center gap-3 text-xs flex-wrap">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(217, 91%, 60%)' }}></div>
-                    <span className="text-blue-400">Base</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(45, 93%, 47%)' }}></div>
-                    <span className="text-yellow-400">Celo</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(270, 70%, 55%)' }}></div>
-                    <span className="text-purple-400">Gnosis</span>
-                  </div>
+                  {baseBalanceNum > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(217, 91%, 60%)' }}></div>
+                      <span className="text-blue-400">Base</span>
+                    </div>
+                  )}
+                  {celoBalanceNum > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(45, 93%, 47%)' }}></div>
+                      <span className="text-yellow-400">Celo</span>
+                    </div>
+                  )}
+                  {gnosisBalanceNum > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(270, 70%, 55%)' }}></div>
+                      <span className="text-purple-400">Gnosis</span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-1.5">
                     <div className="w-4 h-0.5 rounded-sm" style={{ background: 'hsl(142, 71%, 45%)', borderTop: '2px dashed hsl(142, 71%, 45%)' }}></div>
                     <span className="text-success">% Growth</span>
@@ -1666,9 +1720,15 @@ export default function Earn() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="8453">Base ({aaveApyBase?.apyFormatted || '—'} APY)</SelectItem>
-                    <SelectItem value="42220">Celo ({aaveApyCelo?.apyFormatted || '—'} APY)</SelectItem>
-                    <SelectItem value="100">Gnosis ({aaveApyGnosis?.apyFormatted || '—'} APY)</SelectItem>
+                    {parseFloat(liquidBalanceBase?.balanceMicro || '0') > 0 && (
+                      <SelectItem value="8453">Base ({aaveApyBase?.apyFormatted || '—'} APY)</SelectItem>
+                    )}
+                    {parseFloat(liquidBalanceCelo?.balanceMicro || '0') > 0 && (
+                      <SelectItem value="42220">Celo ({aaveApyCelo?.apyFormatted || '—'} APY)</SelectItem>
+                    )}
+                    {parseFloat(liquidBalanceGnosis?.balanceMicro || '0') > 0 && (
+                      <SelectItem value="100">Gnosis ({aaveApyGnosis?.apyFormatted || '—'} APY)</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1779,15 +1839,21 @@ export default function Earn() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="8453" disabled={baseBalanceNum === 0}>
-                      Base (${baseBalanceNum.toFixed(2)} available)
-                    </SelectItem>
-                    <SelectItem value="42220" disabled={celoBalanceNum === 0}>
-                      Celo (${celoBalanceNum.toFixed(2)} available)
-                    </SelectItem>
-                    <SelectItem value="100" disabled={gnosisBalanceNum === 0}>
-                      Gnosis (${gnosisBalanceNum.toFixed(2)} available)
-                    </SelectItem>
+                    {baseBalanceNum > 0 && (
+                      <SelectItem value="8453">
+                        Base (${baseBalanceNum.toFixed(2)} available)
+                      </SelectItem>
+                    )}
+                    {celoBalanceNum > 0 && (
+                      <SelectItem value="42220">
+                        Celo (${celoBalanceNum.toFixed(2)} available)
+                      </SelectItem>
+                    )}
+                    {gnosisBalanceNum > 0 && (
+                      <SelectItem value="100">
+                        Gnosis (${gnosisBalanceNum.toFixed(2)} available)
+                      </SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
