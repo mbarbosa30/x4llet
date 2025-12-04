@@ -639,11 +639,13 @@ export default function Pool() {
             {/* Pool Tab */}
             <TabsContent value="pool" className="mt-4 space-y-4">
               {/* This Week's Prize */}
-              <Card className="p-6 space-y-4" data-testid="card-prize-pool">
+              <Card className="p-4 space-y-3" data-testid="card-prize-pool">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">This Week's Prize</div>
-                  <Badge variant="outline" className="text-xs">
-                    <Trophy className="h-3 w-3 mr-1" />
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <Trophy className="h-4 w-4 text-primary" />
+                    This Week's Prize
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
                     Week {poolStatus.draw.weekNumber}
                   </Badge>
                 </div>
@@ -709,9 +711,11 @@ export default function Pool() {
               {/* Your Position */}
               <Card className="p-4 space-y-3" data-testid="card-your-position">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">Your Position</div>
-                  <Badge variant="outline" className="text-xs">
-                    <Target className="h-3 w-3 mr-1" />
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary" />
+                    Your Position
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
                     {optInPercent}% opt-in
                   </Badge>
                 </div>
@@ -947,9 +951,11 @@ export default function Pool() {
               {/* Contribution */}
               <Card className="p-4 space-y-3" data-testid="card-yield-contribution">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">Yield Contribution</div>
-                  <Badge variant="outline" className="text-xs" data-testid="text-opt-in-percent">
-                    <Coins className="h-3 w-3 mr-1" />
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <Coins className="h-4 w-4 text-primary" />
+                    Yield Contribution
+                  </div>
+                  <Badge variant="outline" className="font-bold px-2" data-testid="text-opt-in-percent">
                     {optInPercent}%
                   </Badge>
                 </div>
@@ -1031,9 +1037,11 @@ export default function Pool() {
               {/* Ticket Breakdown */}
               <Card className="p-4 space-y-3" data-testid="card-ticket-breakdown">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">Ticket Breakdown</div>
-                  <Badge variant="outline" className="text-xs">
-                    <Ticket className="h-3 w-3 mr-1" />
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <Ticket className="h-4 w-4 text-primary" />
+                    Ticket Breakdown
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
                     {formatTickets(poolStatus.user.totalTickets)} total
                   </Badge>
                 </div>
@@ -1112,12 +1120,9 @@ export default function Pool() {
                 
                 return (
                   <Card className="p-4 space-y-3" data-testid="card-when-win">
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-muted-foreground">When Will You Win?</div>
-                      <Badge variant="outline" className="text-xs">
-                        <Target className="h-3 w-3 mr-1" />
-                        Probability
-                      </Badge>
+                    <div className="text-sm font-medium flex items-center gap-2">
+                      <Target className="h-4 w-4 text-primary" />
+                      When Will You Win?
                     </div>
                     
                     {currentOdds > 0 ? (
@@ -1577,12 +1582,9 @@ export default function Pool() {
 
               {/* How It Works */}
               <Card className="p-4 space-y-3" data-testid="card-how-it-works">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">How It Works</div>
-                  <Badge variant="outline" className="text-xs">
-                    <Sparkles className="h-3 w-3 mr-1" />
-                    3 steps
-                  </Badge>
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  How It Works
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="space-y-1">

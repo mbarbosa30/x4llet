@@ -28,7 +28,8 @@ import {
   ArrowRightLeft,
   Lock,
   PiggyBank,
-  Settings
+  Settings,
+  Layers
 } from 'lucide-react';
 import { ComposedChart, AreaChart, Area, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import {
@@ -934,11 +935,13 @@ export default function Earn() {
               </div>
             )}
 
-            <Card className="p-6 space-y-4" data-testid="card-earning-balance">
+            <Card className="p-4 space-y-3" data-testid="card-earning-balance">
               <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">Total Earning</div>
-                <Badge variant="outline" className="text-xs">
-                  <TrendingUp className="h-3 w-3 mr-1" />
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <PiggyBank className="h-4 w-4 text-primary" />
+                  Total Earning
+                </div>
+                <Badge variant="secondary" className="text-xs">
                   {weightedApy > 0 ? `${weightedApy.toFixed(2)}%` : '—'} APY
                 </Badge>
               </div>
@@ -1140,7 +1143,10 @@ export default function Earn() {
 
             {hasAaveBalance && (baseBalanceNum > 0 || celoBalanceNum > 0 || gnosisBalanceNum > 0) && [baseBalanceNum, celoBalanceNum, gnosisBalanceNum].filter(b => b > 0).length > 1 && (
               <Card className="p-4 space-y-3" data-testid="card-chain-breakdown">
-                <div className="text-sm font-medium">Balance & Rates by Network</div>
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-primary" />
+                  Balance & Rates by Network
+                </div>
                 
                 {baseBalanceNum > 0 && (
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
@@ -1224,27 +1230,16 @@ export default function Earn() {
 
             {hasAaveBalance && combinedChartData.length > 0 && (
               <Card className="p-4 space-y-3" data-testid="card-projected-earnings">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">Projected Earnings</span>
-                      <span className="text-xs text-muted-foreground">
-                        on {formatSmartPrecision((() => {
-                          const microBalance = BigInt(totalAaveBalanceMicro || '0');
-                          if (microBalance > BigInt(Number.MAX_SAFE_INTEGER)) {
-                            return Number(microBalance / 1_000_000n);
-                          }
-                          return Number(microBalance) / 1_000_000;
-                        })(), '$')} principal
-                      </span>
-                    </div>
-                    {yearlyEarnings > 0 && (
-                      <div className="text-xs">
-                        <span className="text-success font-medium">+{weightedApy.toFixed(2)}%</span>
-                        <span className="text-muted-foreground"> APY</span>
-                      </div>
-                    )}
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-primary" />
+                    Projected Earnings
                   </div>
+                  {yearlyEarnings > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      +{weightedApy.toFixed(2)}% APY
+                    </Badge>
+                  )}
                 </div>
                 
                 <div className="h-36 w-full">
@@ -1439,11 +1434,14 @@ export default function Earn() {
             {interestEarnedData && (
               <Card className="p-4 space-y-2" data-testid="card-interest-earned">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-sm font-medium">Interest Earned</div>
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <Coins className="h-4 w-4 text-primary" />
+                    Interest Earned
+                  </div>
                   {Number(interestEarnedData.totalInterestEarnedMicro) > 0 && (
-                    <span className="text-sm font-medium text-success">
+                    <Badge variant="secondary" className="text-xs text-success">
                       +${(Number(interestEarnedData.totalInterestEarnedMicro) / 1_000_000).toFixed(4)}
-                    </span>
+                    </Badge>
                   )}
                 </div>
                 {interestEarnedData.chains.some(c => c.hasTrackingData) ? (
@@ -1503,7 +1501,10 @@ export default function Earn() {
             )}
 
             <Card className="p-4 space-y-3" data-testid="card-how-it-works">
-              <div className="text-sm font-medium">How it works</div>
+              <div className="text-sm font-medium flex items-center gap-2">
+                <Info className="h-4 w-4 text-primary" />
+                How it works
+              </div>
               
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="p-2">
