@@ -704,63 +704,17 @@ export default function Pool() {
       <Dialog open={showContributionDialog} onOpenChange={(open) => {
         if (!open) cancelOptInChange();
       }}>
-        <DialogContent>
+        <DialogContent className="max-w-xs">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-primary" />
-              Confirm Contribution
-            </DialogTitle>
+            <DialogTitle>Set to {pendingOptInPercent}%?</DialogTitle>
             <DialogDescription>
-              You're changing your yield contribution on Celo
+              {pendingOptInPercent === 0 
+                ? "You'll keep all your Celo yield" 
+                : `${pendingOptInPercent}% of your yield enters the weekly prize pool`}
             </DialogDescription>
           </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Current</p>
-                <p className="text-lg font-bold">{poolStatus?.user?.optInPercent ?? 0}%</p>
-              </div>
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
-              <div className="space-y-1 text-right">
-                <p className="text-sm text-muted-foreground">New</p>
-                <p className="text-lg font-bold text-primary">{pendingOptInPercent ?? 0}%</p>
-              </div>
-            </div>
 
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <div className="flex items-start gap-2">
-                <Coins className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                <p>
-                  {pendingOptInPercent === 0 
-                    ? "You'll keep 100% of your Celo aUSDC yield" 
-                    : `${pendingOptInPercent}% of your Celo aUSDC yield will enter the weekly prize pool`}
-                </p>
-              </div>
-              {celoApyData?.apy && poolStatus?.user?.aUsdcBalance && Number(poolStatus.user.aUsdcBalance) > 0 && pendingOptInPercent && pendingOptInPercent > 0 && (
-                <div className="flex items-start gap-2">
-                  <TrendingUp className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                  <p>
-                    Est. ~${((Number(poolStatus.user.aUsdcBalance) / 1_000_000) * (celoApyData.apy / 100) / 52 * (pendingOptInPercent / 100)).toFixed(4)}/week
-                  </p>
-                </div>
-              )}
-              <div className="flex items-start gap-2">
-                <Clock className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                <p>Yield collected weekly on Sundays</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                <p>Your principal savings in Aave remain untouched</p>
-              </div>
-            </div>
-
-            <Badge variant="secondary" className="w-full justify-center py-2">
-              Celo Chain Only
-            </Badge>
-          </div>
-
-          <div className="flex gap-3">
+          <div className="flex gap-3 pt-2">
             <Button 
               variant="outline" 
               className="flex-1"
