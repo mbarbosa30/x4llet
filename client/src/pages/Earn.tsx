@@ -29,7 +29,8 @@ import {
   Lock,
   PiggyBank,
   Settings,
-  Layers
+  Layers,
+  ShoppingBag
 } from 'lucide-react';
 import { ComposedChart, AreaChart, Area, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import {
@@ -1632,19 +1633,19 @@ export default function Earn() {
                 </div>
               </Card>
 
-              {/* Custom Address */}
-              <Card className="p-4 opacity-60" data-testid="card-allocation-address">
+              {/* Buy Now, Pay Later */}
+              <Card className="p-4 opacity-60" data-testid="card-allocation-bnpl">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                    <Wallet className="h-5 w-5 text-muted-foreground" />
+                    <ShoppingBag className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-medium text-muted-foreground">Custom Address</h3>
+                      <h3 className="text-sm font-medium text-muted-foreground">Buy Now, Pay Later</h3>
                       <Lock className="h-3 w-3 text-muted-foreground" />
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Send yield to any wallet
+                      Nano-credit backed by future yield
                     </p>
                   </div>
                 </div>
@@ -1681,6 +1682,24 @@ export default function Earn() {
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       Earn access to AI tools & models
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Custom Address */}
+              <Card className="p-4 opacity-60" data-testid="card-allocation-address">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                    <Wallet className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-medium text-muted-foreground">Custom Address</h3>
+                      <Lock className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Send yield to any wallet
                     </p>
                   </div>
                 </div>
