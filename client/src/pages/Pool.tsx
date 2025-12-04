@@ -176,6 +176,7 @@ export default function Pool() {
   const search = useSearch();
   const { toast } = useToast();
   const [address, setAddress] = useState<string | null>(null);
+  const [isLoadingWallet, setIsLoadingWallet] = useState(true);
   const [optInPercent, setOptInPercent] = useState<number>(50); // Default to 50% for intro
   const [hasInitializedOptIn, setHasInitializedOptIn] = useState(false);
   // Cached view state - prevents flash between intro and main views on navigation
@@ -219,9 +220,13 @@ export default function Pool() {
 
   useEffect(() => {
     const loadAddress = async () => {
-      const wallet = await getWallet();
-      if (wallet?.address) {
-        setAddress(wallet.address);
+      try {
+        const wallet = await getWallet();
+        if (wallet?.address) {
+          setAddress(wallet.address);
+        }
+      } finally {
+        setIsLoadingWallet(false);
       }
     };
     loadAddress();
@@ -509,7 +514,8 @@ export default function Pool() {
     }
   };
 
-  if (!address) {
+  // Show "Connect Wallet" only after wallet loading is complete and no address found
+  if (!address && !isLoadingWallet) {
     return (
       <div 
         className="min-h-screen bg-background flex items-center justify-center"
@@ -544,7 +550,7 @@ export default function Pool() {
     >
       <main className="max-w-md mx-auto p-4 space-y-4">
         {/* Use cached view state during loading to prevent flash between intro/main views */}
-        {isLoadingStatus ? (
+        {isLoadingWallet || isLoadingStatus ? (
           cachedHasParticipated === true ? (
             /* Show main view skeleton if user was participating - includes h-10 for TabsList */
             <div className="space-y-4">
