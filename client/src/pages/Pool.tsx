@@ -1149,33 +1149,100 @@ export default function Pool() {
       }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Confirm contribution</DialogTitle>
+            <DialogTitle>
+              {prepareData?.isFirstTime ? "Join Prize Pool" : "Confirm Contribution"}
+            </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-3">
-            <div className="flex items-center justify-center gap-3 py-2">
-              <span className="text-lg font-medium">{poolStatus?.user?.optInPercent ?? 0}%</span>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              <span className="text-lg font-bold text-primary">{pendingOptInPercent ?? 0}%</span>
+          {isPreparing ? (
+            <div className="py-8 flex flex-col items-center gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Loading contribution details...</p>
             </div>
-            
-            <p className="text-sm text-center">
-              {pendingOptInPercent === 0 
-                ? "You'll keep 100% of your Celo aUSDC yield" 
-                : `${pendingOptInPercent}% of your Celo aUSDC yield goes to the weekly prize pool`}
-            </p>
-            
-            <div className="text-xs text-muted-foreground text-center space-y-1">
-              <p>Collected weekly on Sunday at 00:00 UTC</p>
-              <p>Your principal stays safe in Aave</p>
+          ) : prepareData ? (
+            <div className="space-y-4">
+              {/* Percentage Change */}
+              <div className="flex items-center justify-center gap-3 py-2">
+                <span className="text-lg font-medium">{poolStatus?.user?.optInPercent ?? 0}%</span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <span className="text-lg font-bold text-primary">{pendingOptInPercent ?? 0}%</span>
+              </div>
+
+              {/* Amount Details */}
+              {prepareData.isFirstTime ? (
+                <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Your aUSDC balance</span>
+                    <span className="font-medium">${formatMicroUsdc(prepareData.currentBalance || '0')}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground text-center pt-1 border-t">
+                    This is your baseline. Only future yield will be collected.
+                  </div>
+                </div>
+              ) : prepareData.requiresSignature ? (
+                <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Current aUSDC</span>
+                    <span className="font-medium">${formatMicroUsdc(prepareData.currentBalance || '0')}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Yield earned</span>
+                    <span className="font-medium text-green-600">+${formatMicroUsdc(prepareData.yieldAmount || '0')}</span>
+                  </div>
+                  <div className="border-t pt-2 mt-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">To transfer ({pendingOptInPercent}%)</span>
+                      <span className="font-bold text-primary">${formatMicroUsdc(prepareData.contributionAmount || '0')}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">You keep ({100 - (pendingOptInPercent ?? 0)}%)</span>
+                      <span className="font-medium">
+                        ${formatMicroUsdc(
+                          (BigInt(prepareData.yieldAmount || '0') - BigInt(prepareData.contributionAmount || '0')).toString()
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : prepareData.noYieldToContribute ? (
+                <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Your aUSDC balance</span>
+                    <span className="font-medium">${formatMicroUsdc(prepareData.currentBalance || '0')}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground text-center pt-1 border-t">
+                    {prepareData.message || "No new yield to contribute yet."}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Authorization Note */}
+              {prepareData.requiresSignature && (
+                <div className="text-xs text-muted-foreground text-center space-y-1">
+                  <p className="flex items-center justify-center gap-1">
+                    <Shield className="h-3 w-3" />
+                    You'll sign a one-time permit for this transfer
+                  </p>
+                </div>
+              )}
+              
+              <div className="text-xs text-muted-foreground text-center">
+                <p>Collected weekly on Sunday at 00:00 UTC</p>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="py-8 flex flex-col items-center gap-3">
+              <AlertCircle className="h-8 w-8 text-destructive" />
+              <p className="text-sm text-muted-foreground">Failed to load details</p>
+            </div>
+          )}
 
           <div className="flex gap-3 pt-2">
             <Button 
               variant="outline" 
               className="flex-1"
               onClick={cancelOptInChange}
+              disabled={contributionMutation.isPending}
               data-testid="button-cancel-contribution"
             >
               Cancel
@@ -1183,14 +1250,16 @@ export default function Pool() {
             <Button 
               className="flex-1"
               onClick={confirmOptInChange}
-              disabled={contributionMutation.isPending}
+              disabled={isPreparing || !prepareData || contributionMutation.isPending}
               data-testid="button-confirm-contribution"
             >
               {contributionMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Signing & submitting...
+                  {prepareData?.requiresSignature ? "Signing..." : "Saving..."}
                 </>
+              ) : prepareData?.requiresSignature ? (
+                "Sign & Transfer"
               ) : (
                 "Confirm"
               )}
