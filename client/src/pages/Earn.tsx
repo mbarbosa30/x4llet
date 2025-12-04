@@ -1680,7 +1680,7 @@ export default function Earn() {
                       <Lock className="h-3 w-3 text-muted-foreground" />
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Earn credits for AI tools & models
+                      Earn access to AI tools & models
                     </p>
                   </div>
                 </div>
