@@ -19,6 +19,7 @@ import Settings from "@/pages/Settings";
 import Claim from "@/pages/Claim";
 import MaxFlow from "@/pages/MaxFlow";
 import Earn from "@/pages/Earn";
+import Pool from "@/pages/Pool";
 import Admin from "@/pages/Admin";
 import HowItWorks from "@/pages/HowItWorks";
 import Faqs from "@/pages/Faqs";
@@ -198,6 +199,11 @@ function Router() {
           <Earn />
         </ProtectedRoute>
       </Route>
+      <Route path="/pool">
+        <ProtectedRoute>
+          <Pool />
+        </ProtectedRoute>
+      </Route>
       <Route path="/admin" component={Admin} />
       <Route path="/how-it-works" component={HowItWorks} />
       <Route path="/faqs" component={Faqs} />
@@ -238,7 +244,7 @@ function App() {
   }
 
   // Only show header and bottom nav on protected routes
-  const protectedRoutes = ['/home', '/send', '/receive', '/settings', '/claim', '/maxflow', '/earn'];
+  const protectedRoutes = ['/home', '/send', '/receive', '/settings', '/claim', '/maxflow', '/earn', '/pool'];
   const showLayout = protectedRoutes.includes(location);
 
   const handleScanPaymentRequest = (data: string) => {

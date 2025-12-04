@@ -1,6 +1,6 @@
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { Coins, Wallet, Settings, TrendingUp } from 'lucide-react';
+import { Coins, Wallet, Settings, TrendingUp, Sparkles } from 'lucide-react';
 
 export default function BottomNav() {
   const [location, setLocation] = useLocation();
@@ -55,6 +55,19 @@ export default function BottomNav() {
         >
           <TrendingUp className="h-5 w-5" />
           <span className="text-[10px]">Earn</span>
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setLocation('/pool')}
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-12 rounded-none px-1 ${
+            isActive('/pool') ? 'text-primary' : 'text-muted-foreground'
+          }`}
+          data-testid="nav-pool"
+        >
+          <Sparkles className="h-5 w-5" />
+          <span className="text-[10px]">Pool</span>
         </Button>
 
         <Button
