@@ -165,9 +165,20 @@ export const poolContributions = pgTable("pool_contributions", {
   drawWalletUnique: unique().on(table.drawId, table.walletAddress),
 }));
 
+export const poolYieldSnapshots = pgTable("pool_yield_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: text("wallet_address").notNull().unique(),
+  chainId: integer("chain_id").notNull().default(42220), // Celo only for now
+  lastAusdcBalance: text("last_ausdc_balance").notNull().default('0'), // micro-aUSDC
+  lastCollectedAt: timestamp("last_collected_at").notNull().defaultNow(),
+  totalYieldCollected: text("total_yield_collected").notNull().default('0'), // micro-USDC lifetime
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export type PoolSettings = typeof poolSettings.$inferSelect;
 export type PoolDraw = typeof poolDraws.$inferSelect;
 export type PoolContribution = typeof poolContributions.$inferSelect;
+export type PoolYieldSnapshot = typeof poolYieldSnapshots.$inferSelect;
 export type Referral = typeof referrals.$inferSelect;
 
 export const insertPoolSettingsSchema = createInsertSchema(poolSettings).omit({ id: true, updatedAt: true });

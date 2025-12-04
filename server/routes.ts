@@ -2781,6 +2781,245 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Collect yield from all opted-in users (called periodically)
+  // MVP model: Snapshots track aUSDC balance growth (yield), contributions recorded in DB
+  // On-chain transfers only happen at draw time when winner is paid
+  app.post('/api/admin/pool/collect-yield', adminAuthMiddleware, async (req, res) => {
+    try {
+      // Celo aUSDC (Aave V3) from shared networks config
+      const celoNetwork = getNetworkByChainId(42220);
+      if (!celoNetwork?.aUsdcAddress) {
+        return res.status(500).json({ error: 'Celo aUSDC address not configured' });
+      }
+      const CELO_AUSDC_ADDRESS = getAddress(celoNetwork.aUsdcAddress);
+      
+      // Get all users with yield snapshots and opt-in > 0
+      const snapshotsWithOptIn = await storage.getYieldSnapshotsWithOptIn();
+      
+      if (snapshotsWithOptIn.length === 0) {
+        return res.json({
+          success: true,
+          message: 'No users with opt-in and snapshots',
+          collected: 0,
+          users: 0,
+        });
+      }
+      
+      const draw = await getOrCreateCurrentDraw();
+      let totalYieldCollected = 0n;
+      let usersProcessed = 0;
+      let usersSkipped = 0;
+      const results: any[] = [];
+      
+      // Create client once for all reads
+      const client = createPublicClient({
+        chain: celo,
+        transport: http(),
+      });
+      
+      // Get aUSDC balance for each user and calculate yield
+      for (const snapshot of snapshotsWithOptIn) {
+        try {
+          // Safety check: Skip users without a valid initial snapshot
+          // This prevents treating their entire principal as yield
+          if (!snapshot.lastAusdcBalance || snapshot.lastAusdcBalance === '0') {
+            console.log(`[Pool] Skipping ${snapshot.walletAddress}: no initial snapshot balance`);
+            usersSkipped++;
+            results.push({
+              address: snapshot.walletAddress,
+              skipped: true,
+              reason: 'No initial snapshot balance - user needs to re-initialize',
+            });
+            continue;
+          }
+          
+          // Verify opt-in is still valid
+          if (!snapshot.optInPercent || snapshot.optInPercent === 0) {
+            console.log(`[Pool] Skipping ${snapshot.walletAddress}: opt-in is 0`);
+            usersSkipped++;
+            continue;
+          }
+          
+          // Fetch current aUSDC balance from Celo
+          const userAddress = getAddress(snapshot.walletAddress);
+          const currentBalance = await client.readContract({
+            address: CELO_AUSDC_ADDRESS,
+            abi: [{
+              inputs: [{ name: 'account', type: 'address' }],
+              name: 'balanceOf',
+              outputs: [{ name: '', type: 'uint256' }],
+              stateMutability: 'view',
+              type: 'function',
+            }],
+            functionName: 'balanceOf',
+            args: [userAddress],
+          });
+          
+          const currentBalanceBigInt = BigInt(currentBalance.toString());
+          const lastBalanceBigInt = BigInt(snapshot.lastAusdcBalance);
+          
+          // Calculate yield (current - last snapshot)
+          // Only positive yield counts (ignore withdrawals or no change)
+          // This is the key protection: we only count GROWTH, never principal
+          let yieldEarned = 0n;
+          if (currentBalanceBigInt > lastBalanceBigInt) {
+            yieldEarned = currentBalanceBigInt - lastBalanceBigInt;
+          }
+          
+          // Calculate contribution based on opt-in percentage
+          const contribution = (yieldEarned * BigInt(snapshot.optInPercent)) / 100n;
+          
+          if (contribution > 0n) {
+            // Add to pool (database record only - no on-chain transfer in MVP)
+            await storage.addPoolContribution(draw.id, snapshot.walletAddress, contribution.toString());
+            
+            // Update referrer's bonus tickets (10%)
+            const referral = await storage.getReferralByReferee(snapshot.walletAddress);
+            if (referral) {
+              const referrerBonus = contribution / 10n;
+              if (referrerBonus > 0n) {
+                await storage.addReferralBonus(draw.id, referral.referrerAddress, referrerBonus.toString());
+              }
+            }
+            
+            totalYieldCollected += contribution;
+          }
+          
+          // Update snapshot with current balance for next collection cycle
+          const newTotalCollected = (BigInt(snapshot.totalYieldCollected) + contribution).toString();
+          await storage.upsertYieldSnapshot(snapshot.walletAddress, {
+            lastAusdcBalance: currentBalanceBigInt.toString(),
+            lastCollectedAt: new Date(),
+            totalYieldCollected: newTotalCollected,
+          });
+          
+          usersProcessed++;
+          results.push({
+            address: snapshot.walletAddress,
+            previousBalance: snapshot.lastAusdcBalance,
+            currentBalance: currentBalanceBigInt.toString(),
+            yieldEarned: yieldEarned.toString(),
+            yieldEarnedFormatted: (Number(yieldEarned) / 1_000_000).toFixed(6),
+            contribution: contribution.toString(),
+            contributionFormatted: (Number(contribution) / 1_000_000).toFixed(6),
+            optInPercent: snapshot.optInPercent,
+          });
+        } catch (userError) {
+          console.error(`[Pool] Error collecting yield for ${snapshot.walletAddress}:`, userError);
+          results.push({
+            address: snapshot.walletAddress,
+            error: (userError as Error).message,
+          });
+        }
+      }
+      
+      // Update draw totals
+      await storage.updateDrawTotals(draw.id);
+      
+      res.json({
+        success: true,
+        draw: {
+          id: draw.id,
+          weekNumber: draw.weekNumber,
+          year: draw.year,
+        },
+        collected: totalYieldCollected.toString(),
+        collectedFormatted: (Number(totalYieldCollected) / 1_000_000).toFixed(4),
+        usersProcessed,
+        usersSkipped,
+        results,
+        note: 'MVP model: contributions recorded in database. On-chain transfers executed at draw payout.',
+      });
+    } catch (error) {
+      console.error('[Pool] Error collecting yield:', error);
+      res.status(500).json({ error: 'Failed to collect yield' });
+    }
+  });
+
+  // Initialize yield snapshot (user calls this when opting in)
+  app.post('/api/pool/init-snapshot', async (req, res) => {
+    try {
+      const { address } = req.body;
+      const normalizedAddress = address.toLowerCase();
+      
+      // Celo aUSDC (Aave V3) from shared networks config
+      const celoNetwork = getNetworkByChainId(42220);
+      if (!celoNetwork?.aUsdcAddress) {
+        return res.status(500).json({ error: 'Celo aUSDC address not configured' });
+      }
+      const CELO_AUSDC_ADDRESS = getAddress(celoNetwork.aUsdcAddress);
+      const userAddress = getAddress(address);
+      
+      // Get current aUSDC balance on Celo
+      const client = createPublicClient({
+        chain: celo,
+        transport: http(),
+      });
+      
+      const currentBalance = await client.readContract({
+        address: CELO_AUSDC_ADDRESS,
+        abi: [{
+          inputs: [{ name: 'account', type: 'address' }],
+          name: 'balanceOf',
+          outputs: [{ name: '', type: 'uint256' }],
+          stateMutability: 'view',
+          type: 'function',
+        }],
+        functionName: 'balanceOf',
+        args: [userAddress],
+      });
+      
+      // Create or update snapshot
+      await storage.upsertYieldSnapshot(normalizedAddress, {
+        lastAusdcBalance: currentBalance.toString(),
+        lastCollectedAt: new Date(),
+      });
+      
+      res.json({
+        success: true,
+        snapshot: {
+          address: normalizedAddress,
+          balance: currentBalance.toString(),
+          balanceFormatted: (Number(currentBalance) / 1_000_000).toFixed(4),
+        },
+      });
+    } catch (error) {
+      console.error('[Pool] Error initializing snapshot:', error);
+      res.status(500).json({ error: 'Failed to initialize yield snapshot' });
+    }
+  });
+
+  // Get user's yield snapshot
+  app.get('/api/pool/snapshot/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      const normalizedAddress = address.toLowerCase();
+      
+      const snapshot = await storage.getYieldSnapshot(normalizedAddress);
+      
+      if (!snapshot) {
+        return res.json({
+          hasSnapshot: false,
+          snapshot: null,
+        });
+      }
+      
+      res.json({
+        hasSnapshot: true,
+        snapshot: {
+          lastAusdcBalance: snapshot.lastAusdcBalance,
+          lastAusdcBalanceFormatted: (Number(snapshot.lastAusdcBalance) / 1_000_000).toFixed(4),
+          lastCollectedAt: snapshot.lastCollectedAt,
+          totalYieldCollected: snapshot.totalYieldCollected,
+          totalYieldCollectedFormatted: (Number(snapshot.totalYieldCollected) / 1_000_000).toFixed(4),
+        },
+      });
+    } catch (error) {
+      console.error('[Pool] Error getting snapshot:', error);
+      res.status(500).json({ error: 'Failed to get yield snapshot' });
+    }
+  });
+
   // Admin: Get pool stats
   app.get('/api/admin/pool/stats', adminAuthMiddleware, async (req, res) => {
     try {

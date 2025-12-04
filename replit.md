@@ -52,11 +52,19 @@ Features a unified fixed header and bottom navigation. The header displays brand
 
 Multi-chain UX includes aggregated USDC balance display, chain badges for transactions, auto-selection of the chain with the highest USDC balance on the Send page, and network selection on the Receive page.
 
-**Pool (Prize-Linked Savings)**: Weekly prize pool where users opt-in a percentage (0-100%) of their Aave savings yield. Tickets are earned based on yield contributed plus 10% of referrals' contributions. Features include:
+**Pool (Prize-Linked Savings)**: Weekly prize pool where users opt-in a percentage (0-100%) of their Aave savings yield on Celo. Tickets are earned based on yield contributed plus 10% of referrals' contributions. Features include:
 - `/pool` page with opt-in slider, pool stats, countdown to weekly draw, and past winners
 - Referral system: 8-character codes derived from wallet address, 10% bonus tickets from referrals' yield
-- Database tables: `pool_settings` (user opt-in %), `pool_draws` (weekly draws), `pool_contributions` (per-draw tickets), `referrals` (referrer-referee links with unique constraint)
+- Database tables: `pool_settings` (user opt-in %), `pool_draws` (weekly draws), `pool_contributions` (per-draw tickets), `referrals` (referrer-referee links with unique constraint), `pool_yield_snapshots` (aUSDC balance tracking)
 - Admin endpoint `/api/admin/pool/draw` for executing weekly draws with weighted random selection
+- Admin endpoint `/api/admin/pool/collect-yield` for weekly yield collection from opted-in users
+
+**Pool MVP Architecture (Celo-Only)**:
+- Yield tracking uses snapshots: aUSDC balance is recorded when user opts in, then compared during weekly collection
+- Only yield (balance growth) counts, never principal - prevents over-collection
+- Users without valid snapshots are skipped during collection as a safety measure
+- MVP model: contributions recorded in database, on-chain transfers only at draw payout
+- Celo aUSDC address: 0xFF8309b9e99bfd2D4021bc71a362aBD93dBd4785 (from shared/networks.ts)
 
 ## External Dependencies
 

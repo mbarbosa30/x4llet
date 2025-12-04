@@ -28,7 +28,9 @@ import {
   Target,
   History,
   Info,
-  BarChart3
+  BarChart3,
+  AlertCircle,
+  Loader2
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
@@ -99,6 +101,8 @@ export default function Pool() {
   const [copiedCode, setCopiedCode] = useState(false);
   const [referralInput, setReferralInput] = useState("");
   const [showReferralDialog, setShowReferralDialog] = useState(false);
+  const [showContributionDialog, setShowContributionDialog] = useState(false);
+  const [pendingOptInPercent, setPendingOptInPercent] = useState<number | null>(null);
 
   useEffect(() => {
     const loadAddress = async () => {
@@ -139,13 +143,19 @@ export default function Pool() {
 
   const optInMutation = useMutation({
     mutationFn: async (percent: number) => {
-      return apiRequest("POST", "/api/pool/opt-in", { address, optInPercent: percent });
+      const result = await apiRequest("POST", "/api/pool/opt-in", { address, optInPercent: percent });
+      if (percent > 0) {
+        await apiRequest("POST", "/api/pool/init-snapshot", { address });
+      }
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/pool/status", address] });
       toast({
         title: "Saved",
-        description: `Contributing ${optInPercent}% of yield to the pool`,
+        description: optInPercent > 0 
+          ? `Contributing ${optInPercent}% of your Celo yield to the pool`
+          : "Pool contribution disabled",
       });
     },
     onError: () => {
@@ -191,14 +201,30 @@ export default function Pool() {
 
   const handleOptInChange = (value: number[]) => {
     setOptInPercent(value[0]);
-    setIsSavingOptIn(true);
   };
 
   const handleOptInCommit = () => {
-    if (isSavingOptIn) {
-      optInMutation.mutate(optInPercent);
-      setIsSavingOptIn(false);
+    const currentOptIn = poolStatus?.user?.optInPercent ?? 0;
+    if (optInPercent !== currentOptIn) {
+      setPendingOptInPercent(optInPercent);
+      setShowContributionDialog(true);
     }
+  };
+
+  const confirmOptInChange = () => {
+    if (pendingOptInPercent !== null) {
+      optInMutation.mutate(pendingOptInPercent);
+      setShowContributionDialog(false);
+      setPendingOptInPercent(null);
+    }
+  };
+
+  const cancelOptInChange = () => {
+    if (poolStatus?.user?.optInPercent !== undefined) {
+      setOptInPercent(poolStatus.user.optInPercent);
+    }
+    setShowContributionDialog(false);
+    setPendingOptInPercent(null);
   };
 
   const copyReferralCode = async () => {
@@ -368,7 +394,7 @@ export default function Pool() {
               {/* Info Card */}
               <Card className="p-3 border-dashed">
                 <p className="text-xs text-muted-foreground text-center">
-                  Your savings stay safe in Aave - only the yield you choose enters the pool
+                  Celo aUSDC yield only - your principal stays safe in Aave
                 </p>
               </Card>
             </TabsContent>
@@ -621,6 +647,82 @@ export default function Pool() {
           </Card>
         )}
       </main>
+
+      {/* Contribution Confirmation Dialog */}
+      <Dialog open={showContributionDialog} onOpenChange={(open) => {
+        if (!open) cancelOptInChange();
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-primary" />
+              Confirm Contribution
+            </DialogTitle>
+            <DialogDescription>
+              You're changing your yield contribution on Celo
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Current</p>
+                <p className="text-lg font-bold">{poolStatus?.user?.optInPercent ?? 0}%</p>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              <div className="space-y-1 text-right">
+                <p className="text-sm text-muted-foreground">New</p>
+                <p className="text-lg font-bold text-primary">{pendingOptInPercent ?? 0}%</p>
+              </div>
+            </div>
+
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <div className="flex items-start gap-2">
+                <Coins className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <p>
+                  {pendingOptInPercent === 0 
+                    ? "You'll keep 100% of your Celo aUSDC yield" 
+                    : `${pendingOptInPercent}% of your Celo aUSDC yield will enter the weekly prize pool`}
+                </p>
+              </div>
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <p>Your principal savings in Aave remain untouched</p>
+              </div>
+            </div>
+
+            <Badge variant="secondary" className="w-full justify-center py-2">
+              Celo Chain Only
+            </Badge>
+          </div>
+
+          <div className="flex gap-3">
+            <Button 
+              variant="outline" 
+              className="flex-1"
+              onClick={cancelOptInChange}
+              data-testid="button-cancel-contribution"
+            >
+              Cancel
+            </Button>
+            <Button 
+              className="flex-1"
+              onClick={confirmOptInChange}
+              disabled={optInMutation.isPending}
+              data-testid="button-confirm-contribution"
+            >
+              {optInMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Confirm"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

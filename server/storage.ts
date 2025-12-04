@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type Referral, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, referrals } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo, gnosis } from 'viem/chains';
@@ -2265,6 +2265,84 @@ export class DbStorage extends MemStorage {
     } catch (error) {
       console.error('[Pool] Error finding address by referral code:', error);
       return null;
+    }
+  }
+
+  // ===== POOL YIELD SNAPSHOTS =====
+
+  async getYieldSnapshot(walletAddress: string): Promise<PoolYieldSnapshot | null> {
+    try {
+      const result = await db
+        .select()
+        .from(poolYieldSnapshots)
+        .where(eq(poolYieldSnapshots.walletAddress, walletAddress.toLowerCase()))
+        .limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error('[Pool] Error getting yield snapshot:', error);
+      return null;
+    }
+  }
+
+  async upsertYieldSnapshot(walletAddress: string, data: {
+    lastAusdcBalance: string;
+    lastCollectedAt?: Date;
+    totalYieldCollected?: string;
+  }): Promise<void> {
+    try {
+      const existing = await this.getYieldSnapshot(walletAddress);
+      if (existing) {
+        await db
+          .update(poolYieldSnapshots)
+          .set({
+            lastAusdcBalance: data.lastAusdcBalance,
+            lastCollectedAt: data.lastCollectedAt || new Date(),
+            totalYieldCollected: data.totalYieldCollected || existing.totalYieldCollected,
+            updatedAt: new Date(),
+          })
+          .where(eq(poolYieldSnapshots.walletAddress, walletAddress.toLowerCase()));
+      } else {
+        await db.insert(poolYieldSnapshots).values({
+          walletAddress: walletAddress.toLowerCase(),
+          lastAusdcBalance: data.lastAusdcBalance,
+          lastCollectedAt: data.lastCollectedAt || new Date(),
+          totalYieldCollected: data.totalYieldCollected || '0',
+        });
+      }
+    } catch (error) {
+      console.error('[Pool] Error upserting yield snapshot:', error);
+      throw error;
+    }
+  }
+
+  async getAllYieldSnapshots(): Promise<PoolYieldSnapshot[]> {
+    try {
+      return await db.select().from(poolYieldSnapshots);
+    } catch (error) {
+      console.error('[Pool] Error getting all yield snapshots:', error);
+      return [];
+    }
+  }
+
+  async getYieldSnapshotsWithOptIn(): Promise<Array<PoolYieldSnapshot & { optInPercent: number }>> {
+    try {
+      const snapshots = await this.getAllYieldSnapshots();
+      const result: Array<PoolYieldSnapshot & { optInPercent: number }> = [];
+      
+      for (const snapshot of snapshots) {
+        const settings = await this.getPoolSettings(snapshot.walletAddress);
+        if (settings && settings.optInPercent > 0) {
+          result.push({
+            ...snapshot,
+            optInPercent: settings.optInPercent,
+          });
+        }
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('[Pool] Error getting yield snapshots with opt-in:', error);
+      return [];
     }
   }
 }
