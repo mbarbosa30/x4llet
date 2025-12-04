@@ -512,16 +512,19 @@ export default function Pool() {
               <div>
                 <p className="text-sm text-muted-foreground mb-2">This week's prize</p>
                 {(() => {
-                  const projectedPool = poolStatus.draw.projectedPool || poolStatus.draw.totalPool;
-                  const projectedNum = Number(projectedPool) / 1_000_000;
+                  const currentPool = Number(poolStatus.draw.totalPool) / 1_000_000;
                   const isAnimating = prizePoolAnimation.animatedValue > 0 && !!celoApyData?.apy;
+                  
+                  // Static fallback: show current collected pool with 2 decimals
+                  const staticInt = Math.floor(currentPool);
+                  const staticDec = (currentPool % 1).toFixed(2).slice(2);
                   
                   return (
                     <div className="text-5xl font-medium tabular-nums flex items-center justify-center" data-testid="text-intro-prize">
                       <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
                       <span className="inline-flex items-baseline">
-                        <span>{Math.floor(isAnimating ? prizePoolAnimation.animatedValue : projectedNum)}</span>
-                        <span className="opacity-90">.{isAnimating ? prizePoolAnimation.mainDecimals : (projectedNum % 1).toFixed(2).slice(2)}</span>
+                        <span>{isAnimating ? Math.floor(prizePoolAnimation.animatedValue) : staticInt}</span>
+                        <span className="opacity-90">.{isAnimating ? prizePoolAnimation.mainDecimals : staticDec}</span>
                         {isAnimating && prizePoolAnimation.extraDecimals && (
                           <span className="text-[0.28em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.65em' }}>
                             {prizePoolAnimation.extraDecimals}
@@ -636,22 +639,27 @@ export default function Pool() {
                 </div>
                 <div className="text-center py-4">
                   {(() => {
-                    // Show projected pool (including expected yield from all participants)
-                    const projectedPool = poolStatus.draw.projectedPool || poolStatus.draw.totalPool;
+                    // Current pool is what's already collected as aUSDC
                     const currentPool = Number(poolStatus.draw.totalPool) / 1_000_000;
+                    // Projected pool includes expected yield contributions by draw time
+                    const projectedPool = poolStatus.draw.projectedPool || poolStatus.draw.totalPool;
                     const projectedNum = Number(projectedPool) / 1_000_000;
                     const hasProjectedGrowth = projectedNum > currentPool && currentPool > 0;
                     
-                    // Use animated value for current pool, show projected separately
+                    // Animate the current collected pool earning interest
                     const isAnimating = prizePoolAnimation.animatedValue > 0 && !!celoApyData?.apy;
+                    
+                    // Static fallback: show current collected pool with 2 decimals
+                    const staticInt = Math.floor(currentPool);
+                    const staticDec = (currentPool % 1).toFixed(2).slice(2);
                     
                     return (
                       <div className="space-y-1">
                         <div className="text-5xl font-medium tabular-nums flex items-center justify-center" data-testid="text-prize-amount">
                           <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
                           <span className="inline-flex items-baseline">
-                            <span>{Math.floor(isAnimating ? prizePoolAnimation.animatedValue : projectedNum)}</span>
-                            <span className="opacity-90">.{isAnimating ? prizePoolAnimation.mainDecimals : (projectedNum % 1).toFixed(2).slice(2)}</span>
+                            <span>{isAnimating ? Math.floor(prizePoolAnimation.animatedValue) : staticInt}</span>
+                            <span className="opacity-90">.{isAnimating ? prizePoolAnimation.mainDecimals : staticDec}</span>
                             {isAnimating && prizePoolAnimation.extraDecimals && (
                               <span className="text-[0.28em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.65em' }}>
                                 {prizePoolAnimation.extraDecimals}
