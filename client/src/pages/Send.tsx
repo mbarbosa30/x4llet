@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, QrCode, Scan, Clipboard, MessageSquare, Repeat } from 'lucide-react';
+import { ArrowLeft, QrCode, Scan, Clipboard, MessageSquare, Repeat, Loader2 } from 'lucide-react';
 import NumericKeypad from '@/components/NumericKeypad';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import QRScanner from '@/components/QRScanner';
@@ -515,7 +515,7 @@ export default function Send() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
-          <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto" />
           <p className="text-sm text-muted-foreground">Loading wallet...</p>
         </div>
       </div>

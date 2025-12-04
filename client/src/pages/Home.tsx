@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -187,7 +187,7 @@ export default function Home() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
-          <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto" />
           <p className="text-sm text-muted-foreground">Loading wallet...</p>
         </div>
       </div>
