@@ -509,7 +509,7 @@ export default function Claim() {
                   <CircleDot className="h-12 w-12 mx-auto text-primary" />
                   <div>
                     <h2 className="text-sm text-muted-foreground mb-2">Your CRC Balance</h2>
-                    <div className="text-5xl font-bold text-foreground" data-testid="text-crc-balance">
+                    <div className="text-5xl font-bold tabular-nums text-foreground" data-testid="text-crc-balance">
                       {circlesBalance?.formattedCrc || '0.00'}
                     </div>
                   </div>
@@ -1066,7 +1066,7 @@ export default function Claim() {
                       <span className="text-xs text-green-600 dark:text-green-400 font-medium">Face Verified</span>
                     </div>
                     <h2 className="text-sm text-muted-foreground mb-2">Your G$ Balance</h2>
-                    <div className="text-5xl font-bold text-foreground" data-testid="text-gd-balance">
+                    <div className="text-5xl font-bold tabular-nums text-foreground" data-testid="text-gd-balance">
                       {gdBalance?.balanceFormatted || '0.00'}
                     </div>
                   </div>

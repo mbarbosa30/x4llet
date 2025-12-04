@@ -665,7 +665,7 @@ export default function Send() {
                   </Button>
                 </div>
                 <div className="text-center py-4">
-                  <div className="text-4xl font-semibold">
+                  <div className="text-4xl font-semibold tabular-nums">
                     {inputValue || '0.00'}
                   </div>
                   {usdcAmount && displayCurrency === 'fiat' && (
