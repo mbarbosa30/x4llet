@@ -1054,12 +1054,7 @@ export default function Claim() {
                 </div>
               ) : gdIdentity?.isWhitelisted ? (
                 <div className="text-center space-y-4">
-                  <Gift className="h-12 w-12 mx-auto text-primary" />
                   <div>
-                    <div className="flex items-center justify-center gap-2 mb-2">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span className="text-xs text-green-600 dark:text-green-400 font-medium">Face Verified</span>
-                    </div>
                     <h2 className="text-sm text-muted-foreground mb-2">Your G$ Balance</h2>
                     <div className="text-5xl font-bold tabular-nums text-foreground" data-testid="text-gd-balance">
                       {gdBalance?.balanceFormatted || '0.00'}
