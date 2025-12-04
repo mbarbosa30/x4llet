@@ -138,6 +138,18 @@ function formatTickets(microAmount: string | number): string {
   return amount.toFixed(2);
 }
 
+// Smart formatting for small dollar amounts - shows enough decimals to display meaningful digits
+function formatSmallAmount(amount: number): string {
+  if (amount === 0) return '0.00';
+  if (amount >= 1) return amount.toFixed(2);
+  if (amount >= 0.01) return amount.toFixed(3);
+  if (amount >= 0.0001) return amount.toFixed(4);
+  if (amount >= 0.000001) return amount.toFixed(6);
+  if (amount >= 0.00000001) return amount.toFixed(8);
+  // For extremely tiny amounts, use scientific notation
+  return amount.toExponential(2);
+}
+
 export default function Pool() {
   const [, setLocation] = useLocation();
   const search = useSearch();
@@ -627,13 +639,11 @@ export default function Pool() {
             {/* Pool Tab */}
             <TabsContent value="pool" className="mt-4 space-y-4">
               {/* This Week's Prize */}
-              <Card className="p-4 space-y-3">
+              <Card className="p-6 space-y-4" data-testid="card-prize-pool">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium flex items-center gap-2">
-                    <Trophy className="h-4 w-4 text-primary" />
-                    This Week's Prize
-                  </div>
-                  <Badge variant="secondary" className="text-xs">
+                  <div className="text-sm text-muted-foreground">This Week's Prize</div>
+                  <Badge variant="outline" className="text-xs">
+                    <Trophy className="h-3 w-3 mr-1" />
                     Week {poolStatus.draw.weekNumber}
                   </Badge>
                 </div>
@@ -697,10 +707,13 @@ export default function Pool() {
               </Card>
 
               {/* Your Position */}
-              <Card className="p-4 space-y-3">
-                <div className="text-sm font-medium flex items-center gap-2">
-                  <Target className="h-4 w-4 text-primary" />
-                  Your Position
+              <Card className="p-4 space-y-3" data-testid="card-your-position">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">Your Position</div>
+                  <Badge variant="outline" className="text-xs">
+                    <Target className="h-3 w-3 mr-1" />
+                    {optInPercent}% opt-in
+                  </Badge>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="text-center p-3 bg-muted/50 rounded-lg">
@@ -932,13 +945,11 @@ export default function Pool() {
               })()}
 
               {/* Contribution */}
-              <Card className="p-4 space-y-3">
+              <Card className="p-4 space-y-3" data-testid="card-yield-contribution">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium flex items-center gap-2">
-                    <Coins className="h-4 w-4 text-primary" />
-                    Yield Contribution
-                  </div>
-                  <Badge variant="outline" className="font-bold px-2" data-testid="text-opt-in-percent">
+                  <div className="text-sm text-muted-foreground">Yield Contribution</div>
+                  <Badge variant="outline" className="text-xs" data-testid="text-opt-in-percent">
+                    <Coins className="h-3 w-3 mr-1" />
                     {optInPercent}%
                   </Badge>
                 </div>
@@ -970,13 +981,13 @@ export default function Pool() {
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">Est. weekly</span>
                         <span className="font-medium text-primary" data-testid="text-weekly-estimate">
-                          ~${((Number(poolStatus.user.aUsdcBalance) / 1_000_000) * (celoApyData.apy / 100) / 52 * (optInPercent / 100)).toFixed(4)}
+                          ~${formatSmallAmount((Number(poolStatus.user.aUsdcBalance) / 1_000_000) * (celoApyData.apy / 100) / 52 * (optInPercent / 100))}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">Est. daily</span>
                         <span className="font-medium" data-testid="text-daily-estimate">
-                          ~${((Number(poolStatus.user.aUsdcBalance) / 1_000_000) * (celoApyData.apy / 100) / 365 * (optInPercent / 100)).toFixed(4)}
+                          ~${formatSmallAmount((Number(poolStatus.user.aUsdcBalance) / 1_000_000) * (celoApyData.apy / 100) / 365 * (optInPercent / 100))}
                         </span>
                       </div>
                     </>
@@ -1018,10 +1029,13 @@ export default function Pool() {
             {/* Tickets Tab */}
             <TabsContent value="tickets" className="mt-4 space-y-4">
               {/* Ticket Breakdown */}
-              <Card className="p-4 space-y-3">
-                <div className="text-sm font-medium flex items-center gap-2">
-                  <Ticket className="h-4 w-4 text-primary" />
-                  Ticket Breakdown
+              <Card className="p-4 space-y-3" data-testid="card-ticket-breakdown">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">Ticket Breakdown</div>
+                  <Badge variant="outline" className="text-xs">
+                    <Ticket className="h-3 w-3 mr-1" />
+                    {formatTickets(poolStatus.user.totalTickets)} total
+                  </Badge>
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
@@ -1097,10 +1111,13 @@ export default function Pool() {
                 const weeksTo50Increased = currentOdds > 0 ? Math.ceil(Math.log(0.5) / Math.log(1 - (currentOdds * 1.25))) : Infinity;
                 
                 return (
-                  <Card className="p-4 space-y-3">
-                    <div className="text-sm font-medium flex items-center gap-2">
-                      <Target className="h-4 w-4 text-primary" />
-                      When Will You Win?
+                  <Card className="p-4 space-y-3" data-testid="card-when-win">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-muted-foreground">When Will You Win?</div>
+                      <Badge variant="outline" className="text-xs">
+                        <Target className="h-3 w-3 mr-1" />
+                        Probability
+                      </Badge>
                     </div>
                     
                     {currentOdds > 0 ? (
@@ -1543,7 +1560,7 @@ export default function Pool() {
                           <div className="flex items-center justify-between text-xs">
                             <span className="text-muted-foreground">Your ticket share</span>
                             <span className="font-medium">
-                              {userShare < 0.01 ? userShare.toFixed(4) : userShare.toFixed(2)}% of pool
+                              {formatSmallAmount(userShare)}% of pool
                             </span>
                           </div>
                         </div>
@@ -1559,10 +1576,13 @@ export default function Pool() {
               })()}
 
               {/* How It Works */}
-              <Card className="p-4 space-y-3">
-                <div className="text-sm font-medium flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  How It Works
+              <Card className="p-4 space-y-3" data-testid="card-how-it-works">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">How It Works</div>
+                  <Badge variant="outline" className="text-xs">
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    3 steps
+                  </Badge>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="space-y-1">
