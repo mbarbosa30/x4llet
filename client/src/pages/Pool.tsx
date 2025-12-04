@@ -47,9 +47,13 @@ interface PoolStatus {
     weekNumber: number;
     year: number;
     status: string;
-    totalPool: string;
+    totalPool: string; // Participant contributions only
     totalPoolFormatted: string;
-    totalTickets: string;
+    sponsoredPool?: string; // Donations (no tickets)
+    sponsoredPoolFormatted?: string;
+    totalPrizePool?: string; // Total prize = participant + sponsored
+    totalPrizePoolFormatted?: string;
+    totalTickets: string; // Only from participants
     participantCount: number;
     projectedPool?: string;
     projectedPoolFormatted?: string;
@@ -524,7 +528,10 @@ export default function Pool() {
               <div>
                 <p className="text-sm text-muted-foreground mb-2">This week's prize</p>
                 {(() => {
-                  const currentPool = Number(poolStatus.draw.totalPool) / 1_000_000;
+                  // Include sponsored pool in total prize display
+                  const participantPool = Number(poolStatus.draw.totalPool) / 1_000_000;
+                  const sponsoredPool = Number(poolStatus.draw.sponsoredPool || '0') / 1_000_000;
+                  const currentPool = participantPool + sponsoredPool;
                   const isAnimating = prizePoolAnimation.animatedValue > 0 && !!celoApyData?.apy;
                   
                   // Static fallback: show current collected pool with 2 decimals
@@ -532,17 +539,25 @@ export default function Pool() {
                   const staticDec = (currentPool % 1).toFixed(2).slice(2);
                   
                   return (
-                    <div className="text-5xl font-medium tabular-nums flex items-center justify-center" data-testid="text-intro-prize">
-                      <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
-                      <span className="inline-flex items-baseline">
-                        <span>{isAnimating ? Math.floor(prizePoolAnimation.animatedValue) : staticInt}</span>
-                        <span className="opacity-90">.{isAnimating ? prizePoolAnimation.mainDecimals : staticDec}</span>
-                        {isAnimating && prizePoolAnimation.extraDecimals && (
-                          <span className="text-[0.28em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.65em' }}>
-                            {prizePoolAnimation.extraDecimals}
-                          </span>
-                        )}
-                      </span>
+                    <div className="space-y-1">
+                      <div className="text-5xl font-medium tabular-nums flex items-center justify-center" data-testid="text-intro-prize">
+                        <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
+                        <span className="inline-flex items-baseline">
+                          <span>{isAnimating ? Math.floor(prizePoolAnimation.animatedValue) : staticInt}</span>
+                          <span className="opacity-90">.{isAnimating ? prizePoolAnimation.mainDecimals : staticDec}</span>
+                          {isAnimating && prizePoolAnimation.extraDecimals && (
+                            <span className="text-[0.28em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.65em' }}>
+                              {prizePoolAnimation.extraDecimals}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      {sponsoredPool > 0 && (
+                        <p className="text-xs text-primary flex items-center justify-center gap-1">
+                          <Gift className="h-3 w-3" />
+                          +${sponsoredPool.toFixed(2)} sponsored
+                        </p>
+                      )}
                     </div>
                   );
                 })()}
@@ -651,10 +666,14 @@ export default function Pool() {
                 </div>
                 <div className="text-center py-4">
                   {(() => {
-                    // Current pool is what's already collected as aUSDC
-                    const currentPool = Number(poolStatus.draw.totalPool) / 1_000_000;
+                    // Current pool is what's already collected as aUSDC from participants
+                    const participantPool = Number(poolStatus.draw.totalPool) / 1_000_000;
+                    // Sponsored pool is donations that boost prize but don't add tickets
+                    const sponsoredPool = Number(poolStatus.draw.sponsoredPool || '0') / 1_000_000;
+                    // Total current prize = participant pool + sponsored
+                    const currentPool = participantPool + sponsoredPool;
                     // Projected pool includes expected yield contributions by draw time
-                    const projectedPool = poolStatus.draw.projectedPool || poolStatus.draw.totalPool;
+                    const projectedPool = poolStatus.draw.projectedPool || poolStatus.draw.totalPrizePool || poolStatus.draw.totalPool;
                     const projectedNum = Number(projectedPool) / 1_000_000;
                     const hasProjectedGrowth = projectedNum > currentPool && currentPool > 0;
                     
@@ -679,6 +698,12 @@ export default function Pool() {
                             )}
                           </span>
                         </div>
+                        {sponsoredPool > 0 && (
+                          <p className="text-xs text-primary flex items-center justify-center gap-1">
+                            <Gift className="h-3 w-3" />
+                            +${sponsoredPool.toFixed(2)} sponsored
+                          </p>
+                        )}
                         {hasProjectedGrowth && (
                           <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
                             <TrendingUp className="h-3 w-3" />
@@ -754,13 +779,20 @@ export default function Pool() {
 
               {/* Kelly-Adjusted Opt-In Curve */}
               {(() => {
-                // Use projected pool data for more accurate calculations
-                const prizePool = Number(poolStatus.draw.projectedPool || poolStatus.draw.totalPool) / 1_000_000;
+                // Use total prize pool (participant yield + sponsored donations) for Kelly calculation
+                // Backend projectedPool already includes: currentPool + sponsoredPool + projectedYield
+                // So projectedPool is the correct value to use for Kelly (includes sponsorship)
+                const prizePool = Number(poolStatus.draw.projectedPool || poolStatus.draw.totalPrizePool || poolStatus.draw.totalPool) / 1_000_000;
+                const sponsoredAmount = Number(poolStatus.draw.sponsoredPool || '0') / 1_000_000;
                 const aUsdcBalance = Number(poolStatus.user.aUsdcBalance) / 1_000_000;
                 // Use tickets data only - don't fall back to totalPool (wrong unit: $ vs tickets)
+                // Tickets come only from participants, NOT from sponsors (donations don't add tickets)
                 const totalPoolTickets = Number(poolStatus.draw.projectedTickets || poolStatus.draw.totalTickets || '0') / 1_000_000;
                 const apy = poolStatus.projectedPool?.apy || celoApyData?.apy;
                 const hasApyData = apy !== undefined && apy > 0;
+                
+                // Debug: Log Kelly inputs to verify sponsorship is included
+                console.log('[Kelly] Prize pool (includes sponsored):', prizePool, 'Sponsored:', sponsoredAmount, 'Tickets:', totalPoolTickets);
                 
                 // Calculate Kelly curve data points
                 // Kelly formula adapted: f* = (p*b - q) / b where:

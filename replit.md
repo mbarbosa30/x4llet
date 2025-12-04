@@ -78,6 +78,7 @@ Multi-chain UX includes aggregated USDC balance display, chain badges for transa
 - Users without valid snapshots are skipped during collection as a safety measure
 - MVP model: contributions recorded in database, on-chain transfers only at draw payout
 - Celo aUSDC address: 0xFF8309b9e99bfd2D4021bc71a362aBD93dBd4785 (from shared/networks.ts)
+- **Sponsored Pool**: Donations increase prize pool but do NOT add tickets. Stored separately in `sponsoredPool` column. Backend `projectedPool` includes sponsoredPool in its calculation. Kelly Criterion uses total prize (participants + sponsors) for EV calculation while using only participant tickets for odds calculation - this correctly shifts optimal allocation upward when donations increase the prize.
 
 ## External Dependencies
 
