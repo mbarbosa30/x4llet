@@ -140,8 +140,9 @@ export const poolDraws = pgTable("pool_draws", {
   year: integer("year").notNull(),
   weekStart: timestamp("week_start").notNull(),
   weekEnd: timestamp("week_end").notNull(),
-  totalPool: text("total_pool").notNull().default('0'), // Total yield in micro-USDC
-  totalTickets: text("total_tickets").notNull().default('0'), // Total tickets
+  totalPool: text("total_pool").notNull().default('0'), // Total yield in micro-USDC (participant contributions)
+  totalTickets: text("total_tickets").notNull().default('0'), // Total tickets (from participants only)
+  sponsoredPool: text("sponsored_pool").notNull().default('0'), // Donated/sponsored funds (no tickets)
   participantCount: integer("participant_count").notNull().default(0),
   winnerAddress: text("winner_address"),
   winnerTickets: text("winner_tickets"),

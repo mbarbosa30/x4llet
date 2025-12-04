@@ -2724,10 +2724,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? Math.floor(aUsdcBalanceNum * (projectedPoolData.apy / 100) / 52 * (userOptIn / 100))
         : 0;
       
-      // Calculate projected pool total (current pool + projected new contributions)
+      // Calculate projected pool total (current pool + projected new contributions + sponsored)
       const currentPoolNum = Number(draw.totalPool || '0');
+      const sponsoredPoolNum = Number(draw.sponsoredPool || '0');
       const projectedYieldNum = Number(projectedPoolData.projectedYield);
-      const projectedTotalPool = currentPoolNum + projectedYieldNum;
+      const projectedTotalPool = currentPoolNum + sponsoredPoolNum + projectedYieldNum;
       
       // Calculate projected odds (tickets after user contributes their yield)
       const currentTotalTickets = Number(draw.totalTickets || '0');
@@ -2738,15 +2739,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? (userProjectedTickets / projectedTotalTickets * 100).toFixed(2)
         : odds;
       
+      // Total prize pool includes participant yield + sponsored donations
+      const totalPrizePool = currentPoolNum + sponsoredPoolNum;
+      
       res.json({
         draw: {
           id: draw.id,
           weekNumber: draw.weekNumber,
           year: draw.year,
           status: draw.status,
-          totalPool: draw.totalPool,
+          totalPool: draw.totalPool, // Participant contributions only
           totalPoolFormatted: (Number(draw.totalPool) / 1_000_000).toFixed(2),
-          totalTickets: draw.totalTickets,
+          sponsoredPool: draw.sponsoredPool || '0', // Donations (no tickets)
+          sponsoredPoolFormatted: (sponsoredPoolNum / 1_000_000).toFixed(2),
+          totalPrizePool: totalPrizePool.toString(), // Total prize = participant + sponsored
+          totalPrizePoolFormatted: (totalPrizePool / 1_000_000).toFixed(2),
+          totalTickets: draw.totalTickets, // Only from participants
           participantCount: actualParticipantCount,
           projectedPool: projectedTotalPool.toString(),
           projectedPoolFormatted: (projectedTotalPool / 1_000_000).toFixed(2),
@@ -3801,6 +3809,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Donate to prize pool (admin can add funds)
+  // Donations increase the prize pool but do NOT add tickets - they're pure sponsorship
   app.post('/api/admin/pool/donate', adminAuthMiddleware, async (req, res) => {
     try {
       const { amount } = req.body; // Amount in micro-USDC
@@ -3809,14 +3818,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const draw = await getOrCreateCurrentDraw();
-      const newTotal = (BigInt(draw.totalPool) + BigInt(amount)).toString();
+      const currentSponsored = BigInt(draw.sponsoredPool || '0');
+      const newSponsored = (currentSponsored + BigInt(amount)).toString();
+      const totalPrizePool = (BigInt(draw.totalPool) + BigInt(newSponsored)).toString();
       
-      // Update the draw with the new total
+      // Update only the sponsored pool - no tickets added for donations
       await db
         .update(poolDraws)
         .set({ 
-          totalPool: newTotal,
-          totalTickets: (BigInt(draw.totalTickets) + BigInt(amount)).toString(),
+          sponsoredPool: newSponsored,
         })
         .where(eq(poolDraws.id, draw.id));
 
@@ -3824,8 +3834,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         donated: amount,
         donatedFormatted: (Number(amount) / 1_000_000).toFixed(2),
-        newTotal,
-        newTotalFormatted: (Number(newTotal) / 1_000_000).toFixed(2),
+        newSponsoredPool: newSponsored,
+        newSponsoredPoolFormatted: (Number(newSponsored) / 1_000_000).toFixed(2),
+        totalPrizePool,
+        totalPrizePoolFormatted: (Number(totalPrizePool) / 1_000_000).toFixed(2),
       });
     } catch (error) {
       console.error('[Pool] Error processing donation:', error);
