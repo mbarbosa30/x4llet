@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Zap, Lock, Sparkles, Sliders, Gift, Layers, Network } from 'lucide-react';
+import { WifiOff, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap } from 'lucide-react';
 import { hasWallet, isWalletUnlocked } from '@/lib/wallet';
 import Footer from '@/components/Footer';
 
@@ -85,14 +85,14 @@ export default function Landing() {
             <div>
               <div className="text-sm font-semibold text-primary mb-2 mt-12">nanoPay</div>
               <h1 className="text-3xl font-bold mb-3">Money, Simplified.</h1>
-              <p className="text-muted-foreground mb-8 text-base">
+              <p className="text-muted-foreground mb-8 text-sm">
                 No internet? No gas? No ID? No problem.
               </p>
             </div>
 
             <div className="space-y-4 text-left max-w-sm mx-auto">
               <div className="flex items-start gap-3">
-                <Zap className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                <WifiOff className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                 <div>
                   <div className="text-sm font-medium">It just works, anywhere</div>
                   <div className="text-xs text-muted-foreground">Any browser. Offline-ready. Gasless transfers.</div>
