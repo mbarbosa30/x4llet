@@ -340,7 +340,7 @@ export default function Pool() {
           /* Simplified Onboarding Intro */
           <div className="space-y-4">
             {/* Hero Prize Display */}
-            <Card className="p-6 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+            <Card className="p-6">
               <div className="text-center space-y-4">
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10">
                   <Trophy className="h-8 w-8 text-primary" />
