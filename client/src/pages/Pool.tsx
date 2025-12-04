@@ -555,8 +555,30 @@ export default function Pool() {
           ) : (
             /* Show intro skeleton for new users or those who haven't participated */
             <div className="space-y-4">
-              <Skeleton className="h-40 w-full" />
-              <Skeleton className="h-32 w-full" />
+              {/* Hero section skeleton - matches trophy icon, prize display, description, stats */}
+              <div className="p-6 space-y-4">
+                <Skeleton className="h-16 w-16 rounded-full mx-auto" />
+                <Skeleton className="h-4 w-24 mx-auto" />
+                <Skeleton className="h-12 w-32 mx-auto" />
+                <Skeleton className="h-4 w-48 mx-auto" />
+                <Skeleton className="h-4 w-32 mx-auto" />
+              </div>
+              {/* Join card skeleton - matches slider, button, footer */}
+              <div className="rounded-lg border bg-card p-4 space-y-4">
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-5 w-12" />
+                  </div>
+                  <Skeleton className="h-5 w-full" />
+                  <div className="flex justify-between">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                </div>
+                <Skeleton className="h-11 w-full" />
+                <Skeleton className="h-3 w-40 mx-auto" />
+              </div>
             </div>
           )
         ) : poolStatus && (poolStatus.user.optInPercent ?? 0) === 0 ? (
