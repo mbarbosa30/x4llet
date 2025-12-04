@@ -1238,6 +1238,12 @@ export default function Claim() {
                       </>
                     ) : 'Verify Face'}
                   </Button>
+                  
+                  {gdClaimStatus?.dailyUbiFormatted && (
+                    <p className="text-sm text-center text-muted-foreground pt-2" data-testid="text-daily-ubi-incentive">
+                      <span className="font-semibold text-primary">~{gdClaimStatus.dailyUbiFormatted} G$</span> available to claim daily once verified
+                    </p>
+                  )}
                 </div>
               )}
             </Card>
