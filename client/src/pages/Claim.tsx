@@ -715,7 +715,7 @@ export default function Claim() {
                   )}
 
                   <div className="pt-4 border-t space-y-2">
-                    <h3 className="text-xs font-semibold text-muted-foreground mb-3">Circles Network</h3>
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Circles Network</h3>
                     <div className="grid grid-cols-1 gap-2 text-sm">
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Claim Rate</span>
@@ -1139,7 +1139,7 @@ export default function Claim() {
                   )}
 
                   <div className="pt-4 border-t space-y-2">
-                    <h3 className="text-xs font-semibold text-muted-foreground mb-3">UBI Stats</h3>
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">UBI Stats</h3>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div className="space-y-1">
                         <span className="text-xs text-muted-foreground">Your Share</span>
