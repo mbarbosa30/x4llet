@@ -135,6 +135,27 @@ export default function Pool() {
   const [showReferralDialog, setShowReferralDialog] = useState(false);
   const [showContributionDialog, setShowContributionDialog] = useState(false);
   const [pendingOptInPercent, setPendingOptInPercent] = useState<number | null>(null);
+  const [prepareData, setPrepareData] = useState<{
+    success: boolean;
+    requiresSignature?: boolean;
+    noYieldToContribute?: boolean;
+    isFirstTime?: boolean;
+    yieldAmount?: string;
+    yieldAmountFormatted?: string;
+    contributionAmount?: string;
+    contributionAmountFormatted?: string;
+    currentBalance?: string;
+    optInPercent?: number;
+    permitTypedData?: {
+      domain: Record<string, unknown>;
+      types: Record<string, unknown>;
+      message: Record<string, string>;
+    };
+    deadline?: number;
+    nonce?: string;
+    message?: string;
+  } | null>(null);
+  const [isPreparing, setIsPreparing] = useState(false);
 
   useEffect(() => {
     const loadAddress = async () => {
