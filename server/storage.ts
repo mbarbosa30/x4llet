@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo, gnosis } from 'viem/chains';
 import { db } from "./db";
-import { eq, and, or, desc, sql, gte } from "drizzle-orm";
+import { eq, and, or, desc, sql, gte, gt } from "drizzle-orm";
 import { getNetworkByChainId } from "@shared/networks";
 
 function resolveChainForStorage(chainId: number) {
@@ -2031,6 +2031,16 @@ export class DbStorage extends MemStorage {
     } catch (error) {
       console.error('[Pool] Error getting all settings:', error);
       return [];
+    }
+  }
+
+  async getOptedInParticipantCount(): Promise<number> {
+    try {
+      const settings = await db.select().from(poolSettings).where(gt(poolSettings.optInPercent, 0));
+      return settings.length;
+    } catch (error) {
+      console.error('[Pool] Error getting opted-in participant count:', error);
+      return 0;
     }
   }
 

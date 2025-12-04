@@ -2680,6 +2680,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate projected pool for this week (all users' expected yields)
       const projectedPoolData = await calculateProjectedPool();
       
+      // Get actual participant count (all users with opt-in > 0, regardless of yield collection)
+      const actualParticipantCount = await storage.getOptedInParticipantCount();
+      
       // Fetch LIVE aUSDC balance from Celo chain (don't rely on snapshot)
       let aUsdcBalance = yieldSnapshot?.lastAusdcBalance || '0';
       try {
@@ -2744,7 +2747,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalPool: draw.totalPool,
           totalPoolFormatted: (Number(draw.totalPool) / 1_000_000).toFixed(2),
           totalTickets: draw.totalTickets,
-          participantCount: draw.participantCount,
+          participantCount: actualParticipantCount,
           projectedPool: projectedTotalPool.toString(),
           projectedPoolFormatted: (projectedTotalPool / 1_000_000).toFixed(2),
           projectedTickets: projectedTotalTickets.toString(),
@@ -2785,7 +2788,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           apy: projectedPoolData.apy,
           totalProjectedYield: projectedPoolData.projectedYield,
           totalProjectedYieldFormatted: projectedPoolData.projectedYieldFormatted,
-          participantCount: projectedPoolData.participantProjections.length,
+          participantCount: actualParticipantCount,
         },
       });
     } catch (error) {
