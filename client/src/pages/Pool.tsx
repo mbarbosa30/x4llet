@@ -710,14 +710,9 @@ export default function Pool() {
 
               {/* Your Position */}
               <Card className="p-4 space-y-3" data-testid="card-your-position">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium flex items-center gap-2">
-                    <Target className="h-4 w-4 text-primary" />
-                    Your Position
-                  </div>
-                  <Badge variant="secondary" className="text-xs">
-                    {optInPercent}% opt-in
-                  </Badge>
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <Target className="h-4 w-4 text-primary" />
+                  Your Position
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="text-center p-3 bg-muted/50 rounded-lg">

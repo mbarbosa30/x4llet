@@ -1143,16 +1143,9 @@ export default function Earn() {
 
             {hasAaveBalance && (baseBalanceNum > 0 || celoBalanceNum > 0 || gnosisBalanceNum > 0) && [baseBalanceNum, celoBalanceNum, gnosisBalanceNum].filter(b => b > 0).length > 1 && (
               <Card className="p-4 space-y-3" data-testid="card-chain-breakdown">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-primary" />
-                    Balance & Rates by Network
-                  </div>
-                  {weightedApy > 0 && (
-                    <Badge variant="secondary" className="text-xs">
-                      {weightedApy.toFixed(1)}% blended
-                    </Badge>
-                  )}
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-primary" />
+                  Balance & Rates by Network
                 </div>
                 
                 {baseBalanceNum > 0 && (
@@ -1237,16 +1230,9 @@ export default function Earn() {
 
             {hasAaveBalance && combinedChartData.length > 0 && (
               <Card className="p-4 space-y-3" data-testid="card-projected-earnings">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-primary" />
-                    Projected Earnings
-                  </div>
-                  {weightedApy > 0 && (
-                    <Badge variant="secondary" className="text-xs">
-                      +{weightedApy.toFixed(2)}% APY
-                    </Badge>
-                  )}
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  Projected Earnings
                 </div>
                 
                 <div className="h-36 w-full">
