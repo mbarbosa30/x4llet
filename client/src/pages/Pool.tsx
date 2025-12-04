@@ -200,8 +200,9 @@ export default function Pool() {
         throw new Error(prepareData.error || 'Failed to prepare contribution');
       }
       
-      // If first time or no yield, just return success (no signature needed)
-      if (prepareData.isFirstTime || prepareData.noYieldToContribute) {
+      // If no yield to contribute, just return success (no signature needed)
+      // Note: isFirstTime users WITH balance will have requiresSignature=true
+      if (prepareData.noYieldToContribute) {
         return prepareData;
       }
       
