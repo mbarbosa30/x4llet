@@ -1955,10 +1955,6 @@ export default function Pool() {
                 <div className="bg-muted/50 rounded-lg p-3 space-y-1.5 text-xs">
                   <div className="flex items-center gap-2">
                     <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
-                    <span>Limited to $10,000 (covers ~1 year)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
                     <span>Only yield collected, savings are safe</span>
                   </div>
                   <div className="flex items-center gap-2">
