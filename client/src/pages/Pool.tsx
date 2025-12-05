@@ -47,28 +47,30 @@ interface PoolStatus {
     weekNumber: number;
     year: number;
     status: string;
-    totalPool: string; // Actual pool (sponsored + actual yield from interest)
+    totalPool: string; // Current pool (sponsored + actual yield so far)
     totalPoolFormatted: string;
     sponsoredPool?: string; // Donations (no tickets)
     sponsoredPoolFormatted?: string;
-    totalPrizePool?: string; // Total prize = sponsored + actual yield
-    totalPrizePoolFormatted?: string;
-    totalTickets: string; // Actual total tickets (from interest earned)
+    totalTickets: string; // Total tickets from actual yields
     participantCount: number;
-    actualPool?: string;
-    actualPoolFormatted?: string;
-    actualTickets?: string;
     actualYieldFromParticipants?: string;
     actualYieldFromParticipantsFormatted?: string;
+    // Estimated values (APY-based projections)
+    estimatedPrizePoolAtWeekEnd?: string;
+    estimatedPrizePoolAtWeekEndFormatted?: string;
+    currentApy?: string;
   };
   user: {
     optInPercent: number;
     facilitatorApproved: boolean;
     approvalTxHash: string | null;
+    isFirstWeek?: boolean; // Indicates if this is user's first week in the pool
     // ACTUAL values (from Aave's scaledBalanceOf)
-    actualInterest: string; // User's actual earned interest
-    actualInterestFormatted: string;
-    yieldContribution: string; // interest × opt-in%
+    totalAccruedInterest?: string; // Total interest ever earned
+    totalAccruedInterestFormatted?: string;
+    weeklyYield?: string; // This week's yield (actual)
+    weeklyYieldFormatted?: string;
+    yieldContribution: string; // weeklyYield × opt-in%
     yieldContributionFormatted: string;
     referralBonus: string; // Referral bonus tickets
     referralBonusFormatted: string;
@@ -79,6 +81,13 @@ interface PoolStatus {
     aUsdcBalanceFormatted: string;
     principal: string;
     principalFormatted: string;
+    // ESTIMATED values (APY-based projections)
+    estimatedAdditionalYield?: string;
+    estimatedAdditionalYieldFormatted?: string;
+    estimatedTotalYieldAtWeekEnd?: string;
+    estimatedTotalYieldAtWeekEndFormatted?: string;
+    estimatedContribution?: string;
+    estimatedContributionFormatted?: string;
   };
   referral: {
     code: string;
@@ -256,13 +265,13 @@ export default function Pool() {
   });
 
   // Animate the prize pool amount (aUSDC earning interest)
-  // NOTE: totalPool already includes sponsoredPool (backend calculates: sponsored + projected yield)
-  const totalPrizeMicro = poolStatus?.draw.totalPool || '0';
+  // Use estimated pool at week end for main display, falling back to current pool
+  const estimatedPrizeMicro = poolStatus?.draw.estimatedPrizePoolAtWeekEnd || poolStatus?.draw.totalPool || '0';
   const prizePoolAnimation = useEarningAnimation({
     usdcMicro: '0',
-    aaveBalanceMicro: totalPrizeMicro,
+    aaveBalanceMicro: estimatedPrizeMicro,
     apyRate: (celoApyData?.apy || 0) / 100,
-    enabled: !!poolStatus && Number(totalPrizeMicro) > 0 && !!celoApyData?.apy,
+    enabled: !!poolStatus && Number(estimatedPrizeMicro) > 0 && !!celoApyData?.apy,
     minPrecision: 5,
   });
 
@@ -751,18 +760,22 @@ export default function Pool() {
                 </div>
                 <div className="text-center py-4">
                   {(() => {
-                    // totalPool already includes sponsoredPool (backend calculates: sponsored + projected yield)
+                    // Current pool (actual collected + sponsored donations)
                     const currentPool = Number(poolStatus.draw.totalPool) / 1_000_000;
+                    // Estimated pool at week end (based on APY projections)
+                    const estimatedPool = poolStatus.draw.estimatedPrizePoolAtWeekEnd 
+                      ? Number(poolStatus.draw.estimatedPrizePoolAtWeekEnd) / 1_000_000 
+                      : currentPool;
                     
-                    // Animate the current collected pool earning interest
+                    // Show estimated as main value (what the prize will be)
                     const isAnimating = prizePoolAnimation.animatedValue > 0 && !!celoApyData?.apy;
                     
-                    // Static fallback: show current collected pool with 2 decimals
-                    const staticInt = Math.floor(currentPool);
-                    const staticDec = (currentPool % 1).toFixed(2).slice(2);
+                    // Static fallback for estimated pool
+                    const staticInt = Math.floor(estimatedPool);
+                    const staticDec = (estimatedPool % 1).toFixed(2).slice(2);
                     
                     return (
-                      <div className="space-y-1">
+                      <div className="space-y-2">
                         <div className="text-5xl font-medium tabular-nums flex items-center justify-center" data-testid="text-prize-amount">
                           <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
                           <span className="inline-flex items-baseline">
@@ -776,8 +789,15 @@ export default function Pool() {
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground text-center">
-                          Est. pool value
+                          Estimated at week end
                         </p>
+                        {currentPool > 0 && currentPool !== estimatedPool && (
+                          <div className="text-xs text-center text-muted-foreground pt-1 border-t border-border/50">
+                            <span className="opacity-70">Current: </span>
+                            <span className="font-medium">${currentPool.toFixed(2)}</span>
+                            <span className="opacity-70"> collected so far</span>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
@@ -833,11 +853,12 @@ export default function Pool() {
 
               {/* Kelly-Adjusted Opt-In Curve */}
               {(() => {
-                // Use total prize pool (sponsored + actual yield) for Kelly calculation
-                const prizePool = Number(poolStatus.draw.actualPool || poolStatus.draw.totalPrizePool || poolStatus.draw.totalPool) / 1_000_000;
+                // Use estimated prize pool at week end for Kelly calculation
+                const prizePool = Number(poolStatus.draw.estimatedPrizePoolAtWeekEnd || poolStatus.draw.totalPool) / 1_000_000;
                 const aUsdcBalance = Number(poolStatus.user.aUsdcBalance) / 1_000_000;
-                const userActualInterest = Number(poolStatus.user.actualInterest || '0') / 1_000_000;
-                const hasInterest = userActualInterest > 0;
+                // Use weekly yield (not total accrued) for Kelly calculation
+                const userWeeklyYield = Number(poolStatus.user.weeklyYield || '0') / 1_000_000;
+                const hasInterest = userWeeklyYield > 0;
                 
                 // Get user's ticket components from actual data (in USDC, not micro)
                 const userYieldContribution = Number(poolStatus.user.yieldContribution || '0') / 1_000_000;
@@ -847,7 +868,7 @@ export default function Pool() {
                 // Base tickets that don't change with allocation (referral bonus from referees)
                 const userBaseTickets = userReferralBonus;
                 
-                const totalPoolTickets = Number(poolStatus.draw.actualTickets || poolStatus.draw.totalTickets || '0') / 1_000_000;
+                const totalPoolTickets = Number(poolStatus.draw.totalTickets || '0') / 1_000_000;
                 
                 // Calculate "others' tickets" by subtracting user's current tickets
                 const othersTickets = Math.max(0, totalPoolTickets - userTotalTickets);
@@ -858,9 +879,9 @@ export default function Pool() {
                 let maxGrowthRate = -Infinity;
                 
                 for (let pct = 0; pct <= 100; pct += 5) {
-                  // Use actual interest for contribution calculation
-                  const contributionAtLevel = userActualInterest * (pct / 100);
-                  const cost = contributionAtLevel; // Cost is the interest being contributed
+                  // Use weekly yield for contribution calculation
+                  const contributionAtLevel = userWeeklyYield * (pct / 100);
+                  const cost = contributionAtLevel; // Cost is the yield being contributed
                   
                   // User's tickets at this allocation level = base tickets + contribution at this allocation
                   const myTickets = userBaseTickets + contributionAtLevel;
@@ -1210,8 +1231,8 @@ export default function Pool() {
 
               {/* Cumulative Win Probability Curve */}
               {(() => {
-                // Use actual tickets for probability calculations
-                const totalPoolTickets = Number(poolStatus.draw.actualTickets || poolStatus.draw.totalTickets || '0') / 1_000_000;
+                // Use total tickets for probability calculations
+                const totalPoolTickets = Number(poolStatus.draw.totalTickets || '0') / 1_000_000;
                 const userTickets = Number(poolStatus.user.totalTickets || '0') / 1_000_000;
                 const currentOdds = totalPoolTickets > 0 ? userTickets / totalPoolTickets : 0;
                 

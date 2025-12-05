@@ -75,12 +75,18 @@ Multi-chain UX includes aggregated USDC balance display, chain badges for transa
 **Pool Architecture - Actual Interest Model (Celo-Only)**:
 - Uses Aave's `scaledBalanceOf()` and `liquidityIndex` to calculate **actual earned interest** (not APY estimates)
 - Formula: `interest = balanceOf() - (scaledBalanceOf() × liquidityIndex / 1e27)` where scaledBalanceOf represents principal
-- Tickets calculation: `tickets = actualInterest × optInPercent + referralBonus`
+- **Weekly yield snapshots**: Database table `poolYieldSnapshots` stores per-user yield snapshots after each draw
+  - `snapshotYield`: Total accrued interest at the time of the last draw
+  - `isFirstWeek`: Flag indicating if user has never participated before
+  - First week: Tickets based on total accrued interest (entire earnings history)
+  - Subsequent weeks: Tickets based on yield delta (current accrued - snapshotYield from last draw)
+- Tickets calculation: `weeklyYield × optInPercent + referralBonus`
 - Helper functions in `shared/aave.ts`: `getAaveUserInterest()` and `getAaveUsersInterest()` for batched queries
 - ATOKEN_ABI includes `scaledBalanceOf` method for precise principal tracking
 - No mid-week transfers; all calculations are from live on-chain balances at draw time
 - Celo aUSDC address: 0xFF8309b9e99bfd2D4021bc71a362aBD93dBd4785 (from shared/networks.ts)
 - **Sponsored Pool**: Donations increase prize pool but do NOT add tickets. Stored separately in `sponsoredPool` column.
+- **UI Display**: Prize pool shows estimated value at week end (APY projection) with current collected amount shown below
 
 **Facilitator Authorization Flow**:
 - Users must authorize the facilitator to collect their weekly yield before participating in draws

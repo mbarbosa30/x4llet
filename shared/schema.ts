@@ -172,6 +172,14 @@ export const poolYieldSnapshots = pgTable("pool_yield_snapshots", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   walletAddress: text("wallet_address").notNull().unique(),
   chainId: integer("chain_id").notNull().default(42220), // Celo only for now
+  // Snapshot of accrued yield at last draw (aUSDC - principal at that moment)
+  // First week: no snapshot, use full accrued yield for tickets
+  // Subsequent weeks: tickets = (currentAccrued - snapshotYield) × optIn%
+  snapshotYield: text("snapshot_yield").notNull().default('0'), // Accrued yield at last snapshot (micro-USDC)
+  weekNumber: integer("week_number"), // Week when snapshot was taken
+  year: integer("year"), // Year when snapshot was taken
+  isFirstWeek: boolean("is_first_week").notNull().default(true), // First week uses total accrued, not delta
+  // Lifetime tracking
   lastAusdcBalance: text("last_ausdc_balance").notNull().default('0'), // micro-aUSDC
   lastCollectedAt: timestamp("last_collected_at").notNull().defaultNow(),
   totalYieldCollected: text("total_yield_collected").notNull().default('0'), // micro-USDC lifetime

@@ -2744,9 +2744,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       address: string;
       totalBalance: string;
       principal: string;
-      actualInterest: string;
+      totalAccruedInterest: string;
+      weeklyYield: string; // This week's yield (total accrued if first week, or delta from snapshot)
       optInPercent: number;
-      contribution: string; // interest × opt-in%
+      contribution: string; // weeklyYield × opt-in%
+      isFirstWeek: boolean;
     }>;
   }> {
     try {
@@ -2769,19 +2771,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         address: string;
         totalBalance: string;
         principal: string;
-        actualInterest: string;
+        totalAccruedInterest: string;
+        weeklyYield: string;
         optInPercent: number;
         contribution: string;
+        isFirstWeek: boolean;
       }> = [];
 
       for (const snapshot of snapshotsWithOptIn) {
         const addr = snapshot.walletAddress.toLowerCase();
         const interestData = interestMap.get(addr);
         
-        if (!interestData || interestData.interest === 0n) continue;
+        if (!interestData) continue;
 
-        // Contribution = actual interest × opt-in%
-        const contribution = (interestData.interest * BigInt(snapshot.optInPercent)) / 100n;
+        const totalAccrued = interestData.interest;
+        const snapshotYieldValue = BigInt(snapshot.snapshotYield || '0');
+        const isFirstWeek = snapshot.isFirstWeek ?? true;
+        
+        // Calculate weekly yield:
+        // - First week: use total accrued interest
+        // - Subsequent weeks: current accrued - snapshot (what's earned since last draw)
+        let weeklyYield: bigint;
+        if (isFirstWeek) {
+          weeklyYield = totalAccrued;
+        } else {
+          // Weekly yield = current total accrued - accrued at last snapshot
+          weeklyYield = totalAccrued > snapshotYieldValue ? totalAccrued - snapshotYieldValue : 0n;
+        }
+        
+        if (weeklyYield <= 0n) continue;
+
+        // Contribution = weekly yield × opt-in%
+        const contribution = (weeklyYield * BigInt(snapshot.optInPercent)) / 100n;
         
         if (contribution > 0n) {
           totalContributions += contribution;
@@ -2789,9 +2810,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             address: snapshot.walletAddress,
             totalBalance: interestData.totalBalance.toString(),
             principal: interestData.principal.toString(),
-            actualInterest: interestData.interest.toString(),
+            totalAccruedInterest: totalAccrued.toString(),
+            weeklyYield: weeklyYield.toString(),
             optInPercent: snapshot.optInPercent,
             contribution: contribution.toString(),
+            isFirstWeek,
           });
         }
       }
@@ -2820,12 +2843,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const draw = await getOrCreateCurrentDraw();
       const settings = await storage.getPoolSettings(normalizedAddress);
       const referrals = await storage.getReferralsByReferrer(normalizedAddress);
+      const userSnapshot = await storage.getYieldSnapshot(normalizedAddress);
       
       // Get referral code (generate if doesn't exist)
       const referralCode = generateReferralCode(normalizedAddress);
       
       // Calculate time until draw (end of week)
-      const { weekEnd, now } = getCurrentWeekInfo();
+      const { weekEnd, now, weekNumber, year } = getCurrentWeekInfo();
       const msUntilDraw = weekEnd.getTime() - now.getTime();
       const hoursUntilDraw = Math.floor(msUntilDraw / (1000 * 60 * 60));
       const minutesUntilDraw = Math.floor((msUntilDraw % (1000 * 60 * 60)) / (1000 * 60));
@@ -2840,11 +2864,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userInterestData = await getAaveUserInterest(normalizedAddress);
       const aUsdcBalance = userInterestData?.totalBalance.toString() || '0';
       const userPrincipal = userInterestData?.principal.toString() || '0';
-      const userActualInterest = userInterestData?.interest || 0n;
+      const userTotalAccruedInterest = userInterestData?.interest || 0n;
+      
+      // === WEEKLY YIELD CALCULATION ===
+      // First week: use total accrued interest
+      // Subsequent weeks: current accrued - snapshot (what's earned since last draw)
+      const isFirstWeek = userSnapshot?.isFirstWeek ?? true;
+      const snapshotYield = BigInt(userSnapshot?.snapshotYield || '0');
+      
+      let userWeeklyYield: bigint;
+      if (isFirstWeek) {
+        userWeeklyYield = userTotalAccruedInterest;
+      } else {
+        userWeeklyYield = userTotalAccruedInterest > snapshotYield 
+          ? userTotalAccruedInterest - snapshotYield 
+          : 0n;
+      }
       
       // === ACTUAL YIELD APPROACH ===
-      // Tickets are calculated from: ACTUAL earned interest × opt-in% + referral bonuses
-      // This uses Aave's scaledBalanceOf to determine exact principal and interest.
+      // Tickets are calculated from: weekly yield × opt-in% + referral bonuses
       
       // 1. Get all referrals to build referee -> referrer map
       const allReferrals = await storage.getAllReferrals();
@@ -2853,16 +2891,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         refereeToReferrer.set(ref.refereeAddress.toLowerCase(), ref.referrerAddress.toLowerCase());
       }
       
-      // 2. Build contribution map from actual pool data
+      // 2. Build contribution map from actual pool data (already uses weekly yields)
       const contributionMap = new Map<string, bigint>();
       for (const participant of actualPoolData.participantData) {
         contributionMap.set(participant.address.toLowerCase(), BigInt(participant.contribution));
       }
       
-      // 3. Calculate user's contribution (actual interest × opt-in%)
+      // 3. Calculate user's contribution (weekly yield × opt-in%)
       const userOptIn = settings?.optInPercent ?? 0;
-      const userContribution = userOptIn > 0 && userActualInterest > 0n
-        ? (userActualInterest * BigInt(userOptIn)) / 100n
+      const userContribution = userOptIn > 0 && userWeeklyYield > 0n
+        ? (userWeeklyYield * BigInt(userOptIn)) / 100n
         : 0n;
       
       // Add/update user in contribution map
@@ -2903,13 +2941,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : 0;
       const odds = oddsValue.toFixed(2);
       
+      // === APY-based ESTIMATED yield until week end ===
+      // Projected additional yield = principal × (APY/100) × (remainingDays/365)
+      const principalNum = Number(userPrincipal) / 1_000_000; // in USDC
+      const remainingMs = msUntilDraw > 0 ? msUntilDraw : 0;
+      const remainingDays = remainingMs / (1000 * 60 * 60 * 24);
+      
+      // Fetch current APY (cached)
+      let estimatedAdditionalYield = 0;
+      let currentApy = 0;
+      try {
+        const celoNetwork = getNetworkByChainId(42220);
+        if (celoNetwork?.aavePoolAddress && celoNetwork?.usdcAddress) {
+          const client = createPublicClient({
+            chain: celo,
+            transport: http('https://forno.celo.org'),
+          });
+          const reserveData = await client.readContract({
+            address: celoNetwork.aavePoolAddress as `0x${string}`,
+            abi: AAVE_POOL_ABI,
+            functionName: 'getReserveData',
+            args: [celoNetwork.usdcAddress as `0x${string}`],
+          }) as any;
+          const liquidityRateRay = BigInt(reserveData.currentLiquidityRate);
+          currentApy = Number(liquidityRateRay) / 1e25; // Ray to percentage
+          
+          // Estimated yield until week end
+          estimatedAdditionalYield = principalNum * (currentApy / 100) * (remainingDays / 365);
+        }
+      } catch (e) {
+        console.error('[Pool] Error fetching APY for projection:', e);
+      }
+      
+      // Estimated total yield at week end = current weekly yield + projected additional
+      const userWeeklyYieldNum = Number(userWeeklyYield) / 1_000_000;
+      const estimatedTotalYieldAtWeekEnd = userWeeklyYieldNum + estimatedAdditionalYield;
+      const estimatedContribution = estimatedTotalYieldAtWeekEnd * (userOptIn / 100);
+      
       // === Pool values ===
       const sponsoredPoolNum = Number(draw.sponsoredPool || '0');
       const totalYieldNum = Number(actualPoolData.totalYield);
       const totalPool = sponsoredPoolNum + totalYieldNum;
       
-      // Total prize pool = sponsored donations + actual yield from all participants
-      const totalPrizePool = totalPool;
+      // Calculate estimated pool prize at week end (actual + projected from all participants)
+      // For simplicity, estimate additional yield for pool based on total principals
+      const totalPrincipals = actualPoolData.participantData.reduce(
+        (sum, p) => sum + Number(p.principal) / 1_000_000, 0
+      );
+      const estimatedPoolAdditionalYield = totalPrincipals * (currentApy / 100) * (remainingDays / 365);
+      const estimatedPoolPrize = totalPool / 1_000_000 + estimatedPoolAdditionalYield;
       
       res.json({
         draw: {
@@ -2917,26 +2997,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           weekNumber: draw.weekNumber,
           year: draw.year,
           status: draw.status,
-          totalPool: totalPool.toString(), // Total pool (sponsored + actual yield)
+          totalPool: totalPool.toString(), // Current pool (sponsored + actual yield so far)
           totalPoolFormatted: (totalPool / 1_000_000).toFixed(2),
           sponsoredPool: draw.sponsoredPool || '0', // Donations (no tickets)
           sponsoredPoolFormatted: (sponsoredPoolNum / 1_000_000).toFixed(2),
-          totalPrizePool: totalPrizePool.toString(), // Total prize = sponsored + actual yield
-          totalPrizePoolFormatted: (totalPrizePool / 1_000_000).toFixed(2),
           totalTickets: poolTotalTickets.toString(), // Total tickets from actual yields
           participantCount: actualParticipantCount,
-          // Actual yield data (not estimates)
+          // Actual yield data
           actualYieldFromParticipants: actualPoolData.totalYield,
           actualYieldFromParticipantsFormatted: actualPoolData.totalYieldFormatted,
+          // Estimated values (APY-based projections)
+          estimatedPrizePoolAtWeekEnd: (estimatedPoolPrize * 1_000_000).toFixed(0),
+          estimatedPrizePoolAtWeekEndFormatted: estimatedPoolPrize.toFixed(2),
+          currentApy: currentApy.toFixed(2),
         },
         user: {
           optInPercent: settings?.optInPercent ?? 0,
           facilitatorApproved: settings?.facilitatorApproved ?? false,
           approvalTxHash: settings?.approvalTxHash ?? null,
-          // ACTUAL values (not estimates) - from Aave's scaledBalanceOf
-          actualInterest: userActualInterest.toString(), // User's actual earned interest
-          actualInterestFormatted: (Number(userActualInterest) / 1_000_000).toFixed(4),
-          yieldContribution: userContribution.toString(), // interest × opt-in%
+          isFirstWeek, // Indicates if this is user's first week in the pool
+          // ACTUAL values (from Aave)
+          totalAccruedInterest: userTotalAccruedInterest.toString(), // Total interest ever earned
+          totalAccruedInterestFormatted: (Number(userTotalAccruedInterest) / 1_000_000).toFixed(4),
+          weeklyYield: userWeeklyYield.toString(), // This week's yield (actual)
+          weeklyYieldFormatted: (Number(userWeeklyYield) / 1_000_000).toFixed(4),
+          yieldContribution: userContribution.toString(), // weeklyYield × opt-in%
           yieldContributionFormatted: (Number(userContribution) / 1_000_000).toFixed(4),
           referralBonus: userReferralBonus.toString(), // Referral bonus tickets
           referralBonusFormatted: (Number(userReferralBonus) / 1_000_000).toFixed(4),
@@ -2947,6 +3032,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           aUsdcBalanceFormatted: (Number(aUsdcBalance) / 1_000_000).toFixed(2),
           principal: userPrincipal, // User's principal (from scaledBalanceOf)
           principalFormatted: (Number(userPrincipal) / 1_000_000).toFixed(2),
+          // ESTIMATED values (APY-based projections)
+          estimatedAdditionalYield: (estimatedAdditionalYield * 1_000_000).toFixed(0),
+          estimatedAdditionalYieldFormatted: estimatedAdditionalYield.toFixed(4),
+          estimatedTotalYieldAtWeekEnd: (estimatedTotalYieldAtWeekEnd * 1_000_000).toFixed(0),
+          estimatedTotalYieldAtWeekEndFormatted: estimatedTotalYieldAtWeekEnd.toFixed(4),
+          estimatedContribution: (estimatedContribution * 1_000_000).toFixed(0),
+          estimatedContributionFormatted: estimatedContribution.toFixed(4),
         },
         referral: {
           code: referralCode,
@@ -3498,17 +3590,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         refereeToReferrer.set(ref.refereeAddress.toLowerCase(), ref.referrerAddress.toLowerCase());
       }
       
-      // Phase 1: Calculate ACTUAL interest and contributions using scaledBalanceOf
-      // This gives exact earned interest, not APY-based estimates
+      // Phase 1: Calculate WEEKLY yield and contributions using snapshots
+      // First week: use total accrued; Subsequent weeks: use delta from last snapshot
       const addresses = approvedUsers.map(s => s.walletAddress);
       const interestMap = await getAaveUsersInterest(addresses);
+      
+      // Get all snapshots for participants
+      const allSnapshots = await storage.getAllYieldSnapshots();
+      const snapshotMap = new Map<string, typeof allSnapshots[0]>();
+      for (const snap of allSnapshots) {
+        snapshotMap.set(snap.walletAddress.toLowerCase(), snap);
+      }
       
       const participantData: { 
         address: string; 
         totalBalance: bigint;
         principal: bigint;
-        actualInterest: bigint;
-        contribution: bigint; // interest × opt-in%
+        actualInterest: bigint; // Total accrued interest
+        weeklyYield: bigint; // This week's yield (for contribution calc)
+        contribution: bigint; // weeklyYield × opt-in%
         allowance: bigint;
         hasEnoughAllowance: boolean;
       }[] = [];
@@ -3518,10 +3618,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const addr = settings.walletAddress.toLowerCase();
           const interestData = interestMap.get(addr);
           
-          if (!interestData || interestData.interest === 0n) continue;
+          if (!interestData) continue;
           
-          // Calculate contribution: actual interest × opt-in%
-          const contribution = (interestData.interest * BigInt(settings.optInPercent)) / 100n;
+          const totalAccrued = interestData.interest;
+          const snapshot = snapshotMap.get(addr);
+          const isFirstWeek = snapshot?.isFirstWeek ?? true;
+          const snapshotYield = BigInt(snapshot?.snapshotYield || '0');
+          
+          // Calculate weekly yield
+          let weeklyYield: bigint;
+          if (isFirstWeek) {
+            weeklyYield = totalAccrued;
+          } else {
+            weeklyYield = totalAccrued > snapshotYield ? totalAccrued - snapshotYield : 0n;
+          }
+          
+          if (weeklyYield === 0n) continue;
+          
+          // Calculate contribution: weekly yield × opt-in%
+          const contribution = (weeklyYield * BigInt(settings.optInPercent)) / 100n;
           if (contribution === 0n) continue;
           
           // Check allowance
@@ -3546,7 +3661,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             address: addr,
             totalBalance: interestData.totalBalance,
             principal: interestData.principal,
-            actualInterest: interestData.interest,
+            actualInterest: totalAccrued,
+            weeklyYield,
             contribution,
             allowance,
             hasEnoughAllowance: allowance >= contribution,
@@ -3746,6 +3862,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalPool: actualPrize.toString(),
         totalTickets: totalTickets.toString(),
       });
+      
+      // Phase 4: Save snapshots for all participants
+      // Store their current total accrued interest so next week only counts the delta
+      const { weekNumber: currentWeek, year: currentYear } = getCurrentWeekInfo();
+      for (const participant of participantData) {
+        try {
+          await storage.upsertYieldSnapshot(participant.address, {
+            lastAusdcBalance: participant.totalBalance.toString(),
+            snapshotYield: participant.actualInterest.toString(), // Save current total accrued
+            weekNumber: currentWeek,
+            year: currentYear,
+            isFirstWeek: false, // Next week will use delta, not total
+            lastCollectedAt: new Date(),
+          });
+          console.log(`[Pool Draw] Saved snapshot for ${participant.address}: yield=${participant.actualInterest}`);
+        } catch (err) {
+          console.error(`[Pool Draw] Failed to save snapshot for ${participant.address}:`, err);
+        }
+      }
       
       console.log(`[Pool Draw] Completed: winner=${winner.address}, tickets=${winner.totalTickets}, prize=${actualPrize}, collected from ${collectionResults.filter(r => !r.error).length} participants`);
       

@@ -2350,6 +2350,11 @@ export class DbStorage extends MemStorage {
     lastAusdcBalance: string;
     lastCollectedAt?: Date;
     totalYieldCollected?: string;
+    // Weekly yield tracking - stores accrued yield at last draw
+    snapshotYield?: string;
+    weekNumber?: number;
+    year?: number;
+    isFirstWeek?: boolean;
   }): Promise<void> {
     try {
       const existing = await this.getYieldSnapshot(walletAddress);
@@ -2360,6 +2365,11 @@ export class DbStorage extends MemStorage {
             lastAusdcBalance: data.lastAusdcBalance,
             lastCollectedAt: data.lastCollectedAt || new Date(),
             totalYieldCollected: data.totalYieldCollected || existing.totalYieldCollected,
+            // Update weekly tracking fields if provided
+            ...(data.snapshotYield !== undefined && { snapshotYield: data.snapshotYield }),
+            ...(data.weekNumber !== undefined && { weekNumber: data.weekNumber }),
+            ...(data.year !== undefined && { year: data.year }),
+            ...(data.isFirstWeek !== undefined && { isFirstWeek: data.isFirstWeek }),
             updatedAt: new Date(),
           })
           .where(eq(poolYieldSnapshots.walletAddress, walletAddress.toLowerCase()));
@@ -2369,6 +2379,10 @@ export class DbStorage extends MemStorage {
           lastAusdcBalance: data.lastAusdcBalance,
           lastCollectedAt: data.lastCollectedAt || new Date(),
           totalYieldCollected: data.totalYieldCollected || '0',
+          snapshotYield: data.snapshotYield || '0',
+          weekNumber: data.weekNumber,
+          year: data.year,
+          isFirstWeek: data.isFirstWeek ?? true,
         });
       }
     } catch (error) {
@@ -2435,7 +2449,7 @@ export class DbStorage extends MemStorage {
         .from(poolSettings)
         .where(sql`opt_in_percent > 0`);
       
-      const [yieldResult] = await db.select({ total: sql<string>`COALESCE(SUM(CAST(total_yield_collected AS NUMERIC)), 0)` })
+      const yieldResult = await db.select({ total: sql<string>`COALESCE(SUM(CAST(total_yield_collected AS NUMERIC)), 0)` })
         .from(poolYieldSnapshots);
 
       return {
