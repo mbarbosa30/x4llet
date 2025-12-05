@@ -47,13 +47,13 @@ interface PoolStatus {
     weekNumber: number;
     year: number;
     status: string;
-    totalPool: string; // Participant contributions only
+    totalPool: string; // Estimated pool (sponsored + projected yield)
     totalPoolFormatted: string;
     sponsoredPool?: string; // Donations (no tickets)
     sponsoredPoolFormatted?: string;
-    totalPrizePool?: string; // Total prize = participant + sponsored
+    totalPrizePool?: string; // Total prize = sponsored + estimated yield
     totalPrizePoolFormatted?: string;
-    totalTickets: string; // Only from participants
+    totalTickets: string; // Estimated total tickets
     participantCount: number;
     projectedPool?: string;
     projectedPoolFormatted?: string;
@@ -63,20 +63,16 @@ interface PoolStatus {
   };
   user: {
     optInPercent: number;
-    yieldContributed: string;
-    yieldContributedFormatted: string;
-    referralBonusTickets: string;
-    totalTickets: string;
-    odds: string;
-    projectedOdds?: string;
-    projectedWeeklyYield?: string;
-    projectedWeeklyYieldFormatted?: string;
-    projectedTickets?: string;
-    totalContributedAllTime: string;
-    totalContributedAllTimeFormatted: string;
+    // Estimation-only values (calculated from live balance × APY × opt-in%)
+    estimatedYield: string; // User's estimated yield contribution
+    estimatedYieldFormatted: string;
+    estimatedReferralBonus: string; // Referral bonus tickets
+    estimatedReferralBonusFormatted: string;
+    estimatedTickets: string; // Total estimated tickets
+    estimatedTicketsFormatted: string;
+    estimatedOdds: string; // Estimated odds
     aUsdcBalance: string;
     aUsdcBalanceFormatted: string;
-    hasSnapshot: boolean;
   };
   referral: {
     code: string;
@@ -274,13 +270,8 @@ export default function Pool() {
   // Sync opt-in from server and cache view state
   useEffect(() => {
     if (poolStatus?.user?.optInPercent !== undefined && !hasInitializedOptIn) {
-      // Distinguish between new users and returning opted-out users:
-      // - New users (no snapshot): keep 50% default for intro UX
-      // - Returning users (has snapshot): sync their saved value, even if 0
-      if (poolStatus.user.hasSnapshot || poolStatus.user.optInPercent > 0) {
-        setOptInPercent(poolStatus.user.optInPercent);
-      }
-      // New users without snapshot keep the default 50%
+      // Sync the saved opt-in value from server
+      setOptInPercent(poolStatus.user.optInPercent);
       setHasInitializedOptIn(true);
       
       // Cache the view state to prevent flash on navigation
@@ -790,7 +781,7 @@ export default function Pool() {
                 </div>
               </Card>
 
-              {/* Your Position */}
+              {/* Your Position - Now uses estimation-only values */}
               <Card className="p-4 space-y-3" data-testid="card-your-position">
                 <div className="text-sm font-medium flex items-center gap-2">
                   <Target className="h-4 w-4 text-primary" />
@@ -798,68 +789,48 @@ export default function Pool() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="text-center p-3 bg-muted/50 rounded-lg">
-                    {(() => {
-                      const currentTickets = Number(poolStatus.user.totalTickets);
-                      const projectedTickets = Number(poolStatus.user.projectedTickets || poolStatus.user.totalTickets);
-                      const hasProjection = projectedTickets > currentTickets && currentTickets >= 0;
-                      return (
-                        <div className="space-y-0.5">
-                          <p className="text-2xl font-medium" data-testid="text-your-tickets">
-                            {formatTickets(hasProjection ? projectedTickets.toString() : poolStatus.user.totalTickets)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {hasProjection ? 'Projected tickets' : 'Tickets'}
-                          </p>
-                        </div>
-                      );
-                    })()}
+                    <div className="space-y-0.5">
+                      <p className="text-2xl font-medium" data-testid="text-your-tickets">
+                        {formatTickets(poolStatus.user.estimatedTickets)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Est. tickets
+                      </p>
+                    </div>
                   </div>
                   <div className="text-center p-3 bg-muted/50 rounded-lg">
-                    {(() => {
-                      const currentOdds = parseFloat(poolStatus.user.odds);
-                      const projectedOdds = parseFloat(poolStatus.user.projectedOdds || poolStatus.user.odds);
-                      const hasProjection = projectedOdds > currentOdds && currentOdds >= 0;
-                      return (
-                        <div className="space-y-0.5">
-                          <p className="text-2xl font-medium text-primary" data-testid="text-your-odds">
-                            {hasProjection ? projectedOdds.toFixed(2) : poolStatus.user.odds}%
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Estimated odds
-                          </p>
-                        </div>
-                      );
-                    })()}
+                    <div className="space-y-0.5">
+                      <p className="text-2xl font-medium text-primary" data-testid="text-your-odds">
+                        {poolStatus.user.estimatedOdds}%
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Est. odds
+                      </p>
+                    </div>
                   </div>
                 </div>
               </Card>
 
               {/* Kelly-Adjusted Opt-In Curve */}
               {(() => {
-                // Use total prize pool (participant yield + sponsored donations) for Kelly calculation
-                // Backend projectedPool already includes: currentPool + sponsoredPool + projectedYield
+                // Use total prize pool (sponsored + estimated yield) for Kelly calculation
                 const prizePool = Number(poolStatus.draw.projectedPool || poolStatus.draw.totalPrizePool || poolStatus.draw.totalPool) / 1_000_000;
                 const aUsdcBalance = Number(poolStatus.user.aUsdcBalance) / 1_000_000;
                 const apy = poolStatus.projectedPool?.apy || celoApyData?.apy;
                 const hasApyData = apy !== undefined && apy > 0;
                 
-                // Get user's ticket components (in USDC, not micro)
-                const userCollectedTickets = Number(poolStatus.user.totalTickets || '0') / 1_000_000; // collected yield + collected referral
-                const userProjectedTickets = Number(poolStatus.user.projectedTickets || '0') / 1_000_000;
-                const userCurrentProjectedYield = Number(poolStatus.user.projectedWeeklyYield || '0') / 1_000_000;
+                // Get user's estimated ticket components (in USDC, not micro)
+                const userEstimatedYield = Number(poolStatus.user.estimatedYield || '0') / 1_000_000;
+                const userEstimatedReferralBonus = Number(poolStatus.user.estimatedReferralBonus || '0') / 1_000_000;
+                const userEstimatedTickets = Number(poolStatus.user.estimatedTickets || '0') / 1_000_000;
                 
-                // Projected referral bonus = projectedTickets - collectedTickets - projectedYield
-                // This is the bonus from referees' projected contributions (doesn't change with user's allocation)
-                const userProjectedReferralBonus = Math.max(0, userProjectedTickets - userCollectedTickets - userCurrentProjectedYield);
-                
-                // Base tickets that don't change with allocation (collected + projected referral bonus)
-                const userBaseTickets = userCollectedTickets + userProjectedReferralBonus;
+                // Base tickets that don't change with allocation (referral bonus from referees)
+                const userBaseTickets = userEstimatedReferralBonus;
                 
                 const totalPoolTickets = Number(poolStatus.draw.projectedTickets || poolStatus.draw.totalTickets || '0') / 1_000_000;
                 
-                // Calculate "others' tickets" by subtracting user's current projected contribution
-                // This avoids double-counting when we simulate different allocation levels
-                const othersTickets = Math.max(0, totalPoolTickets - userProjectedTickets);
+                // Calculate "others' tickets" by subtracting user's current estimated tickets
+                const othersTickets = Math.max(0, totalPoolTickets - userEstimatedTickets);
                 
                 // Calculate Kelly curve data points
                 const kellyData = [];
@@ -1070,16 +1041,8 @@ export default function Pool() {
                   <span>Max tickets</span>
                 </div>
                 
-                {/* Yield Stats */}
+                {/* Yield Stats - All values are estimates */}
                 <div className="space-y-2 pt-2 border-t">
-                  {poolStatus.user.hasSnapshot && (
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Total (all-time)</span>
-                      <span className="font-medium" data-testid="text-total-contributed">
-                        ${poolStatus.user.totalContributedAllTimeFormatted}
-                      </span>
-                    </div>
-                  )}
                   {celoApyData?.apy && Number(poolStatus.user.aUsdcBalance) > 0 && optInPercent > 0 ? (
                     <>
                       <div className="flex items-center justify-between text-xs">
@@ -1095,7 +1058,7 @@ export default function Pool() {
                         </span>
                       </div>
                     </>
-                  ) : optInPercent > 0 && (!poolStatus.user.hasSnapshot || Number(poolStatus.user.aUsdcBalance) === 0) ? (
+                  ) : optInPercent > 0 && Number(poolStatus.user.aUsdcBalance) === 0 ? (
                     <div className="text-xs text-muted-foreground text-center">
                       Add savings to Celo Aave to see yield estimates
                     </div>
@@ -1132,86 +1095,54 @@ export default function Pool() {
 
             {/* Tickets Tab */}
             <TabsContent value="tickets" className="mt-4 space-y-4">
-              {/* Ticket Breakdown */}
+              {/* Ticket Breakdown - Now uses estimation-only values */}
               <Card className="p-4 space-y-3" data-testid="card-ticket-breakdown">
                 <div className="text-sm font-medium flex items-center gap-2">
                   <Ticket className="h-4 w-4 text-primary" />
                   Estimated Ticket Breakdown
                 </div>
                 {(() => {
-                  // Calculate ticket components
-                  const collectedYield = Number(poolStatus.user.yieldContributed || '0');
-                  const collectedReferral = Number(poolStatus.user.referralBonusTickets || '0');
-                  const collectedTotal = Number(poolStatus.user.totalTickets || '0');
-                  const projectedTotal = Number(poolStatus.user.projectedTickets || '0');
-                  const projectedYield = Number(poolStatus.user.projectedWeeklyYield || '0');
-                  
-                  // Projected referral bonus = projectedTotal - collectedTotal - projectedYield
-                  const projectedReferral = Math.max(0, projectedTotal - collectedTotal - projectedYield);
-                  
-                  const hasProjectedYield = projectedYield > 0;
-                  const hasProjectedReferral = projectedReferral > 0;
+                  // All values are now estimates based on current balance, APY, and opt-in%
+                  const estimatedYield = Number(poolStatus.user.estimatedYield || '0');
+                  const estimatedReferral = Number(poolStatus.user.estimatedReferralBonus || '0');
+                  const estimatedTotal = Number(poolStatus.user.estimatedTickets || '0');
                   
                   return (
                     <>
                       <div className="space-y-2">
-                        {/* Collected Yield */}
+                        {/* Estimated Yield Contribution */}
                         <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                           <div className="flex items-center gap-2">
                             <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">Collected yield</span>
+                            <span className="text-sm">Your yield contribution</span>
                           </div>
-                          <span className="font-medium" data-testid="text-collected-yield">
-                            {formatTickets(collectedYield)}
+                          <span className="font-medium" data-testid="text-yield-tickets">
+                            {formatTickets(estimatedYield)}
                           </span>
                         </div>
                         
-                        {/* Projected Yield (only show if > 0) */}
-                        {hasProjectedYield && (
-                          <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-dashed border-primary/20">
-                            <div className="flex items-center gap-2">
-                              <TrendingUp className="h-4 w-4 text-primary/60" />
-                              <span className="text-sm text-muted-foreground">+ Projected yield</span>
-                            </div>
-                            <span className="font-medium text-primary/80" data-testid="text-projected-yield">
-                              +{formatTickets(projectedYield)}
-                            </span>
-                          </div>
-                        )}
-                        
-                        {/* Collected Referral Bonus */}
+                        {/* Estimated Referral Bonus */}
                         <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                           <div className="flex items-center gap-2">
                             <Gift className="h-4 w-4 text-muted-foreground" />
                             <span className="text-sm">Referral bonus</span>
                           </div>
-                          <span className="font-medium" data-testid="text-collected-referral">
-                            +{formatTickets(collectedReferral)}
+                          <span className="font-medium" data-testid="text-referral-tickets">
+                            +{formatTickets(estimatedReferral)}
                           </span>
                         </div>
-                        
-                        {/* Projected Referral Bonus (only show if > 0) */}
-                        {hasProjectedReferral && (
-                          <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-dashed border-primary/20">
-                            <div className="flex items-center gap-2">
-                              <Gift className="h-4 w-4 text-primary/60" />
-                              <span className="text-sm text-muted-foreground">+ Projected referral bonus</span>
-                            </div>
-                            <span className="font-medium text-primary/80" data-testid="text-projected-referral">
-                              +{formatTickets(projectedReferral)}
-                            </span>
-                          </div>
-                        )}
                       </div>
                       
                       <div className="flex items-center justify-between pt-2 border-t">
-                        <span className="font-medium">
-                          {hasProjectedYield || hasProjectedReferral ? 'Estimated Total' : 'Total'}
-                        </span>
+                        <span className="font-medium">Estimated Total</span>
                         <span className="text-xl font-bold text-primary" data-testid="text-total-tickets">
-                          {formatTickets(projectedTotal > 0 ? projectedTotal : collectedTotal)}
+                          {formatTickets(estimatedTotal)}
                         </span>
                       </div>
+                      
+                      <p className="text-xs text-muted-foreground text-center">
+                        Final tickets calculated at weekly draw from live balances
+                      </p>
                     </>
                   );
                 })()}
@@ -1219,9 +1150,9 @@ export default function Pool() {
 
               {/* Cumulative Win Probability Curve */}
               {(() => {
-                // Use tickets data only - don't fall back to totalPool (wrong unit: $ vs tickets)
+                // Use estimated tickets for probability calculations
                 const totalPoolTickets = Number(poolStatus.draw.projectedTickets || poolStatus.draw.totalTickets || '0') / 1_000_000;
-                const userTickets = Number(poolStatus.user.projectedTickets || poolStatus.user.totalTickets || '0') / 1_000_000;
+                const userTickets = Number(poolStatus.user.estimatedTickets || '0') / 1_000_000;
                 const currentOdds = totalPoolTickets > 0 ? userTickets / totalPoolTickets : 0;
                 
                 // Calculate probability curves for different scenarios
@@ -1558,11 +1489,10 @@ export default function Pool() {
 
               {/* Fairness Dashboard */}
               {(() => {
-                // Calculate Lorenz curve and Gini coefficient
-                // For demonstration, we'll simulate distribution based on participant count
+                // Calculate Lorenz curve and Gini coefficient using estimated tickets
                 const participantCount = poolStatus?.draw?.participantCount || 0;
                 const totalTickets = Number(poolStatus?.draw?.totalTickets || poolStatus?.draw?.totalPool || 0) / 1_000_000;
-                const userTickets = Number(poolStatus?.user?.totalTickets || 0) / 1_000_000;
+                const userTickets = Number(poolStatus?.user?.estimatedTickets || 0) / 1_000_000;
                 
                 // Generate Lorenz curve data points
                 // Perfect equality line: y = x
@@ -1594,7 +1524,7 @@ export default function Pool() {
                 
                 // Referral network visualization
                 const referrals = poolStatus?.referral?.referralsList || [];
-                const referralBonusTickets = Number(poolStatus?.user?.referralBonusTickets || 0) / 1_000_000;
+                const referralBonusTickets = Number(poolStatus?.user?.estimatedReferralBonus || 0) / 1_000_000;
                 
                 return (
                   <Card className="p-4 space-y-3">

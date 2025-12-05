@@ -2654,7 +2654,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const draw = await getOrCreateCurrentDraw();
       const settings = await storage.getPoolSettings(normalizedAddress);
-      const contribution = await storage.getPoolContribution(draw.id, normalizedAddress);
       const referrals = await storage.getReferralsByReferrer(normalizedAddress);
       const yieldSnapshot = await storage.getYieldSnapshot(normalizedAddress);
       
@@ -2666,16 +2665,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const msUntilDraw = weekEnd.getTime() - now.getTime();
       const hoursUntilDraw = Math.floor(msUntilDraw / (1000 * 60 * 60));
       const minutesUntilDraw = Math.floor((msUntilDraw % (1000 * 60 * 60)) / (1000 * 60));
-      
-      // Calculate odds
-      const totalTickets = BigInt(draw.totalTickets || '0');
-      const yourTickets = BigInt(contribution?.totalTickets || '0');
-      const odds = totalTickets > 0n 
-        ? (Number(yourTickets) / Number(totalTickets) * 100).toFixed(2)
-        : '0.00';
-      
-      // Get total contributed all-time from yield snapshot
-      const totalContributedAllTime = yieldSnapshot?.totalYieldCollected || '0';
       
       // Calculate projected pool for this week (all users' expected yields)
       const projectedPoolData = await calculateProjectedPool();
@@ -2717,104 +2706,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Fallback to snapshot already set as default
       }
       
-      // === COMPREHENSIVE ESTIMATED ODDS CALCULATION ===
-      // Estimated odds = user's estimated tickets / pool's estimated tickets
-      // Each participant's estimated tickets = collected + projected yield + collected referral bonus + projected referral bonus
+      // === ESTIMATION-ONLY APPROACH ===
+      // All values are estimates until the weekly draw.
+      // Tickets are calculated from: live aUSDC balance × APY × opt-in% + referral bonuses
+      // No "collected" vs "projected" split - everything is purely estimated.
       
-      // 1. Get all pool contributions for current draw (collected data)
-      const allContributions = await storage.getPoolContributionsForDraw(draw.id);
-      
-      // Build map: address -> { collectedTickets, collectedReferralBonus }
-      const collectedMap = new Map<string, { tickets: number; referralBonus: number }>();
-      for (const c of allContributions) {
-        const addr = c.walletAddress.toLowerCase();
-        collectedMap.set(addr, {
-          tickets: Number(c.yieldContributed), // Yield contributed = base tickets
-          referralBonus: Number(c.referralBonusTickets || '0'),
-        });
-      }
-      
-      // 2. Get all referrals to build referee -> referrer map
+      // 1. Get all referrals to build referee -> referrer map
       const allReferrals = await storage.getAllReferrals();
       const refereeToReferrer = new Map<string, string>();
       for (const ref of allReferrals) {
         refereeToReferrer.set(ref.refereeAddress.toLowerCase(), ref.referrerAddress.toLowerCase());
       }
       
-      // 3. Build projected yields map from participant projections
-      const projectedYieldMap = new Map<string, number>();
+      // 2. Build estimated yields map from participant projections
+      // projectedPoolData.participantProjections contains live balance × APY × opt-in calculations
+      const estimatedYieldMap = new Map<string, number>();
       for (const projection of projectedPoolData.participantProjections) {
-        projectedYieldMap.set(projection.address.toLowerCase(), Number(projection.projectedYield));
+        estimatedYieldMap.set(projection.address.toLowerCase(), Number(projection.projectedYield));
       }
       
-      // 4. Calculate user's projected weekly yield (may not be in projections if no snapshot yet)
+      // 3. Calculate user's estimated weekly yield contribution
       const userOptIn = settings?.optInPercent ?? 0;
       const aUsdcBalanceNum = Number(aUsdcBalance);
-      const userProjectedWeeklyYield = projectedPoolData.apy > 0 && userOptIn > 0
+      const userEstimatedYield = projectedPoolData.apy > 0 && userOptIn > 0
         ? Math.floor(aUsdcBalanceNum * (projectedPoolData.apy / 100) / 52 * (userOptIn / 100))
         : 0;
       
-      // Add user to projected yield map if not already there
-      if (!projectedYieldMap.has(normalizedAddress) && userProjectedWeeklyYield > 0) {
-        projectedYieldMap.set(normalizedAddress, userProjectedWeeklyYield);
+      // Add/update user in estimated yield map
+      if (userEstimatedYield > 0) {
+        estimatedYieldMap.set(normalizedAddress, userEstimatedYield);
       }
       
-      // 5. Calculate projected referral bonuses for ALL referrers
-      // Each participant with a referrer generates 10% bonus for their referrer
-      const projectedReferralBonusMap = new Map<string, number>();
-      for (const [participantAddr, projectedYield] of projectedYieldMap) {
+      // 4. Calculate referral bonuses (10% of referee's yield goes to referrer)
+      const estimatedReferralBonusMap = new Map<string, number>();
+      for (const [participantAddr, estimatedYield] of estimatedYieldMap) {
         const referrerAddr = refereeToReferrer.get(participantAddr);
-        if (referrerAddr && projectedYield > 0) {
-          const bonus = Math.floor(projectedYield * 0.10);
-          projectedReferralBonusMap.set(referrerAddr, (projectedReferralBonusMap.get(referrerAddr) || 0) + bonus);
+        if (referrerAddr && estimatedYield > 0) {
+          const bonus = Math.floor(estimatedYield * 0.10);
+          estimatedReferralBonusMap.set(referrerAddr, (estimatedReferralBonusMap.get(referrerAddr) || 0) + bonus);
         }
       }
       
-      // 6. Collect all unique participant addresses
+      // 5. Collect all unique participant addresses
       const allParticipants = new Set<string>();
-      for (const addr of collectedMap.keys()) allParticipants.add(addr);
-      for (const addr of projectedYieldMap.keys()) allParticipants.add(addr);
-      for (const addr of projectedReferralBonusMap.keys()) allParticipants.add(addr);
+      for (const addr of estimatedYieldMap.keys()) allParticipants.add(addr);
+      for (const addr of estimatedReferralBonusMap.keys()) allParticipants.add(addr);
       
-      // 7. Calculate POOL TOTAL estimated tickets
+      // 6. Calculate POOL TOTAL estimated tickets
       let poolEstimatedTickets = 0;
       for (const addr of allParticipants) {
-        const collected = collectedMap.get(addr);
-        const collectedTickets = collected?.tickets || 0;
-        const collectedReferralBonus = collected?.referralBonus || 0;
-        const projectedYield = projectedYieldMap.get(addr) || 0;
-        const projectedReferralBonus = projectedReferralBonusMap.get(addr) || 0;
-        
-        poolEstimatedTickets += collectedTickets + collectedReferralBonus + projectedYield + projectedReferralBonus;
+        const estimatedYield = estimatedYieldMap.get(addr) || 0;
+        const estimatedReferralBonus = estimatedReferralBonusMap.get(addr) || 0;
+        poolEstimatedTickets += estimatedYield + estimatedReferralBonus;
       }
       
-      // 8. Calculate USER's estimated tickets
-      const userCollected = collectedMap.get(normalizedAddress);
-      const userCollectedTickets = userCollected?.tickets || 0;
-      const userCollectedReferralBonus = userCollected?.referralBonus || 0;
-      const userProjectedYield = projectedYieldMap.get(normalizedAddress) || 0;
-      const userProjectedReferralBonus = projectedReferralBonusMap.get(normalizedAddress) || 0;
+      // 7. Calculate USER's estimated tickets
+      const userEstimatedReferralBonus = estimatedReferralBonusMap.get(normalizedAddress) || 0;
+      const userEstimatedTickets = userEstimatedYield + userEstimatedReferralBonus;
       
-      const userEstimatedTickets = userCollectedTickets + userCollectedReferralBonus + userProjectedYield + userProjectedReferralBonus;
-      
-      // 9. Calculate estimated odds
+      // 8. Calculate estimated odds
       const estimatedOddsValue = poolEstimatedTickets > 0 && userEstimatedTickets > 0
         ? Math.min(100, userEstimatedTickets / poolEstimatedTickets * 100)
         : 0;
       const estimatedOdds = estimatedOddsValue.toFixed(2);
       
-      // === Legacy values for backward compatibility ===
-      const currentPoolNum = Number(draw.totalPool || '0');
+      // === Pool values ===
       const sponsoredPoolNum = Number(draw.sponsoredPool || '0');
       const projectedYieldNum = Number(projectedPoolData.projectedYield);
-      const projectedTotalPool = currentPoolNum + sponsoredPoolNum + projectedYieldNum;
-      const userCurrentTickets = Number(contribution?.totalTickets || '0');
-      const userProjectedTickets = userEstimatedTickets; // Use new calculation
-      const projectedTotalTickets = poolEstimatedTickets; // Use new calculation
-      const projectedOdds = estimatedOdds; // Use new calculation
+      const estimatedTotalPool = sponsoredPoolNum + projectedYieldNum;
       
-      // Total prize pool includes participant yield + sponsored donations
-      const totalPrizePool = currentPoolNum + sponsoredPoolNum;
+      // Total prize pool = sponsored donations + estimated yield from all participants
+      const totalPrizePool = estimatedTotalPool;
       
       res.json({
         draw: {
@@ -2822,36 +2784,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           weekNumber: draw.weekNumber,
           year: draw.year,
           status: draw.status,
-          totalPool: draw.totalPool, // Participant contributions only
-          totalPoolFormatted: (Number(draw.totalPool) / 1_000_000).toFixed(2),
+          totalPool: estimatedTotalPool.toString(), // Estimated pool (sponsored + projected yield)
+          totalPoolFormatted: (estimatedTotalPool / 1_000_000).toFixed(2),
           sponsoredPool: draw.sponsoredPool || '0', // Donations (no tickets)
           sponsoredPoolFormatted: (sponsoredPoolNum / 1_000_000).toFixed(2),
-          totalPrizePool: totalPrizePool.toString(), // Total prize = participant + sponsored
+          totalPrizePool: totalPrizePool.toString(), // Total prize = sponsored + estimated yield
           totalPrizePoolFormatted: (totalPrizePool / 1_000_000).toFixed(2),
-          totalTickets: draw.totalTickets, // Only from participants
+          totalTickets: poolEstimatedTickets.toString(), // Estimated total tickets
           participantCount: actualParticipantCount,
-          projectedPool: projectedTotalPool.toString(),
-          projectedPoolFormatted: (projectedTotalPool / 1_000_000).toFixed(2),
-          projectedTickets: projectedTotalTickets.toString(),
+          projectedPool: estimatedTotalPool.toString(),
+          projectedPoolFormatted: (estimatedTotalPool / 1_000_000).toFixed(2),
+          projectedTickets: poolEstimatedTickets.toString(),
           projectedYieldFromParticipants: projectedPoolData.projectedYield,
           projectedYieldFromParticipantsFormatted: projectedPoolData.projectedYieldFormatted,
         },
         user: {
           optInPercent: settings?.optInPercent ?? 0,
-          yieldContributed: contribution?.yieldContributed || '0',
-          yieldContributedFormatted: ((Number(contribution?.yieldContributed || '0') / 1_000_000)).toFixed(4),
-          referralBonusTickets: contribution?.referralBonusTickets || '0',
-          totalTickets: contribution?.totalTickets || '0',
-          odds,
-          projectedOdds,
-          projectedWeeklyYield: userProjectedWeeklyYield.toString(),
-          projectedWeeklyYieldFormatted: (userProjectedWeeklyYield / 1_000_000).toFixed(4),
-          projectedTickets: userProjectedTickets.toString(),
-          totalContributedAllTime,
-          totalContributedAllTimeFormatted: (Number(totalContributedAllTime) / 1_000_000).toFixed(4),
+          estimatedYield: userEstimatedYield.toString(), // User's estimated yield contribution
+          estimatedYieldFormatted: (userEstimatedYield / 1_000_000).toFixed(4),
+          estimatedReferralBonus: userEstimatedReferralBonus.toString(), // Referral bonus tickets
+          estimatedReferralBonusFormatted: (userEstimatedReferralBonus / 1_000_000).toFixed(4),
+          estimatedTickets: userEstimatedTickets.toString(), // Total estimated tickets
+          estimatedTicketsFormatted: (userEstimatedTickets / 1_000_000).toFixed(4),
+          estimatedOdds, // Estimated odds based on all estimations
           aUsdcBalance,
           aUsdcBalanceFormatted: (Number(aUsdcBalance) / 1_000_000).toFixed(2),
-          hasSnapshot: !!yieldSnapshot,
         },
         referral: {
           code: referralCode,
@@ -2880,6 +2837,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Set opt-in percentage
+  // NOTE: This endpoint now ONLY saves the opt-in percentage.
+  // All yield calculations are estimates until the weekly draw.
+  // Final ticket amounts are computed at draw time from live balances.
   app.post('/api/pool/opt-in', async (req, res) => {
     try {
       const { address, optInPercent } = req.body;
@@ -2891,108 +2851,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const normalizedAddress = address.toLowerCase();
       const roundedOptIn = Math.round(optInPercent);
       
-      // Save the opt-in percentage first
+      // Simply save the opt-in percentage - no yield collection
       await storage.upsertPoolSettings(normalizedAddress, roundedOptIn);
       
-      // If opting in (> 0%), try to collect any accrued yield immediately
-      let yieldCollected = '0';
-      let contributionMade = '0';
-      
-      if (roundedOptIn > 0) {
-        try {
-          // Get Celo aUSDC address
-          const celoNetwork = getNetworkByChainId(42220);
-          if (celoNetwork?.aUsdcAddress) {
-            const CELO_AUSDC_ADDRESS = getAddress(celoNetwork.aUsdcAddress);
-            
-            // Check if user has an existing snapshot
-            const existingSnapshot = await storage.getYieldSnapshot(normalizedAddress);
-            
-            // Create viem client for Celo
-            const client = createPublicClient({
-              chain: celo,
-              transport: http(),
-            });
-            
-            // Fetch current aUSDC balance
-            const userAddress = getAddress(normalizedAddress);
-            const currentBalance = await client.readContract({
-              address: CELO_AUSDC_ADDRESS,
-              abi: [{
-                inputs: [{ name: 'account', type: 'address' }],
-                name: 'balanceOf',
-                outputs: [{ name: '', type: 'uint256' }],
-                stateMutability: 'view',
-                type: 'function',
-              }],
-              functionName: 'balanceOf',
-              args: [userAddress],
-            });
-            
-            const currentBalanceBigInt = BigInt(currentBalance.toString());
-            
-            // If they have an existing snapshot with a valid balance, calculate yield
-            if (existingSnapshot && existingSnapshot.lastAusdcBalance && existingSnapshot.lastAusdcBalance !== '0') {
-              const lastBalanceBigInt = BigInt(existingSnapshot.lastAusdcBalance);
-              
-              // Only count positive yield (growth, not principal)
-              if (currentBalanceBigInt > lastBalanceBigInt) {
-                const yieldEarned = currentBalanceBigInt - lastBalanceBigInt;
-                yieldCollected = yieldEarned.toString();
-                
-                // Calculate contribution based on new opt-in percentage
-                const contribution = (yieldEarned * BigInt(roundedOptIn)) / 100n;
-                
-                if (contribution > 0n) {
-                  contributionMade = contribution.toString();
-                  
-                  // Get or create current draw
-                  const draw = await getOrCreateCurrentDraw();
-                  
-                  // Add contribution to pool
-                  await storage.addPoolContribution(draw.id, normalizedAddress, contribution.toString());
-                  
-                  // Update referrer's bonus tickets (10%)
-                  const referral = await storage.getReferralByReferee(normalizedAddress);
-                  if (referral) {
-                    const referrerBonus = contribution / 10n;
-                    if (referrerBonus > 0n) {
-                      await storage.addReferralBonus(draw.id, referral.referrerAddress, referrerBonus.toString());
-                    }
-                  }
-                  
-                  // Update draw totals
-                  await storage.updateDrawTotals(draw.id);
-                  
-                  console.log(`[Pool] Immediate yield collection for ${normalizedAddress}: yield=${yieldCollected}, contribution=${contributionMade}`);
-                }
-              }
-            }
-            
-            // Update snapshot with current balance (whether they had one or not)
-            const newTotalCollected = existingSnapshot 
-              ? (BigInt(existingSnapshot.totalYieldCollected || '0') + BigInt(contributionMade)).toString()
-              : contributionMade;
-              
-            await storage.upsertYieldSnapshot(normalizedAddress, {
-              lastAusdcBalance: currentBalanceBigInt.toString(),
-              lastCollectedAt: new Date(),
-              totalYieldCollected: newTotalCollected,
-            });
-          }
-        } catch (yieldError) {
-          // Log but don't fail the opt-in - yield collection is best-effort
-          console.error('[Pool] Error during immediate yield collection:', yieldError);
-        }
-      }
+      console.log(`[Pool] Updated opt-in for ${normalizedAddress}: ${roundedOptIn}%`);
       
       res.json({ 
         success: true, 
         optInPercent: roundedOptIn,
-        yieldCollected,
-        yieldCollectedFormatted: (Number(yieldCollected) / 1_000_000).toFixed(6),
-        contributionMade,
-        contributionMadeFormatted: (Number(contributionMade) / 1_000_000).toFixed(6),
       });
     } catch (error) {
       console.error('[Pool] Error setting opt-in:', error);
@@ -3450,6 +3316,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Run weekly draw
+  // NOTE: This now calculates tickets from LIVE balances at draw time.
+  // All values are estimated until this moment, when final tickets are computed.
   app.post('/api/admin/pool/draw', adminAuthMiddleware, async (req, res) => {
     try {
       const { weekNumber, year } = req.body;
@@ -3463,21 +3331,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Draw already completed' });
       }
       
-      // Get all contributions for this draw
-      const contributions = await storage.getPoolContributionsForDraw(draw.id);
+      // Get Celo aUSDC address
+      const celoNetwork = getNetworkByChainId(42220);
+      if (!celoNetwork?.aUsdcAddress) {
+        return res.status(500).json({ error: 'Celo aUSDC address not configured' });
+      }
+      const CELO_AUSDC_ADDRESS = getAddress(celoNetwork.aUsdcAddress);
       
-      if (contributions.length === 0) {
+      // Fetch current APY for yield calculation
+      const apy = await getCeloApy();
+      
+      if (apy === 0) {
+        return res.status(500).json({ error: 'Could not fetch APY for ticket calculation' });
+      }
+      
+      // Get all users with opt-in > 0
+      const allSettings = await storage.getAllPoolSettings();
+      const optedInUsers = allSettings.filter(s => s.optInPercent > 0);
+      
+      if (optedInUsers.length === 0) {
         return res.json({ 
           success: false, 
           message: 'No participants in this draw',
         });
       }
       
-      // Calculate total tickets and build weighted list
-      const totalTickets = contributions.reduce(
-        (sum, c) => sum + BigInt(c.totalTickets), 
-        0n
-      );
+      // Create client for balance reads
+      const client = createPublicClient({
+        chain: celo,
+        transport: http('https://forno.celo.org'),
+      });
+      
+      // Get all referrals for bonus calculation
+      const allReferrals = await storage.getAllReferrals();
+      const refereeToReferrer = new Map<string, string>();
+      for (const ref of allReferrals) {
+        refereeToReferrer.set(ref.refereeAddress.toLowerCase(), ref.referrerAddress.toLowerCase());
+      }
+      
+      // Calculate tickets for each participant from LIVE balances
+      const participantTickets: { address: string; yieldTickets: bigint; referralBonus: bigint; totalTickets: bigint }[] = [];
+      const yieldMap = new Map<string, bigint>(); // For referral bonus calculation
+      
+      for (const settings of optedInUsers) {
+        try {
+          const userAddress = getAddress(settings.walletAddress);
+          const balance = await client.readContract({
+            address: CELO_AUSDC_ADDRESS,
+            abi: [{
+              inputs: [{ name: 'account', type: 'address' }],
+              name: 'balanceOf',
+              outputs: [{ name: '', type: 'uint256' }],
+              stateMutability: 'view',
+              type: 'function',
+            }],
+            functionName: 'balanceOf',
+            args: [userAddress],
+          });
+          
+          const balanceNum = Number(balance.toString());
+          // Weekly yield = balance × APY / 52 × opt-in%
+          const weeklyYield = Math.floor(balanceNum * (apy / 100) / 52 * (settings.optInPercent / 100));
+          
+          if (weeklyYield > 0) {
+            yieldMap.set(settings.walletAddress.toLowerCase(), BigInt(weeklyYield));
+          }
+        } catch (error) {
+          console.error(`[Pool Draw] Error fetching balance for ${settings.walletAddress}:`, error);
+        }
+      }
+      
+      // Calculate referral bonuses (10% of referee's yield goes to referrer)
+      const referralBonusMap = new Map<string, bigint>();
+      for (const [participantAddr, yieldAmount] of yieldMap) {
+        const referrerAddr = refereeToReferrer.get(participantAddr);
+        if (referrerAddr && yieldAmount > 0n) {
+          const bonus = yieldAmount / 10n;
+          referralBonusMap.set(referrerAddr, (referralBonusMap.get(referrerAddr) || 0n) + bonus);
+        }
+      }
+      
+      // Build final participant list with total tickets
+      const allAddresses = new Set([...yieldMap.keys(), ...referralBonusMap.keys()]);
+      for (const addr of allAddresses) {
+        const yieldTickets = yieldMap.get(addr) || 0n;
+        const referralBonus = referralBonusMap.get(addr) || 0n;
+        const totalTickets = yieldTickets + referralBonus;
+        
+        if (totalTickets > 0n) {
+          participantTickets.push({
+            address: addr,
+            yieldTickets,
+            referralBonus,
+            totalTickets,
+          });
+        }
+      }
+      
+      if (participantTickets.length === 0) {
+        return res.json({ 
+          success: false, 
+          message: 'No participants with tickets in this draw',
+        });
+      }
+      
+      // Calculate total tickets
+      const totalTickets = participantTickets.reduce((sum, p) => sum + p.totalTickets, 0n);
+      
+      // Calculate total prize pool (sum of all yield + sponsored pool)
+      const totalYield = participantTickets.reduce((sum, p) => sum + p.yieldTickets, 0n);
+      const sponsoredPool = BigInt(draw.sponsoredPool || '0');
+      const totalPrizePool = totalYield + sponsoredPool;
       
       // Generate random number for selection
       const randomBytes = randomUUID().replace(/-/g, '');
@@ -3485,33 +3449,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Select winner using weighted random
       let cumulative = 0n;
-      let winner = contributions[0];
-      for (const contribution of contributions) {
-        cumulative += BigInt(contribution.totalTickets);
+      let winner = participantTickets[0];
+      for (const participant of participantTickets) {
+        cumulative += participant.totalTickets;
         if (randomBigInt < cumulative) {
-          winner = contribution;
+          winner = participant;
           break;
         }
       }
       
-      // Update draw with winner
+      // Update draw with winner and final totals
       await storage.completeDraw(draw.id, {
-        winnerAddress: winner.walletAddress,
-        winnerTickets: winner.totalTickets,
+        winnerAddress: winner.address,
+        winnerTickets: winner.totalTickets.toString(),
         winningNumber: randomBigInt.toString(),
+        totalPool: totalPrizePool.toString(),
+        totalTickets: totalTickets.toString(),
       });
+      
+      console.log(`[Pool Draw] Completed: winner=${winner.address}, tickets=${winner.totalTickets}, prize=${totalPrizePool}, participants=${participantTickets.length}`);
       
       res.json({
         success: true,
         winner: {
-          address: winner.walletAddress,
-          tickets: winner.totalTickets,
-          prize: draw.totalPool,
-          prizeFormatted: (Number(draw.totalPool) / 1_000_000).toFixed(2),
+          address: winner.address,
+          yieldTickets: winner.yieldTickets.toString(),
+          referralBonus: winner.referralBonus.toString(),
+          totalTickets: winner.totalTickets.toString(),
+          prize: totalPrizePool.toString(),
+          prizeFormatted: (Number(totalPrizePool) / 1_000_000).toFixed(2),
         },
-        totalParticipants: contributions.length,
+        totalParticipants: participantTickets.length,
         totalTickets: totalTickets.toString(),
+        totalPrizePool: totalPrizePool.toString(),
         winningNumber: randomBigInt.toString(),
+        apy,
       });
     } catch (error) {
       console.error('[Pool] Error running draw:', error);

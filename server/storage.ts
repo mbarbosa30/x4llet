@@ -2093,17 +2093,29 @@ export class DbStorage extends MemStorage {
     }
   }
 
-  async completeDraw(drawId: string, data: { winnerAddress: string; winnerTickets: string; winningNumber: string }): Promise<void> {
+  async completeDraw(drawId: string, data: { 
+    winnerAddress: string; 
+    winnerTickets: string; 
+    winningNumber: string; 
+    totalPool?: string;
+    totalTickets?: string;
+  }): Promise<void> {
     try {
+      const updateData: Record<string, unknown> = {
+        status: 'completed',
+        winnerAddress: data.winnerAddress,
+        winnerTickets: data.winnerTickets,
+        winningNumber: data.winningNumber,
+        drawnAt: new Date(),
+      };
+      
+      // Optionally update final pool and ticket totals (calculated at draw time)
+      if (data.totalPool) updateData.totalPool = data.totalPool;
+      if (data.totalTickets) updateData.totalTickets = data.totalTickets;
+      
       await db
         .update(poolDraws)
-        .set({
-          status: 'completed',
-          winnerAddress: data.winnerAddress,
-          winnerTickets: data.winnerTickets,
-          winningNumber: data.winningNumber,
-          drawnAt: new Date(),
-        })
+        .set(updateData)
         .where(eq(poolDraws.id, drawId));
     } catch (error) {
       console.error('[Pool] Error completing draw:', error);
