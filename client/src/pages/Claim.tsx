@@ -1122,26 +1122,13 @@ export default function Claim() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="space-y-3 pt-2">
+                    <div className="pt-2">
                       <div className="text-center">
                         <p className="text-xs text-muted-foreground mb-1">Next claim in</p>
                         <p className="text-2xl font-mono font-bold" data-testid="text-gd-countdown">
                           {countdown || '--:--:--'}
                         </p>
                       </div>
-                      <Button
-                        size="lg"
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => {
-                          refetchGdClaim();
-                          refetchGdBalance();
-                        }}
-                        data-testid="button-refresh-gd"
-                      >
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Refresh
-                      </Button>
                     </div>
                   )}
 
