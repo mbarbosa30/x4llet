@@ -1648,10 +1648,10 @@ export default function Pool() {
                   <span className="text-muted-foreground">Your aUSDC balance</span>
                   <span className="font-medium">${formatMicroUsdc(prepareData.currentBalance || '0')}</span>
                 </div>
-                {prepareData.apy > 0 && Number(prepareData.currentBalance) > 0 && (pendingOptInPercent ?? 0) > 0 && (
+                {(prepareData.apy ?? 0) > 0 && Number(prepareData.currentBalance) > 0 && (pendingOptInPercent ?? 0) > 0 && (
                   <>
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Est. weekly yield ({prepareData.apy.toFixed(1)}% APY)</span>
+                      <span className="text-muted-foreground">Est. weekly yield ({(prepareData.apy ?? 0).toFixed(1)}% APY)</span>
                       <span className="font-medium text-green-600">~${formatMicroUsdc(prepareData.estimatedWeeklyYield || '0')}</span>
                     </div>
                     <div className="border-t pt-2 mt-2">
