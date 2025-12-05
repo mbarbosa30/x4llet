@@ -780,7 +780,7 @@ export default function Pool() {
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground text-center">
-                          Growing at {celoApyData?.apy ? `${celoApyData.apy.toFixed(1)}%` : '~3%'} APY
+                          USDC pooling
                         </p>
                       </div>
                     );
