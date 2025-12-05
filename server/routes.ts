@@ -2717,76 +2717,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Fallback to snapshot already set as default
       }
       
-      // Calculate user's projected weekly yield contribution
+      // === COMPREHENSIVE ESTIMATED ODDS CALCULATION ===
+      // Estimated odds = user's estimated tickets / pool's estimated tickets
+      // Each participant's estimated tickets = collected + projected yield + collected referral bonus + projected referral bonus
+      
+      // 1. Get all pool contributions for current draw (collected data)
+      const allContributions = await storage.getPoolContributionsForDraw(draw.id);
+      
+      // Build map: address -> { collectedTickets, collectedReferralBonus }
+      const collectedMap = new Map<string, { tickets: number; referralBonus: number }>();
+      for (const c of allContributions) {
+        const addr = c.walletAddress.toLowerCase();
+        collectedMap.set(addr, {
+          tickets: Number(c.yieldContributed), // Yield contributed = base tickets
+          referralBonus: Number(c.referralBonusTickets || '0'),
+        });
+      }
+      
+      // 2. Get all referrals to build referee -> referrer map
+      const allReferrals = await storage.getAllReferrals();
+      const refereeToReferrer = new Map<string, string>();
+      for (const ref of allReferrals) {
+        refereeToReferrer.set(ref.refereeAddress.toLowerCase(), ref.referrerAddress.toLowerCase());
+      }
+      
+      // 3. Build projected yields map from participant projections
+      const projectedYieldMap = new Map<string, number>();
+      for (const projection of projectedPoolData.participantProjections) {
+        projectedYieldMap.set(projection.address.toLowerCase(), Number(projection.projectedYield));
+      }
+      
+      // 4. Calculate user's projected weekly yield (may not be in projections if no snapshot yet)
       const userOptIn = settings?.optInPercent ?? 0;
       const aUsdcBalanceNum = Number(aUsdcBalance);
       const userProjectedWeeklyYield = projectedPoolData.apy > 0 && userOptIn > 0
         ? Math.floor(aUsdcBalanceNum * (projectedPoolData.apy / 100) / 52 * (userOptIn / 100))
         : 0;
       
-      // Get all referrals to calculate actual referral bonuses
-      const allReferrals = await storage.getAllReferrals();
-      
-      // Build a map: referee address -> referrer address
-      const refereeToReferrer = new Map<string, string>();
-      for (const ref of allReferrals) {
-        refereeToReferrer.set(ref.refereeAddress.toLowerCase(), ref.referrerAddress.toLowerCase());
+      // Add user to projected yield map if not already there
+      if (!projectedYieldMap.has(normalizedAddress) && userProjectedWeeklyYield > 0) {
+        projectedYieldMap.set(normalizedAddress, userProjectedWeeklyYield);
       }
       
-      // Calculate total projected referral bonuses (only for participants who have referrers)
+      // 5. Calculate projected referral bonuses for ALL referrers
       // Each participant with a referrer generates 10% bonus for their referrer
-      let projectedReferralBonusTotal = 0;
-      const referrerBonusMap = new Map<string, number>(); // referrer -> their total projected bonus
-      
-      for (const projection of projectedPoolData.participantProjections) {
-        const participantAddress = projection.address.toLowerCase();
-        const referrerAddress = refereeToReferrer.get(participantAddress);
-        if (referrerAddress) {
-          const bonus = Math.floor(Number(projection.projectedYield) * 0.10);
-          projectedReferralBonusTotal += bonus;
-          referrerBonusMap.set(referrerAddress, (referrerBonusMap.get(referrerAddress) || 0) + bonus);
+      const projectedReferralBonusMap = new Map<string, number>();
+      for (const [participantAddr, projectedYield] of projectedYieldMap) {
+        const referrerAddr = refereeToReferrer.get(participantAddr);
+        if (referrerAddr && projectedYield > 0) {
+          const bonus = Math.floor(projectedYield * 0.10);
+          projectedReferralBonusMap.set(referrerAddr, (projectedReferralBonusMap.get(referrerAddr) || 0) + bonus);
         }
       }
       
-      // Calculate user's projected referral bonus (from their referrals' contributions)
-      const projectedReferralBonus = referrerBonusMap.get(normalizedAddress) || 0;
+      // 6. Collect all unique participant addresses
+      const allParticipants = new Set<string>();
+      for (const addr of collectedMap.keys()) allParticipants.add(addr);
+      for (const addr of projectedYieldMap.keys()) allParticipants.add(addr);
+      for (const addr of projectedReferralBonusMap.keys()) allParticipants.add(addr);
       
-      // Check if the user is already in participantProjections
-      const userInProjections = projectedPoolData.participantProjections.some(
-        p => p.address.toLowerCase() === normalizedAddress
-      );
+      // 7. Calculate POOL TOTAL estimated tickets
+      let poolEstimatedTickets = 0;
+      for (const addr of allParticipants) {
+        const collected = collectedMap.get(addr);
+        const collectedTickets = collected?.tickets || 0;
+        const collectedReferralBonus = collected?.referralBonus || 0;
+        const projectedYield = projectedYieldMap.get(addr) || 0;
+        const projectedReferralBonus = projectedReferralBonusMap.get(addr) || 0;
+        
+        poolEstimatedTickets += collectedTickets + collectedReferralBonus + projectedYield + projectedReferralBonus;
+      }
       
-      // Calculate projected pool total (current pool + projected new contributions + sponsored)
+      // 8. Calculate USER's estimated tickets
+      const userCollected = collectedMap.get(normalizedAddress);
+      const userCollectedTickets = userCollected?.tickets || 0;
+      const userCollectedReferralBonus = userCollected?.referralBonus || 0;
+      const userProjectedYield = projectedYieldMap.get(normalizedAddress) || 0;
+      const userProjectedReferralBonus = projectedReferralBonusMap.get(normalizedAddress) || 0;
+      
+      const userEstimatedTickets = userCollectedTickets + userCollectedReferralBonus + userProjectedYield + userProjectedReferralBonus;
+      
+      // 9. Calculate estimated odds
+      const estimatedOddsValue = poolEstimatedTickets > 0 && userEstimatedTickets > 0
+        ? Math.min(100, userEstimatedTickets / poolEstimatedTickets * 100)
+        : 0;
+      const estimatedOdds = estimatedOddsValue.toFixed(2);
+      
+      // === Legacy values for backward compatibility ===
       const currentPoolNum = Number(draw.totalPool || '0');
       const sponsoredPoolNum = Number(draw.sponsoredPool || '0');
-      let projectedYieldNum = Number(projectedPoolData.projectedYield);
-      
-      // If user is NOT in projections but has opt-in and yield, add their yield to the pool total
-      // This ensures consistency between userProjectedTickets and projectedTotalTickets
-      if (!userInProjections && userProjectedWeeklyYield > 0) {
-        projectedYieldNum += userProjectedWeeklyYield;
-        // Also check if this user has a referrer - if so, add their referral bonus to total
-        const userReferrer = refereeToReferrer.get(normalizedAddress);
-        if (userReferrer) {
-          const userBonus = Math.floor(userProjectedWeeklyYield * 0.10);
-          projectedReferralBonusTotal += userBonus;
-        }
-      }
-      
+      const projectedYieldNum = Number(projectedPoolData.projectedYield);
       const projectedTotalPool = currentPoolNum + sponsoredPoolNum + projectedYieldNum;
-      
-      // Calculate projected odds (tickets after user contributes their yield + referral bonus)
-      const currentTotalTickets = Number(draw.totalTickets || '0');
-      // Total projected tickets = current + new yield contributions + actual referral bonuses
-      const projectedTotalTickets = currentTotalTickets + projectedYieldNum + projectedReferralBonusTotal;
       const userCurrentTickets = Number(contribution?.totalTickets || '0');
-      // User's projected tickets include their yield + their projected referral bonus
-      const userProjectedTickets = userCurrentTickets + userProjectedWeeklyYield + projectedReferralBonus;
-      // Safety check: odds cannot exceed 100%
-      let projectedOddsValue = projectedTotalTickets > 0 && userProjectedTickets > 0
-        ? Math.min(100, userProjectedTickets / projectedTotalTickets * 100)
-        : Number(odds);
-      const projectedOdds = projectedOddsValue.toFixed(2);
+      const userProjectedTickets = userEstimatedTickets; // Use new calculation
+      const projectedTotalTickets = poolEstimatedTickets; // Use new calculation
+      const projectedOdds = estimatedOdds; // Use new calculation
       
       // Total prize pool includes participant yield + sponsored donations
       const totalPrizePool = currentPoolNum + sponsoredPoolNum;

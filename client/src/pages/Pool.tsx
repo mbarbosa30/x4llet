@@ -825,7 +825,7 @@ export default function Pool() {
                             {hasProjection ? projectedOdds.toFixed(2) : poolStatus.user.odds}%
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {hasProjection ? 'Projected win chance' : 'Win chance'}
+                            Estimated odds
                           </p>
                         </div>
                       );
