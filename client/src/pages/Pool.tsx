@@ -1172,43 +1172,33 @@ export default function Pool() {
                 </p>
               </Card>
 
-              {/* Facilitator Authorization Status */}
-              {optInPercent > 0 && (
-                <Card className={`p-3 space-y-2 ${poolStatus.user.facilitatorApproved ? 'border-green-500/30 bg-green-500/5' : 'border-amber-500/30 bg-amber-500/5'}`}>
+              {/* Facilitator Authorization Status - only show when NOT approved */}
+              {optInPercent > 0 && !poolStatus.user.facilitatorApproved && (
+                <Card className="p-3 space-y-2 border-amber-500/30 bg-amber-500/5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Shield className={`h-4 w-4 ${poolStatus.user.facilitatorApproved ? 'text-green-600' : 'text-amber-600'}`} />
+                      <Shield className="h-4 w-4 text-amber-600" />
                       <span className="text-sm font-medium">Yield Collection</span>
                     </div>
                     <Badge 
-                      variant={poolStatus.user.facilitatorApproved ? "default" : "secondary"}
-                      className={poolStatus.user.facilitatorApproved ? "bg-green-600" : "bg-amber-600 text-white"}
+                      variant="secondary"
+                      className="bg-amber-600 text-white"
                     >
-                      {poolStatus.user.facilitatorApproved ? "Authorized" : "Not Authorized"}
+                      Not Authorized
                     </Badge>
                   </div>
-                  {!poolStatus.user.facilitatorApproved && (
-                    <>
-                      <p className="text-xs text-muted-foreground">
-                        Authorize the pool to collect your weekly yield. Without this, you won't be included in the draw.
-                      </p>
-                      <Button 
-                        size="sm" 
-                        className="w-full" 
-                        onClick={() => setShowApprovalDialog(true)}
-                        data-testid="button-authorize-facilitator"
-                      >
-                        <Shield className="h-4 w-4 mr-2" />
-                        Authorize Collection
-                      </Button>
-                    </>
-                  )}
-                  {poolStatus.user.facilitatorApproved && poolStatus.user.approvalTxHash && (
-                    <p className="text-xs text-green-600/80 flex items-center gap-1">
-                      <Check className="h-3 w-3" />
-                      Approval confirmed on-chain
-                    </p>
-                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Authorize the pool to collect your weekly yield. Without this, you won't be included in the draw.
+                  </p>
+                  <Button 
+                    size="sm" 
+                    className="w-full" 
+                    onClick={() => setShowApprovalDialog(true)}
+                    data-testid="button-authorize-facilitator"
+                  >
+                    <Shield className="h-4 w-4 mr-2" />
+                    Authorize Collection
+                  </Button>
                 </Card>
               )}
 
