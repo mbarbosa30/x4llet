@@ -1418,7 +1418,7 @@ export default function Pool() {
                     <ChevronRight className="h-3 w-3 ml-1" />
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-xs">
+                <DialogContent>
                   <DialogHeader>
                     <DialogTitle className="text-center">Enter Code</DialogTitle>
                   </DialogHeader>
@@ -1744,7 +1744,7 @@ export default function Pool() {
       <Dialog open={showContributionDialog} onOpenChange={(open) => {
         if (!open && !contributionMutation.isPending && !contributionSuccess) cancelOptInChange();
       }}>
-        <DialogContent className="max-w-sm">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>
               {contributionSuccess ? "Success!" : prepareData?.isFirstTime ? "Join Prize Pool" : "Confirm Contribution"}
@@ -1862,56 +1862,39 @@ export default function Pool() {
       <Dialog open={showApprovalDialog} onOpenChange={(open) => {
         if (!open && !isApproving) setShowApprovalDialog(false);
       }}>
-        <DialogContent className="max-w-sm">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />
-              Authorize Yield Collection
+              Authorize Collection
             </DialogTitle>
             <DialogDescription>
-              Allow the prize pool to collect your weekly Aave yield contribution.
+              Allow the pool to collect your weekly yield contribution.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="bg-muted/50 rounded-lg p-3 space-y-2 text-sm">
-              <div className="flex items-start gap-2">
-                <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                <span>Limited to $10,000 total (covers ~1 year of yield)</span>
+          <div className="space-y-3">
+            <div className="bg-muted/50 rounded-lg p-3 space-y-1.5 text-xs">
+              <div className="flex items-center gap-2">
+                <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                <span>Limited to $10,000 (covers ~1 year)</span>
               </div>
-              <div className="flex items-start gap-2">
-                <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                <span>Only yield is collected, your savings are safe</span>
+              <div className="flex items-center gap-2">
+                <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                <span>Only yield collected, savings are safe</span>
               </div>
-              <div className="flex items-start gap-2">
-                <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                <span>You can revoke anytime via Celo explorer</span>
-              </div>
-            </div>
-
-            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 space-y-2">
-              <p className="text-xs font-medium text-amber-700 dark:text-amber-400">On-chain approval</p>
-              <p className="text-xs text-muted-foreground">
-                This transaction on Celo network approves the nanoPay facilitator to collect aUSDC from your wallet.
-              </p>
-              <div className="text-xs text-muted-foreground space-y-1 font-mono">
-                <div className="truncate" data-testid="text-facilitator-address">
-                  <span className="text-muted-foreground/70">Facilitator:</span>{' '}
-                  <span>0x2c696E...0363</span>
-                </div>
-                <div className="truncate" data-testid="text-ausdc-address">
-                  <span className="text-muted-foreground/70">aUSDC:</span>{' '}
-                  <span>0xFF8309...4785</span>
-                </div>
+              <div className="flex items-center gap-2">
+                <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                <span>Revokable anytime</span>
               </div>
             </div>
 
-            <div className="text-xs text-muted-foreground text-center">
-              Requires small amount of CELO for gas (~$0.001)
-            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              On-chain approval on Celo · Gas ~$0.001
+            </p>
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-3">
             <Button 
               variant="outline" 
               className="flex-1"
@@ -1933,10 +1916,7 @@ export default function Pool() {
                   Approving...
                 </>
               ) : (
-                <>
-                  <Shield className="h-4 w-4 mr-2" />
-                  Approve
-                </>
+                "Approve"
               )}
             </Button>
           </div>

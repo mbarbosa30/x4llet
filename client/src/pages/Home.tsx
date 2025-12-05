@@ -291,7 +291,7 @@ export default function Home() {
       </main>
 
       <Dialog open={!!selectedTransaction} onOpenChange={() => setSelectedTransaction(null)}>
-        <DialogContent className="max-w-xs">
+        <DialogContent>
           <DialogHeader className="text-center">
             <DialogTitle className="text-2xl font-bold">
               {selectedTransaction?.type === 'send' ? '-' : '+'}{formatAmount(selectedTransaction?.amount || '0')} USDC

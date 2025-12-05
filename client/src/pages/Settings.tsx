@@ -740,56 +740,48 @@ export default function Settings() {
       </Dialog>
 
       <Dialog open={showPasskeyDialog} onOpenChange={setShowPasskeyDialog}>
-        <DialogContent className="max-w-xs">
+        <DialogContent>
           <DialogHeader className="text-center">
             <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-2 ${passkeySupportStatus?.supported ? 'bg-primary/10' : 'bg-muted'}`}>
               <Fingerprint className={`h-6 w-6 ${passkeySupportStatus?.supported ? 'text-primary' : 'text-muted-foreground'}`} />
             </div>
             <DialogTitle>
               {!passkeySupportStatus?.supported 
-                ? 'Passkey Not Available'
+                ? 'Not Available'
                 : passkeyEnrolled 
                   ? 'Passkey Enabled' 
                   : 'Enable Passkey'}
             </DialogTitle>
             <DialogDescription>
               {!passkeySupportStatus?.supported
-                ? 'This feature requires specific browser support'
+                ? 'Requires specific browser support'
                 : passkeyEnrolled 
-                  ? 'Unlock your wallet instantly with Face ID or fingerprint' 
-                  : 'Use biometrics instead of typing your recovery code'}
+                  ? 'Unlock with Face ID or fingerprint' 
+                  : 'Use biometrics instead of recovery code'}
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-3 py-2">
+          <div className="space-y-3">
             {!passkeySupportStatus?.supported ? (
               <>
-                <div className="flex items-start gap-2 text-sm text-muted-foreground p-3 bg-destructive/10 rounded-lg border border-destructive/20">
+                <div className="flex items-start gap-2 text-xs text-muted-foreground p-3 bg-destructive/10 rounded-lg border border-destructive/20">
                   <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium text-destructive mb-1">
                       {passkeySupportStatus?.reason === 'no_prf' 
-                        ? 'Browser lacks PRF extension'
+                        ? 'Browser lacks PRF'
                         : passkeySupportStatus?.reason === 'no_platform_authenticator'
-                          ? 'No biometric authenticator'
+                          ? 'No biometric available'
                           : 'WebAuthn not supported'}
                     </p>
-                    <p className="text-xs">
+                    <p>
                       {passkeySupportStatus?.reason === 'no_prf' 
-                        ? 'Passkey unlock requires the WebAuthn PRF extension which is not available in this browser. Safari/iOS and some browsers do not support this yet.'
+                        ? 'Safari/iOS and some browsers don\'t support this yet.'
                         : passkeySupportStatus?.reason === 'no_platform_authenticator'
-                          ? 'Your device does not have a biometric authenticator (Face ID, Touch ID, or fingerprint) available.'
-                          : 'Your browser does not support WebAuthn, which is required for passkey unlock.'}
+                          ? 'No Face ID, Touch ID, or fingerprint available.'
+                          : 'Your browser doesn\'t support WebAuthn.'}
                     </p>
                   </div>
-                </div>
-                <div className="text-xs text-muted-foreground p-3 bg-muted rounded-lg">
-                  <p className="font-medium mb-1">Supported browsers:</p>
-                  <ul className="list-disc list-inside space-y-0.5">
-                    <li>Chrome 116+ (Desktop & Android)</li>
-                    <li>Edge 116+</li>
-                    <li>Android with fingerprint</li>
-                  </ul>
                 </div>
                 <Button
                   variant="outline"
@@ -804,7 +796,7 @@ export default function Settings() {
               <>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 bg-muted rounded-lg">
                   <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                  <span>Passkey is active on this device</span>
+                  <span>Passkey active on this device</span>
                 </div>
                 <Button
                   variant="outline"
@@ -828,18 +820,18 @@ export default function Settings() {
               </>
             ) : (
               <>
-                <div className="space-y-2 text-xs text-muted-foreground">
-                  <div className="flex items-start gap-2">
-                    <Check className="h-3 w-3 mt-0.5 text-primary flex-shrink-0" />
-                    <span>Unlock instantly with Face ID or fingerprint</span>
+                <div className="space-y-1.5 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <Check className="h-3 w-3 text-primary flex-shrink-0" />
+                    <span>Instant unlock with biometrics</span>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <Check className="h-3 w-3 mt-0.5 text-primary flex-shrink-0" />
-                    <span>Recovery code still works as backup</span>
+                  <div className="flex items-center gap-2">
+                    <Check className="h-3 w-3 text-primary flex-shrink-0" />
+                    <span>Recovery code still works</span>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <Check className="h-3 w-3 mt-0.5 text-primary flex-shrink-0" />
-                    <span>Stored securely on your device</span>
+                  <div className="flex items-center gap-2">
+                    <Check className="h-3 w-3 text-primary flex-shrink-0" />
+                    <span>Stored securely on device</span>
                   </div>
                 </div>
                 <Button
