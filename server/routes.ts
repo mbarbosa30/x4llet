@@ -2607,13 +2607,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Calculate ACTUAL interest earned by a user from Aave
-  // Formula: interest = current aUSDC balance - net deposits (tracked in database)
-  // This gives the exact unrealized yield
+  // Uses database-tracked deposits/withdrawals as principal (net deposits)
+  // interest = current aUSDC balance - principal
   interface AaveUserInterest {
-    totalBalance: bigint;      // aUSDC balanceOf (current value including interest)
-    principal: bigint;         // Net deposits (deposits - withdrawals) from database
-    interest: bigint;          // totalBalance - principal (unrealized earned yield)
-    trackingStarted: string | null; // When we started tracking this user's deposits
+    totalBalance: bigint;               // aUSDC balanceOf (current value including interest)
+    trackedPrincipal: bigint;           // Net deposits from database (deposits - withdrawals)
+    effectivePrincipal: bigint;         // Principal used for calculations (adjusted for external withdrawals)
+    interest: bigint;                   // totalBalance - effectivePrincipal (unrealized earned yield)
+    hasTrackingData: boolean;           // Whether we have deposit/withdrawal records
+    externalWithdrawalDetected: boolean; // True when balance < tracked principal (external withdrawal)
   }
   
   async function getAaveUserInterest(userAddress: string): Promise<AaveUserInterest | null> {
@@ -2645,23 +2647,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get Celo chain data (chainId 42220)
       const celoData = netPrincipalData.find(d => d.chainId === 42220);
-      const principal = BigInt(celoData?.netPrincipalMicro || '0');
-      const trackingStarted = celoData?.trackingStarted || null;
+      const trackedPrincipal = BigInt(celoData?.netPrincipalMicro || '0');
+      const hasTrackingData = celoData?.trackingStarted !== null;
 
-      // If no tracking data exists but user has balance, we can't calculate interest accurately
-      // In this case, return interest = 0 to avoid overstating (conservative approach)
+      // Detect external withdrawals: when on-chain balance < tracked deposits
+      const externalWithdrawalDetected = hasTrackingData && trackedPrincipal > 0n && totalBalance < trackedPrincipal;
+
+      // Calculate effective principal and interest
+      // If external withdrawal detected, we use current balance as effective principal
+      // (we can't track withdrawals made outside our app, so reset to current balance)
+      let effectivePrincipal: bigint;
       let interest = 0n;
-      if (trackingStarted && principal > 0n) {
-        // We have tracking data - calculate interest as balance minus principal
-        interest = totalBalance > principal ? totalBalance - principal : 0n;
+
+      if (!hasTrackingData) {
+        // No tracking data - treat current balance as principal
+        effectivePrincipal = totalBalance;
+        console.log(`[Pool] User ${userAddress.slice(0, 8)}... has aUSDC but no deposit tracking`);
+      } else if (externalWithdrawalDetected) {
+        // External withdrawal detected - use current balance as principal
+        // Interest is unknown since we can't track the withdrawal
+        effectivePrincipal = totalBalance;
+        console.log(`[Pool] User ${userAddress.slice(0, 8)}... external withdrawal detected (tracked: ${trackedPrincipal}, balance: ${totalBalance})`);
+      } else if (trackedPrincipal > 0n) {
+        // Normal case - tracked principal is valid
+        effectivePrincipal = trackedPrincipal;
+        interest = totalBalance > trackedPrincipal ? totalBalance - trackedPrincipal : 0n;
+      } else {
+        // No deposits tracked
+        effectivePrincipal = 0n;
       }
-      // If trackingStarted is null (no deposits recorded), interest stays 0
 
       return {
         totalBalance,
-        principal,
+        trackedPrincipal,
+        effectivePrincipal,
         interest,
-        trackingStarted,
+        hasTrackingData,
+        externalWithdrawalDetected,
       };
     } catch (error) {
       console.error('[Pool] Error fetching Aave user interest:', error);
@@ -2704,22 +2726,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // Get Celo chain data (chainId 42220)
           const celoData = netPrincipalData.find(d => d.chainId === 42220);
-          const principal = BigInt(celoData?.netPrincipalMicro || '0');
-          const trackingStarted = celoData?.trackingStarted || null;
-          
-          // If no tracking data exists, return interest = 0 (conservative approach)
+          const trackedPrincipal = BigInt(celoData?.netPrincipalMicro || '0');
+          const hasTrackingData = celoData?.trackingStarted !== null;
+
+          // Detect external withdrawals
+          const externalWithdrawalDetected = hasTrackingData && trackedPrincipal > 0n && totalBalance < trackedPrincipal;
+
+          // Calculate effective principal and interest
+          let effectivePrincipal: bigint;
           let interest = 0n;
-          if (trackingStarted && principal > 0n) {
-            interest = totalBalance > principal ? totalBalance - principal : 0n;
+
+          if (!hasTrackingData) {
+            effectivePrincipal = totalBalance;
+          } else if (externalWithdrawalDetected) {
+            effectivePrincipal = totalBalance;
+          } else if (trackedPrincipal > 0n) {
+            effectivePrincipal = trackedPrincipal;
+            interest = totalBalance > trackedPrincipal ? totalBalance - trackedPrincipal : 0n;
+          } else {
+            effectivePrincipal = 0n;
           }
 
           return {
             address: addr.toLowerCase(),
             data: {
               totalBalance,
-              principal,
+              trackedPrincipal,
+              effectivePrincipal,
               interest,
-              trackingStarted,
+              hasTrackingData,
+              externalWithdrawalDetected,
             },
           };
         } catch (e) {
@@ -2743,7 +2779,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Calculate ACTUAL pool from all opted-in users using real Aave interest data
-  // Uses net deposits (deposits - withdrawals) from database to determine principal
+  // Uses database-tracked deposits/withdrawals to determine principal
   async function calculateActualPool(): Promise<{
     totalYield: string;
     totalYieldFormatted: string;
@@ -2816,7 +2852,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           participantData.push({
             address: snapshot.walletAddress,
             totalBalance: interestData.totalBalance.toString(),
-            principal: interestData.principal.toString(),
+            principal: interestData.effectivePrincipal.toString(),
             totalAccruedInterest: totalAccrued.toString(),
             weeklyYield: weeklyYield.toString(),
             optInPercent: snapshot.optInPercent,
@@ -2870,8 +2906,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch user's ACTUAL interest data from Aave (principal vs interest)
       const userInterestData = await getAaveUserInterest(normalizedAddress);
       const aUsdcBalance = userInterestData?.totalBalance.toString() || '0';
-      const userPrincipal = userInterestData?.principal.toString() || '0';
+      const userPrincipal = userInterestData?.effectivePrincipal.toString() || '0';
       const userTotalAccruedInterest = userInterestData?.interest || 0n;
+      const externalWithdrawalDetected = userInterestData?.externalWithdrawalDetected || false;
       
       // === WEEKLY YIELD CALCULATION ===
       // First week: use total accrued interest
@@ -3014,6 +3051,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           facilitatorApproved: settings?.facilitatorApproved ?? false,
           approvalTxHash: settings?.approvalTxHash ?? null,
           isFirstWeek, // Indicates if this is user's first week in the pool
+          externalWithdrawalDetected, // True if user withdrew outside our app
           // ACTUAL values (from Aave)
           totalAccruedInterest: userTotalAccruedInterest.toString(), // Total interest ever earned
           totalAccruedInterestFormatted: (Number(userTotalAccruedInterest) / 1_000_000).toFixed(4),
@@ -3028,7 +3066,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           odds, // Odds based on actual yields
           aUsdcBalance,
           aUsdcBalanceFormatted: (Number(aUsdcBalance) / 1_000_000).toFixed(2),
-          principal: userPrincipal, // User's principal (from scaledBalanceOf)
+          principal: userPrincipal, // User's principal (effective, adjusted for external withdrawals)
           principalFormatted: (Number(userPrincipal) / 1_000_000).toFixed(2),
           // ESTIMATED values (APY-based projections)
           estimatedAdditionalYield: (estimatedAdditionalYield * 1_000_000).toFixed(0),
@@ -3348,8 +3386,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const totalBalance = interestData.totalBalance;
-      const principal = interestData.principal;
+      const principal = interestData.effectivePrincipal;
       const actualInterest = interestData.interest;
+      const externalWithdrawalDetected = interestData.externalWithdrawalDetected;
       
       // Calculate contribution based on actual interest and opt-in percentage
       const contribution = optInPercent > 0 && actualInterest > 0n
@@ -3360,6 +3399,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: true,
         isFirstTime,
+        externalWithdrawalDetected,
         // Balance breakdown
         totalBalance: totalBalance.toString(),
         totalBalanceFormatted: (Number(totalBalance) / 1_000_000).toFixed(2),
@@ -3374,11 +3414,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         contributionFormatted: (Number(contribution) / 1_000_000).toFixed(4),
         keep: keep.toString(),
         keepFormatted: (Number(keep) / 1_000_000).toFixed(4),
-        message: isFirstTime
-          ? (totalBalance > 0n 
-              ? 'Set your yield contribution. Your actual earned interest will be collected at the weekly draw.'
-              : 'Deposit USDC to Aave on Celo to start earning interest for the pool.')
-          : 'Update your yield contribution percentage.',
+        message: externalWithdrawalDetected
+          ? 'External withdrawal detected. Interest tracking reset - deposit again through nanoPay for accurate tracking.'
+          : isFirstTime
+            ? (totalBalance > 0n 
+                ? 'Set your yield contribution. Your actual earned interest will be collected at the weekly draw.'
+                : 'Deposit USDC to Aave on Celo to start earning interest for the pool.')
+            : 'Update your yield contribution percentage.',
       });
     } catch (error: unknown) {
       console.error('[Pool] Error preparing contribution:', error);
@@ -3658,7 +3700,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           participantData.push({
             address: addr,
             totalBalance: interestData.totalBalance,
-            principal: interestData.principal,
+            principal: interestData.effectivePrincipal,
             actualInterest: totalAccrued,
             weeklyYield,
             contribution,

@@ -69,7 +69,7 @@ export const AAVE_POOL_ABI = [
   },
 ] as const;
 
-// aToken-specific ABI (includes scaledBalanceOf for principal tracking)
+// aToken-specific ABI for Aave V3 balance queries
 export const ATOKEN_ABI = [
   {
     name: 'balanceOf',
