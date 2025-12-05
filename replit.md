@@ -72,10 +72,13 @@ Multi-chain UX includes aggregated USDC balance display, chain badges for transa
 - Admin endpoint `/api/admin/pool/draw` for executing weekly draws with on-chain yield collection and prize transfer
 - Dry run mode supported via `dryRun: true` parameter
 
-**Pool Architecture - Estimation-Only Model (Celo-Only)**:
-- All values displayed are **estimates** until the weekly draw when final tickets are calculated
-- Tickets computed at draw time: `live aUSDC balance × APY/52 × opt-in%` + referral bonuses
-- No mid-week transfers; all calculations are from live on-chain balances
+**Pool Architecture - Actual Interest Model (Celo-Only)**:
+- Uses Aave's `scaledBalanceOf()` and `liquidityIndex` to calculate **actual earned interest** (not APY estimates)
+- Formula: `interest = balanceOf() - (scaledBalanceOf() × liquidityIndex / 1e27)` where scaledBalanceOf represents principal
+- Tickets calculation: `tickets = actualInterest × optInPercent + referralBonus`
+- Helper functions in `shared/aave.ts`: `getAaveUserInterest()` and `getAaveUsersInterest()` for batched queries
+- ATOKEN_ABI includes `scaledBalanceOf` method for precise principal tracking
+- No mid-week transfers; all calculations are from live on-chain balances at draw time
 - Celo aUSDC address: 0xFF8309b9e99bfd2D4021bc71a362aBD93dBd4785 (from shared/networks.ts)
 - **Sponsored Pool**: Donations increase prize pool but do NOT add tickets. Stored separately in `sponsoredPool` column.
 

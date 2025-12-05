@@ -2735,72 +2735,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return results;
   }
 
-  // Calculate projected weekly pool from all opted-in users
-  async function calculateProjectedPool(): Promise<{
-    projectedYield: string;
-    projectedYieldFormatted: string;
-    participantProjections: Array<{
+  // Calculate ACTUAL pool from all opted-in users using real Aave interest data
+  // Uses scaledBalanceOf to determine exact principal and actual interest earned
+  async function calculateActualPool(): Promise<{
+    totalYield: string;
+    totalYieldFormatted: string;
+    participantData: Array<{
       address: string;
-      aUsdcBalance: string;
+      totalBalance: string;
+      principal: string;
+      actualInterest: string;
       optInPercent: number;
-      projectedYield: string;
+      contribution: string; // interest × opt-in%
     }>;
-    apy: number;
   }> {
     try {
-      const [snapshotsWithOptIn, apy] = await Promise.all([
-        storage.getYieldSnapshotsWithOptIn(),
-        getCeloApy(),
-      ]);
+      const snapshotsWithOptIn = await storage.getYieldSnapshotsWithOptIn();
 
-      if (apy === 0 || snapshotsWithOptIn.length === 0) {
+      if (snapshotsWithOptIn.length === 0) {
         return {
-          projectedYield: '0',
-          projectedYieldFormatted: '0.00',
-          participantProjections: [],
-          apy: 0,
+          totalYield: '0',
+          totalYieldFormatted: '0.00',
+          participantData: [],
         };
       }
 
-      let totalProjectedYield = 0n;
-      const participantProjections: Array<{
+      // Get actual interest for all opted-in users
+      const addresses = snapshotsWithOptIn.map(s => s.walletAddress);
+      const interestMap = await getAaveUsersInterest(addresses);
+
+      let totalContributions = 0n;
+      const participantData: Array<{
         address: string;
-        aUsdcBalance: string;
+        totalBalance: string;
+        principal: string;
+        actualInterest: string;
         optInPercent: number;
-        projectedYield: string;
+        contribution: string;
       }> = [];
 
       for (const snapshot of snapshotsWithOptIn) {
-        const aUsdcBalance = BigInt(snapshot.lastAusdcBalance || '0');
-        if (aUsdcBalance === 0n) continue;
+        const addr = snapshot.walletAddress.toLowerCase();
+        const interestData = interestMap.get(addr);
+        
+        if (!interestData || interestData.interest === 0n) continue;
 
-        // Weekly yield = aUSDC_balance × (APY/100) / 52 × (optInPercent/100)
-        // Use micro-USDC precision (6 decimals)
-        const weeklyYieldMicro = Number(aUsdcBalance) * (apy / 100) / 52 * (snapshot.optInPercent / 100);
-        const projectedYieldMicro = BigInt(Math.floor(weeklyYieldMicro));
-
-        totalProjectedYield += projectedYieldMicro;
-        participantProjections.push({
-          address: snapshot.walletAddress,
-          aUsdcBalance: aUsdcBalance.toString(),
-          optInPercent: snapshot.optInPercent,
-          projectedYield: projectedYieldMicro.toString(),
-        });
+        // Contribution = actual interest × opt-in%
+        const contribution = (interestData.interest * BigInt(snapshot.optInPercent)) / 100n;
+        
+        if (contribution > 0n) {
+          totalContributions += contribution;
+          participantData.push({
+            address: snapshot.walletAddress,
+            totalBalance: interestData.totalBalance.toString(),
+            principal: interestData.principal.toString(),
+            actualInterest: interestData.interest.toString(),
+            optInPercent: snapshot.optInPercent,
+            contribution: contribution.toString(),
+          });
+        }
       }
 
       return {
-        projectedYield: totalProjectedYield.toString(),
-        projectedYieldFormatted: (Number(totalProjectedYield) / 1_000_000).toFixed(4),
-        participantProjections,
-        apy,
+        totalYield: totalContributions.toString(),
+        totalYieldFormatted: (Number(totalContributions) / 1_000_000).toFixed(4),
+        participantData,
       };
     } catch (error) {
-      console.error('[Pool] Error calculating projected pool:', error);
+      console.error('[Pool] Error calculating actual pool:', error);
       return {
-        projectedYield: '0',
-        projectedYieldFormatted: '0.00',
-        participantProjections: [],
-        apy: 0,
+        totalYield: '0',
+        totalYieldFormatted: '0.00',
+        participantData: [],
       };
     }
   }
@@ -2814,7 +2820,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const draw = await getOrCreateCurrentDraw();
       const settings = await storage.getPoolSettings(normalizedAddress);
       const referrals = await storage.getReferralsByReferrer(normalizedAddress);
-      const yieldSnapshot = await storage.getYieldSnapshot(normalizedAddress);
       
       // Get referral code (generate if doesn't exist)
       const referralCode = generateReferralCode(normalizedAddress);
@@ -2825,50 +2830,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hoursUntilDraw = Math.floor(msUntilDraw / (1000 * 60 * 60));
       const minutesUntilDraw = Math.floor((msUntilDraw % (1000 * 60 * 60)) / (1000 * 60));
       
-      // Calculate projected pool for this week (all users' expected yields)
-      const projectedPoolData = await calculateProjectedPool();
+      // Calculate ACTUAL pool from real Aave interest data (using scaledBalanceOf)
+      const actualPoolData = await calculateActualPool();
       
       // Get actual participant count (all users with opt-in > 0, regardless of yield collection)
       const actualParticipantCount = await storage.getOptedInParticipantCount();
       
-      // Fetch LIVE aUSDC balance from Celo chain (don't rely on snapshot)
-      let aUsdcBalance = yieldSnapshot?.lastAusdcBalance || '0';
-      try {
-        const celoNetwork = getNetworkByChainId(42220);
-        if (celoNetwork?.aUsdcAddress) {
-          const CELO_AUSDC_ADDRESS = getAddress(celoNetwork.aUsdcAddress);
-          // Use normalizedAddress which is already validated above
-          const userAddress = getAddress(normalizedAddress);
-          
-          const client = createPublicClient({
-            chain: celo,
-            transport: http('https://forno.celo.org'),
-          });
-          
-          const liveBalance = await client.readContract({
-            address: CELO_AUSDC_ADDRESS,
-            abi: [{
-              inputs: [{ name: 'account', type: 'address' }],
-              name: 'balanceOf',
-              outputs: [{ name: '', type: 'uint256' }],
-              stateMutability: 'view',
-              type: 'function',
-            }],
-            functionName: 'balanceOf',
-            args: [userAddress],
-          });
-          
-          aUsdcBalance = liveBalance.toString();
-        }
-      } catch (balanceError) {
-        console.error('[Pool] Error fetching live aUSDC balance:', balanceError);
-        // Fallback to snapshot already set as default
-      }
+      // Fetch user's ACTUAL interest data from Aave (principal vs interest)
+      const userInterestData = await getAaveUserInterest(normalizedAddress);
+      const aUsdcBalance = userInterestData?.totalBalance.toString() || '0';
+      const userPrincipal = userInterestData?.principal.toString() || '0';
+      const userActualInterest = userInterestData?.interest || 0n;
       
-      // === ESTIMATION-ONLY APPROACH ===
-      // All values are estimates until the weekly draw.
-      // Tickets are calculated from: live aUSDC balance × APY × opt-in% + referral bonuses
-      // No "collected" vs "projected" split - everything is purely estimated.
+      // === ACTUAL YIELD APPROACH ===
+      // Tickets are calculated from: ACTUAL earned interest × opt-in% + referral bonuses
+      // This uses Aave's scaledBalanceOf to determine exact principal and interest.
       
       // 1. Get all referrals to build referee -> referrer map
       const allReferrals = await storage.getAllReferrals();
@@ -2877,65 +2853,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
         refereeToReferrer.set(ref.refereeAddress.toLowerCase(), ref.referrerAddress.toLowerCase());
       }
       
-      // 2. Build estimated yields map from participant projections
-      // projectedPoolData.participantProjections contains live balance × APY × opt-in calculations
-      const estimatedYieldMap = new Map<string, number>();
-      for (const projection of projectedPoolData.participantProjections) {
-        estimatedYieldMap.set(projection.address.toLowerCase(), Number(projection.projectedYield));
+      // 2. Build contribution map from actual pool data
+      const contributionMap = new Map<string, bigint>();
+      for (const participant of actualPoolData.participantData) {
+        contributionMap.set(participant.address.toLowerCase(), BigInt(participant.contribution));
       }
       
-      // 3. Calculate user's estimated weekly yield contribution
+      // 3. Calculate user's contribution (actual interest × opt-in%)
       const userOptIn = settings?.optInPercent ?? 0;
-      const aUsdcBalanceNum = Number(aUsdcBalance);
-      const userEstimatedYield = projectedPoolData.apy > 0 && userOptIn > 0
-        ? Math.floor(aUsdcBalanceNum * (projectedPoolData.apy / 100) / 52 * (userOptIn / 100))
-        : 0;
+      const userContribution = userOptIn > 0 && userActualInterest > 0n
+        ? (userActualInterest * BigInt(userOptIn)) / 100n
+        : 0n;
       
-      // Add/update user in estimated yield map
-      if (userEstimatedYield > 0) {
-        estimatedYieldMap.set(normalizedAddress, userEstimatedYield);
+      // Add/update user in contribution map
+      if (userContribution > 0n) {
+        contributionMap.set(normalizedAddress, userContribution);
       }
       
-      // 4. Calculate referral bonuses (10% of referee's yield goes to referrer)
-      const estimatedReferralBonusMap = new Map<string, number>();
-      for (const [participantAddr, estimatedYield] of estimatedYieldMap) {
+      // 4. Calculate referral bonuses (10% of referee's contribution goes to referrer)
+      const referralBonusMap = new Map<string, bigint>();
+      for (const [participantAddr, contribution] of contributionMap) {
         const referrerAddr = refereeToReferrer.get(participantAddr);
-        if (referrerAddr && estimatedYield > 0) {
-          const bonus = Math.floor(estimatedYield * 0.10);
-          estimatedReferralBonusMap.set(referrerAddr, (estimatedReferralBonusMap.get(referrerAddr) || 0) + bonus);
+        if (referrerAddr && contribution > 0n) {
+          const bonus = contribution / 10n; // 10%
+          referralBonusMap.set(referrerAddr, (referralBonusMap.get(referrerAddr) || 0n) + bonus);
         }
       }
       
       // 5. Collect all unique participant addresses
       const allParticipants = new Set<string>();
-      for (const addr of estimatedYieldMap.keys()) allParticipants.add(addr);
-      for (const addr of estimatedReferralBonusMap.keys()) allParticipants.add(addr);
+      for (const addr of contributionMap.keys()) allParticipants.add(addr);
+      for (const addr of referralBonusMap.keys()) allParticipants.add(addr);
       
-      // 6. Calculate POOL TOTAL estimated tickets
-      let poolEstimatedTickets = 0;
+      // 6. Calculate POOL TOTAL tickets
+      let poolTotalTickets = 0n;
       for (const addr of allParticipants) {
-        const estimatedYield = estimatedYieldMap.get(addr) || 0;
-        const estimatedReferralBonus = estimatedReferralBonusMap.get(addr) || 0;
-        poolEstimatedTickets += estimatedYield + estimatedReferralBonus;
+        const contribution = contributionMap.get(addr) || 0n;
+        const referralBonus = referralBonusMap.get(addr) || 0n;
+        poolTotalTickets += contribution + referralBonus;
       }
       
-      // 7. Calculate USER's estimated tickets
-      const userEstimatedReferralBonus = estimatedReferralBonusMap.get(normalizedAddress) || 0;
-      const userEstimatedTickets = userEstimatedYield + userEstimatedReferralBonus;
+      // 7. Calculate USER's tickets
+      const userReferralBonus = referralBonusMap.get(normalizedAddress) || 0n;
+      const userTotalTickets = userContribution + userReferralBonus;
       
-      // 8. Calculate estimated odds
-      const estimatedOddsValue = poolEstimatedTickets > 0 && userEstimatedTickets > 0
-        ? Math.min(100, userEstimatedTickets / poolEstimatedTickets * 100)
+      // 8. Calculate odds
+      const oddsValue = poolTotalTickets > 0n && userTotalTickets > 0n
+        ? Number((userTotalTickets * 10000n) / poolTotalTickets) / 100 // 2 decimal precision
         : 0;
-      const estimatedOdds = estimatedOddsValue.toFixed(2);
+      const odds = oddsValue.toFixed(2);
       
       // === Pool values ===
       const sponsoredPoolNum = Number(draw.sponsoredPool || '0');
-      const projectedYieldNum = Number(projectedPoolData.projectedYield);
-      const estimatedTotalPool = sponsoredPoolNum + projectedYieldNum;
+      const totalYieldNum = Number(actualPoolData.totalYield);
+      const totalPool = sponsoredPoolNum + totalYieldNum;
       
-      // Total prize pool = sponsored donations + estimated yield from all participants
-      const totalPrizePool = estimatedTotalPool;
+      // Total prize pool = sponsored donations + actual yield from all participants
+      const totalPrizePool = totalPool;
       
       res.json({
         draw: {
@@ -2943,33 +2917,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
           weekNumber: draw.weekNumber,
           year: draw.year,
           status: draw.status,
-          totalPool: estimatedTotalPool.toString(), // Estimated pool (sponsored + projected yield)
-          totalPoolFormatted: (estimatedTotalPool / 1_000_000).toFixed(2),
+          totalPool: totalPool.toString(), // Total pool (sponsored + actual yield)
+          totalPoolFormatted: (totalPool / 1_000_000).toFixed(2),
           sponsoredPool: draw.sponsoredPool || '0', // Donations (no tickets)
           sponsoredPoolFormatted: (sponsoredPoolNum / 1_000_000).toFixed(2),
-          totalPrizePool: totalPrizePool.toString(), // Total prize = sponsored + estimated yield
+          totalPrizePool: totalPrizePool.toString(), // Total prize = sponsored + actual yield
           totalPrizePoolFormatted: (totalPrizePool / 1_000_000).toFixed(2),
-          totalTickets: poolEstimatedTickets.toString(), // Estimated total tickets
+          totalTickets: poolTotalTickets.toString(), // Total tickets from actual yields
           participantCount: actualParticipantCount,
-          projectedPool: estimatedTotalPool.toString(),
-          projectedPoolFormatted: (estimatedTotalPool / 1_000_000).toFixed(2),
-          projectedTickets: poolEstimatedTickets.toString(),
-          projectedYieldFromParticipants: projectedPoolData.projectedYield,
-          projectedYieldFromParticipantsFormatted: projectedPoolData.projectedYieldFormatted,
+          // Actual yield data (not estimates)
+          actualYieldFromParticipants: actualPoolData.totalYield,
+          actualYieldFromParticipantsFormatted: actualPoolData.totalYieldFormatted,
         },
         user: {
           optInPercent: settings?.optInPercent ?? 0,
           facilitatorApproved: settings?.facilitatorApproved ?? false,
           approvalTxHash: settings?.approvalTxHash ?? null,
-          estimatedYield: userEstimatedYield.toString(), // User's estimated yield contribution
-          estimatedYieldFormatted: (userEstimatedYield / 1_000_000).toFixed(4),
-          estimatedReferralBonus: userEstimatedReferralBonus.toString(), // Referral bonus tickets
-          estimatedReferralBonusFormatted: (userEstimatedReferralBonus / 1_000_000).toFixed(4),
-          estimatedTickets: userEstimatedTickets.toString(), // Total estimated tickets
-          estimatedTicketsFormatted: (userEstimatedTickets / 1_000_000).toFixed(4),
-          estimatedOdds, // Estimated odds based on all estimations
+          // ACTUAL values (not estimates) - from Aave's scaledBalanceOf
+          actualInterest: userActualInterest.toString(), // User's actual earned interest
+          actualInterestFormatted: (Number(userActualInterest) / 1_000_000).toFixed(4),
+          yieldContribution: userContribution.toString(), // interest × opt-in%
+          yieldContributionFormatted: (Number(userContribution) / 1_000_000).toFixed(4),
+          referralBonus: userReferralBonus.toString(), // Referral bonus tickets
+          referralBonusFormatted: (Number(userReferralBonus) / 1_000_000).toFixed(4),
+          totalTickets: userTotalTickets.toString(), // Total tickets
+          totalTicketsFormatted: (Number(userTotalTickets) / 1_000_000).toFixed(4),
+          odds, // Odds based on actual yields
           aUsdcBalance,
           aUsdcBalanceFormatted: (Number(aUsdcBalance) / 1_000_000).toFixed(2),
+          principal: userPrincipal, // User's principal (from scaledBalanceOf)
+          principalFormatted: (Number(userPrincipal) / 1_000_000).toFixed(2),
         },
         referral: {
           code: referralCode,
@@ -2983,12 +2960,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           hoursUntilDraw,
           minutesUntilDraw,
           drawTime: weekEnd.toISOString(),
-        },
-        projectedPool: {
-          apy: projectedPoolData.apy,
-          totalProjectedYield: projectedPoolData.projectedYield,
-          totalProjectedYieldFormatted: projectedPoolData.projectedYieldFormatted,
-          participantCount: actualParticipantCount,
         },
       });
     } catch (error) {
@@ -3259,7 +3230,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Prepare contribution - returns ESTIMATED weekly contribution based on APY
+  // Prepare contribution - returns ACTUAL interest earned and contribution preview
+  // Uses Aave's scaledBalanceOf for accurate principal vs interest calculation
   // No actual transfer happens here - transfers only occur at weekly draw
   app.post('/api/pool/prepare-contribution', async (req, res) => {
     try {
@@ -3273,70 +3245,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const normalizedAddress = address.toLowerCase();
-      const userAddress = getAddress(normalizedAddress);
-      
-      // Get Celo aUSDC config
-      const celoNetwork = getNetworkByChainId(42220);
-      if (!celoNetwork?.aUsdcAddress) {
-        return res.status(500).json({ error: 'Celo aUSDC not configured' });
-      }
-      
-      const CELO_AUSDC_ADDRESS = getAddress(celoNetwork.aUsdcAddress);
-      
-      // Create public client for Celo
-      const client = createPublicClient({
-        chain: celo,
-        transport: http('https://forno.celo.org'),
-      });
       
       // Check if user has existing pool settings
       const existingSettings = await storage.getPoolSettings(normalizedAddress);
       const isFirstTime = !existingSettings;
       
-      // Fetch current aUSDC balance
-      const currentBalance = await client.readContract({
-        address: CELO_AUSDC_ADDRESS,
-        abi: AUSDC_PERMIT_ABI,
-        functionName: 'balanceOf',
-        args: [userAddress],
-      });
+      // Fetch ACTUAL interest data from Aave (using scaledBalanceOf)
+      const interestData = await getAaveUserInterest(normalizedAddress);
       
-      const currentBalanceBigInt = BigInt(currentBalance.toString());
-      
-      // Get Celo APY for estimation
-      let apy = 0;
-      try {
-        apy = await getCeloApy();
-      } catch (e) {
-        console.error('[Pool] Error fetching Celo APY:', e);
+      if (!interestData) {
+        return res.status(500).json({ error: 'Could not fetch Aave data' });
       }
       
-      // Calculate ESTIMATED weekly contribution based on APY
-      // Formula: balance × (APY/100) / 52 × (optInPercent/100)
-      const estimatedWeeklyYield = apy > 0
-        ? Math.floor(Number(currentBalanceBigInt) * (apy / 100) / 52)
-        : 0;
-      const estimatedContribution = Math.floor(estimatedWeeklyYield * (optInPercent / 100));
-      const estimatedKeep = estimatedWeeklyYield - estimatedContribution;
+      const totalBalance = interestData.totalBalance;
+      const principal = interestData.principal;
+      const actualInterest = interestData.interest;
+      
+      // Calculate contribution based on actual interest and opt-in percentage
+      const contribution = optInPercent > 0 && actualInterest > 0n
+        ? (actualInterest * BigInt(Math.round(optInPercent))) / 100n
+        : 0n;
+      const keep = actualInterest - contribution;
       
       res.json({
         success: true,
         isFirstTime,
-        currentBalance: currentBalanceBigInt.toString(),
-        currentBalanceFormatted: (Number(currentBalanceBigInt) / 1_000_000).toFixed(2),
+        // Balance breakdown (from Aave's scaledBalanceOf)
+        totalBalance: totalBalance.toString(),
+        totalBalanceFormatted: (Number(totalBalance) / 1_000_000).toFixed(2),
+        principal: principal.toString(),
+        principalFormatted: (Number(principal) / 1_000_000).toFixed(2),
+        // ACTUAL interest earned (not estimated)
+        actualInterest: actualInterest.toString(),
+        actualInterestFormatted: (Number(actualInterest) / 1_000_000).toFixed(4),
         optInPercent: Math.round(optInPercent),
-        apy,
-        // All values are ESTIMATES based on current APY
-        estimatedWeeklyYield: estimatedWeeklyYield.toString(),
-        estimatedWeeklyYieldFormatted: (estimatedWeeklyYield / 1_000_000).toFixed(4),
-        estimatedContribution: estimatedContribution.toString(),
-        estimatedContributionFormatted: (estimatedContribution / 1_000_000).toFixed(4),
-        estimatedKeep: estimatedKeep.toString(),
-        estimatedKeepFormatted: (estimatedKeep / 1_000_000).toFixed(4),
+        // Contribution preview
+        contribution: contribution.toString(),
+        contributionFormatted: (Number(contribution) / 1_000_000).toFixed(4),
+        keep: keep.toString(),
+        keepFormatted: (Number(keep) / 1_000_000).toFixed(4),
         message: isFirstTime
-          ? (currentBalanceBigInt > 0n 
-              ? 'Set your yield contribution. Actual amount collected weekly based on your Aave earnings.'
-              : 'Deposit aUSDC on Celo Aave to start earning yield for the pool.')
+          ? (totalBalance > 0n 
+              ? 'Set your yield contribution. Your actual earned interest will be collected at the weekly draw.'
+              : 'Deposit USDC to Aave on Celo to start earning interest for the pool.')
           : 'Update your yield contribution percentage.',
       });
     } catch (error: unknown) {
@@ -3520,11 +3471,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const CELO_AUSDC_ADDRESS = getAddress(celoNetwork.aUsdcAddress);
       
-      const apy = await getCeloApy();
-      if (apy === 0) {
-        return res.status(500).json({ error: 'Could not fetch APY for ticket calculation' });
-      }
-      
       // Get only users with opt-in > 0 AND facilitator approved
       const allSettings = await storage.getAllPoolSettings();
       const approvedUsers = allSettings.filter(s => s.optInPercent > 0 && s.facilitatorApproved);
@@ -3552,79 +3498,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
         refereeToReferrer.set(ref.refereeAddress.toLowerCase(), ref.referrerAddress.toLowerCase());
       }
       
-      // Phase 1: Calculate yields and check allowances
+      // Phase 1: Calculate ACTUAL interest and contributions using scaledBalanceOf
+      // This gives exact earned interest, not APY-based estimates
+      const addresses = approvedUsers.map(s => s.walletAddress);
+      const interestMap = await getAaveUsersInterest(addresses);
+      
       const participantData: { 
         address: string; 
-        balance: bigint;
-        yieldAmount: bigint;
+        totalBalance: bigint;
+        principal: bigint;
+        actualInterest: bigint;
+        contribution: bigint; // interest × opt-in%
         allowance: bigint;
         hasEnoughAllowance: boolean;
       }[] = [];
       
       for (const settings of approvedUsers) {
         try {
+          const addr = settings.walletAddress.toLowerCase();
+          const interestData = interestMap.get(addr);
+          
+          if (!interestData || interestData.interest === 0n) continue;
+          
+          // Calculate contribution: actual interest × opt-in%
+          const contribution = (interestData.interest * BigInt(settings.optInPercent)) / 100n;
+          if (contribution === 0n) continue;
+          
+          // Check allowance
           const userAddress = getAddress(settings.walletAddress);
+          const allowance = await client.readContract({
+            address: CELO_AUSDC_ADDRESS,
+            abi: [{
+              inputs: [
+                { name: 'owner', type: 'address' },
+                { name: 'spender', type: 'address' }
+              ],
+              name: 'allowance',
+              outputs: [{ name: '', type: 'uint256' }],
+              stateMutability: 'view',
+              type: 'function',
+            }],
+            functionName: 'allowance',
+            args: [userAddress, facilitatorAccount.address],
+          }) as bigint;
           
-          // Get balance and allowance in parallel
-          const [balance, allowance] = await Promise.all([
-            client.readContract({
-              address: CELO_AUSDC_ADDRESS,
-              abi: [{
-                inputs: [{ name: 'account', type: 'address' }],
-                name: 'balanceOf',
-                outputs: [{ name: '', type: 'uint256' }],
-                stateMutability: 'view',
-                type: 'function',
-              }],
-              functionName: 'balanceOf',
-              args: [userAddress],
-            }),
-            client.readContract({
-              address: CELO_AUSDC_ADDRESS,
-              abi: [{
-                inputs: [
-                  { name: 'owner', type: 'address' },
-                  { name: 'spender', type: 'address' }
-                ],
-                name: 'allowance',
-                outputs: [{ name: '', type: 'uint256' }],
-                stateMutability: 'view',
-                type: 'function',
-              }],
-              functionName: 'allowance',
-              args: [userAddress, facilitatorAccount.address],
-            }),
-          ]);
-          
-          const balanceNum = Number(balance.toString());
-          // Weekly yield = balance × APY / 52 × opt-in%
-          const yieldAmount = BigInt(Math.floor(balanceNum * (apy / 100) / 52 * (settings.optInPercent / 100)));
-          
-          if (yieldAmount > 0n) {
-            participantData.push({
-              address: settings.walletAddress.toLowerCase(),
-              balance: balance as bigint,
-              yieldAmount,
-              allowance: allowance as bigint,
-              hasEnoughAllowance: (allowance as bigint) >= yieldAmount,
-            });
-          }
+          participantData.push({
+            address: addr,
+            totalBalance: interestData.totalBalance,
+            principal: interestData.principal,
+            actualInterest: interestData.interest,
+            contribution,
+            allowance,
+            hasEnoughAllowance: allowance >= contribution,
+          });
         } catch (error) {
           console.error(`[Pool Draw] Error processing ${settings.walletAddress}:`, error);
         }
       }
       
-      // Calculate referral bonuses (10% of referee's yield goes to referrer as bonus tickets)
-      const yieldMap = new Map<string, bigint>();
+      // Calculate referral bonuses (10% of referee's contribution goes to referrer as bonus tickets)
+      const contributionMap = new Map<string, bigint>();
       for (const p of participantData) {
-        yieldMap.set(p.address, p.yieldAmount);
+        contributionMap.set(p.address, p.contribution);
       }
       
       const referralBonusMap = new Map<string, bigint>();
-      for (const [participantAddr, yieldAmount] of yieldMap) {
+      for (const [participantAddr, contribution] of contributionMap) {
         const referrerAddr = refereeToReferrer.get(participantAddr);
-        if (referrerAddr && yieldAmount > 0n) {
-          const bonus = yieldAmount / 10n;
+        if (referrerAddr && contribution > 0n) {
+          const bonus = contribution / 10n;
           referralBonusMap.set(referrerAddr, (referralBonusMap.get(referrerAddr) || 0n) + bonus);
         }
       }
@@ -3639,10 +3581,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hasEnoughAllowance: boolean;
       }[] = [];
       
-      const allParticipantAddresses = new Set([...yieldMap.keys(), ...referralBonusMap.keys()]);
+      const allParticipantAddresses = new Set([...contributionMap.keys(), ...referralBonusMap.keys()]);
       for (const addr of allParticipantAddresses) {
         const participantInfo = participantData.find(p => p.address === addr);
-        const yieldTickets = yieldMap.get(addr) || 0n;
+        const yieldTickets = contributionMap.get(addr) || 0n;
         const referralBonus = referralBonusMap.get(addr) || 0n;
         const totalTickets = yieldTickets + referralBonus;
         
@@ -3652,7 +3594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             yieldTickets,
             referralBonus,
             totalTickets,
-            yieldToCollect: participantInfo?.yieldAmount || 0n,
+            yieldToCollect: participantInfo?.contribution || 0n,
             hasEnoughAllowance: participantInfo?.hasEnoughAllowance ?? false,
           });
         }
@@ -3707,7 +3649,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalPrizePool: totalPrizePool.toString(),
           sponsoredPool: sponsoredPool.toString(),
           winningNumber: randomBigInt.toString(),
-          apy,
           unapprovedUsers: unapprovedUsers.length,
           participantsWithInsufficientAllowance: participantTickets.filter(p => !p.hasEnoughAllowance).length,
         });
@@ -3785,7 +3726,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             args: [getAddress(winner.address), actualPrize],
           });
           
-          await client.waitForTransactionReceipt({ hash: prizeTxHash });
+          await client.waitForTransactionReceipt({ hash: prizeTxHash as `0x${string}` });
           console.log(`[Pool Draw] Transferred prize ${actualPrize} to winner ${winner.address}: ${prizeTxHash}`);
         } catch (error) {
           console.error(`[Pool Draw] Failed to transfer prize to ${winner.address}:`, error);
@@ -3831,7 +3772,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalPrizePool: actualPrize.toString(),
         sponsoredPool: sponsoredPool.toString(),
         winningNumber: randomBigInt.toString(),
-        apy,
         unapprovedUsers: unapprovedUsers.length,
       });
     } catch (error) {

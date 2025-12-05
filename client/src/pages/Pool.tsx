@@ -47,34 +47,38 @@ interface PoolStatus {
     weekNumber: number;
     year: number;
     status: string;
-    totalPool: string; // Estimated pool (sponsored + projected yield)
+    totalPool: string; // Actual pool (sponsored + actual yield from interest)
     totalPoolFormatted: string;
     sponsoredPool?: string; // Donations (no tickets)
     sponsoredPoolFormatted?: string;
-    totalPrizePool?: string; // Total prize = sponsored + estimated yield
+    totalPrizePool?: string; // Total prize = sponsored + actual yield
     totalPrizePoolFormatted?: string;
-    totalTickets: string; // Estimated total tickets
+    totalTickets: string; // Actual total tickets (from interest earned)
     participantCount: number;
-    projectedPool?: string;
-    projectedPoolFormatted?: string;
-    projectedTickets?: string;
-    projectedYieldFromParticipants?: string;
-    projectedYieldFromParticipantsFormatted?: string;
+    actualPool?: string;
+    actualPoolFormatted?: string;
+    actualTickets?: string;
+    actualYieldFromParticipants?: string;
+    actualYieldFromParticipantsFormatted?: string;
   };
   user: {
     optInPercent: number;
     facilitatorApproved: boolean;
     approvalTxHash: string | null;
-    // Estimation-only values (calculated from live balance × APY × opt-in%)
-    estimatedYield: string; // User's estimated yield contribution
-    estimatedYieldFormatted: string;
-    estimatedReferralBonus: string; // Referral bonus tickets
-    estimatedReferralBonusFormatted: string;
-    estimatedTickets: string; // Total estimated tickets
-    estimatedTicketsFormatted: string;
-    estimatedOdds: string; // Estimated odds
+    // ACTUAL values (from Aave's scaledBalanceOf)
+    actualInterest: string; // User's actual earned interest
+    actualInterestFormatted: string;
+    yieldContribution: string; // interest × opt-in%
+    yieldContributionFormatted: string;
+    referralBonus: string; // Referral bonus tickets
+    referralBonusFormatted: string;
+    totalTickets: string; // Total tickets (contribution + referral bonus)
+    totalTicketsFormatted: string;
+    odds: string; // Odds based on actual yields
     aUsdcBalance: string;
     aUsdcBalanceFormatted: string;
+    principal: string;
+    principalFormatted: string;
   };
   referral: {
     code: string;
@@ -85,12 +89,6 @@ interface PoolStatus {
     hoursUntilDraw: number;
     minutesUntilDraw: number;
     drawTime: string;
-  };
-  projectedPool?: {
-    apy: number;
-    totalProjectedYield: string;
-    totalProjectedYieldFormatted: string;
-    participantCount: number;
   };
 }
 
@@ -199,17 +197,20 @@ export default function Pool() {
   const [prepareData, setPrepareData] = useState<{
     success: boolean;
     isFirstTime?: boolean;
-    currentBalance?: string;
-    currentBalanceFormatted?: string;
+    // Balance breakdown (from Aave's scaledBalanceOf)
+    totalBalance?: string;
+    totalBalanceFormatted?: string;
+    principal?: string;
+    principalFormatted?: string;
+    // ACTUAL interest earned (not estimated)
+    actualInterest?: string;
+    actualInterestFormatted?: string;
     optInPercent?: number;
-    apy?: number;
-    // Estimation-only values (based on current balance × APY × opt-in%)
-    estimatedWeeklyYield?: string;
-    estimatedWeeklyYieldFormatted?: string;
-    estimatedContribution?: string;
-    estimatedContributionFormatted?: string;
-    estimatedKeep?: string;
-    estimatedKeepFormatted?: string;
+    // Contribution preview
+    contribution?: string;
+    contributionFormatted?: string;
+    keep?: string;
+    keepFormatted?: string;
     message?: string;
   } | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
@@ -800,7 +801,7 @@ export default function Pool() {
                 </div>
               </Card>
 
-              {/* Your Position - Now uses estimation-only values */}
+              {/* Your Position - Uses actual interest data */}
               <Card className="p-4 space-y-3" data-testid="card-your-position">
                 <div className="text-sm font-medium flex items-center gap-2">
                   <Target className="h-4 w-4 text-primary" />
@@ -810,20 +811,20 @@ export default function Pool() {
                   <div className="text-center p-3 bg-muted/50 rounded-lg">
                     <div className="space-y-0.5">
                       <p className="text-2xl font-medium" data-testid="text-your-tickets">
-                        {formatTickets(poolStatus.user.estimatedTickets)}
+                        {formatTickets(poolStatus.user.totalTickets)}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Est. tickets
+                        Your tickets
                       </p>
                     </div>
                   </div>
                   <div className="text-center p-3 bg-muted/50 rounded-lg">
                     <div className="space-y-0.5">
                       <p className="text-2xl font-medium text-primary" data-testid="text-your-odds">
-                        {poolStatus.user.estimatedOdds}%
+                        {poolStatus.user.odds}%
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Est. odds
+                        Win odds
                       </p>
                     </div>
                   </div>
@@ -832,37 +833,37 @@ export default function Pool() {
 
               {/* Kelly-Adjusted Opt-In Curve */}
               {(() => {
-                // Use total prize pool (sponsored + estimated yield) for Kelly calculation
-                const prizePool = Number(poolStatus.draw.projectedPool || poolStatus.draw.totalPrizePool || poolStatus.draw.totalPool) / 1_000_000;
+                // Use total prize pool (sponsored + actual yield) for Kelly calculation
+                const prizePool = Number(poolStatus.draw.actualPool || poolStatus.draw.totalPrizePool || poolStatus.draw.totalPool) / 1_000_000;
                 const aUsdcBalance = Number(poolStatus.user.aUsdcBalance) / 1_000_000;
-                const apy = poolStatus.projectedPool?.apy || celoApyData?.apy;
-                const hasApyData = apy !== undefined && apy > 0;
+                const userActualInterest = Number(poolStatus.user.actualInterest || '0') / 1_000_000;
+                const hasInterest = userActualInterest > 0;
                 
-                // Get user's estimated ticket components (in USDC, not micro)
-                const userEstimatedYield = Number(poolStatus.user.estimatedYield || '0') / 1_000_000;
-                const userEstimatedReferralBonus = Number(poolStatus.user.estimatedReferralBonus || '0') / 1_000_000;
-                const userEstimatedTickets = Number(poolStatus.user.estimatedTickets || '0') / 1_000_000;
+                // Get user's ticket components from actual data (in USDC, not micro)
+                const userYieldContribution = Number(poolStatus.user.yieldContribution || '0') / 1_000_000;
+                const userReferralBonus = Number(poolStatus.user.referralBonus || '0') / 1_000_000;
+                const userTotalTickets = Number(poolStatus.user.totalTickets || '0') / 1_000_000;
                 
                 // Base tickets that don't change with allocation (referral bonus from referees)
-                const userBaseTickets = userEstimatedReferralBonus;
+                const userBaseTickets = userReferralBonus;
                 
-                const totalPoolTickets = Number(poolStatus.draw.projectedTickets || poolStatus.draw.totalTickets || '0') / 1_000_000;
+                const totalPoolTickets = Number(poolStatus.draw.actualTickets || poolStatus.draw.totalTickets || '0') / 1_000_000;
                 
-                // Calculate "others' tickets" by subtracting user's current estimated tickets
-                const othersTickets = Math.max(0, totalPoolTickets - userEstimatedTickets);
+                // Calculate "others' tickets" by subtracting user's current tickets
+                const othersTickets = Math.max(0, totalPoolTickets - userTotalTickets);
                 
-                // Calculate Kelly curve data points
+                // Calculate Kelly curve data points using actual interest
                 const kellyData = [];
                 let optimalOptIn = 0;
                 let maxGrowthRate = -Infinity;
                 
                 for (let pct = 0; pct <= 100; pct += 5) {
-                  const weeklyYield = hasApyData ? aUsdcBalance * (apy / 100) / 52 : 0;
-                  const yieldAtLevel = weeklyYield * (pct / 100);
-                  const cost = yieldAtLevel; // Cost is the yield being contributed
+                  // Use actual interest for contribution calculation
+                  const contributionAtLevel = userActualInterest * (pct / 100);
+                  const cost = contributionAtLevel; // Cost is the interest being contributed
                   
-                  // User's tickets at this allocation level = base tickets + yield at this allocation
-                  const myTickets = userBaseTickets + yieldAtLevel;
+                  // User's tickets at this allocation level = base tickets + contribution at this allocation
+                  const myTickets = userBaseTickets + contributionAtLevel;
                   
                   // Correct odds: myTickets / (othersTickets + myTickets)
                   // This ensures total odds across all participants sum to 100%
@@ -888,7 +889,7 @@ export default function Pool() {
                   
                   kellyData.push({
                     optIn: pct,
-                    growth: hasApyData && aUsdcBalance > 0 ? growthRate : 0,
+                    growth: hasInterest && aUsdcBalance > 0 ? growthRate : 0,
                     isOptimal: false,
                     isCurrent: pct === optInPercent
                   });
@@ -909,7 +910,7 @@ export default function Pool() {
                 let statusColor = 'text-muted-foreground';
                 let statusBg = 'bg-muted/50';
                 
-                if (!hasApyData || aUsdcBalance === 0) {
+                if (!hasInterest || aUsdcBalance === 0) {
                   status = 'no-data';
                 } else if (optInPercent === 0) {
                   status = 'none';
@@ -960,7 +961,7 @@ export default function Pool() {
                     </div>
                     
                     {/* Kelly Curve Chart */}
-                    {hasApyData && aUsdcBalance > 0 && (
+                    {hasInterest && aUsdcBalance > 0 && (
                       <div className="h-28">
                         <ResponsiveContainer width="100%" height="100%">
                           <AreaChart data={kellyData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
@@ -1154,53 +1155,53 @@ export default function Pool() {
 
             {/* Tickets Tab */}
             <TabsContent value="tickets" className="mt-4 space-y-4">
-              {/* Ticket Breakdown - Now uses estimation-only values */}
+              {/* Ticket Breakdown - Uses actual interest data */}
               <Card className="p-4 space-y-3" data-testid="card-ticket-breakdown">
                 <div className="text-sm font-medium flex items-center gap-2">
                   <Ticket className="h-4 w-4 text-primary" />
-                  Estimated Ticket Breakdown
+                  Ticket Breakdown
                 </div>
                 {(() => {
-                  // All values are now estimates based on current balance, APY, and opt-in%
-                  const estimatedYield = Number(poolStatus.user.estimatedYield || '0');
-                  const estimatedReferral = Number(poolStatus.user.estimatedReferralBonus || '0');
-                  const estimatedTotal = Number(poolStatus.user.estimatedTickets || '0');
+                  // Values from actual earned interest (via Aave's scaledBalanceOf)
+                  const yieldContribution = Number(poolStatus.user.yieldContribution || '0');
+                  const referralBonusVal = Number(poolStatus.user.referralBonus || '0');
+                  const totalTicketsVal = Number(poolStatus.user.totalTickets || '0');
                   
                   return (
                     <>
                       <div className="space-y-2">
-                        {/* Estimated Yield Contribution */}
+                        {/* Yield Contribution */}
                         <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                           <div className="flex items-center gap-2">
                             <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">Your yield contribution</span>
+                            <span className="text-sm">Your interest contribution</span>
                           </div>
                           <span className="font-medium" data-testid="text-yield-tickets">
-                            {formatTickets(estimatedYield)}
+                            {formatTickets(yieldContribution)}
                           </span>
                         </div>
                         
-                        {/* Estimated Referral Bonus */}
+                        {/* Referral Bonus */}
                         <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                           <div className="flex items-center gap-2">
                             <Gift className="h-4 w-4 text-muted-foreground" />
                             <span className="text-sm">Referral bonus</span>
                           </div>
                           <span className="font-medium" data-testid="text-referral-tickets">
-                            +{formatTickets(estimatedReferral)}
+                            +{formatTickets(referralBonusVal)}
                           </span>
                         </div>
                       </div>
                       
                       <div className="flex items-center justify-between pt-2 border-t">
-                        <span className="font-medium">Estimated Total</span>
+                        <span className="font-medium">Total Tickets</span>
                         <span className="text-xl font-bold text-primary" data-testid="text-total-tickets">
-                          {formatTickets(estimatedTotal)}
+                          {formatTickets(totalTicketsVal)}
                         </span>
                       </div>
                       
                       <p className="text-xs text-muted-foreground text-center">
-                        Final tickets calculated at weekly draw from live balances
+                        Based on actual earned interest from Aave
                       </p>
                     </>
                   );
@@ -1209,9 +1210,9 @@ export default function Pool() {
 
               {/* Cumulative Win Probability Curve */}
               {(() => {
-                // Use estimated tickets for probability calculations
-                const totalPoolTickets = Number(poolStatus.draw.projectedTickets || poolStatus.draw.totalTickets || '0') / 1_000_000;
-                const userTickets = Number(poolStatus.user.estimatedTickets || '0') / 1_000_000;
+                // Use actual tickets for probability calculations
+                const totalPoolTickets = Number(poolStatus.draw.actualTickets || poolStatus.draw.totalTickets || '0') / 1_000_000;
+                const userTickets = Number(poolStatus.user.totalTickets || '0') / 1_000_000;
                 const currentOdds = totalPoolTickets > 0 ? userTickets / totalPoolTickets : 0;
                 
                 // Calculate probability curves for different scenarios
@@ -1548,10 +1549,10 @@ export default function Pool() {
 
               {/* Fairness Dashboard */}
               {(() => {
-                // Calculate Lorenz curve and Gini coefficient using estimated tickets
+                // Calculate Lorenz curve and Gini coefficient using actual tickets
                 const participantCount = poolStatus?.draw?.participantCount || 0;
                 const totalTickets = Number(poolStatus?.draw?.totalTickets || poolStatus?.draw?.totalPool || 0) / 1_000_000;
-                const userTickets = Number(poolStatus?.user?.estimatedTickets || 0) / 1_000_000;
+                const userTickets = Number(poolStatus?.user?.totalTickets || 0) / 1_000_000;
                 
                 // Generate Lorenz curve data points
                 // Perfect equality line: y = x
@@ -1583,7 +1584,7 @@ export default function Pool() {
                 
                 // Referral network visualization
                 const referrals = poolStatus?.referral?.referralsList || [];
-                const referralBonusTickets = Number(poolStatus?.user?.estimatedReferralBonus || 0) / 1_000_000;
+                const referralBonusTickets = Number(poolStatus?.user?.referralBonus || 0) / 1_000_000;
                 
                 return (
                   <Card className="p-4 space-y-3">
@@ -1773,34 +1774,40 @@ export default function Pool() {
                 <span className="text-lg font-bold text-primary">{pendingOptInPercent ?? 0}%</span>
               </div>
 
-              {/* Estimated Weekly Amounts */}
+              {/* Actual Interest & Contribution Preview */}
               <div className="bg-muted/50 rounded-lg p-3 space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Your aUSDC balance</span>
-                  <span className="font-medium">${formatMicroUsdc(prepareData.currentBalance || '0')}</span>
+                  <span className="font-medium">${formatMicroUsdc(prepareData.totalBalance || '0')}</span>
                 </div>
-                {(prepareData.apy ?? 0) > 0 && Number(prepareData.currentBalance) > 0 && (pendingOptInPercent ?? 0) > 0 && (
+                {Number(prepareData.totalBalance) > 0 && (
                   <>
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Est. weekly yield ({(prepareData.apy ?? 0).toFixed(1)}% APY)</span>
-                      <span className="font-medium text-green-600">~${formatMicroUsdc(prepareData.estimatedWeeklyYield || '0')}</span>
+                      <span className="text-muted-foreground">Principal deposited</span>
+                      <span className="font-medium">${formatMicroUsdc(prepareData.principal || '0')}</span>
                     </div>
-                    <div className="border-t pt-2 mt-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Est. contribution ({pendingOptInPercent}%)</span>
-                        <span className="font-bold text-primary">~${formatMicroUsdc(prepareData.estimatedContribution || '0')}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Est. you keep ({100 - (pendingOptInPercent ?? 0)}%)</span>
-                        <span className="font-medium">~${formatMicroUsdc(prepareData.estimatedKeep || '0')}</span>
-                      </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Interest earned</span>
+                      <span className="font-medium text-green-600">${formatMicroUsdc(prepareData.actualInterest || '0')}</span>
                     </div>
+                    {(pendingOptInPercent ?? 0) > 0 && Number(prepareData.actualInterest) > 0 && (
+                      <div className="border-t pt-2 mt-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Pool contribution ({pendingOptInPercent}%)</span>
+                          <span className="font-bold text-primary">${formatMicroUsdc(prepareData.contribution || '0')}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">You keep ({100 - (pendingOptInPercent ?? 0)}%)</span>
+                          <span className="font-medium">${formatMicroUsdc(prepareData.keep || '0')}</span>
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
                 <div className="text-xs text-muted-foreground text-center pt-1 border-t">
-                  {prepareData.message || (Number(prepareData.currentBalance) === 0 
-                    ? 'Deposit aUSDC on Celo Aave to start earning yield for the pool.'
-                    : 'Actual amount collected weekly based on your Aave earnings.')}
+                  {prepareData.message || (Number(prepareData.totalBalance) === 0 
+                    ? 'Deposit USDC to Aave on Celo to start earning interest for the pool.'
+                    : 'Your actual earned interest will be collected at the weekly draw.')}
                 </div>
               </div>
               
