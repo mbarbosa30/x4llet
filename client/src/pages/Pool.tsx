@@ -843,13 +843,23 @@ export default function Pool() {
                 const apy = poolStatus.projectedPool?.apy || celoApyData?.apy;
                 const hasApyData = apy !== undefined && apy > 0;
                 
-                // Get user's current projected tickets (already included in projectedTickets)
-                const userCurrentProjectedTickets = Number(poolStatus.user.projectedTickets || '0') / 1_000_000;
+                // Get user's ticket components (in USDC, not micro)
+                const userCollectedTickets = Number(poolStatus.user.totalTickets || '0') / 1_000_000; // collected yield + collected referral
+                const userProjectedTickets = Number(poolStatus.user.projectedTickets || '0') / 1_000_000;
+                const userCurrentProjectedYield = Number(poolStatus.user.projectedWeeklyYield || '0') / 1_000_000;
+                
+                // Projected referral bonus = projectedTickets - collectedTickets - projectedYield
+                // This is the bonus from referees' projected contributions (doesn't change with user's allocation)
+                const userProjectedReferralBonus = Math.max(0, userProjectedTickets - userCollectedTickets - userCurrentProjectedYield);
+                
+                // Base tickets that don't change with allocation (collected + projected referral bonus)
+                const userBaseTickets = userCollectedTickets + userProjectedReferralBonus;
+                
                 const totalPoolTickets = Number(poolStatus.draw.projectedTickets || poolStatus.draw.totalTickets || '0') / 1_000_000;
                 
                 // Calculate "others' tickets" by subtracting user's current projected contribution
                 // This avoids double-counting when we simulate different allocation levels
-                const othersTickets = Math.max(0, totalPoolTickets - userCurrentProjectedTickets);
+                const othersTickets = Math.max(0, totalPoolTickets - userProjectedTickets);
                 
                 // Calculate Kelly curve data points
                 const kellyData = [];
@@ -858,10 +868,11 @@ export default function Pool() {
                 
                 for (let pct = 0; pct <= 100; pct += 5) {
                   const weeklyYield = hasApyData ? aUsdcBalance * (apy / 100) / 52 : 0;
-                  const cost = weeklyYield * (pct / 100);
+                  const yieldAtLevel = weeklyYield * (pct / 100);
+                  const cost = yieldAtLevel; // Cost is the yield being contributed
                   
-                  // User's tickets at this allocation level (yield contribution only, referral bonus handled separately)
-                  const myTickets = cost;
+                  // User's tickets at this allocation level = base tickets + yield at this allocation
+                  const myTickets = userBaseTickets + yieldAtLevel;
                   
                   // Correct odds: myTickets / (othersTickets + myTickets)
                   // This ensures total odds across all participants sum to 100%
@@ -1125,34 +1136,85 @@ export default function Pool() {
               <Card className="p-4 space-y-3" data-testid="card-ticket-breakdown">
                 <div className="text-sm font-medium flex items-center gap-2">
                   <Ticket className="h-4 w-4 text-primary" />
-                  Ticket Breakdown
+                  Estimated Ticket Breakdown
                 </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">Your yield</span>
-                    </div>
-                    <span className="font-medium" data-testid="text-yield-tickets">
-                      {formatTickets(poolStatus.user.yieldContributed)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <Gift className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">Referral bonus</span>
-                    </div>
-                    <span className="font-medium" data-testid="text-referral-tickets">
-                      +{formatTickets(poolStatus.user.referralBonusTickets)}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between pt-2 border-t">
-                  <span className="font-medium">Total</span>
-                  <span className="text-xl font-bold text-primary" data-testid="text-total-tickets">
-                    {formatTickets(poolStatus.user.totalTickets)}
-                  </span>
-                </div>
+                {(() => {
+                  // Calculate ticket components
+                  const collectedYield = Number(poolStatus.user.yieldContributed || '0');
+                  const collectedReferral = Number(poolStatus.user.referralBonusTickets || '0');
+                  const collectedTotal = Number(poolStatus.user.totalTickets || '0');
+                  const projectedTotal = Number(poolStatus.user.projectedTickets || '0');
+                  const projectedYield = Number(poolStatus.user.projectedWeeklyYield || '0');
+                  
+                  // Projected referral bonus = projectedTotal - collectedTotal - projectedYield
+                  const projectedReferral = Math.max(0, projectedTotal - collectedTotal - projectedYield);
+                  
+                  const hasProjectedYield = projectedYield > 0;
+                  const hasProjectedReferral = projectedReferral > 0;
+                  
+                  return (
+                    <>
+                      <div className="space-y-2">
+                        {/* Collected Yield */}
+                        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">Collected yield</span>
+                          </div>
+                          <span className="font-medium" data-testid="text-collected-yield">
+                            {formatTickets(collectedYield)}
+                          </span>
+                        </div>
+                        
+                        {/* Projected Yield (only show if > 0) */}
+                        {hasProjectedYield && (
+                          <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-dashed border-primary/20">
+                            <div className="flex items-center gap-2">
+                              <TrendingUp className="h-4 w-4 text-primary/60" />
+                              <span className="text-sm text-muted-foreground">+ Projected yield</span>
+                            </div>
+                            <span className="font-medium text-primary/80" data-testid="text-projected-yield">
+                              +{formatTickets(projectedYield)}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* Collected Referral Bonus */}
+                        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Gift className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">Referral bonus</span>
+                          </div>
+                          <span className="font-medium" data-testid="text-collected-referral">
+                            +{formatTickets(collectedReferral)}
+                          </span>
+                        </div>
+                        
+                        {/* Projected Referral Bonus (only show if > 0) */}
+                        {hasProjectedReferral && (
+                          <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-dashed border-primary/20">
+                            <div className="flex items-center gap-2">
+                              <Gift className="h-4 w-4 text-primary/60" />
+                              <span className="text-sm text-muted-foreground">+ Projected referral bonus</span>
+                            </div>
+                            <span className="font-medium text-primary/80" data-testid="text-projected-referral">
+                              +{formatTickets(projectedReferral)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center justify-between pt-2 border-t">
+                        <span className="font-medium">
+                          {hasProjectedYield || hasProjectedReferral ? 'Estimated Total' : 'Total'}
+                        </span>
+                        <span className="text-xl font-bold text-primary" data-testid="text-total-tickets">
+                          {formatTickets(projectedTotal > 0 ? projectedTotal : collectedTotal)}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
               </Card>
 
               {/* Cumulative Win Probability Curve */}
