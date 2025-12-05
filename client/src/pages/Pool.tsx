@@ -1808,73 +1808,32 @@ export default function Pool() {
           </DialogHeader>
 
           {contributionSuccess ? (
-            <div className="py-8 flex flex-col items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <Check className="h-8 w-8 text-green-600 dark:text-green-400" />
+            <div className="py-6 flex flex-col items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <Check className="h-7 w-7 text-green-600 dark:text-green-400" />
               </div>
               <div className="text-center space-y-1">
-                <p className="font-medium text-lg">
-                  {contributionSuccess.isOnChain ? "Transferred!" : "Settings Saved"}
-                </p>
+                <p className="font-medium text-lg">Saved</p>
                 <p className="text-sm text-muted-foreground">
-                  {contributionSuccess.message}
+                  Your contribution is now {pendingOptInPercent ?? 0}%
                 </p>
               </div>
             </div>
           ) : isPreparing ? (
-            <div className="py-8 flex flex-col items-center gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Loading contribution details...</p>
+            <div className="py-6 flex justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : prepareData ? (
-            <div className="space-y-4">
-              {/* Percentage Change */}
-              <div className="flex items-center justify-center gap-3 py-2">
-                <span className="text-lg font-medium">{poolStatus?.user?.optInPercent ?? 0}%</span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                <span className="text-lg font-bold text-primary">{pendingOptInPercent ?? 0}%</span>
-              </div>
-
-              {/* Actual Interest & Contribution Preview */}
-              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Your aUSDC balance</span>
-                  <span className="font-medium">${formatMicroUsdc(prepareData.totalBalance || '0')}</span>
-                </div>
-                {Number(prepareData.totalBalance) > 0 && (
-                  <>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Principal deposited</span>
-                      <span className="font-medium">${formatMicroUsdc(prepareData.principal || '0')}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Interest earned</span>
-                      <span className="font-medium text-green-600">${formatMicroUsdc(prepareData.actualInterest || '0')}</span>
-                    </div>
-                    {(pendingOptInPercent ?? 0) > 0 && Number(prepareData.actualInterest) > 0 && (
-                      <div className="border-t pt-2 mt-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Pool contribution ({pendingOptInPercent}%)</span>
-                          <span className="font-bold text-primary">${formatMicroUsdc(prepareData.contribution || '0')}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">You keep ({100 - (pendingOptInPercent ?? 0)}%)</span>
-                          <span className="font-medium">${formatMicroUsdc(prepareData.keep || '0')}</span>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-                <div className="text-xs text-muted-foreground text-center pt-1 border-t">
-                  {prepareData.message || (Number(prepareData.totalBalance) === 0 
-                    ? 'Deposit USDC to Aave on Celo to start earning interest for the pool.'
-                    : 'Your actual earned interest will be collected at the weekly draw.')}
-                </div>
+            <div className="space-y-4 py-2">
+              <div className="flex items-center justify-center gap-4">
+                <span className="text-2xl font-medium">{poolStatus?.user?.optInPercent ?? 0}%</span>
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                <span className="text-2xl font-bold text-primary">{pendingOptInPercent ?? 0}%</span>
               </div>
               
-              <div className="text-xs text-muted-foreground text-center">
-                <p>Yield collected weekly on Sunday at 00:00 UTC</p>
-              </div>
+              <p className="text-sm text-muted-foreground text-center">
+                Part of your weekly interest becomes tickets for a chance to win the prize pool.
+              </p>
             </div>
           ) : (
             <div className="py-8 flex flex-col items-center gap-3">
