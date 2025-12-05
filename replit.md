@@ -68,17 +68,36 @@ Multi-chain UX includes aggregated USDC balance display, chain badges for transa
 **Pool (Prize-Linked Savings)**: Weekly prize pool where users opt-in a percentage (0-100%) of their Aave savings yield on Celo. Tickets are earned based on yield contributed plus 10% of referrals' contributions. Features include:
 - `/pool` page with opt-in slider, pool stats, countdown to weekly draw, and past winners
 - Referral system: 8-character codes derived from wallet address, 10% bonus tickets from referrals' yield
-- Database tables: `pool_settings` (user opt-in %), `pool_draws` (weekly draws), `pool_contributions` (per-draw tickets), `referrals` (referrer-referee links with unique constraint), `pool_yield_snapshots` (aUSDC balance tracking)
-- Admin endpoint `/api/admin/pool/draw` for executing weekly draws with weighted random selection
-- Admin endpoint `/api/admin/pool/collect-yield` for weekly yield collection from opted-in users
+- Database tables: `pool_settings` (user opt-in %, facilitator approval status), `pool_draws` (weekly draws), `pool_contributions` (per-draw tickets), `referrals` (referrer-referee links with unique constraint)
+- Admin endpoint `/api/admin/pool/draw` for executing weekly draws with on-chain yield collection and prize transfer
+- Dry run mode supported via `dryRun: true` parameter
 
-**Pool MVP Architecture (Celo-Only)**:
-- Yield tracking uses snapshots: aUSDC balance is recorded when user opts in, then compared during weekly collection
-- Only yield (balance growth) counts, never principal - prevents over-collection
-- Users without valid snapshots are skipped during collection as a safety measure
-- MVP model: contributions recorded in database, on-chain transfers only at draw payout
+**Pool Architecture - Estimation-Only Model (Celo-Only)**:
+- All values displayed are **estimates** until the weekly draw when final tickets are calculated
+- Tickets computed at draw time: `live aUSDC balance × APY/52 × opt-in%` + referral bonuses
+- No mid-week transfers; all calculations are from live on-chain balances
 - Celo aUSDC address: 0xFF8309b9e99bfd2D4021bc71a362aBD93dBd4785 (from shared/networks.ts)
-- **Sponsored Pool**: Donations increase prize pool but do NOT add tickets. Stored separately in `sponsoredPool` column. Backend `projectedPool` includes sponsoredPool in its calculation. Kelly Criterion uses total prize (participants + sponsors) for EV calculation while using only participant tickets for odds calculation - this correctly shifts optimal allocation upward when donations increase the prize.
+- **Sponsored Pool**: Donations increase prize pool but do NOT add tickets. Stored separately in `sponsoredPool` column.
+
+**Facilitator Authorization Flow**:
+- Users must authorize the facilitator to collect their weekly yield before participating in draws
+- Authorization is a one-time ERC-20 `approve()` transaction for limited amount ($10,000 - covers ~1 year of yield)
+- UI shows authorization status in Pool page with "Authorize Collection" button for unapproved users
+- Database tracks: `facilitatorApproved` (boolean), `approvalTxHash` (tx hash of approval)
+- API endpoints:
+  - `GET /api/pool/facilitator` - Returns facilitator address and aUSDC address
+  - `GET /api/pool/allowance/:address` - Checks on-chain allowance for facilitator
+  - `POST /api/pool/record-approval` - Records approval after user signs tx
+
+**Weekly Draw Execution Flow**:
+1. Admin triggers draw via `/api/admin/pool/draw` with `weekNumber` and `year`
+2. System fetches all opted-in users with facilitator approval
+3. For each participant: reads live aUSDC balance, calculates weekly yield, checks allowance
+4. Referral bonuses calculated (10% of referee's yield → referrer's tickets)
+5. Weighted random selection picks winner
+6. Facilitator executes `transferFrom` for each participant's yield portion
+7. Total collected yield + sponsored pool transferred to winner's wallet
+8. Draw marked complete with winner address, tx hashes, and final totals
 
 ## External Dependencies
 

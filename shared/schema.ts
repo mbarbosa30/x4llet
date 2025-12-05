@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, unique, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -123,6 +123,8 @@ export const poolSettings = pgTable("pool_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   walletAddress: text("wallet_address").notNull().unique(),
   optInPercent: integer("opt_in_percent").notNull().default(0), // 0-100
+  facilitatorApproved: boolean("facilitator_approved").notNull().default(false), // Has approved facilitator to collect yield
+  approvalTxHash: text("approval_tx_hash"), // Tx hash of the approval/permit
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
@@ -182,7 +184,12 @@ export type PoolContribution = typeof poolContributions.$inferSelect;
 export type PoolYieldSnapshot = typeof poolYieldSnapshots.$inferSelect;
 export type Referral = typeof referrals.$inferSelect;
 
-export const insertPoolSettingsSchema = createInsertSchema(poolSettings).omit({ id: true, updatedAt: true });
+export const insertPoolSettingsSchema = createInsertSchema(poolSettings).omit({ 
+  id: true, 
+  updatedAt: true, 
+  facilitatorApproved: true, 
+  approvalTxHash: true 
+});
 export type InsertPoolSettings = z.infer<typeof insertPoolSettingsSchema>;
 
 export const insertReferralSchema = createInsertSchema(referrals).omit({ id: true, createdAt: true });

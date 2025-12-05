@@ -2800,6 +2800,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         user: {
           optInPercent: settings?.optInPercent ?? 0,
+          facilitatorApproved: settings?.facilitatorApproved ?? false,
+          approvalTxHash: settings?.approvalTxHash ?? null,
           estimatedYield: userEstimatedYield.toString(), // User's estimated yield contribution
           estimatedYieldFormatted: (userEstimatedYield / 1_000_000).toFixed(4),
           estimatedReferralBonus: userEstimatedReferralBonus.toString(), // Referral bonus tickets
@@ -2863,6 +2865,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('[Pool] Error setting opt-in:', error);
       res.status(500).json({ error: 'Failed to set opt-in percentage' });
+    }
+  });
+
+  // Get facilitator address for pool yield collection
+  // Users need this to approve the facilitator to collect their aUSDC yields
+  app.get('/api/pool/facilitator', async (req, res) => {
+    try {
+      const facilitatorAccount = getFacilitatorAccount();
+      const celoNetwork = getNetworkByChainId(42220);
+      
+      res.json({
+        facilitatorAddress: facilitatorAccount.address,
+        aUsdcAddress: celoNetwork?.aUsdcAddress || null,
+        chainId: 42220, // Celo only for pool
+      });
+    } catch (error) {
+      console.error('[Pool] Error getting facilitator:', error);
+      res.status(500).json({ error: 'Failed to get facilitator info' });
+    }
+  });
+
+  // Check on-chain allowance for facilitator
+  app.get('/api/pool/allowance/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      const normalizedAddress = getAddress(address);
+      const facilitatorAccount = getFacilitatorAccount();
+      
+      const celoNetwork = getNetworkByChainId(42220);
+      if (!celoNetwork?.aUsdcAddress) {
+        return res.status(500).json({ error: 'Celo aUSDC address not configured' });
+      }
+      
+      const client = createPublicClient({
+        chain: celo,
+        transport: http('https://forno.celo.org'),
+      });
+      
+      const allowance = await client.readContract({
+        address: getAddress(celoNetwork.aUsdcAddress),
+        abi: [{
+          inputs: [
+            { name: 'owner', type: 'address' },
+            { name: 'spender', type: 'address' }
+          ],
+          name: 'allowance',
+          outputs: [{ name: '', type: 'uint256' }],
+          stateMutability: 'view',
+          type: 'function',
+        }],
+        functionName: 'allowance',
+        args: [normalizedAddress, facilitatorAccount.address],
+      });
+      
+      const allowanceNum = Number(allowance.toString());
+      const hasApproval = allowanceNum > 0;
+      
+      res.json({
+        allowance: allowance.toString(),
+        allowanceFormatted: (allowanceNum / 1_000_000).toFixed(2),
+        hasApproval,
+        facilitatorAddress: facilitatorAccount.address,
+      });
+    } catch (error) {
+      console.error('[Pool] Error checking allowance:', error);
+      res.status(500).json({ error: 'Failed to check allowance' });
+    }
+  });
+
+  // Record facilitator approval after user signs approve tx
+  app.post('/api/pool/record-approval', async (req, res) => {
+    try {
+      const { address, txHash } = req.body;
+      
+      if (!address || !txHash) {
+        return res.status(400).json({ error: 'Address and txHash are required' });
+      }
+      
+      const normalizedAddress = address.toLowerCase();
+      
+      // Ensure user has pool settings before recording approval
+      const settings = await storage.getPoolSettings(normalizedAddress);
+      if (!settings) {
+        // Create default settings with 0% opt-in
+        await storage.upsertPoolSettings(normalizedAddress, 0);
+      }
+      
+      // Update approval status
+      await storage.updateFacilitatorApproval(normalizedAddress, true, txHash);
+      
+      console.log(`[Pool] Recorded facilitator approval for ${normalizedAddress}: tx=${txHash}`);
+      
+      res.json({
+        success: true,
+        facilitatorApproved: true,
+        approvalTxHash: txHash,
+      });
+    } catch (error) {
+      console.error('[Pool] Error recording approval:', error);
+      res.status(500).json({ error: 'Failed to record approval' });
     }
   });
 
@@ -3237,12 +3339,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin: Run weekly draw
-  // NOTE: This now calculates tickets from LIVE balances at draw time.
-  // All values are estimated until this moment, when final tickets are computed.
+  // Admin: Run weekly draw with on-chain yield collection
+  // Flow: 1) Calculate tickets from live balances, 2) Pick winner, 
+  // 3) Collect yields via transferFrom from approved participants, 4) Transfer prize to winner
   app.post('/api/admin/pool/draw', adminAuthMiddleware, async (req, res) => {
     try {
-      const { weekNumber, year } = req.body;
+      const { weekNumber, year, dryRun = false } = req.body;
       
       const draw = await storage.getPoolDraw(weekNumber, year);
       if (!draw) {
@@ -3253,36 +3355,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Draw already completed' });
       }
       
-      // Get Celo aUSDC address
       const celoNetwork = getNetworkByChainId(42220);
       if (!celoNetwork?.aUsdcAddress) {
         return res.status(500).json({ error: 'Celo aUSDC address not configured' });
       }
       const CELO_AUSDC_ADDRESS = getAddress(celoNetwork.aUsdcAddress);
       
-      // Fetch current APY for yield calculation
       const apy = await getCeloApy();
-      
       if (apy === 0) {
         return res.status(500).json({ error: 'Could not fetch APY for ticket calculation' });
       }
       
-      // Get all users with opt-in > 0
+      // Get only users with opt-in > 0 AND facilitator approved
       const allSettings = await storage.getAllPoolSettings();
-      const optedInUsers = allSettings.filter(s => s.optInPercent > 0);
+      const approvedUsers = allSettings.filter(s => s.optInPercent > 0 && s.facilitatorApproved);
+      const unapprovedUsers = allSettings.filter(s => s.optInPercent > 0 && !s.facilitatorApproved);
       
-      if (optedInUsers.length === 0) {
+      if (approvedUsers.length === 0) {
         return res.json({ 
           success: false, 
-          message: 'No participants in this draw',
+          message: 'No approved participants in this draw',
+          unapprovedCount: unapprovedUsers.length,
         });
       }
       
-      // Create client for balance reads
       const client = createPublicClient({
         chain: celo,
         transport: http('https://forno.celo.org'),
       });
+      
+      const facilitatorAccount = getFacilitatorAccount();
       
       // Get all referrals for bonus calculation
       const allReferrals = await storage.getAllReferrals();
@@ -3291,39 +3393,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
         refereeToReferrer.set(ref.refereeAddress.toLowerCase(), ref.referrerAddress.toLowerCase());
       }
       
-      // Calculate tickets for each participant from LIVE balances
-      const participantTickets: { address: string; yieldTickets: bigint; referralBonus: bigint; totalTickets: bigint }[] = [];
-      const yieldMap = new Map<string, bigint>(); // For referral bonus calculation
+      // Phase 1: Calculate yields and check allowances
+      const participantData: { 
+        address: string; 
+        balance: bigint;
+        yieldAmount: bigint;
+        allowance: bigint;
+        hasEnoughAllowance: boolean;
+      }[] = [];
       
-      for (const settings of optedInUsers) {
+      for (const settings of approvedUsers) {
         try {
           const userAddress = getAddress(settings.walletAddress);
-          const balance = await client.readContract({
-            address: CELO_AUSDC_ADDRESS,
-            abi: [{
-              inputs: [{ name: 'account', type: 'address' }],
-              name: 'balanceOf',
-              outputs: [{ name: '', type: 'uint256' }],
-              stateMutability: 'view',
-              type: 'function',
-            }],
-            functionName: 'balanceOf',
-            args: [userAddress],
-          });
+          
+          // Get balance and allowance in parallel
+          const [balance, allowance] = await Promise.all([
+            client.readContract({
+              address: CELO_AUSDC_ADDRESS,
+              abi: [{
+                inputs: [{ name: 'account', type: 'address' }],
+                name: 'balanceOf',
+                outputs: [{ name: '', type: 'uint256' }],
+                stateMutability: 'view',
+                type: 'function',
+              }],
+              functionName: 'balanceOf',
+              args: [userAddress],
+            }),
+            client.readContract({
+              address: CELO_AUSDC_ADDRESS,
+              abi: [{
+                inputs: [
+                  { name: 'owner', type: 'address' },
+                  { name: 'spender', type: 'address' }
+                ],
+                name: 'allowance',
+                outputs: [{ name: '', type: 'uint256' }],
+                stateMutability: 'view',
+                type: 'function',
+              }],
+              functionName: 'allowance',
+              args: [userAddress, facilitatorAccount.address],
+            }),
+          ]);
           
           const balanceNum = Number(balance.toString());
           // Weekly yield = balance × APY / 52 × opt-in%
-          const weeklyYield = Math.floor(balanceNum * (apy / 100) / 52 * (settings.optInPercent / 100));
+          const yieldAmount = BigInt(Math.floor(balanceNum * (apy / 100) / 52 * (settings.optInPercent / 100)));
           
-          if (weeklyYield > 0) {
-            yieldMap.set(settings.walletAddress.toLowerCase(), BigInt(weeklyYield));
+          if (yieldAmount > 0n) {
+            participantData.push({
+              address: settings.walletAddress.toLowerCase(),
+              balance: balance as bigint,
+              yieldAmount,
+              allowance: allowance as bigint,
+              hasEnoughAllowance: (allowance as bigint) >= yieldAmount,
+            });
           }
         } catch (error) {
-          console.error(`[Pool Draw] Error fetching balance for ${settings.walletAddress}:`, error);
+          console.error(`[Pool Draw] Error processing ${settings.walletAddress}:`, error);
         }
       }
       
-      // Calculate referral bonuses (10% of referee's yield goes to referrer)
+      // Calculate referral bonuses (10% of referee's yield goes to referrer as bonus tickets)
+      const yieldMap = new Map<string, bigint>();
+      for (const p of participantData) {
+        yieldMap.set(p.address, p.yieldAmount);
+      }
+      
       const referralBonusMap = new Map<string, bigint>();
       for (const [participantAddr, yieldAmount] of yieldMap) {
         const referrerAddr = refereeToReferrer.get(participantAddr);
@@ -3333,9 +3470,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Build final participant list with total tickets
-      const allAddresses = new Set([...yieldMap.keys(), ...referralBonusMap.keys()]);
-      for (const addr of allAddresses) {
+      // Build final participant list with tickets
+      const participantTickets: { 
+        address: string; 
+        yieldTickets: bigint; 
+        referralBonus: bigint; 
+        totalTickets: bigint;
+        yieldToCollect: bigint;
+        hasEnoughAllowance: boolean;
+      }[] = [];
+      
+      const allParticipantAddresses = new Set([...yieldMap.keys(), ...referralBonusMap.keys()]);
+      for (const addr of allParticipantAddresses) {
+        const participantInfo = participantData.find(p => p.address === addr);
         const yieldTickets = yieldMap.get(addr) || 0n;
         const referralBonus = referralBonusMap.get(addr) || 0n;
         const totalTickets = yieldTickets + referralBonus;
@@ -3346,6 +3493,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             yieldTickets,
             referralBonus,
             totalTickets,
+            yieldToCollect: participantInfo?.yieldAmount || 0n,
+            hasEnoughAllowance: participantInfo?.hasEnoughAllowance ?? false,
           });
         }
       }
@@ -3357,13 +3506,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Calculate total tickets
+      // Only count participants with sufficient allowance for collection
+      const collectableParticipants = participantTickets.filter(p => p.hasEnoughAllowance && p.yieldToCollect > 0n);
       const totalTickets = participantTickets.reduce((sum, p) => sum + p.totalTickets, 0n);
-      
-      // Calculate total prize pool (sum of all yield + sponsored pool)
-      const totalYield = participantTickets.reduce((sum, p) => sum + p.yieldTickets, 0n);
+      const totalYieldToCollect = collectableParticipants.reduce((sum, p) => sum + p.yieldToCollect, 0n);
       const sponsoredPool = BigInt(draw.sponsoredPool || '0');
-      const totalPrizePool = totalYield + sponsoredPool;
+      const totalPrizePool = totalYieldToCollect + sponsoredPool;
       
       // Generate random number for selection
       const randomBytes = randomUUID().replace(/-/g, '');
@@ -3380,16 +3528,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Dry run mode: return simulation without executing on-chain
+      if (dryRun) {
+        return res.json({
+          success: true,
+          dryRun: true,
+          winner: {
+            address: winner.address,
+            yieldTickets: winner.yieldTickets.toString(),
+            referralBonus: winner.referralBonus.toString(),
+            totalTickets: winner.totalTickets.toString(),
+            prize: totalPrizePool.toString(),
+            prizeFormatted: (Number(totalPrizePool) / 1_000_000).toFixed(2),
+          },
+          totalParticipants: participantTickets.length,
+          collectableParticipants: collectableParticipants.length,
+          totalTickets: totalTickets.toString(),
+          totalYieldToCollect: totalYieldToCollect.toString(),
+          totalPrizePool: totalPrizePool.toString(),
+          sponsoredPool: sponsoredPool.toString(),
+          winningNumber: randomBigInt.toString(),
+          apy,
+          unapprovedUsers: unapprovedUsers.length,
+          participantsWithInsufficientAllowance: participantTickets.filter(p => !p.hasEnoughAllowance).length,
+        });
+      }
+      
+      // Phase 2: Collect yields from participants via transferFrom
+      const walletClient = createWalletClient({
+        chain: celo,
+        account: facilitatorAccount,
+        transport: http('https://forno.celo.org'),
+      });
+      
+      const collectionResults: { address: string; amount: string; txHash?: string; error?: string }[] = [];
+      let totalCollected = 0n;
+      
+      for (const participant of collectableParticipants) {
+        try {
+          const transferFromTx = await walletClient.writeContract({
+            address: CELO_AUSDC_ADDRESS,
+            abi: [{
+              inputs: [
+                { name: 'from', type: 'address' },
+                { name: 'to', type: 'address' },
+                { name: 'amount', type: 'uint256' }
+              ],
+              name: 'transferFrom',
+              outputs: [{ name: '', type: 'bool' }],
+              stateMutability: 'nonpayable',
+              type: 'function',
+            }],
+            functionName: 'transferFrom',
+            args: [getAddress(participant.address), facilitatorAccount.address, participant.yieldToCollect],
+          });
+          
+          await client.waitForTransactionReceipt({ hash: transferFromTx });
+          
+          collectionResults.push({
+            address: participant.address,
+            amount: participant.yieldToCollect.toString(),
+            txHash: transferFromTx,
+          });
+          totalCollected += participant.yieldToCollect;
+          
+          console.log(`[Pool Draw] Collected ${participant.yieldToCollect} from ${participant.address}: ${transferFromTx}`);
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message.slice(0, 100) : 'Unknown error';
+          console.error(`[Pool Draw] Failed to collect from ${participant.address}:`, errorMsg);
+          collectionResults.push({
+            address: participant.address,
+            amount: participant.yieldToCollect.toString(),
+            error: errorMsg,
+          });
+        }
+      }
+      
+      // Phase 3: Transfer prize to winner (total collected + sponsored pool)
+      const actualPrize = totalCollected + sponsoredPool;
+      let prizeTxHash: string | undefined;
+      
+      if (actualPrize > 0n) {
+        try {
+          prizeTxHash = await walletClient.writeContract({
+            address: CELO_AUSDC_ADDRESS,
+            abi: [{
+              inputs: [
+                { name: 'to', type: 'address' },
+                { name: 'amount', type: 'uint256' }
+              ],
+              name: 'transfer',
+              outputs: [{ name: '', type: 'bool' }],
+              stateMutability: 'nonpayable',
+              type: 'function',
+            }],
+            functionName: 'transfer',
+            args: [getAddress(winner.address), actualPrize],
+          });
+          
+          await client.waitForTransactionReceipt({ hash: prizeTxHash });
+          console.log(`[Pool Draw] Transferred prize ${actualPrize} to winner ${winner.address}: ${prizeTxHash}`);
+        } catch (error) {
+          console.error(`[Pool Draw] Failed to transfer prize to ${winner.address}:`, error);
+          return res.status(500).json({ 
+            error: 'Failed to transfer prize to winner',
+            collectionResults,
+            totalCollected: totalCollected.toString(),
+          });
+        }
+      }
+      
       // Update draw with winner and final totals
       await storage.completeDraw(draw.id, {
         winnerAddress: winner.address,
         winnerTickets: winner.totalTickets.toString(),
         winningNumber: randomBigInt.toString(),
-        totalPool: totalPrizePool.toString(),
+        totalPool: actualPrize.toString(),
         totalTickets: totalTickets.toString(),
       });
       
-      console.log(`[Pool Draw] Completed: winner=${winner.address}, tickets=${winner.totalTickets}, prize=${totalPrizePool}, participants=${participantTickets.length}`);
+      console.log(`[Pool Draw] Completed: winner=${winner.address}, tickets=${winner.totalTickets}, prize=${actualPrize}, collected from ${collectionResults.filter(r => !r.error).length} participants`);
       
       res.json({
         success: true,
@@ -3398,14 +3656,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           yieldTickets: winner.yieldTickets.toString(),
           referralBonus: winner.referralBonus.toString(),
           totalTickets: winner.totalTickets.toString(),
-          prize: totalPrizePool.toString(),
-          prizeFormatted: (Number(totalPrizePool) / 1_000_000).toFixed(2),
+          prize: actualPrize.toString(),
+          prizeFormatted: (Number(actualPrize) / 1_000_000).toFixed(2),
+          prizeTxHash,
+        },
+        collection: {
+          attempted: collectableParticipants.length,
+          successful: collectionResults.filter(r => !r.error).length,
+          failed: collectionResults.filter(r => r.error).length,
+          totalCollected: totalCollected.toString(),
+          results: collectionResults,
         },
         totalParticipants: participantTickets.length,
         totalTickets: totalTickets.toString(),
-        totalPrizePool: totalPrizePool.toString(),
+        totalPrizePool: actualPrize.toString(),
+        sponsoredPool: sponsoredPool.toString(),
         winningNumber: randomBigInt.toString(),
         apy,
+        unapprovedUsers: unapprovedUsers.length,
       });
     } catch (error) {
       console.error('[Pool] Error running draw:', error);

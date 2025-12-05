@@ -63,6 +63,8 @@ interface PoolStatus {
   };
   user: {
     optInPercent: number;
+    facilitatorApproved: boolean;
+    approvalTxHash: string | null;
     // Estimation-only values (calculated from live balance × APY × opt-in%)
     estimatedYield: string; // User's estimated yield contribution
     estimatedYieldFormatted: string;
@@ -185,6 +187,8 @@ export default function Pool() {
   const [referralInput, setReferralInput] = useState("");
   const [showReferralDialog, setShowReferralDialog] = useState(false);
   const [showContributionDialog, setShowContributionDialog] = useState(false);
+  const [showApprovalDialog, setShowApprovalDialog] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
   const [pendingOptInPercent, setPendingOptInPercent] = useState<number | null>(null);
   const [contributionSuccess, setContributionSuccess] = useState<{
     success: boolean;
@@ -397,6 +401,93 @@ export default function Pool() {
     setPendingOptInPercent(null);
     setPrepareData(null);
     setContributionSuccess(null);
+  };
+
+  // Handle facilitator approval for yield collection
+  const handleFacilitatorApproval = async () => {
+    if (!address) return;
+    
+    setIsApproving(true);
+    try {
+      // 1. Get facilitator info
+      const facilitatorResponse = await fetch('/api/pool/facilitator');
+      const facilitatorData = await facilitatorResponse.json();
+      
+      if (!facilitatorData.facilitatorAddress || !facilitatorData.aUsdcAddress) {
+        throw new Error('Facilitator not configured');
+      }
+      
+      // 2. Get private key and create approval transaction
+      const privateKey = await getPrivateKey();
+      if (!privateKey) {
+        throw new Error('Wallet not found');
+      }
+      
+      const account = privateKeyToAccount(privateKey as `0x${string}`);
+      
+      // 3. Send approve transaction for max uint256 (unlimited approval)
+      const { createWalletClient, http, createPublicClient } = await import('viem');
+      const { celo } = await import('viem/chains');
+      
+      const publicClient = createPublicClient({
+        chain: celo,
+        transport: http('https://forno.celo.org'),
+      });
+      
+      const walletClient = createWalletClient({
+        chain: celo,
+        account,
+        transport: http('https://forno.celo.org'),
+      });
+      
+      // Limited approval: 1 year of max weekly yield (assumes 10% APY on $100k = ~$192/week max)
+      // 100,000 USDC × 10% / 52 weeks = ~$192/week, so $10,000 covers ~1 year of max yield
+      const limitedApproval = BigInt(10_000_000_000); // $10,000 in micro-USDC
+      
+      const txHash = await walletClient.writeContract({
+        address: facilitatorData.aUsdcAddress as `0x${string}`,
+        abi: [{
+          inputs: [
+            { name: 'spender', type: 'address' },
+            { name: 'amount', type: 'uint256' }
+          ],
+          name: 'approve',
+          outputs: [{ name: '', type: 'bool' }],
+          stateMutability: 'nonpayable',
+          type: 'function',
+        }],
+        functionName: 'approve',
+        args: [facilitatorData.facilitatorAddress as `0x${string}`, limitedApproval],
+      });
+      
+      // 4. Wait for confirmation
+      await publicClient.waitForTransactionReceipt({ hash: txHash });
+      
+      // 5. Record approval in backend
+      await apiRequest('POST', '/api/pool/record-approval', {
+        address,
+        txHash,
+      });
+      
+      // 6. Refresh pool status
+      queryClient.invalidateQueries({ queryKey: ['/api/pool/status', address] });
+      
+      toast({
+        title: "Authorized!",
+        description: "You're now eligible for the weekly draw.",
+      });
+      
+      setShowApprovalDialog(false);
+    } catch (error) {
+      console.error('[Pool] Approval error:', error);
+      toast({
+        title: "Approval Failed",
+        description: error instanceof Error ? error.message : "Failed to authorize",
+        variant: "destructive",
+      });
+    } finally {
+      setIsApproving(false);
+    }
   };
 
   // Open modal and fetch prepare data to show amounts
@@ -1008,6 +1099,46 @@ export default function Pool() {
                   Higher contribution = more tickets = better odds
                 </p>
               </Card>
+
+              {/* Facilitator Authorization Status */}
+              {optInPercent > 0 && (
+                <Card className={`p-3 space-y-2 ${poolStatus.user.facilitatorApproved ? 'border-green-500/30 bg-green-500/5' : 'border-amber-500/30 bg-amber-500/5'}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Shield className={`h-4 w-4 ${poolStatus.user.facilitatorApproved ? 'text-green-600' : 'text-amber-600'}`} />
+                      <span className="text-sm font-medium">Yield Collection</span>
+                    </div>
+                    <Badge 
+                      variant={poolStatus.user.facilitatorApproved ? "default" : "secondary"}
+                      className={poolStatus.user.facilitatorApproved ? "bg-green-600" : "bg-amber-600 text-white"}
+                    >
+                      {poolStatus.user.facilitatorApproved ? "Authorized" : "Not Authorized"}
+                    </Badge>
+                  </div>
+                  {!poolStatus.user.facilitatorApproved && (
+                    <>
+                      <p className="text-xs text-muted-foreground">
+                        Authorize the pool to collect your weekly yield. Without this, you won't be included in the draw.
+                      </p>
+                      <Button 
+                        size="sm" 
+                        className="w-full" 
+                        onClick={() => setShowApprovalDialog(true)}
+                        data-testid="button-authorize-facilitator"
+                      >
+                        <Shield className="h-4 w-4 mr-2" />
+                        Authorize Collection
+                      </Button>
+                    </>
+                  )}
+                  {poolStatus.user.facilitatorApproved && poolStatus.user.approvalTxHash && (
+                    <p className="text-xs text-green-600/80 flex items-center gap-1">
+                      <Check className="h-3 w-3" />
+                      Approval confirmed on-chain
+                    </p>
+                  )}
+                </Card>
+              )}
 
               {/* Collection Timing Info */}
               <Card className="p-3 border-dashed space-y-1">
@@ -1712,6 +1843,91 @@ export default function Pool() {
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Facilitator Approval Dialog */}
+      <Dialog open={showApprovalDialog} onOpenChange={(open) => {
+        if (!open && !isApproving) setShowApprovalDialog(false);
+      }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-primary" />
+              Authorize Yield Collection
+            </DialogTitle>
+            <DialogDescription>
+              Allow the prize pool to collect your weekly Aave yield contribution.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="bg-muted/50 rounded-lg p-3 space-y-2 text-sm">
+              <div className="flex items-start gap-2">
+                <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                <span>Limited to $10,000 total (covers ~1 year of yield)</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                <span>Only yield is collected, your savings are safe</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                <span>You can revoke anytime via Celo explorer</span>
+              </div>
+            </div>
+
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 space-y-2">
+              <p className="text-xs font-medium text-amber-700 dark:text-amber-400">On-chain approval</p>
+              <p className="text-xs text-muted-foreground">
+                This transaction on Celo network approves the nanoPay facilitator to collect aUSDC from your wallet.
+              </p>
+              <div className="text-xs text-muted-foreground space-y-1 font-mono">
+                <div className="truncate" data-testid="text-facilitator-address">
+                  <span className="text-muted-foreground/70">Facilitator:</span>{' '}
+                  <span>0x2c696E...0363</span>
+                </div>
+                <div className="truncate" data-testid="text-ausdc-address">
+                  <span className="text-muted-foreground/70">aUSDC:</span>{' '}
+                  <span>0xFF8309...4785</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-xs text-muted-foreground text-center">
+              Requires small amount of CELO for gas (~$0.001)
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <Button 
+              variant="outline" 
+              className="flex-1"
+              onClick={() => setShowApprovalDialog(false)}
+              disabled={isApproving}
+              data-testid="button-cancel-approval"
+            >
+              Cancel
+            </Button>
+            <Button 
+              className="flex-1"
+              onClick={handleFacilitatorApproval}
+              disabled={isApproving}
+              data-testid="button-confirm-approval"
+            >
+              {isApproving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Approving...
+                </>
+              ) : (
+                <>
+                  <Shield className="h-4 w-4 mr-2" />
+                  Approve
+                </>
+              )}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

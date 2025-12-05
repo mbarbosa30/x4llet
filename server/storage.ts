@@ -2025,6 +2025,37 @@ export class DbStorage extends MemStorage {
     }
   }
 
+  async updateFacilitatorApproval(walletAddress: string, approved: boolean, txHash?: string): Promise<void> {
+    try {
+      await db
+        .update(poolSettings)
+        .set({ 
+          facilitatorApproved: approved, 
+          approvalTxHash: txHash || null,
+          updatedAt: new Date() 
+        })
+        .where(eq(poolSettings.walletAddress, walletAddress.toLowerCase()));
+    } catch (error) {
+      console.error('[Pool] Error updating facilitator approval:', error);
+      throw error;
+    }
+  }
+
+  async getApprovedParticipants(): Promise<PoolSettings[]> {
+    try {
+      return await db
+        .select()
+        .from(poolSettings)
+        .where(and(
+          gt(poolSettings.optInPercent, 0),
+          eq(poolSettings.facilitatorApproved, true)
+        ));
+    } catch (error) {
+      console.error('[Pool] Error getting approved participants:', error);
+      return [];
+    }
+  }
+
   async getAllPoolSettings(): Promise<PoolSettings[]> {
     try {
       return await db.select().from(poolSettings);
