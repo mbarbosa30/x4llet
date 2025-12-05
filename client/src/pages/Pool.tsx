@@ -632,7 +632,7 @@ export default function Pool() {
               <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground pt-2">
                 <span className="flex items-center gap-1">
                   <Users className="h-3.5 w-3.5" />
-                  {poolStatus.draw.participantCount} players
+                  {poolStatus.draw.participantCount} participants
                 </span>
                 <span className="flex items-center gap-1">
                   <Clock className="h-3.5 w-3.5" />
@@ -775,7 +775,7 @@ export default function Pool() {
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <Users className="h-4 w-4" />
                     <span data-testid="text-participant-count">
-                      {poolStatus.draw.participantCount} players
+                      {poolStatus.draw.participantCount} participants
                     </span>
                   </div>
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -1470,7 +1470,7 @@ export default function Pool() {
                             Week {draw.weekNumber}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {draw.participantCount} players
+                            {draw.participantCount} participants
                           </p>
                         </div>
                         <div className="text-right">
@@ -1588,7 +1588,7 @@ export default function Pool() {
                                     `${value.toFixed(1)}%`,
                                     name === 'equality' ? 'Perfect equality' : 'Actual'
                                   ]}
-                                  labelFormatter={(v) => `Bottom ${v}% of players`}
+                                  labelFormatter={(v) => `Bottom ${v}% of participants`}
                                 />
                                 {/* Equality line */}
                                 <Line 
