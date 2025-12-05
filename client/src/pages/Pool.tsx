@@ -192,7 +192,7 @@ export default function Pool() {
   const [showReferralDialog, setShowReferralDialog] = useState(false);
   const [showContributionDialog, setShowContributionDialog] = useState(false);
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
-  const [isApproving, setIsApproving] = useState(false);
+  const [approvalStep, setApprovalStep] = useState<'idle' | 'checking_gas' | 'dripping' | 'approving' | 'confirming'>('idle');
   const [pendingOptInPercent, setPendingOptInPercent] = useState<number | null>(null);
   const [contributionSuccess, setContributionSuccess] = useState<{
     success: boolean;
@@ -414,9 +414,9 @@ export default function Pool() {
   const handleFacilitatorApproval = async () => {
     if (!address) return;
     
-    setIsApproving(true);
     try {
       // 1. Get facilitator info
+      setApprovalStep('checking_gas');
       const facilitatorResponse = await fetch('/api/pool/facilitator');
       const facilitatorData = await facilitatorResponse.json();
       
@@ -432,7 +432,6 @@ export default function Pool() {
       
       const account = privateKeyToAccount(privateKey as `0x${string}`);
       
-      // 3. Send approve transaction for max uint256 (unlimited approval)
       const { createWalletClient, http, createPublicClient } = await import('viem');
       const { celo } = await import('viem/chains');
       
@@ -441,14 +440,80 @@ export default function Pool() {
         transport: http('https://forno.celo.org'),
       });
       
+      // 3. Check gas balance and drip if needed
+      const gasBalance = await publicClient.getBalance({ address: account.address });
+      const minGasRequired = BigInt(1e16); // 0.01 CELO threshold
+      
+      console.log('[Pool Approval] Gas balance:', gasBalance.toString(), 'Required:', minGasRequired.toString());
+      
+      if (gasBalance < minGasRequired) {
+        console.log('[Pool Approval] Insufficient gas, requesting drip...');
+        setApprovalStep('dripping');
+        
+        try {
+          const dripResponse = await fetch('/api/gas-drip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ address: account.address, chainId: 42220 }),
+          });
+          
+          let dripResult;
+          try {
+            dripResult = await dripResponse.json();
+          } catch {
+            throw new Error('Gas service unavailable - please try again later');
+          }
+          
+          console.log('[Pool Approval] Drip response:', dripResult, 'Status:', dripResponse.status);
+          
+          if (!dripResponse.ok) {
+            if (dripResponse.status === 429) {
+              const nextDrip = dripResult.nextDripAvailable ? new Date(dripResult.nextDripAvailable) : null;
+              const hoursRemaining = nextDrip ? Math.max(1, Math.ceil((nextDrip.getTime() - Date.now()) / (1000 * 60 * 60))) : 24;
+              throw new Error(`Gas limit reached. Try again in ${hoursRemaining}h.`);
+            }
+            if (dripResponse.status === 503) {
+              throw new Error('Gas service temporarily unavailable. Please try again.');
+            }
+            if (dripResult.alreadyHasGas) {
+              console.log('[Pool Approval] User already has sufficient gas, proceeding...');
+            } else {
+              throw new Error(dripResult.error || 'Unable to provide gas at this time');
+            }
+          } else {
+            if (dripResult.alreadyHasGas) {
+              console.log('[Pool Approval] User already has sufficient gas');
+            } else {
+              console.log('[Pool Approval] Gas drip sent:', dripResult.txHash);
+              await new Promise(resolve => setTimeout(resolve, 5000));
+              
+              const newGasBalance = await publicClient.getBalance({ address: account.address });
+              console.log('[Pool Approval] New gas balance:', newGasBalance.toString());
+              
+              if (newGasBalance < minGasRequired) {
+                throw new Error('Gas is being sent. Please try again in a few seconds.');
+              }
+            }
+          }
+        } catch (dripError) {
+          if (dripError instanceof Error && dripError.message.includes('Gas')) {
+            throw dripError;
+          }
+          console.error('[Pool Approval] Gas drip request failed:', dripError);
+          throw new Error('Gas service unavailable. Please try again.');
+        }
+      }
+      
+      // 4. Send approve transaction
+      setApprovalStep('approving');
+      
       const walletClient = createWalletClient({
         chain: celo,
         account,
         transport: http('https://forno.celo.org'),
       });
       
-      // Limited approval: 1 year of max weekly yield (assumes 10% APY on $100k = ~$192/week max)
-      // 100,000 USDC × 10% / 52 weeks = ~$192/week, so $10,000 covers ~1 year of max yield
+      // Limited approval: $10,000 covers ~1 year of max yield
       const limitedApproval = BigInt(10_000_000_000); // $10,000 in micro-USDC
       
       const txHash = await walletClient.writeContract({
@@ -467,16 +532,17 @@ export default function Pool() {
         args: [facilitatorData.facilitatorAddress as `0x${string}`, limitedApproval],
       });
       
-      // 4. Wait for confirmation
+      // 5. Wait for confirmation
+      setApprovalStep('confirming');
       await publicClient.waitForTransactionReceipt({ hash: txHash });
       
-      // 5. Record approval in backend
+      // 6. Record approval in backend
       await apiRequest('POST', '/api/pool/record-approval', {
         address,
         txHash,
       });
       
-      // 6. Refresh pool status
+      // 7. Refresh pool status
       queryClient.invalidateQueries({ queryKey: ['/api/pool/status', address] });
       
       toast({
@@ -493,7 +559,7 @@ export default function Pool() {
         variant: "destructive",
       });
     } finally {
-      setIsApproving(false);
+      setApprovalStep('idle');
     }
   };
 
@@ -1860,7 +1926,7 @@ export default function Pool() {
 
       {/* Facilitator Approval Dialog */}
       <Dialog open={showApprovalDialog} onOpenChange={(open) => {
-        if (!open && !isApproving) setShowApprovalDialog(false);
+        if (!open && approvalStep === 'idle') setShowApprovalDialog(false);
       }}>
         <DialogContent>
           <DialogHeader>
@@ -1873,53 +1939,54 @@ export default function Pool() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3">
-            <div className="bg-muted/50 rounded-lg p-3 space-y-1.5 text-xs">
-              <div className="flex items-center gap-2">
-                <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
-                <span>Limited to $10,000 (covers ~1 year)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
-                <span>Only yield collected, savings are safe</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
-                <span>Revokable anytime</span>
-              </div>
+          {approvalStep !== 'idle' ? (
+            <div className="py-6 flex flex-col items-center gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-center">
+                {approvalStep === 'checking_gas' && 'Checking gas balance...'}
+                {approvalStep === 'dripping' && 'Sending gas to your wallet...'}
+                {approvalStep === 'approving' && 'Sending approval...'}
+                {approvalStep === 'confirming' && 'Confirming transaction...'}
+              </p>
             </div>
+          ) : (
+            <>
+              <div className="space-y-3">
+                <div className="bg-muted/50 rounded-lg p-3 space-y-1.5 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                    <span>Limited to $10,000 (covers ~1 year)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                    <span>Only yield collected, savings are safe</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                    <span>Revokable anytime</span>
+                  </div>
+                </div>
+              </div>
 
-            <p className="text-xs text-muted-foreground text-center">
-              On-chain approval on Celo · Gas ~$0.001
-            </p>
-          </div>
-
-          <div className="flex gap-3">
-            <Button 
-              variant="outline" 
-              className="flex-1"
-              onClick={() => setShowApprovalDialog(false)}
-              disabled={isApproving}
-              data-testid="button-cancel-approval"
-            >
-              Cancel
-            </Button>
-            <Button 
-              className="flex-1"
-              onClick={handleFacilitatorApproval}
-              disabled={isApproving}
-              data-testid="button-confirm-approval"
-            >
-              {isApproving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Approving...
-                </>
-              ) : (
-                "Approve"
-              )}
-            </Button>
-          </div>
+              <div className="flex gap-3">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => setShowApprovalDialog(false)}
+                  data-testid="button-cancel-approval"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  className="flex-1"
+                  onClick={handleFacilitatorApproval}
+                  data-testid="button-confirm-approval"
+                >
+                  Approve
+                </Button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
