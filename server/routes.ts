@@ -6,7 +6,7 @@ import { transferRequestSchema, transferResponseSchema, paymentRequestSchema, su
 import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { getNetworkConfig, getNetworkByChainId } from "@shared/networks";
-import { AAVE_POOL_ABI, ERC20_ABI, rayToPercent } from "@shared/aave";
+import { AAVE_POOL_ABI, ATOKEN_ABI, ERC20_ABI, rayToPercent } from "@shared/aave";
 import { createPublicClient, createWalletClient, http, type Address, type Hex, hexToSignature, recoverAddress, hashTypedData, getAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, celo, gnosis } from 'viem/chains';
@@ -2574,6 +2574,165 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('[Pool] Error fetching Celo APY:', error);
       return 0;
     }
+  }
+
+  // Calculate ACTUAL interest earned by a user from Aave using scaledBalanceOf
+  // Formula: interest = balanceOf - (scaledBalanceOf × liquidityIndex / 1e27)
+  // This gives the exact yield, not an APY-based estimate
+  interface AaveUserInterest {
+    totalBalance: bigint;      // balanceOf (principal + interest)
+    scaledBalance: bigint;     // scaledBalanceOf (principal normalized)
+    principal: bigint;         // scaledBalance × liquidityIndex / RAY
+    interest: bigint;          // totalBalance - principal (actual earned yield)
+    liquidityIndex: bigint;    // Current liquidity index from Pool
+  }
+  
+  async function getAaveUserInterest(userAddress: string): Promise<AaveUserInterest | null> {
+    try {
+      const celoNetwork = getNetworkByChainId(42220);
+      if (!celoNetwork?.aavePoolAddress || !celoNetwork?.aUsdcAddress) {
+        console.error('[Pool] Celo Aave addresses not configured');
+        return null;
+      }
+
+      const client = createPublicClient({
+        chain: celo,
+        transport: http(celoNetwork.rpcUrl),
+      });
+
+      const normalizedAddress = getAddress(userAddress);
+      const aUsdcAddress = celoNetwork.aUsdcAddress as Address;
+      const poolAddress = celoNetwork.aavePoolAddress as Address;
+      const usdcAddress = celoNetwork.usdcAddress as Address;
+
+      // Fetch all data in parallel: balanceOf, scaledBalanceOf, and reserveData (for liquidityIndex)
+      const [totalBalance, scaledBalance, reserveData] = await Promise.all([
+        client.readContract({
+          address: aUsdcAddress,
+          abi: ATOKEN_ABI,
+          functionName: 'balanceOf',
+          args: [normalizedAddress],
+        }) as Promise<bigint>,
+        client.readContract({
+          address: aUsdcAddress,
+          abi: ATOKEN_ABI,
+          functionName: 'scaledBalanceOf',
+          args: [normalizedAddress],
+        }) as Promise<bigint>,
+        client.readContract({
+          address: poolAddress,
+          abi: AAVE_POOL_ABI,
+          functionName: 'getReserveData',
+          args: [usdcAddress],
+        }) as Promise<any>,
+      ]);
+
+      // liquidityIndex is in RAY (1e27 precision)
+      const liquidityIndex = BigInt(reserveData.liquidityIndex.toString());
+      const RAY = 10n ** 27n;
+
+      // principal = scaledBalance × liquidityIndex / RAY
+      const principal = (scaledBalance * liquidityIndex) / RAY;
+
+      // interest = totalBalance - principal
+      // This can be negative in edge cases (rounding), so use max(0, interest)
+      const interest = totalBalance > principal ? totalBalance - principal : 0n;
+
+      return {
+        totalBalance,
+        scaledBalance,
+        principal,
+        interest,
+        liquidityIndex,
+      };
+    } catch (error) {
+      console.error('[Pool] Error fetching Aave user interest:', error);
+      return null;
+    }
+  }
+
+  // Get actual interest for multiple users in batch (more efficient)
+  async function getAaveUsersInterest(userAddresses: string[]): Promise<Map<string, AaveUserInterest>> {
+    const results = new Map<string, AaveUserInterest>();
+    
+    if (userAddresses.length === 0) return results;
+
+    try {
+      const celoNetwork = getNetworkByChainId(42220);
+      if (!celoNetwork?.aavePoolAddress || !celoNetwork?.aUsdcAddress) {
+        return results;
+      }
+
+      const client = createPublicClient({
+        chain: celo,
+        transport: http(celoNetwork.rpcUrl),
+      });
+
+      const aUsdcAddress = celoNetwork.aUsdcAddress as Address;
+      const poolAddress = celoNetwork.aavePoolAddress as Address;
+      const usdcAddress = celoNetwork.usdcAddress as Address;
+
+      // First get liquidityIndex (shared across all users)
+      const reserveData = await client.readContract({
+        address: poolAddress,
+        abi: AAVE_POOL_ABI,
+        functionName: 'getReserveData',
+        args: [usdcAddress],
+      }) as any;
+
+      const liquidityIndex = BigInt(reserveData.liquidityIndex.toString());
+      const RAY = 10n ** 27n;
+
+      // Batch fetch balances for all users
+      const balancePromises = userAddresses.map(async (addr) => {
+        try {
+          const normalizedAddress = getAddress(addr);
+          const [totalBalance, scaledBalance] = await Promise.all([
+            client.readContract({
+              address: aUsdcAddress,
+              abi: ATOKEN_ABI,
+              functionName: 'balanceOf',
+              args: [normalizedAddress],
+            }) as Promise<bigint>,
+            client.readContract({
+              address: aUsdcAddress,
+              abi: ATOKEN_ABI,
+              functionName: 'scaledBalanceOf',
+              args: [normalizedAddress],
+            }) as Promise<bigint>,
+          ]);
+
+          const principal = (scaledBalance * liquidityIndex) / RAY;
+          const interest = totalBalance > principal ? totalBalance - principal : 0n;
+
+          return {
+            address: addr.toLowerCase(),
+            data: {
+              totalBalance,
+              scaledBalance,
+              principal,
+              interest,
+              liquidityIndex,
+            },
+          };
+        } catch (e) {
+          console.error(`[Pool] Error fetching interest for ${addr}:`, e);
+          return null;
+        }
+      });
+
+      const balanceResults = await Promise.all(balancePromises);
+      
+      for (const result of balanceResults) {
+        if (result) {
+          results.set(result.address, result.data);
+        }
+      }
+    } catch (error) {
+      console.error('[Pool] Error in batch interest fetch:', error);
+    }
+
+    return results;
   }
 
   // Calculate projected weekly pool from all opted-in users

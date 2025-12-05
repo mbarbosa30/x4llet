@@ -69,6 +69,24 @@ export const AAVE_POOL_ABI = [
   },
 ] as const;
 
+// aToken-specific ABI (includes scaledBalanceOf for principal tracking)
+export const ATOKEN_ABI = [
+  {
+    name: 'balanceOf',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    name: 'scaledBalanceOf',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'user', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+] as const;
+
 export const ERC20_ABI = [
   {
     name: 'balanceOf',
