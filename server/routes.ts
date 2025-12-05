@@ -2606,22 +2606,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  // Calculate ACTUAL interest earned by a user from Aave using scaledBalanceOf
-  // Formula: interest = balanceOf - (scaledBalanceOf × liquidityIndex / 1e27)
-  // This gives the exact yield, not an APY-based estimate
+  // Calculate ACTUAL interest earned by a user from Aave
+  // Formula: interest = current aUSDC balance - net deposits (tracked in database)
+  // This gives the exact unrealized yield
   interface AaveUserInterest {
-    totalBalance: bigint;      // balanceOf (principal + interest)
-    scaledBalance: bigint;     // scaledBalanceOf (principal normalized)
-    principal: bigint;         // scaledBalance × liquidityIndex / RAY
-    interest: bigint;          // totalBalance - principal (actual earned yield)
-    liquidityIndex: bigint;    // Current liquidity index from Pool
+    totalBalance: bigint;      // aUSDC balanceOf (current value including interest)
+    principal: bigint;         // Net deposits (deposits - withdrawals) from database
+    interest: bigint;          // totalBalance - principal (unrealized earned yield)
+    trackingStarted: string | null; // When we started tracking this user's deposits
   }
   
   async function getAaveUserInterest(userAddress: string): Promise<AaveUserInterest | null> {
     try {
       const celoNetwork = getNetworkByChainId(42220);
-      if (!celoNetwork?.aavePoolAddress || !celoNetwork?.aUsdcAddress) {
-        console.error('[Pool] Celo Aave addresses not configured');
+      if (!celoNetwork?.aUsdcAddress) {
+        console.error('[Pool] Celo aUSDC address not configured');
         return null;
       }
 
@@ -2632,48 +2631,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const normalizedAddress = getAddress(userAddress);
       const aUsdcAddress = celoNetwork.aUsdcAddress as Address;
-      const poolAddress = celoNetwork.aavePoolAddress as Address;
-      const usdcAddress = celoNetwork.usdcAddress as Address;
 
-      // Fetch all data in parallel: balanceOf, scaledBalanceOf, and reserveData (for liquidityIndex)
-      const [totalBalance, scaledBalance, reserveData] = await Promise.all([
+      // Fetch on-chain balance and database net principal in parallel
+      const [totalBalance, netPrincipalData] = await Promise.all([
         client.readContract({
           address: aUsdcAddress,
           abi: ATOKEN_ABI,
           functionName: 'balanceOf',
           args: [normalizedAddress],
         }) as Promise<bigint>,
-        client.readContract({
-          address: aUsdcAddress,
-          abi: ATOKEN_ABI,
-          functionName: 'scaledBalanceOf',
-          args: [normalizedAddress],
-        }) as Promise<bigint>,
-        client.readContract({
-          address: poolAddress,
-          abi: AAVE_POOL_ABI,
-          functionName: 'getReserveData',
-          args: [usdcAddress],
-        }) as Promise<any>,
+        storage.getAaveNetPrincipal(userAddress),
       ]);
 
-      // liquidityIndex is in RAY (1e27 precision)
-      const liquidityIndex = BigInt(reserveData.liquidityIndex.toString());
-      const RAY = 10n ** 27n;
+      // Get Celo chain data (chainId 42220)
+      const celoData = netPrincipalData.find(d => d.chainId === 42220);
+      const principal = BigInt(celoData?.netPrincipalMicro || '0');
+      const trackingStarted = celoData?.trackingStarted || null;
 
-      // principal = scaledBalance × liquidityIndex / RAY
-      const principal = (scaledBalance * liquidityIndex) / RAY;
-
-      // interest = totalBalance - principal
-      // This can be negative in edge cases (rounding), so use max(0, interest)
-      const interest = totalBalance > principal ? totalBalance - principal : 0n;
+      // If no tracking data exists but user has balance, we can't calculate interest accurately
+      // In this case, return interest = 0 to avoid overstating (conservative approach)
+      let interest = 0n;
+      if (trackingStarted && principal > 0n) {
+        // We have tracking data - calculate interest as balance minus principal
+        interest = totalBalance > principal ? totalBalance - principal : 0n;
+      }
+      // If trackingStarted is null (no deposits recorded), interest stays 0
 
       return {
         totalBalance,
-        scaledBalance,
         principal,
         interest,
-        liquidityIndex,
+        trackingStarted,
       };
     } catch (error) {
       console.error('[Pool] Error fetching Aave user interest:', error);
@@ -2689,7 +2677,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       const celoNetwork = getNetworkByChainId(42220);
-      if (!celoNetwork?.aavePoolAddress || !celoNetwork?.aUsdcAddress) {
+      if (!celoNetwork?.aUsdcAddress) {
         return results;
       }
 
@@ -2699,50 +2687,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const aUsdcAddress = celoNetwork.aUsdcAddress as Address;
-      const poolAddress = celoNetwork.aavePoolAddress as Address;
-      const usdcAddress = celoNetwork.usdcAddress as Address;
 
-      // First get liquidityIndex (shared across all users)
-      const reserveData = await client.readContract({
-        address: poolAddress,
-        abi: AAVE_POOL_ABI,
-        functionName: 'getReserveData',
-        args: [usdcAddress],
-      }) as any;
-
-      const liquidityIndex = BigInt(reserveData.liquidityIndex.toString());
-      const RAY = 10n ** 27n;
-
-      // Batch fetch balances for all users
+      // Batch fetch on-chain balances and database net principals
       const balancePromises = userAddresses.map(async (addr) => {
         try {
           const normalizedAddress = getAddress(addr);
-          const [totalBalance, scaledBalance] = await Promise.all([
+          const [totalBalance, netPrincipalData] = await Promise.all([
             client.readContract({
               address: aUsdcAddress,
               abi: ATOKEN_ABI,
               functionName: 'balanceOf',
               args: [normalizedAddress],
             }) as Promise<bigint>,
-            client.readContract({
-              address: aUsdcAddress,
-              abi: ATOKEN_ABI,
-              functionName: 'scaledBalanceOf',
-              args: [normalizedAddress],
-            }) as Promise<bigint>,
+            storage.getAaveNetPrincipal(addr),
           ]);
 
-          const principal = (scaledBalance * liquidityIndex) / RAY;
-          const interest = totalBalance > principal ? totalBalance - principal : 0n;
+          // Get Celo chain data (chainId 42220)
+          const celoData = netPrincipalData.find(d => d.chainId === 42220);
+          const principal = BigInt(celoData?.netPrincipalMicro || '0');
+          const trackingStarted = celoData?.trackingStarted || null;
+          
+          // If no tracking data exists, return interest = 0 (conservative approach)
+          let interest = 0n;
+          if (trackingStarted && principal > 0n) {
+            interest = totalBalance > principal ? totalBalance - principal : 0n;
+          }
 
           return {
             address: addr.toLowerCase(),
             data: {
               totalBalance,
-              scaledBalance,
               principal,
               interest,
-              liquidityIndex,
+              trackingStarted,
             },
           };
         } catch (e) {
@@ -2766,7 +2743,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Calculate ACTUAL pool from all opted-in users using real Aave interest data
-  // Uses scaledBalanceOf to determine exact principal and actual interest earned
+  // Uses net deposits (deposits - withdrawals) from database to determine principal
   async function calculateActualPool(): Promise<{
     totalYield: string;
     totalYieldFormatted: string;
@@ -3363,7 +3340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingSettings = await storage.getPoolSettings(normalizedAddress);
       const isFirstTime = !existingSettings;
       
-      // Fetch ACTUAL interest data from Aave (using scaledBalanceOf)
+      // Fetch ACTUAL interest data from Aave (balance - net deposits from database)
       const interestData = await getAaveUserInterest(normalizedAddress);
       
       if (!interestData) {
@@ -3383,7 +3360,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: true,
         isFirstTime,
-        // Balance breakdown (from Aave's scaledBalanceOf)
+        // Balance breakdown
         totalBalance: totalBalance.toString(),
         totalBalanceFormatted: (Number(totalBalance) / 1_000_000).toFixed(2),
         principal: principal.toString(),
