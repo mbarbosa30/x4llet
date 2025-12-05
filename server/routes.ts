@@ -2576,6 +2576,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
+  // Get facilitator's aUSDC balance on Celo (this is the sponsor pool - anyone can deposit to sponsor)
+  async function getFacilitatorAusdcBalance(): Promise<bigint> {
+    try {
+      const celoNetwork = getNetworkByChainId(42220);
+      if (!celoNetwork?.aUsdcAddress) {
+        console.error('[Pool] Celo aUSDC address not configured');
+        return 0n;
+      }
+
+      const facilitatorAccount = getFacilitatorAccount();
+      const client = createPublicClient({
+        chain: celo,
+        transport: http(celoNetwork.rpcUrl),
+      });
+
+      const balance = await client.readContract({
+        address: celoNetwork.aUsdcAddress as Address,
+        abi: ERC20_ABI,
+        functionName: 'balanceOf',
+        args: [facilitatorAccount.address],
+      }) as bigint;
+
+      console.log('[Pool] Facilitator aUSDC balance:', balance.toString(), `($${(Number(balance) / 1_000_000).toFixed(2)})`);
+      return balance;
+    } catch (error) {
+      console.error('[Pool] Error fetching facilitator aUSDC balance:', error);
+      return 0n;
+    }
+  }
+
   // Calculate ACTUAL interest earned by a user from Aave using scaledBalanceOf
   // Formula: interest = balanceOf - (scaledBalanceOf × liquidityIndex / 1e27)
   // This gives the exact yield, not an APY-based estimate
@@ -2979,17 +3009,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const estimatedContribution = estimatedTotalYieldAtWeekEnd * (userOptIn / 100);
       
       // === Pool values ===
-      const sponsoredPoolNum = Number(draw.sponsoredPool || '0');
+      // Sponsor pool = facilitator's on-chain aUSDC balance (anyone can deposit to sponsor)
+      const facilitatorBalance = await getFacilitatorAusdcBalance();
+      const sponsoredPoolNum = Number(facilitatorBalance);
       const totalYieldNum = Number(actualPoolData.totalYield);
       const totalPool = sponsoredPoolNum + totalYieldNum;
-      
-      // Calculate estimated pool prize at week end (actual + projected from all participants)
-      // For simplicity, estimate additional yield for pool based on total principals
-      const totalPrincipals = actualPoolData.participantData.reduce(
-        (sum, p) => sum + Number(p.principal) / 1_000_000, 0
-      );
-      const estimatedPoolAdditionalYield = totalPrincipals * (currentApy / 100) * (remainingDays / 365);
-      const estimatedPoolPrize = totalPool / 1_000_000 + estimatedPoolAdditionalYield;
       
       res.json({
         draw: {
@@ -2999,16 +3023,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: draw.status,
           totalPool: totalPool.toString(), // Current pool (sponsored + actual yield so far)
           totalPoolFormatted: (totalPool / 1_000_000).toFixed(2),
-          sponsoredPool: draw.sponsoredPool || '0', // Donations (no tickets)
+          sponsoredPool: facilitatorBalance.toString(), // On-chain aUSDC in facilitator wallet
           sponsoredPoolFormatted: (sponsoredPoolNum / 1_000_000).toFixed(2),
           totalTickets: poolTotalTickets.toString(), // Total tickets from actual yields
           participantCount: actualParticipantCount,
           // Actual yield data
           actualYieldFromParticipants: actualPoolData.totalYield,
           actualYieldFromParticipantsFormatted: actualPoolData.totalYieldFormatted,
-          // Estimated values (APY-based projections)
-          estimatedPrizePoolAtWeekEnd: (estimatedPoolPrize * 1_000_000).toFixed(0),
-          estimatedPrizePoolAtWeekEndFormatted: estimatedPoolPrize.toFixed(2),
           currentApy: currentApy.toFixed(2),
         },
         user: {
@@ -3727,7 +3748,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const collectableParticipants = participantTickets.filter(p => p.hasEnoughAllowance && p.yieldToCollect > 0n);
       const totalTickets = participantTickets.reduce((sum, p) => sum + p.totalTickets, 0n);
       const totalYieldToCollect = collectableParticipants.reduce((sum, p) => sum + p.yieldToCollect, 0n);
-      const sponsoredPool = BigInt(draw.sponsoredPool || '0');
+      // Sponsor pool = facilitator's on-chain aUSDC balance (already deposited, earning yield)
+      const sponsoredPool = await getFacilitatorAusdcBalance();
       const totalPrizePool = totalYieldToCollect + sponsoredPool;
       
       // Generate random number for selection

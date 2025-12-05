@@ -85,8 +85,8 @@ Multi-chain UX includes aggregated USDC balance display, chain badges for transa
 - ATOKEN_ABI includes `scaledBalanceOf` method for precise principal tracking
 - No mid-week transfers; all calculations are from live on-chain balances at draw time
 - Celo aUSDC address: 0xFF8309b9e99bfd2D4021bc71a362aBD93dBd4785 (from shared/networks.ts)
-- **Sponsored Pool**: Donations increase prize pool but do NOT add tickets. Stored separately in `sponsoredPool` column.
-- **UI Display**: Prize pool shows estimated value at week end (APY projection) with current collected amount shown below
+- **Sponsored Pool**: On-chain aUSDC balance of the facilitator wallet. Anyone can sponsor by sending aUSDC directly to the facilitator address on Celo. Sponsors' aUSDC earns yield too. No tickets are issued for sponsor deposits - they're purely donations to the prize pool.
+- **UI Display**: Prize pool shows the current total value (sponsor deposits + participant yields) with real-time growth animation at the current APY rate
 
 **Facilitator Authorization Flow**:
 - Users must authorize the facilitator to collect their weekly yield before participating in draws

@@ -47,17 +47,14 @@ interface PoolStatus {
     weekNumber: number;
     year: number;
     status: string;
-    totalPool: string; // Current pool (sponsored + actual yield so far)
+    totalPool: string; // Current pool = sponsor deposits (on-chain) + participant yields
     totalPoolFormatted: string;
-    sponsoredPool?: string; // Donations (no tickets)
+    sponsoredPool?: string; // Facilitator's on-chain aUSDC balance
     sponsoredPoolFormatted?: string;
     totalTickets: string; // Total tickets from actual yields
     participantCount: number;
     actualYieldFromParticipants?: string;
     actualYieldFromParticipantsFormatted?: string;
-    // Estimated values (APY-based projections)
-    estimatedPrizePoolAtWeekEnd?: string;
-    estimatedPrizePoolAtWeekEndFormatted?: string;
     currentApy?: string;
   };
   user: {
@@ -264,14 +261,14 @@ export default function Pool() {
     enabled: !!address,
   });
 
-  // Animate the prize pool amount (aUSDC earning interest)
-  // Use estimated pool at week end for main display, falling back to current pool
-  const estimatedPrizeMicro = poolStatus?.draw.estimatedPrizePoolAtWeekEnd || poolStatus?.draw.totalPool || '0';
+  // Animate the prize pool amount (aUSDC earning interest in real-time)
+  // Pool value = sponsor deposits (on-chain) + participant committed yields
+  const totalPoolMicro = poolStatus?.draw.totalPool || '0';
   const prizePoolAnimation = useEarningAnimation({
     usdcMicro: '0',
-    aaveBalanceMicro: estimatedPrizeMicro,
+    aaveBalanceMicro: totalPoolMicro,
     apyRate: (celoApyData?.apy || 0) / 100,
-    enabled: !!poolStatus && Number(estimatedPrizeMicro) > 0 && !!celoApyData?.apy,
+    enabled: !!poolStatus && Number(totalPoolMicro) > 0 && !!celoApyData?.apy,
     minPrecision: 5,
   });
 
@@ -760,22 +757,16 @@ export default function Pool() {
                 </div>
                 <div className="text-center py-4">
                   {(() => {
-                    // Current pool (actual collected + sponsored donations)
-                    const currentPool = Number(poolStatus.draw.totalPool) / 1_000_000;
-                    // Estimated pool at week end (based on APY projections)
-                    const estimatedPool = poolStatus.draw.estimatedPrizePoolAtWeekEnd 
-                      ? Number(poolStatus.draw.estimatedPrizePoolAtWeekEnd) / 1_000_000 
-                      : currentPool;
-                    
-                    // Show estimated as main value (what the prize will be)
+                    // Pool value = sponsor deposits (on-chain aUSDC) + participant committed yields
+                    const poolValue = Number(poolStatus.draw.totalPool) / 1_000_000;
                     const isAnimating = prizePoolAnimation.animatedValue > 0 && !!celoApyData?.apy;
                     
-                    // Static fallback for estimated pool
-                    const staticInt = Math.floor(estimatedPool);
-                    const staticDec = (estimatedPool % 1).toFixed(2).slice(2);
+                    // Static fallback
+                    const staticInt = Math.floor(poolValue);
+                    const staticDec = (poolValue % 1).toFixed(2).slice(2);
                     
                     return (
-                      <div className="space-y-2">
+                      <div className="space-y-1">
                         <div className="text-5xl font-medium tabular-nums flex items-center justify-center" data-testid="text-prize-amount">
                           <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
                           <span className="inline-flex items-baseline">
@@ -789,15 +780,8 @@ export default function Pool() {
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground text-center">
-                          Estimated at week end
+                          Growing at {celoApyData?.apy ? `${celoApyData.apy.toFixed(1)}%` : '~3%'} APY
                         </p>
-                        {currentPool > 0 && currentPool !== estimatedPool && (
-                          <div className="text-xs text-center text-muted-foreground pt-1 border-t border-border/50">
-                            <span className="opacity-70">Current: </span>
-                            <span className="font-medium">${currentPool.toFixed(2)}</span>
-                            <span className="opacity-70"> collected so far</span>
-                          </div>
-                        )}
                       </div>
                     );
                   })()}
@@ -853,8 +837,8 @@ export default function Pool() {
 
               {/* Kelly-Adjusted Opt-In Curve */}
               {(() => {
-                // Use estimated prize pool at week end for Kelly calculation
-                const prizePool = Number(poolStatus.draw.estimatedPrizePoolAtWeekEnd || poolStatus.draw.totalPool) / 1_000_000;
+                // Prize pool = sponsor deposits + participant committed yields
+                const prizePool = Number(poolStatus.draw.totalPool) / 1_000_000;
                 const aUsdcBalance = Number(poolStatus.user.aUsdcBalance) / 1_000_000;
                 // Use weekly yield (not total accrued) for Kelly calculation
                 const userWeeklyYield = Number(poolStatus.user.weeklyYield || '0') / 1_000_000;
