@@ -2998,7 +2998,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Prepare yield contribution - returns permit parameters for signing
+  // Prepare contribution - returns ESTIMATED weekly contribution based on APY
+  // No actual transfer happens here - transfers only occur at weekly draw
   app.post('/api/pool/prepare-contribution', async (req, res) => {
     try {
       const { address, optInPercent } = req.body;
@@ -3020,7 +3021,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const CELO_AUSDC_ADDRESS = getAddress(celoNetwork.aUsdcAddress);
-      const facilitatorAccount = getFacilitatorAccount();
       
       // Create public client for Celo
       const client = createPublicClient({
@@ -3028,8 +3028,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transport: http('https://forno.celo.org'),
       });
       
-      // Check if user has an existing snapshot
-      const existingSnapshot = await storage.getYieldSnapshot(normalizedAddress);
+      // Check if user has existing pool settings
+      const existingSettings = await storage.getPoolSettings(normalizedAddress);
+      const isFirstTime = !existingSettings;
       
       // Fetch current aUSDC balance
       const currentBalance = await client.readContract({
@@ -3041,120 +3042,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const currentBalanceBigInt = BigInt(currentBalance.toString());
       
-      // Check if first-time user (no existing snapshot)
-      const isFirstTime = !existingSnapshot;
-      
-      // For first-time users: save baseline snapshot and don't collect anything
-      // Only actual yield (interest earned AFTER opting in) should be collected
-      if (isFirstTime) {
-        await storage.upsertPoolSettings(normalizedAddress, Math.round(optInPercent));
-        await storage.upsertYieldSnapshot(normalizedAddress, {
-          lastAusdcBalance: currentBalanceBigInt.toString(),
-          lastCollectedAt: new Date(),
-          totalYieldCollected: '0',
-        });
-        
-        return res.json({
-          success: true,
-          isFirstTime: true,
-          noYieldToContribute: true,
-          message: currentBalanceBigInt > 0n 
-            ? 'Opted in! Your current balance is now your baseline. Future yield will be collected weekly.'
-            : 'Opted in! Deposit aUSDC on Celo to start earning yield for the pool.',
-          yieldAmount: '0',
-          contributionAmount: '0',
-          currentBalance: currentBalanceBigInt.toString(),
-          optInPercent: Math.round(optInPercent),
-        });
+      // Get Celo APY for estimation
+      let apy = 0;
+      try {
+        apy = await getCeloApy();
+      } catch (e) {
+        console.error('[Pool] Error fetching Celo APY:', e);
       }
       
-      // Calculate yield (balance growth since last snapshot) - only for returning users
-      let yieldAmount = 0n;
-      if (existingSnapshot.lastAusdcBalance && existingSnapshot.lastAusdcBalance !== '0') {
-        const lastBalanceBigInt = BigInt(existingSnapshot.lastAusdcBalance);
-        if (currentBalanceBigInt > lastBalanceBigInt) {
-          yieldAmount = currentBalanceBigInt - lastBalanceBigInt;
-        }
-      }
-      
-      // Calculate contribution based on opt-in percentage
-      const contributionAmount = (yieldAmount * BigInt(Math.round(optInPercent))) / 100n;
-      
-      if (contributionAmount === 0n) {
-        // Returning user with no new yield - just save opt-in preference
-        await storage.upsertPoolSettings(normalizedAddress, Math.round(optInPercent));
-        // Don't update snapshot if no yield - keep tracking from original baseline
-        
-        return res.json({
-          success: true,
-          noYieldToContribute: true,
-          message: 'Settings saved. No new yield to contribute yet.',
-          yieldAmount: '0',
-          contributionAmount: '0',
-          currentBalance: currentBalanceBigInt.toString(),
-          optInPercent: Math.round(optInPercent),
-        });
-      }
-      
-      // Get nonce and build permit parameters for signing
-      const nonce = await client.readContract({
-        address: CELO_AUSDC_ADDRESS,
-        abi: AUSDC_PERMIT_ABI,
-        functionName: 'nonces',
-        args: [userAddress],
-      });
-      
-      // Get token name for domain
-      const tokenName = await client.readContract({
-        address: CELO_AUSDC_ADDRESS,
-        abi: AUSDC_PERMIT_ABI,
-        functionName: 'name',
-      });
-      
-      // Deadline: 10 minutes from now
-      const deadline = Math.floor(Date.now() / 1000) + 600;
-      
-      // Build EIP-712 permit typed data
-      const permitTypedData = {
-        types: {
-          Permit: [
-            { name: 'owner', type: 'address' },
-            { name: 'spender', type: 'address' },
-            { name: 'value', type: 'uint256' },
-            { name: 'nonce', type: 'uint256' },
-            { name: 'deadline', type: 'uint256' },
-          ],
-        },
-        primaryType: 'Permit' as const,
-        domain: {
-          name: tokenName as string,
-          version: '1',
-          chainId: 42220,
-          verifyingContract: CELO_AUSDC_ADDRESS,
-        },
-        message: {
-          owner: userAddress,
-          spender: facilitatorAccount.address,
-          value: contributionAmount.toString(),
-          nonce: nonce.toString(),
-          deadline: deadline.toString(),
-        },
-      };
+      // Calculate ESTIMATED weekly contribution based on APY
+      // Formula: balance × (APY/100) / 52 × (optInPercent/100)
+      const estimatedWeeklyYield = apy > 0
+        ? Math.floor(Number(currentBalanceBigInt) * (apy / 100) / 52)
+        : 0;
+      const estimatedContribution = Math.floor(estimatedWeeklyYield * (optInPercent / 100));
+      const estimatedKeep = estimatedWeeklyYield - estimatedContribution;
       
       res.json({
         success: true,
-        requiresSignature: true,
-        yieldAmount: yieldAmount.toString(),
-        yieldAmountFormatted: (Number(yieldAmount) / 1_000_000).toFixed(6),
-        contributionAmount: contributionAmount.toString(),
-        contributionAmountFormatted: (Number(contributionAmount) / 1_000_000).toFixed(6),
+        isFirstTime,
         currentBalance: currentBalanceBigInt.toString(),
+        currentBalanceFormatted: (Number(currentBalanceBigInt) / 1_000_000).toFixed(2),
         optInPercent: Math.round(optInPercent),
-        permitTypedData,
-        deadline,
-        nonce: nonce.toString(),
-        spender: facilitatorAccount.address,
-        aUsdcAddress: CELO_AUSDC_ADDRESS,
+        apy,
+        // All values are ESTIMATES based on current APY
+        estimatedWeeklyYield: estimatedWeeklyYield.toString(),
+        estimatedWeeklyYieldFormatted: (estimatedWeeklyYield / 1_000_000).toFixed(4),
+        estimatedContribution: estimatedContribution.toString(),
+        estimatedContributionFormatted: (estimatedContribution / 1_000_000).toFixed(4),
+        estimatedKeep: estimatedKeep.toString(),
+        estimatedKeepFormatted: (estimatedKeep / 1_000_000).toFixed(4),
+        message: isFirstTime
+          ? (currentBalanceBigInt > 0n 
+              ? 'Set your yield contribution. Actual amount collected weekly based on your Aave earnings.'
+              : 'Deposit aUSDC on Celo Aave to start earning yield for the pool.')
+          : 'Update your yield contribution percentage.',
       });
     } catch (error: unknown) {
       console.error('[Pool] Error preparing contribution:', error);

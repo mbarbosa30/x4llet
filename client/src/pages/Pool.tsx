@@ -194,22 +194,18 @@ export default function Pool() {
   } | null>(null);
   const [prepareData, setPrepareData] = useState<{
     success: boolean;
-    requiresSignature?: boolean;
-    noYieldToContribute?: boolean;
     isFirstTime?: boolean;
-    yieldAmount?: string;
-    yieldAmountFormatted?: string;
-    contributionAmount?: string;
-    contributionAmountFormatted?: string;
     currentBalance?: string;
+    currentBalanceFormatted?: string;
     optInPercent?: number;
-    permitTypedData?: {
-      domain: Record<string, unknown>;
-      types: Record<string, unknown>;
-      message: Record<string, string>;
-    };
-    deadline?: number;
-    nonce?: string;
+    apy?: number;
+    // Estimation-only values (based on current balance × APY × opt-in%)
+    estimatedWeeklyYield?: string;
+    estimatedWeeklyYieldFormatted?: string;
+    estimatedContribution?: string;
+    estimatedContributionFormatted?: string;
+    estimatedKeep?: string;
+    estimatedKeepFormatted?: string;
     message?: string;
   } | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
@@ -255,10 +251,8 @@ export default function Pool() {
   });
 
   // Animate the prize pool amount (aUSDC earning interest)
-  // Total prize = participant pool + sponsored pool (donations)
-  const totalPrizeMicro = poolStatus 
-    ? (BigInt(poolStatus.draw.totalPool || '0') + BigInt(poolStatus.draw.sponsoredPool || '0')).toString()
-    : '0';
+  // NOTE: totalPool already includes sponsoredPool (backend calculates: sponsored + projected yield)
+  const totalPrizeMicro = poolStatus?.draw.totalPool || '0';
   const prizePoolAnimation = useEarningAnimation({
     usdcMicro: '0',
     aaveBalanceMicro: totalPrizeMicro,
@@ -281,78 +275,30 @@ export default function Pool() {
     }
   }, [poolStatus, hasInitializedOptIn]);
 
-  // On-chain contribution mutation - uses pre-fetched prepareData from modal
+  // Save opt-in percentage mutation - no on-chain transfers (those happen at weekly draw)
   const contributionMutation = useMutation({
     mutationFn: async (percent: number) => {
-      // Use the pre-fetched prepareData from when modal was opened
-      if (!prepareData) {
-        throw new Error('No contribution data available');
+      // Just save the opt-in percentage - actual yield collection happens at weekly draw
+      const result = await apiRequest("POST", "/api/pool/opt-in", {
+        address,
+        optInPercent: percent,
+      });
+      const data = await result.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to save settings');
       }
       
-      // If no yield to contribute, just return (includes first-time baseline saves)
-      if (prepareData.noYieldToContribute) {
-        return prepareData;
-      }
-      
-      // If requires signature, sign the permit and submit
-      if (prepareData.requiresSignature && prepareData.permitTypedData) {
-        const privateKey = await getPrivateKey();
-        if (!privateKey) throw new Error('No private key found');
-        
-        const account = privateKeyToAccount(privateKey as `0x${string}`);
-        
-        // Sign the EIP-712 permit
-        const signature = await account.signTypedData({
-          domain: prepareData.permitTypedData.domain as {
-            name: string;
-            version: string;
-            chainId: number;
-            verifyingContract: `0x${string}`;
-          },
-          types: prepareData.permitTypedData.types as {
-            Permit: { name: string; type: string }[];
-          },
-          primaryType: 'Permit',
-          message: {
-            owner: prepareData.permitTypedData.message.owner as `0x${string}`,
-            spender: prepareData.permitTypedData.message.spender as `0x${string}`,
-            value: BigInt(prepareData.permitTypedData.message.value),
-            nonce: BigInt(prepareData.permitTypedData.message.nonce),
-            deadline: BigInt(prepareData.permitTypedData.message.deadline),
-          },
-        });
-        
-        // Submit signed contribution
-        const submitResult = await apiRequest("POST", "/api/pool/submit-contribution", {
-          address,
-          optInPercent: percent,
-          contributionAmount: prepareData.contributionAmount,
-          deadline: prepareData.deadline,
-          signature,
-        });
-        const submitData = await submitResult.json();
-        
-        if (!submitData.success) {
-          throw new Error(submitData.error || 'Failed to submit contribution');
-        }
-        
-        return {
-          ...submitData,
-          onChain: true,
-        };
-      }
-      
-      return prepareData;
+      return {
+        optInPercent: percent,
+        isFirstTime: prepareData?.isFirstTime,
+        message: prepareData?.message,
+      };
     },
     onSuccess: (data: { 
       optInPercent?: number; 
-      contributionAmount?: string;
-      contributionAmountFormatted?: string;
-      transferTxHash?: string;
       isFirstTime?: boolean;
-      noYieldToContribute?: boolean;
       message?: string;
-      onChain?: boolean;
     }) => {
       // Sync local state to confirmed server value
       if (data?.optInPercent !== undefined) {
@@ -362,12 +308,8 @@ export default function Pool() {
       
       // Determine success message
       let successMessage = "Settings saved";
-      if (data.onChain && data.transferTxHash) {
-        successMessage = `$${data.contributionAmountFormatted} transferred to prize pool`;
-      } else if (data.isFirstTime) {
-        successMessage = data.message || "Your yield will be collected weekly";
-      } else if (data.noYieldToContribute) {
-        successMessage = data.message || "No yield to contribute yet";
+      if (data.isFirstTime) {
+        successMessage = "Your yield will be collected weekly at draw time";
       } else if ((data.optInPercent ?? 0) > 0) {
         successMessage = `Contributing ${data.optInPercent}% of your yield`;
       } else {
@@ -378,8 +320,6 @@ export default function Pool() {
       setContributionSuccess({
         success: true,
         message: successMessage,
-        isOnChain: data.onChain,
-        amount: data.contributionAmountFormatted,
       });
       
       // Close dialog after showing success
@@ -391,7 +331,7 @@ export default function Pool() {
         
         // Show toast as well
         toast({
-          title: data.onChain ? "Yield contributed!" : "Saved",
+          title: "Saved",
           description: successMessage,
         });
       }, 1500);
@@ -399,7 +339,7 @@ export default function Pool() {
     onError: (error: Error) => {
       console.error('[Pool] Contribution error:', error);
       toast({
-        title: "Failed to contribute",
+        title: "Failed to save",
         description: error.message || "Please try again",
         variant: "destructive",
       });
@@ -589,10 +529,8 @@ export default function Pool() {
               <div>
                 <p className="text-sm text-muted-foreground mb-2">This week's prize</p>
                 {(() => {
-                  // Include sponsored pool in total prize display
-                  const participantPool = Number(poolStatus.draw.totalPool) / 1_000_000;
-                  const sponsoredPool = Number(poolStatus.draw.sponsoredPool || '0') / 1_000_000;
-                  const currentPool = participantPool + sponsoredPool;
+                  // totalPool already includes sponsoredPool (backend calculates: sponsored + projected yield)
+                  const currentPool = Number(poolStatus.draw.totalPool) / 1_000_000;
                   const isAnimating = prizePoolAnimation.animatedValue > 0 && !!celoApyData?.apy;
                   
                   // Static fallback: show current collected pool with 2 decimals
@@ -721,16 +659,8 @@ export default function Pool() {
                 </div>
                 <div className="text-center py-4">
                   {(() => {
-                    // Current pool is what's already collected as aUSDC from participants
-                    const participantPool = Number(poolStatus.draw.totalPool) / 1_000_000;
-                    // Sponsored pool is donations that boost prize but don't add tickets
-                    const sponsoredPool = Number(poolStatus.draw.sponsoredPool || '0') / 1_000_000;
-                    // Total current prize = participant pool + sponsored
-                    const currentPool = participantPool + sponsoredPool;
-                    // Projected pool includes expected yield contributions by draw time
-                    const projectedPool = poolStatus.draw.projectedPool || poolStatus.draw.totalPrizePool || poolStatus.draw.totalPool;
-                    const projectedNum = Number(projectedPool) / 1_000_000;
-                    const hasProjectedGrowth = projectedNum > currentPool && currentPool > 0;
+                    // totalPool already includes sponsoredPool (backend calculates: sponsored + projected yield)
+                    const currentPool = Number(poolStatus.draw.totalPool) / 1_000_000;
                     
                     // Animate the current collected pool earning interest
                     const isAnimating = prizePoolAnimation.animatedValue > 0 && !!celoApyData?.apy;
@@ -753,11 +683,9 @@ export default function Pool() {
                             )}
                           </span>
                         </div>
-                        {hasProjectedGrowth && (
-                          <p className="text-xs text-muted-foreground text-center">
-                            USDC pledged
-                          </p>
-                        )}
+                        <p className="text-xs text-muted-foreground text-center">
+                          Est. pool value
+                        </p>
                       </div>
                     );
                   })()}
@@ -1714,66 +1642,39 @@ export default function Pool() {
                 <span className="text-lg font-bold text-primary">{pendingOptInPercent ?? 0}%</span>
               </div>
 
-              {/* Amount Details */}
-              {prepareData.isFirstTime ? (
-                <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Your aUSDC balance</span>
-                    <span className="font-medium">${formatMicroUsdc(prepareData.currentBalance || '0')}</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground text-center pt-1 border-t">
-                    This is your baseline. Only future yield will be collected.
-                  </div>
+              {/* Estimated Weekly Amounts */}
+              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Your aUSDC balance</span>
+                  <span className="font-medium">${formatMicroUsdc(prepareData.currentBalance || '0')}</span>
                 </div>
-              ) : prepareData.requiresSignature ? (
-                <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Current aUSDC</span>
-                    <span className="font-medium">${formatMicroUsdc(prepareData.currentBalance || '0')}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Yield earned</span>
-                    <span className="font-medium text-green-600">+${formatMicroUsdc(prepareData.yieldAmount || '0')}</span>
-                  </div>
-                  <div className="border-t pt-2 mt-2">
+                {prepareData.apy > 0 && Number(prepareData.currentBalance) > 0 && (pendingOptInPercent ?? 0) > 0 && (
+                  <>
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">To transfer ({pendingOptInPercent}%)</span>
-                      <span className="font-bold text-primary">${formatMicroUsdc(prepareData.contributionAmount || '0')}</span>
+                      <span className="text-muted-foreground">Est. weekly yield ({prepareData.apy.toFixed(1)}% APY)</span>
+                      <span className="font-medium text-green-600">~${formatMicroUsdc(prepareData.estimatedWeeklyYield || '0')}</span>
                     </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">You keep ({100 - (pendingOptInPercent ?? 0)}%)</span>
-                      <span className="font-medium">
-                        ${formatMicroUsdc(
-                          (BigInt(prepareData.yieldAmount || '0') - BigInt(prepareData.contributionAmount || '0')).toString()
-                        )}
-                      </span>
+                    <div className="border-t pt-2 mt-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Est. contribution ({pendingOptInPercent}%)</span>
+                        <span className="font-bold text-primary">~${formatMicroUsdc(prepareData.estimatedContribution || '0')}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Est. you keep ({100 - (pendingOptInPercent ?? 0)}%)</span>
+                        <span className="font-medium">~${formatMicroUsdc(prepareData.estimatedKeep || '0')}</span>
+                      </div>
                     </div>
-                  </div>
+                  </>
+                )}
+                <div className="text-xs text-muted-foreground text-center pt-1 border-t">
+                  {prepareData.message || (Number(prepareData.currentBalance) === 0 
+                    ? 'Deposit aUSDC on Celo Aave to start earning yield for the pool.'
+                    : 'Actual amount collected weekly based on your Aave earnings.')}
                 </div>
-              ) : prepareData.noYieldToContribute ? (
-                <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Your aUSDC balance</span>
-                    <span className="font-medium">${formatMicroUsdc(prepareData.currentBalance || '0')}</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground text-center pt-1 border-t">
-                    {prepareData.message || "No new yield to contribute yet."}
-                  </div>
-                </div>
-              ) : null}
-
-              {/* Authorization Note */}
-              {prepareData.requiresSignature && (
-                <div className="text-xs text-muted-foreground text-center space-y-1">
-                  <p className="flex items-center justify-center gap-1">
-                    <Shield className="h-3 w-3" />
-                    You'll sign a one-time permit for this transfer
-                  </p>
-                </div>
-              )}
+              </div>
               
               <div className="text-xs text-muted-foreground text-center">
-                <p>Collected weekly on Sunday at 00:00 UTC</p>
+                <p>Yield collected weekly on Sunday at 00:00 UTC</p>
               </div>
             </div>
           ) : (
@@ -1803,10 +1704,8 @@ export default function Pool() {
                 {contributionMutation.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    {prepareData?.requiresSignature ? "Signing..." : "Saving..."}
+                    Saving...
                   </>
-                ) : prepareData?.requiresSignature ? (
-                  "Sign & Transfer"
                 ) : (
                   "Confirm"
                 )}
