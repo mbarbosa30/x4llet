@@ -804,7 +804,7 @@ export default function Pool() {
                       const hasProjection = projectedTickets > currentTickets && currentTickets >= 0;
                       return (
                         <div className="space-y-0.5">
-                          <p className="text-2xl font-bold" data-testid="text-your-tickets">
+                          <p className="text-2xl font-medium" data-testid="text-your-tickets">
                             {formatTickets(hasProjection ? projectedTickets.toString() : poolStatus.user.totalTickets)}
                           </p>
                           <p className="text-xs text-muted-foreground">
@@ -821,7 +821,7 @@ export default function Pool() {
                       const hasProjection = projectedOdds > currentOdds && currentOdds >= 0;
                       return (
                         <div className="space-y-0.5">
-                          <p className="text-2xl font-bold text-primary" data-testid="text-your-odds">
+                          <p className="text-2xl font-medium text-primary" data-testid="text-your-odds">
                             {hasProjection ? projectedOdds.toFixed(2) : poolStatus.user.odds}%
                           </p>
                           <p className="text-xs text-muted-foreground">
