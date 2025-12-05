@@ -901,6 +901,70 @@ export default function Pool() {
                 </div>
               </Card>
 
+              {/* Contribution */}
+              <Card className="p-4 space-y-3" data-testid="card-yield-contribution">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <Coins className="h-4 w-4 text-primary" />
+                    Yield Contribution
+                  </div>
+                  <Badge variant="outline" className="font-bold px-2" data-testid="text-opt-in-percent">
+                    {optInPercent}%
+                  </Badge>
+                </div>
+                <Slider
+                  value={[optInPercent]}
+                  onValueChange={handleOptInChange}
+                  max={100}
+                  step={5}
+                  className="w-full"
+                  data-testid="slider-opt-in"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Keep all yield</span>
+                  <span>Max tickets</span>
+                </div>
+                
+                {/* Yield Stats - All values are estimates */}
+                <div className="space-y-2 pt-2 border-t">
+                  {celoApyData?.apy && Number(poolStatus.user.aUsdcBalance) > 0 && optInPercent > 0 ? (
+                    <>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Est. weekly</span>
+                        <span className="font-medium text-primary" data-testid="text-weekly-estimate">
+                          ~${formatSmallAmount((Number(poolStatus.user.aUsdcBalance) / 1_000_000) * (celoApyData.apy / 100) / 52 * (optInPercent / 100))}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Est. daily</span>
+                        <span className="font-medium" data-testid="text-daily-estimate">
+                          ~${formatSmallAmount((Number(poolStatus.user.aUsdcBalance) / 1_000_000) * (celoApyData.apy / 100) / 365 * (optInPercent / 100))}
+                        </span>
+                      </div>
+                    </>
+                  ) : optInPercent > 0 && Number(poolStatus.user.aUsdcBalance) === 0 ? (
+                    <div className="text-xs text-muted-foreground text-center">
+                      Add savings to Celo Aave to see yield estimates
+                    </div>
+                  ) : null}
+                </div>
+                
+                {/* Save button - always visible, disabled when no change */}
+                <Button 
+                  className="w-full" 
+                  disabled={optInPercent === (poolStatus.user.optInPercent ?? 0)}
+                  onClick={() => openContributionModal(optInPercent)}
+                  data-testid="button-save-contribution"
+                >
+                  Save
+                </Button>
+                
+                <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1">
+                  <Info className="h-3 w-3" />
+                  Higher contribution = more tickets = better odds
+                </p>
+              </Card>
+
               {/* Kelly-Adjusted Opt-In Curve */}
               {(() => {
                 // Prize pool = sponsor deposits + participant committed yields
@@ -1107,70 +1171,6 @@ export default function Pool() {
                   </Card>
                 );
               })()}
-
-              {/* Contribution */}
-              <Card className="p-4 space-y-3" data-testid="card-yield-contribution">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium flex items-center gap-2">
-                    <Coins className="h-4 w-4 text-primary" />
-                    Yield Contribution
-                  </div>
-                  <Badge variant="outline" className="font-bold px-2" data-testid="text-opt-in-percent">
-                    {optInPercent}%
-                  </Badge>
-                </div>
-                <Slider
-                  value={[optInPercent]}
-                  onValueChange={handleOptInChange}
-                  max={100}
-                  step={5}
-                  className="w-full"
-                  data-testid="slider-opt-in"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Keep all yield</span>
-                  <span>Max tickets</span>
-                </div>
-                
-                {/* Yield Stats - All values are estimates */}
-                <div className="space-y-2 pt-2 border-t">
-                  {celoApyData?.apy && Number(poolStatus.user.aUsdcBalance) > 0 && optInPercent > 0 ? (
-                    <>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Est. weekly</span>
-                        <span className="font-medium text-primary" data-testid="text-weekly-estimate">
-                          ~${formatSmallAmount((Number(poolStatus.user.aUsdcBalance) / 1_000_000) * (celoApyData.apy / 100) / 52 * (optInPercent / 100))}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Est. daily</span>
-                        <span className="font-medium" data-testid="text-daily-estimate">
-                          ~${formatSmallAmount((Number(poolStatus.user.aUsdcBalance) / 1_000_000) * (celoApyData.apy / 100) / 365 * (optInPercent / 100))}
-                        </span>
-                      </div>
-                    </>
-                  ) : optInPercent > 0 && Number(poolStatus.user.aUsdcBalance) === 0 ? (
-                    <div className="text-xs text-muted-foreground text-center">
-                      Add savings to Celo Aave to see yield estimates
-                    </div>
-                  ) : null}
-                </div>
-                
-                {/* Save button - always visible, disabled when no change */}
-                <Button 
-                  className="w-full" 
-                  disabled={optInPercent === (poolStatus.user.optInPercent ?? 0)}
-                  onClick={() => openContributionModal(optInPercent)}
-                  data-testid="button-save-contribution"
-                >
-                  Save
-                </Button>
-                
-                <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1">
-                  <Info className="h-3 w-3" />
-                  Higher contribution = more tickets = better odds
-                </p>
-              </Card>
 
               {/* Facilitator Authorization Status - only show when NOT approved */}
               {optInPercent > 0 && !poolStatus.user.facilitatorApproved && (
