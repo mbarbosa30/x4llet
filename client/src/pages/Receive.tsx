@@ -104,7 +104,7 @@ export default function Receive() {
               </p>
             </div>
             <p className="text-xs text-muted-foreground">
-              Works on Base, Celo, and Gnosis
+              Optimized for USDC on Base, Celo, and Gnosis
             </p>
           </div>
         </div>
