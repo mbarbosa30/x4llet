@@ -180,7 +180,7 @@ export default function CreateWallet() {
               <div className="space-y-2">
                 <Label>Your Private Key</Label>
                 <div className="space-y-2">
-                  <div className="font-mono text-xs break-all bg-muted p-3 rounded-md border" data-testid="text-private-key">
+                  <div className="font-mono text-xs break-all bg-muted p-3 border" data-testid="text-private-key">
                     {privateKey}
                   </div>
                   <Button

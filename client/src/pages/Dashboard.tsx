@@ -395,7 +395,7 @@ export default function Dashboard() {
               <Card data-testid="card-total-wallets">
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900">
+                    <div className="p-2  bg-blue-100 dark:bg-blue-900">
                       <Wallet className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
@@ -409,7 +409,7 @@ export default function Dashboard() {
               <Card data-testid="card-active-wallets">
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900">
+                    <div className="p-2  bg-green-100 dark:bg-green-900">
                       <Users className="h-5 w-5 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
@@ -423,7 +423,7 @@ export default function Dashboard() {
               <Card data-testid="card-total-transactions">
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900">
+                    <div className="p-2  bg-purple-100 dark:bg-purple-900">
                       <Activity className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div>
@@ -437,7 +437,7 @@ export default function Dashboard() {
               <Card data-testid="card-total-volume">
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900">
+                    <div className="p-2  bg-orange-100 dark:bg-orange-900">
                       <DollarSign className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                     </div>
                     <div>
@@ -451,7 +451,7 @@ export default function Dashboard() {
               <Card data-testid="card-pool-users">
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-pink-100 dark:bg-pink-900">
+                    <div className="p-2  bg-pink-100 dark:bg-pink-900">
                       <Trophy className="h-5 w-5 text-pink-600 dark:text-pink-400" />
                     </div>
                     <div>
@@ -465,7 +465,7 @@ export default function Dashboard() {
               <Card data-testid="card-yield-collected">
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-teal-100 dark:bg-teal-900">
+                    <div className="p-2  bg-teal-100 dark:bg-teal-900">
                       <PiggyBank className="h-5 w-5 text-teal-600 dark:text-teal-400" />
                     </div>
                     <div>
@@ -669,7 +669,7 @@ export default function Dashboard() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="text-center p-4 bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg">
+                      <div className="text-center p-4 bg-gradient-to-br from-primary/10 to-primary/5 ">
                         <p className="text-sm text-muted-foreground mb-1">Prize Pool</p>
                         <p className="text-4xl font-bold text-primary">
                           {formatMicroUsdc(poolAnalytics?.currentDraw?.totalPool || '0')}
@@ -679,11 +679,11 @@ export default function Dashboard() {
                         </p>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="text-center p-3 bg-muted/50 rounded-lg">
+                        <div className="text-center p-3 bg-muted/50 ">
                           <p className="text-2xl font-bold">{poolAnalytics?.currentDraw?.participantCount || 0}</p>
                           <p className="text-xs text-muted-foreground">Participants</p>
                         </div>
-                        <div className="text-center p-3 bg-muted/50 rounded-lg">
+                        <div className="text-center p-3 bg-muted/50 ">
                           <p className="text-2xl font-bold">{formatMicroUsdc(poolAnalytics?.currentDraw?.totalTickets || '0')}</p>
                           <p className="text-xs text-muted-foreground">Total Tickets</p>
                         </div>
@@ -737,19 +737,19 @@ export default function Dashboard() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-2 gap-3">
-                        <div className="p-3 bg-muted/50 rounded-lg">
+                        <div className="p-3 bg-muted/50 ">
                           <p className="text-xl font-bold">{formatMicroUsdc(poolAnalytics?.totalPrizesPaid || '0')}</p>
                           <p className="text-xs text-muted-foreground">Total Prizes Paid</p>
                         </div>
-                        <div className="p-3 bg-muted/50 rounded-lg">
+                        <div className="p-3 bg-muted/50 ">
                           <p className="text-xl font-bold">{formatMicroUsdc(poolAnalytics?.totalContributions || '0')}</p>
                           <p className="text-xs text-muted-foreground">Total Contributions</p>
                         </div>
-                        <div className="p-3 bg-muted/50 rounded-lg">
+                        <div className="p-3 bg-muted/50 ">
                           <p className="text-xl font-bold">{poolAnalytics?.referralStats.total || 0}</p>
                           <p className="text-xs text-muted-foreground">Total Referrals</p>
                         </div>
-                        <div className="p-3 bg-muted/50 rounded-lg">
+                        <div className="p-3 bg-muted/50 ">
                           <p className="text-xl font-bold">{poolAnalytics?.referralStats.activeReferrers || 0}</p>
                           <p className="text-xs text-muted-foreground">Active Referrers</p>
                         </div>
@@ -817,16 +817,16 @@ export default function Dashboard() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg">
+                        <div className="p-4 bg-green-50 dark:bg-green-950 ">
                           <p className="text-3xl font-bold text-green-600">{formatMicroUsdc(aaveAnalytics?.totalDeposits || '0')}</p>
                           <p className="text-sm text-muted-foreground">Total Deposits</p>
                         </div>
-                        <div className="p-4 bg-red-50 dark:bg-red-950 rounded-lg">
+                        <div className="p-4 bg-red-50 dark:bg-red-950 ">
                           <p className="text-3xl font-bold text-red-600">{formatMicroUsdc(aaveAnalytics?.totalWithdrawals || '0')}</p>
                           <p className="text-sm text-muted-foreground">Total Withdrawals</p>
                         </div>
                       </div>
-                      <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                      <div className="p-4 bg-blue-50 dark:bg-blue-950 ">
                         <p className="text-3xl font-bold text-blue-600">
                           {formatMicroUsdc(
                             (BigInt(aaveAnalytics?.totalDeposits || '0') - BigInt(aaveAnalytics?.totalWithdrawals || '0')).toString()
@@ -856,11 +856,11 @@ export default function Dashboard() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 bg-muted/50 rounded-lg text-center">
+                        <div className="p-4 bg-muted/50  text-center">
                           <p className="text-3xl font-bold">{facilitatorAnalytics?.totalTransfersProcessed || 0}</p>
                           <p className="text-sm text-muted-foreground">Transfers Processed</p>
                         </div>
-                        <div className="p-4 bg-muted/50 rounded-lg text-center">
+                        <div className="p-4 bg-muted/50  text-center">
                           <p className="text-3xl font-bold">{facilitatorAnalytics?.totalGasDrips || 0}</p>
                           <p className="text-sm text-muted-foreground">Gas Drips Sent</p>
                         </div>
@@ -889,7 +889,7 @@ export default function Dashboard() {
                     <CardContent>
                       <div className="space-y-4">
                         {facilitatorAnalytics?.gasDripsByChain.map(drip => (
-                          <div key={drip.chainId} className="p-4 bg-muted/50 rounded-lg">
+                          <div key={drip.chainId} className="p-4 bg-muted/50 ">
                             <div className="flex items-center gap-2 mb-2">
                               <div 
                                 className="w-3 h-3 rounded-full" 
@@ -953,17 +953,17 @@ export default function Dashboard() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 bg-muted/50 rounded-lg text-center">
+                        <div className="p-4 bg-muted/50  text-center">
                           <p className="text-3xl font-bold">{maxflowAnalytics?.totalScored || 0}</p>
                           <p className="text-sm text-muted-foreground">Users Scored</p>
                         </div>
-                        <div className="p-4 bg-muted/50 rounded-lg text-center">
+                        <div className="p-4 bg-muted/50  text-center">
                           <p className="text-3xl font-bold">{maxflowAnalytics?.averageScore.toFixed(2) || 0}</p>
                           <p className="text-sm text-muted-foreground">Average Score</p>
                         </div>
                       </div>
 
-                      <div className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg">
+                      <div className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 ">
                         <h4 className="font-medium mb-2">Integration Stats</h4>
                         <p className="text-sm text-muted-foreground">
                           MaxFlow scoring provides sybil-resistant identity verification.

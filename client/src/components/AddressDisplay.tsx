@@ -30,7 +30,7 @@ export default function AddressDisplay({ address, truncate = true }: AddressDisp
   };
 
   return (
-    <div className="flex h-10 items-center justify-center rounded-md bg-muted p-1 gap-1">
+    <div className="flex h-10 items-center justify-center bg-muted p-1 gap-1">
       <code className="font-mono text-sm px-3 flex-1 text-center text-muted-foreground" data-testid="text-address">
         {displayAddress}
       </code>

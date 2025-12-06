@@ -48,7 +48,7 @@ export default function VouchConfirmation({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <div className="bg-muted p-3 rounded-md space-y-2">
+          <div className="bg-muted p-3 space-y-2">
             <div className="text-xs text-muted-foreground">Referrer Address</div>
             <div className="font-mono text-xs break-all">
               {referrerAddress}

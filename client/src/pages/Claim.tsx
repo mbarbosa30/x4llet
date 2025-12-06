@@ -861,10 +861,10 @@ export default function Claim() {
                                   href="https://t.me/about_circles" 
                                   target="_blank" 
                                   rel="noopener noreferrer"
-                                  className="flex items-center gap-3 p-2 rounded-md hover-elevate transition-colors"
+                                  className="flex items-center gap-3 p-2 hover-elevate transition-colors"
                                   data-testid="link-circles-telegram"
                                 >
-                                  <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+                                  <div className="h-8 w-8 bg-blue-500/10 flex items-center justify-center">
                                     <MessageCircle className="h-4 w-4 text-blue-500" />
                                   </div>
                                   <div className="flex-1 min-w-0">
@@ -878,10 +878,10 @@ export default function Claim() {
                                   href="https://discord.com/invite/aboutcircles" 
                                   target="_blank" 
                                   rel="noopener noreferrer"
-                                  className="flex items-center gap-3 p-2 rounded-md hover-elevate transition-colors"
+                                  className="flex items-center gap-3 p-2 hover-elevate transition-colors"
                                   data-testid="link-circles-discord"
                                 >
-                                  <div className="h-8 w-8 rounded-full bg-indigo-500/10 flex items-center justify-center">
+                                  <div className="h-8 w-8 bg-indigo-500/10 flex items-center justify-center">
                                     <MessageCircle className="h-4 w-4 text-indigo-500" />
                                   </div>
                                   <div className="flex-1 min-w-0">
@@ -895,10 +895,10 @@ export default function Claim() {
                                   href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Looking to join @aboutcircles! If you're already on Circles, I'd appreciate a trust 🙏\n\nMy address: ${address}\n\n#CirclesUBI #BasicIncome`)}`}
                                   target="_blank" 
                                   rel="noopener noreferrer"
-                                  className="flex items-center gap-3 p-2 rounded-md hover-elevate transition-colors"
+                                  className="flex items-center gap-3 p-2 hover-elevate transition-colors"
                                   data-testid="link-share-x"
                                 >
-                                  <div className="h-8 w-8 rounded-full bg-foreground/10 flex items-center justify-center">
+                                  <div className="h-8 w-8 bg-foreground/10 flex items-center justify-center">
                                     <Share2 className="h-4 w-4" />
                                   </div>
                                   <div className="flex-1 min-w-0">
@@ -911,10 +911,10 @@ export default function Claim() {
                                 <button
                                   type="button"
                                   onClick={() => setShowCustomInviter(true)}
-                                  className="flex items-center gap-3 p-2 rounded-md hover-elevate transition-colors w-full text-left"
+                                  className="flex items-center gap-3 p-2 hover-elevate transition-colors w-full text-left"
                                   data-testid="link-ask-friend"
                                 >
-                                  <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center">
+                                  <div className="h-8 w-8 bg-green-500/10 flex items-center justify-center">
                                     <UserPlus className="h-4 w-4 text-green-500" />
                                   </div>
                                   <div className="flex-1 min-w-0">

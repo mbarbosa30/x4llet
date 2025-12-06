@@ -308,20 +308,20 @@ export default function Pay() {
         <CardContent className="space-y-4">
           <div className="space-y-3">
             {description && (
-              <div className="p-3 bg-muted rounded-lg">
+              <div className="p-3 bg-muted">
                 <div className="text-sm text-muted-foreground mb-1">Description</div>
                 <div className="text-sm font-medium">{description}</div>
               </div>
             )}
             
-            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+            <div className="flex items-center justify-between p-3 bg-muted">
               <span className="text-sm text-muted-foreground">Pay To</span>
               <span className="font-mono text-sm" data-testid="text-to">
                 {formatAddress(to)}
               </span>
             </div>
             
-            <div className="flex items-center justify-between p-4 bg-primary/10 rounded-lg border border-primary/20">
+            <div className="flex items-center justify-between p-4 bg-[#0055FF]/10 border border-[#0055FF]/20">
               <span className="font-semibold">Amount</span>
               <span className="text-2xl font-bold" data-testid="text-payment-amount">
                 ${formatAmount(amount)} USDC
@@ -336,7 +336,7 @@ export default function Pay() {
             </Button>
           ) : currentMutation.isError ? (
             <div className="space-y-2">
-              <div className="text-sm text-destructive p-3 bg-destructive/10 rounded-lg">
+              <div className="text-sm text-destructive p-3 bg-destructive/10">
                 {error || 'Payment failed. Please try again.'}
               </div>
               <Button

@@ -107,7 +107,7 @@ export default function Receive() {
 
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">Your wallet address</p>
-            <div className="bg-muted rounded-lg p-3">
+            <div className="bg-muted p-3">
               <p 
                 className="font-mono text-xs break-all select-all"
                 data-testid="text-wallet-address"

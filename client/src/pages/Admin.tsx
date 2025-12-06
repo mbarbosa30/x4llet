@@ -623,7 +623,7 @@ export default function Admin() {
             {recentActivity.length > 0 ? (
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {recentActivity.map((tx) => (
-                  <div key={tx.txHash} className="text-xs p-2 bg-muted rounded-md">
+                  <div key={tx.txHash} className="text-xs p-2 bg-muted">
                     <div className="flex justify-between mb-1">
                       <div className="flex items-center gap-2">
                         <span className="font-mono">{formatAmount(tx.amount)}</span>

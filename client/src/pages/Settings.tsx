@@ -580,7 +580,7 @@ export default function Settings() {
                 <Label>Your Private Key</Label>
                 <div className="space-y-2">
                   <div className="relative">
-                    <div className="font-mono text-xs break-all bg-muted p-3 rounded-md border" data-testid="text-exported-private-key">
+                    <div className="font-mono text-xs break-all bg-muted p-3 border" data-testid="text-exported-private-key">
                       {showPrivateKey ? privateKey : '•'.repeat(66)}
                     </div>
                     <button
@@ -613,7 +613,7 @@ export default function Settings() {
                 </div>
               </div>
               
-              <div className="pt-2 space-y-2 text-xs text-muted-foreground bg-destructive/10 p-3 rounded-md border border-destructive/20">
+              <div className="pt-2 space-y-2 text-xs text-muted-foreground bg-destructive/10 p-3 border border-destructive/20">
                 <p className="font-medium text-destructive">Security Warning</p>
                 <ul className="space-y-1 list-disc list-inside">
                   <li>Anyone with this key can access your funds</li>
@@ -703,7 +703,7 @@ export default function Settings() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-3">
-            <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
+            <div className="text-sm text-muted-foreground bg-muted/50 p-3">
               <p className="font-medium mb-2">This will clear:</p>
               <ul className="list-disc list-inside space-y-1 text-xs">
                 <li>App cache and stored data</li>
@@ -711,7 +711,7 @@ export default function Settings() {
                 <li>Cached balances and transactions</li>
               </ul>
             </div>
-            <div className="text-sm text-muted-foreground bg-success/10 p-3 rounded-md border border-success/20">
+            <div className="text-sm text-muted-foreground bg-success/10 p-3 border border-success/20">
               <p className="font-medium text-success mb-1">Your wallet is safe</p>
               <p className="text-xs">Your encrypted wallet stays on your device. You'll need your password to unlock it again.</p>
             </div>
@@ -742,7 +742,7 @@ export default function Settings() {
       <Dialog open={showPasskeyDialog} onOpenChange={setShowPasskeyDialog}>
         <DialogContent>
           <DialogHeader className="text-center">
-            <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-2 ${passkeySupportStatus?.supported ? 'bg-primary/10' : 'bg-muted'}`}>
+            <div className={`mx-auto w-12 h-12 flex items-center justify-center mb-2 ${passkeySupportStatus?.supported ? 'bg-[#0055FF]/10' : 'bg-muted'}`}>
               <Fingerprint className={`h-6 w-6 ${passkeySupportStatus?.supported ? 'text-primary' : 'text-muted-foreground'}`} />
             </div>
             <DialogTitle>
@@ -764,7 +764,7 @@ export default function Settings() {
           <div className="space-y-3">
             {!passkeySupportStatus?.supported ? (
               <>
-                <div className="flex items-start gap-2 text-xs text-muted-foreground p-3 bg-destructive/10 rounded-lg border border-destructive/20">
+                <div className="flex items-start gap-2 text-xs text-muted-foreground p-3 bg-destructive/10 border border-destructive/20">
                   <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium text-destructive mb-1">
@@ -794,7 +794,7 @@ export default function Settings() {
               </>
             ) : passkeyEnrolled ? (
               <>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 bg-muted rounded-lg">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 bg-muted">
                   <Check className="h-4 w-4 text-primary flex-shrink-0" />
                   <span>Passkey active on this device</span>
                 </div>

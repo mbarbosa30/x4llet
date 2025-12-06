@@ -117,7 +117,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
               The app encountered an error and couldn't load properly. This is usually caused by cached data that needs to be cleared.
             </p>
             
-            <div className="bg-muted/50 p-3 rounded-md text-xs text-muted-foreground font-mono overflow-auto max-h-24">
+            <div className="bg-muted/50 p-3 text-xs text-muted-foreground font-mono overflow-auto max-h-24">
               {this.state.error?.message || 'Unknown error'}
             </div>
             
