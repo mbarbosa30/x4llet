@@ -96,7 +96,7 @@ export default function Landing() {
             </div>
 
             <div className="space-y-4 text-left max-w-sm mx-auto">
-              <div className="flex items-start gap-3 border-l-2 border-[#0055FF] pl-3">
+              <div className="flex items-start gap-3 border-l border-foreground/15 pl-3">
                 <WifiOff className="h-4 w-4 text-[#0055FF] flex-shrink-0 mt-0.5" />
                 <div>
                   <div className="text-sm font-semibold uppercase tracking-wide">Works Anywhere</div>
@@ -104,7 +104,7 @@ export default function Landing() {
                 </div>
               </div>
               
-              <div className="flex items-start gap-3 border-l-2 border-[#0055FF] pl-3">
+              <div className="flex items-start gap-3 border-l border-foreground/15 pl-3">
                 <Lock className="h-4 w-4 text-[#0055FF] flex-shrink-0 mt-0.5" />
                 <div>
                   <div className="text-sm font-semibold uppercase tracking-wide">Your Keys, Your Control</div>
@@ -112,7 +112,7 @@ export default function Landing() {
                 </div>
               </div>
               
-              <div className="flex items-start gap-3 border-l-2 border-[#0055FF] pl-3">
+              <div className="flex items-start gap-3 border-l border-foreground/15 pl-3">
                 <Sparkles className="h-4 w-4 text-[#0055FF] flex-shrink-0 mt-0.5" />
                 <div>
                   <div className="text-sm font-semibold uppercase tracking-wide">
@@ -122,7 +122,7 @@ export default function Landing() {
                 </div>
               </div>
               
-              <div className="flex items-start gap-3 border-l-2 border-[#0055FF] pl-3">
+              <div className="flex items-start gap-3 border-l border-foreground/15 pl-3">
                 <Sliders className="h-4 w-4 text-[#0055FF] flex-shrink-0 mt-0.5" />
                 <div>
                   <div className="text-sm font-semibold uppercase tracking-wide">Yield Allocation</div>
@@ -130,7 +130,7 @@ export default function Landing() {
                 </div>
               </div>
               
-              <div className="flex items-start gap-3 border-l-2 border-[#0055FF] pl-3">
+              <div className="flex items-start gap-3 border-l border-foreground/15 pl-3">
                 <Gift className="h-4 w-4 text-[#0055FF] flex-shrink-0 mt-0.5" />
                 <div>
                   <div className="text-sm font-semibold uppercase tracking-wide">Free Tokens</div>
@@ -168,7 +168,7 @@ export default function Landing() {
             </div>
           </div>
 
-          <div className="pt-6 border-t border-foreground">
+          <div className="pt-6 border-t border-foreground/15">
             <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-4 text-center">Powered By</div>
             <div className="space-y-3 text-left max-w-sm mx-auto">
               <div>
