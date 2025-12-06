@@ -21,19 +21,24 @@ interface WalletV2Data {
   version: 2;
 }
 
-let memoryDek: Uint8Array | null = null;
+const SESSION_DEK_KEY = 'session_dek';
 let memoryPassword: string | null = null;
 
 function getSessionDek(): Uint8Array | null {
-  return memoryDek;
+  if (typeof window === 'undefined') return null;
+  const stored = sessionStorage.getItem(SESSION_DEK_KEY);
+  if (!stored) return null;
+  return Uint8Array.from(atob(stored), c => c.charCodeAt(0));
 }
 
 function setSessionDek(dek: Uint8Array): void {
-  memoryDek = dek;
+  if (typeof window === 'undefined') return;
+  sessionStorage.setItem(SESSION_DEK_KEY, btoa(String.fromCharCode(...dek)));
 }
 
 function clearSessionDek(): void {
-  memoryDek = null;
+  if (typeof window === 'undefined') return;
+  sessionStorage.removeItem(SESSION_DEK_KEY);
 }
 
 function getSessionPassword(): string | null {
