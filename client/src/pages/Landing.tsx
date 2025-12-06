@@ -119,7 +119,7 @@ export default function Landing() {
                 <div className="w-px h-8 bg-[#0055FF]" />
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
-                    Auto Savings{apyDisplay && <span className="text-[#0055FF] text-[10px] font-normal ml-1">~{apyDisplay} APY</span>}
+                    Auto Savings{apyDisplay && <span className="text-[#0055FF] text-[10px] font-medium ml-1">~{apyDisplay} APY</span>}
                   </div>
                   <div className="text-xs text-muted-foreground">One tap to start earning or withdraw.</div>
                 </div>
