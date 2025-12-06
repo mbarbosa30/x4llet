@@ -98,6 +98,41 @@ export function formatRecoveryCode(code: string): string {
   return formatted;
 }
 
+export function validatePrivateKey(key: string): { valid: boolean; error?: string; hint?: string } {
+  const trimmed = key.trim();
+  
+  if (!trimmed) {
+    return { valid: false };
+  }
+  
+  let normalized = trimmed;
+  if (!normalized.startsWith('0x')) {
+    normalized = '0x' + normalized;
+  }
+  
+  const hexPart = normalized.slice(2);
+  
+  if (hexPart.length === 0) {
+    return { valid: false, hint: 'Enter your private key' };
+  }
+  
+  const validHex = /^[0-9a-fA-F]+$/;
+  if (!validHex.test(hexPart)) {
+    return { valid: false, error: 'Contains invalid characters (only 0-9 and a-f allowed)' };
+  }
+  
+  if (hexPart.length < 64) {
+    const remaining = 64 - hexPart.length;
+    return { valid: false, hint: `${remaining} more character${remaining === 1 ? '' : 's'} needed` };
+  }
+  
+  if (hexPart.length > 64) {
+    return { valid: false, error: 'Too long - private keys are exactly 64 hex characters' };
+  }
+  
+  return { valid: true };
+}
+
 function generateDek(): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(32));
 }

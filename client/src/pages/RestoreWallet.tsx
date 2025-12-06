@@ -6,7 +6,7 @@ import { Shield, Eye, EyeOff } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { importFromPrivateKey, detectCurrencyFromLocale, savePreferences, getPreferences } from '@/lib/wallet';
+import { importFromPrivateKey, detectCurrencyFromLocale, savePreferences, getPreferences, validatePrivateKey } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 import { vouchFor } from '@/lib/maxflow';
 
@@ -16,10 +16,20 @@ export default function RestoreWallet() {
   const [referrerAddress, setReferrerAddress] = useState<string | null>(null);
   
   const [privateKey, setPrivateKey] = useState('');
+  const [privateKeyValidation, setPrivateKeyValidation] = useState<{ valid: boolean; error?: string; hint?: string }>({ valid: false });
   const [newPassword, setNewPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  
+  const handlePrivateKeyChange = (value: string) => {
+    setPrivateKey(value);
+    if (value.trim()) {
+      setPrivateKeyValidation(validatePrivateKey(value));
+    } else {
+      setPrivateKeyValidation({ valid: false });
+    }
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -125,13 +135,24 @@ export default function RestoreWallet() {
               id="private-key"
               placeholder="0x..."
               value={privateKey}
-              onChange={(e) => setPrivateKey(e.target.value)}
-              className="font-mono text-xs min-h-[100px]"
+              onChange={(e) => handlePrivateKeyChange(e.target.value)}
+              className={`font-mono text-xs min-h-[100px] ${privateKeyValidation.error ? 'border-destructive' : privateKeyValidation.valid ? 'border-green-500' : ''}`}
               data-testid="input-private-key"
             />
-            <p className="text-xs text-muted-foreground">
-              The private key you saved when creating your wallet
-            </p>
+            {privateKeyValidation.error && (
+              <p className="text-xs text-destructive">{privateKeyValidation.error}</p>
+            )}
+            {privateKeyValidation.hint && !privateKeyValidation.error && (
+              <p className="text-xs text-muted-foreground">{privateKeyValidation.hint}</p>
+            )}
+            {privateKeyValidation.valid && (
+              <p className="text-xs text-green-600">Valid private key format</p>
+            )}
+            {!privateKey && (
+              <p className="text-xs text-muted-foreground">
+                The private key you saved when creating your wallet (66 characters starting with 0x)
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -164,7 +185,7 @@ export default function RestoreWallet() {
 
           <Button 
             onClick={handleImport}
-            disabled={!privateKey || !newPassword || !!passwordError || isImporting}
+            disabled={!privateKeyValidation.valid || !newPassword || !!passwordError || isImporting}
             className="w-full"
             size="lg"
             data-testid="button-import"
