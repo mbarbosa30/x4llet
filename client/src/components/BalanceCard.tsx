@@ -280,7 +280,7 @@ export default function BalanceCard({
 
       {/* Content overlay */}
       <div className="relative z-10">
-        <div className="text-xs mb-2 font-mono uppercase tracking-widest text-muted-foreground"><span className="font-bold text-foreground">{currency}</span> Balance</div>
+        <div className="text-xs mb-2 font-mono uppercase tracking-widest text-muted-foreground"><span className="font-bold">{currency}</span> Balance</div>
         
         {/* Chain breakdown - between label and main amount */}
         {chains && (
