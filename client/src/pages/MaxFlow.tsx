@@ -345,7 +345,7 @@ export default function MaxFlow() {
           )}
         </Card>
 
-        <div className="pt-6 space-y-2">
+        <div className="pt-6 space-y-3">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">About</h3>
           <p className="text-xs text-muted-foreground leading-relaxed">
             <a 
@@ -358,6 +358,15 @@ export default function MaxFlow() {
             </a>{' '}
             is neutral reputation infrastructure that converts public binary endorsements ("vouches") into verifiable graph signals using max-flow/min-cut algorithms and recursive trust weighting. It computes mathematical signals that applications interpret according to their own policies—for creditworthiness, governance weight, access control, or grant allocation.
           </p>
+          <a 
+            href="https://maxflow.one/whitepaper" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-block text-xs text-[#0055FF] hover:underline font-medium"
+            data-testid="link-whitepaper"
+          >
+            Read the Whitepaper →
+          </a>
         </div>
       </main>
     </div>
