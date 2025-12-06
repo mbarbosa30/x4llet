@@ -185,10 +185,10 @@ export default function Home() {
 
   // Skeleton that matches BalanceCard height (p-8 = 2rem padding, content ~140px)
   const BalanceCardSkeleton = () => (
-    <div className="animate-pulse rounded-lg border bg-card p-8 text-center space-y-3">
-      <div className="h-3 w-16 bg-muted rounded mx-auto"></div>
-      <div className="h-12 w-40 bg-muted rounded mx-auto"></div>
-      <div className="h-4 w-24 bg-muted rounded mx-auto"></div>
+    <div className="animate-pulse rounded-none border bg-card p-8 text-center space-y-3">
+      <div className="h-3 w-16 bg-muted mx-auto"></div>
+      <div className="h-12 w-40 bg-muted mx-auto"></div>
+      <div className="h-4 w-24 bg-muted mx-auto"></div>
     </div>
   );
 
@@ -196,13 +196,13 @@ export default function Home() {
   const TransactionListSkeleton = () => (
     <div className="animate-pulse space-y-2">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="flex items-center gap-3 p-3 rounded-lg border">
-          <div className="w-10 h-10 bg-muted rounded-full"></div>
+        <div key={i} className="flex items-center gap-3 p-3 rounded-none border">
+          <div className="w-10 h-10 bg-muted"></div>
           <div className="flex-1 space-y-2">
-            <div className="h-4 w-24 bg-muted rounded"></div>
-            <div className="h-3 w-16 bg-muted rounded"></div>
+            <div className="h-4 w-24 bg-muted"></div>
+            <div className="h-3 w-16 bg-muted"></div>
           </div>
-          <div className="h-4 w-16 bg-muted rounded"></div>
+          <div className="h-4 w-16 bg-muted"></div>
         </div>
       ))}
     </div>
@@ -223,7 +223,7 @@ export default function Home() {
     >
       <main className="max-w-md mx-auto p-4 space-y-4">
         {isLoadingWallet ? (
-          <div className="h-10 bg-muted rounded-md animate-pulse"></div>
+          <div className="h-10 bg-muted animate-pulse"></div>
         ) : (
           <AddressDisplay address={address!} />
         )}

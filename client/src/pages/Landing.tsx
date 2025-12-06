@@ -96,24 +96,24 @@ export default function Landing() {
             </div>
 
             <div className="space-y-4 text-left max-w-sm mx-auto">
-              <div className="flex items-start gap-3 border-l border-foreground/15 pl-3">
-                <WifiOff className="h-4 w-4 text-[#0055FF] flex-shrink-0 mt-0.5" />
+              <div className="flex items-center gap-3 border-l-2 border-[#0055FF] pl-3">
+                <WifiOff className="h-4 w-4 text-[#0055FF] flex-shrink-0" />
                 <div>
                   <div className="text-sm font-semibold uppercase tracking-wide">Works Anywhere</div>
                   <div className="text-xs text-muted-foreground">Any browser. Offline-ready. Gasless transfers.</div>
                 </div>
               </div>
               
-              <div className="flex items-start gap-3 border-l border-foreground/15 pl-3">
-                <Lock className="h-4 w-4 text-[#0055FF] flex-shrink-0 mt-0.5" />
+              <div className="flex items-center gap-3 border-l-2 border-[#0055FF] pl-3">
+                <Lock className="h-4 w-4 text-[#0055FF] flex-shrink-0" />
                 <div>
                   <div className="text-sm font-semibold uppercase tracking-wide">Your Keys, Your Control</div>
                   <div className="text-xs text-muted-foreground">Encrypted on your device, locally. Nowhere else.</div>
                 </div>
               </div>
               
-              <div className="flex items-start gap-3 border-l border-foreground/15 pl-3">
-                <Sparkles className="h-4 w-4 text-[#0055FF] flex-shrink-0 mt-0.5" />
+              <div className="flex items-center gap-3 border-l-2 border-[#0055FF] pl-3">
+                <Sparkles className="h-4 w-4 text-[#0055FF] flex-shrink-0" />
                 <div>
                   <div className="text-sm font-semibold uppercase tracking-wide">
                     Auto Savings{apyDisplay && <span className="text-[#0055FF] text-xs ml-1.5">{apyDisplay} APY</span>}
@@ -122,16 +122,16 @@ export default function Landing() {
                 </div>
               </div>
               
-              <div className="flex items-start gap-3 border-l border-foreground/15 pl-3">
-                <Sliders className="h-4 w-4 text-[#0055FF] flex-shrink-0 mt-0.5" />
+              <div className="flex items-center gap-3 border-l-2 border-[#0055FF] pl-3">
+                <Sliders className="h-4 w-4 text-[#0055FF] flex-shrink-0" />
                 <div>
                   <div className="text-sm font-semibold uppercase tracking-wide">Yield Allocation</div>
                   <div className="text-xs text-muted-foreground">Pool prizes, causes, AI credits, & more.</div>
                 </div>
               </div>
               
-              <div className="flex items-start gap-3 border-l border-foreground/15 pl-3">
-                <Gift className="h-4 w-4 text-[#0055FF] flex-shrink-0 mt-0.5" />
+              <div className="flex items-center gap-3 border-l-2 border-[#0055FF] pl-3">
+                <Gift className="h-4 w-4 text-[#0055FF] flex-shrink-0" />
                 <div>
                   <div className="text-sm font-semibold uppercase tracking-wide">Free Tokens</div>
                   <div className="text-xs text-muted-foreground">Daily UBI from GoodDollar & Circles.</div>
@@ -168,36 +168,36 @@ export default function Landing() {
             </div>
           </div>
 
-          <div className="pt-6 border-t border-foreground/15">
+          <div className="pt-6 border-t border-foreground/10">
             <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-4 text-center">Powered By</div>
             <div className="space-y-3 text-left max-w-sm mx-auto">
-              <div>
-                <div className="flex items-center gap-3">
-                  <Zap className="h-4 w-4 flex-shrink-0" />
+              <div className="flex gap-3">
+                <Zap className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                <div>
                   <span className="text-xs font-semibold uppercase tracking-wide">x402 Protocol</span>
+                  <p className="text-xs text-muted-foreground mt-0.5">Gasless autonomous execution, by default. USDC transfers via EIP-3009. Works off-line.</p>
                 </div>
-                <p className="text-xs text-muted-foreground pl-7 mt-1">Gasless autonomous execution, by default. USDC transfers via EIP-3009. Works off-line.</p>
               </div>
-              <div>
-                <div className="flex items-center gap-3">
-                  <Sliders className="h-4 w-4 flex-shrink-0" />
+              <div className="flex gap-3">
+                <Sliders className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                <div>
                   <span className="text-xs font-semibold uppercase tracking-wide">Yield Allocation</span>
+                  <p className="text-xs text-muted-foreground mt-0.5">Access prize-linked savings, vulnerable communities, AI tools & models, Buy Now Pay Later.</p>
                 </div>
-                <p className="text-xs text-muted-foreground pl-7 mt-1">Access prize-linked savings, vulnerable communities, AI tools & models, Buy Now Pay Later.</p>
               </div>
-              <div>
-                <div className="flex items-center gap-3">
-                  <Network className="h-4 w-4 flex-shrink-0" />
+              <div className="flex gap-3">
+                <Network className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                <div>
                   <span className="text-xs font-semibold uppercase tracking-wide">Trust Infrastructure</span>
+                  <p className="text-xs text-muted-foreground mt-0.5">MaxFlow graph signals computation, Circles web of trust, GoodDollar verification.</p>
                 </div>
-                <p className="text-xs text-muted-foreground pl-7 mt-1">MaxFlow graph signals computation, Circles web of trust, GoodDollar verification.</p>
               </div>
-              <div>
-                <div className="flex items-center gap-3">
-                  <Layers className="h-4 w-4 flex-shrink-0" />
+              <div className="flex gap-3">
+                <Layers className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                <div>
                   <span className="text-xs font-semibold uppercase tracking-wide">Multi-Chain</span>
+                  <p className="text-xs text-muted-foreground mt-0.5">Seamless experience on Base, Celo, and Gnosis networks. More soon.</p>
                 </div>
-                <p className="text-xs text-muted-foreground pl-7 mt-1">Seamless experience on Base, Celo, and Gnosis networks. More soon.</p>
               </div>
             </div>
           </div>

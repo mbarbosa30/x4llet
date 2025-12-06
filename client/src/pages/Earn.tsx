@@ -1070,9 +1070,9 @@ export default function Earn() {
                 <div className="space-y-2">
                   {/* Circles CRC */}
                   {circlesAvatar?.isRegistered && (
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-none">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-pink-500/10 flex items-center justify-center">
+                        <div className="w-8 h-8 bg-pink-500/10 flex items-center justify-center">
                           <CircleDot className="h-4 w-4 text-pink-600" />
                         </div>
                         <div>
@@ -1100,9 +1100,9 @@ export default function Earn() {
 
                   {/* GoodDollar G$ */}
                   {gdIdentity?.isWhitelisted && gdClaimStatus?.canClaim && (
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-none">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center">
+                        <div className="w-8 h-8 bg-green-500/10 flex items-center justify-center">
                           <Gift className="h-4 w-4 text-green-600" />
                         </div>
                         <div>
@@ -1138,25 +1138,25 @@ export default function Earn() {
                 
                 {weightedApy > 0 ? (
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between p-3 bg-muted/30 rounded-none">
                       <div className="text-sm text-muted-foreground">If you deposit</div>
                       <div className="text-lg font-semibold">$100</div>
                     </div>
                     
                     <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="p-2 bg-success/10 rounded-lg">
+                      <div className="p-2 bg-success/10 rounded-none">
                         <div className="text-xs text-muted-foreground mb-1">1 month</div>
                         <div className="text-sm font-medium text-success">
                           +${(100 * (weightedApy / 100 / 12)).toFixed(2)}
                         </div>
                       </div>
-                      <div className="p-2 bg-success/10 rounded-lg">
+                      <div className="p-2 bg-success/10 rounded-none">
                         <div className="text-xs text-muted-foreground mb-1">6 months</div>
                         <div className="text-sm font-medium text-success">
                           +${(100 * (Math.pow(1 + weightedApy / 100 / 12, 6) - 1)).toFixed(2)}
                         </div>
                       </div>
-                      <div className="p-2 bg-success/10 rounded-lg">
+                      <div className="p-2 bg-success/10 rounded-none">
                         <div className="text-xs text-muted-foreground mb-1">1 year</div>
                         <div className="text-sm font-medium text-success">
                           +${(100 * (Math.pow(1 + weightedApy / 100 / 12, 12) - 1)).toFixed(2)}
@@ -1170,7 +1170,7 @@ export default function Earn() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="flex items-center justify-center p-4 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-center p-4 bg-muted/30 rounded-none">
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
                       <span className="text-sm text-muted-foreground">Loading rates...</span>
                     </div>
@@ -1200,9 +1200,9 @@ export default function Earn() {
                 </div>
                 
                 {baseBalanceNum > 0 && (
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-none">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+                      <div className="w-8 h-8 bg-blue-500/10 flex items-center justify-center">
                         <span className="text-xs font-bold text-blue-600">B</span>
                       </div>
                       <div>
@@ -1226,9 +1226,9 @@ export default function Earn() {
                 )}
                 
                 {celoBalanceNum > 0 && (
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-none">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-yellow-500/10 flex items-center justify-center">
+                      <div className="w-8 h-8 bg-yellow-500/10 flex items-center justify-center">
                         <span className="text-xs font-bold text-yellow-600">C</span>
                       </div>
                       <div>
@@ -1252,9 +1252,9 @@ export default function Earn() {
                 )}
 
                 {gnosisBalanceNum > 0 && (
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-none">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center">
+                      <div className="w-8 h-8 bg-purple-500/10 flex items-center justify-center">
                         <span className="text-xs font-bold text-purple-600">G</span>
                       </div>
                       <div>
@@ -1346,14 +1346,14 @@ export default function Earn() {
                             
                             if (data.isNow) {
                               return (
-                                <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md min-w-[100px]">
+                                <div className="bg-popover border border-foreground/10 px-2.5 py-1.5 shadow-md min-w-[100px]">
                                   <div className="text-xs font-medium">Starting Point</div>
                                 </div>
                               );
                             }
                             
                             return (
-                              <div className="bg-popover border border-border rounded-md px-2.5 py-1.5 shadow-md min-w-[140px]">
+                              <div className="bg-popover border border-foreground/10 px-2.5 py-1.5 shadow-md min-w-[140px]">
                                 <div className="text-xs font-medium mb-1.5">
                                   Projected ({data.label})
                                 </div>
@@ -1381,7 +1381,7 @@ export default function Earn() {
                                     </span>
                                   </div>
                                 )}
-                                <div className="text-xs font-medium border-t border-border pt-1 mt-1 flex justify-between">
+                                <div className="text-xs font-medium border-t border-foreground/10 pt-1 mt-1 flex justify-between">
                                   <span>Total earned:</span>
                                   <span className="text-success">
                                     +{formatSmartPrecision(totalInterest, '$')}
@@ -1450,24 +1450,24 @@ export default function Earn() {
                 <div className="flex items-center justify-center gap-3 text-xs flex-wrap">
                   {baseBalanceNum > 0 && (
                     <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(217, 91%, 60%)' }}></div>
+                      <div className="w-3 h-2 " style={{ background: 'hsl(217, 91%, 60%)' }}></div>
                       <span className="text-blue-400">Base</span>
                     </div>
                   )}
                   {celoBalanceNum > 0 && (
                     <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(45, 93%, 47%)' }}></div>
+                      <div className="w-3 h-2 " style={{ background: 'hsl(45, 93%, 47%)' }}></div>
                       <span className="text-yellow-400">Celo</span>
                     </div>
                   )}
                   {gnosisBalanceNum > 0 && (
                     <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-2 rounded-sm" style={{ background: 'hsl(270, 70%, 55%)' }}></div>
+                      <div className="w-3 h-2 " style={{ background: 'hsl(270, 70%, 55%)' }}></div>
                       <span className="text-purple-400">Gnosis</span>
                     </div>
                   )}
                   <div className="flex items-center gap-1.5">
-                    <div className="w-4 h-0.5 rounded-sm" style={{ background: 'hsl(142, 71%, 45%)', borderTop: '2px dashed hsl(142, 71%, 45%)' }}></div>
+                    <div className="w-4 h-0.5 " style={{ background: 'hsl(142, 71%, 45%)', borderTop: '2px dashed hsl(142, 71%, 45%)' }}></div>
                     <span className="text-success">% Growth</span>
                   </div>
                 </div>
@@ -1509,7 +1509,7 @@ export default function Earn() {
                       return (
                         <div className="grid grid-cols-3 gap-3 text-center">
                           {baseData?.hasTrackingData && (
-                            <div className="p-2 bg-muted/50 rounded-lg">
+                            <div className="p-2 bg-muted/50 rounded-none">
                               <div className="text-xs text-muted-foreground mb-0.5">Base</div>
                               <div className="text-sm font-medium text-blue-400">
                                 +${(Number(baseData.interestEarnedMicro) / 1_000_000).toFixed(4)}
@@ -1517,7 +1517,7 @@ export default function Earn() {
                             </div>
                           )}
                           {celoData?.hasTrackingData && (
-                            <div className="p-2 bg-muted/50 rounded-lg">
+                            <div className="p-2 bg-muted/50 rounded-none">
                               <div className="text-xs text-muted-foreground mb-0.5">Celo</div>
                               <div className="text-sm font-medium text-yellow-400">
                                 +${(Number(celoData.interestEarnedMicro) / 1_000_000).toFixed(4)}
@@ -1525,7 +1525,7 @@ export default function Earn() {
                             </div>
                           )}
                           {gnosisData?.hasTrackingData && (
-                            <div className="p-2 bg-muted/50 rounded-lg">
+                            <div className="p-2 bg-muted/50 rounded-none">
                               <div className="text-xs text-muted-foreground mb-0.5">Gnosis</div>
                               <div className="text-sm font-medium text-purple-400">
                                 +${(Number(gnosisData.interestEarnedMicro) / 1_000_000).toFixed(4)}
@@ -1626,8 +1626,8 @@ export default function Earn() {
             {/* Prize Pool */}
             <Card className="p-4" data-testid="card-allocation-pool">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Trophy className="h-5 w-5 text-primary" />
+                <div className="w-10 h-10 bg-[#0055FF]/10 flex items-center justify-center flex-shrink-0">
+                  <Trophy className="h-5 w-5 text-[#0055FF]" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -1668,7 +1668,7 @@ export default function Earn() {
               {/* Support Causes */}
               <Card className="p-4 opacity-60" data-testid="card-allocation-causes">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 bg-muted flex items-center justify-center flex-shrink-0">
                     <Heart className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -1686,7 +1686,7 @@ export default function Earn() {
               {/* Buy Now, Pay Later */}
               <Card className="p-4 opacity-60" data-testid="card-allocation-bnpl">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 bg-muted flex items-center justify-center flex-shrink-0">
                     <ShoppingBag className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -1704,7 +1704,7 @@ export default function Earn() {
               {/* Token Buyback */}
               <Card className="p-4 opacity-60" data-testid="card-allocation-buyback">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 bg-muted flex items-center justify-center flex-shrink-0">
                     <ArrowRightLeft className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -1722,7 +1722,7 @@ export default function Earn() {
               {/* AI Credits */}
               <Card className="p-4 opacity-60" data-testid="card-allocation-ai">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 bg-muted flex items-center justify-center flex-shrink-0">
                     <Bot className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -1740,7 +1740,7 @@ export default function Earn() {
               {/* Custom Address */}
               <Card className="p-4 opacity-60" data-testid="card-allocation-address">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 bg-muted flex items-center justify-center flex-shrink-0">
                     <Wallet className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">

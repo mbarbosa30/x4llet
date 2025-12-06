@@ -81,7 +81,7 @@ export default function AppHeader() {
 
   return (
     <header 
-      className="fixed top-0 left-0 right-0 bg-background border-b border-foreground"
+      className="fixed top-0 left-0 right-0 bg-background border-b border-foreground/15"
       style={{ 
         paddingTop: 'env(safe-area-inset-top)',
         height: 'calc(4rem + env(safe-area-inset-top))',
@@ -99,8 +99,8 @@ export default function AppHeader() {
           onClick={() => setLocation('/maxflow')}
           className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide transition-colors border ${
             location === '/maxflow' 
-              ? 'bg-primary text-primary-foreground border-primary' 
-              : 'bg-secondary border-foreground/20 text-foreground hover:bg-muted'
+              ? 'bg-[#0055FF] text-white border-[#0055FF]' 
+              : 'bg-muted border-foreground/10 text-foreground hover:border-foreground/20'
           }`}
           data-testid="button-maxflow-chip"
           title="Your MaxFlow trust score"

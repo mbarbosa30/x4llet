@@ -95,7 +95,7 @@ function TooltipWrapper({
   const usdcBalance = data.value.toFixed(2);
 
   return (
-    <div className="bg-popover border border-border rounded-lg shadow-lg p-3 text-sm">
+    <div className="bg-popover border border-foreground/10 p-3 text-sm">
       <div className="text-xs text-muted-foreground mb-1">
         {new Date(data.timestamp).toLocaleDateString()}
       </div>

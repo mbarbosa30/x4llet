@@ -790,7 +790,7 @@ export default function Claim() {
                           <p className="text-xs text-muted-foreground mt-2">Checking inviter status...</p>
                         </div>
                       ) : inviterStatus ? (
-                        <div className="border rounded-lg p-4 space-y-3">
+                        <div className="border rounded-none p-4 space-y-3">
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium">Community Inviter</span>
                             {inviterStatus.isReady ? (
@@ -842,7 +842,7 @@ export default function Claim() {
                           </CollapsibleTrigger>
                           <CollapsibleContent className="pt-3 space-y-4">
                             {/* Why you need an inviter */}
-                            <div className="border rounded-lg p-4 space-y-2">
+                            <div className="border rounded-none p-4 space-y-2">
                               <h4 className="text-sm font-semibold flex items-center gap-2">
                                 <Users className="h-4 w-4 text-primary" />
                                 Why do I need an inviter?
@@ -853,7 +853,7 @@ export default function Claim() {
                             </div>
 
                             {/* Ways to speed up */}
-                            <div className="border rounded-lg p-4 space-y-3">
+                            <div className="border rounded-none p-4 space-y-3">
                               <h4 className="text-sm font-semibold">Speed up your registration</h4>
                               
                               <div className="space-y-3">
@@ -967,7 +967,7 @@ export default function Claim() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      <div className="border rounded-lg p-4 space-y-3">
+                      <div className="border rounded-none p-4 space-y-3">
                         <h3 className="text-sm font-semibold">Use Your Own Inviter</h3>
                         <p className="text-xs text-muted-foreground">
                           If a Circles Human friend has already trusted your address, enter their address below to register.
