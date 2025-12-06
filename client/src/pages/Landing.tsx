@@ -95,7 +95,7 @@ export default function Landing() {
               </p>
             </div>
 
-            <div className="space-y-4 text-left max-w-sm mx-auto">
+            <div className="space-y-5 text-left max-w-sm mx-auto">
               <div className="flex items-center gap-3">
                 <WifiOff className="h-4 w-4 text-[#0055FF] flex-shrink-0" />
                 <div className="w-px h-8 bg-[#0055FF]" />
@@ -149,7 +149,7 @@ export default function Landing() {
           <div className="space-y-4">
             <Button
               size="lg"
-              className="w-full uppercase"
+              className="w-full uppercase font-black tracking-tight"
               onClick={() => setLocation('/create')}
               data-testid="button-create-wallet"
             >
