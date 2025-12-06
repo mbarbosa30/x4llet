@@ -1242,7 +1242,7 @@ export default function Earn() {
               <Card className="p-4 space-y-3" data-testid="card-chain-breakdown">
                 <div className="text-xs font-semibold uppercase tracking-wide flex items-center gap-2 text-foreground/80">
                   <Layers className="h-4 w-4 text-[#0055FF]" />
-                  BALANCE & RATES BY NETWORK
+                  USDC BALANCE & RATES / NETWORK
                 </div>
                 
                 {baseBalanceNum > 0 && (
