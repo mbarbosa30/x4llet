@@ -139,7 +139,7 @@ export default function Landing() {
                 <div className="w-px h-8 bg-[#0055FF]" />
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Free Tokens</div>
-                  <div className="text-xs text-muted-foreground">Daily UBI from GoodDollar & Circles.</div>
+                  <div className="text-xs text-muted-foreground">Daily claims and airdrops from partners/sponsors.</div>
                 </div>
               </div>
             </div>
@@ -168,7 +168,7 @@ export default function Landing() {
 
             <div className="text-center pt-2">
               <Link href="/unlock" className="text-sm text-muted-foreground hover:text-foreground uppercase tracking-wide" data-testid="link-unlock">
-                Already have a wallet? Unlock
+                Already have a wallet? <span className="font-bold">UNLOCK</span>
               </Link>
             </div>
           </div>
