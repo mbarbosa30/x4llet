@@ -864,7 +864,7 @@ export default function Pool() {
                           </span>
                         </button>
                         <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest text-center">
-                          USDC Pooling
+                          <span className="font-bold text-foreground">USDC</span> Pooling
                         </p>
                       </div>
                     );

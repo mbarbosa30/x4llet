@@ -280,11 +280,11 @@ export default function BalanceCard({
 
       {/* Content overlay */}
       <div className="relative z-10">
-        <div className="text-xs mb-2 font-mono uppercase tracking-widest text-muted-foreground">{currency} Balance</div>
+        <div className="text-xs mb-2 font-mono uppercase tracking-widest text-muted-foreground"><span className="font-bold text-foreground">{currency}</span> Balance</div>
         
         {/* Chain breakdown - between label and main amount */}
         {chains && (
-          <div className="text-xs mb-2 font-mono text-muted-foreground" data-testid="text-chain-breakdown">
+          <div className="text-[10px] mb-2 font-mono text-muted-foreground" data-testid="text-chain-breakdown">
             {[
               BigInt(chains.base.balanceMicro) > 0n && `Base $${chains.base.balance}`,
               BigInt(chains.celo.balanceMicro) > 0n && `Celo $${chains.celo.balance}`,

@@ -1074,7 +1074,7 @@ export default function Earn() {
                         )}
                       </span>
                     </button>
-                    <div className="text-xs text-muted-foreground font-mono uppercase tracking-widest">USDC Yielding</div>
+                    <div className="text-xs text-muted-foreground font-mono uppercase tracking-widest"><span className="font-bold text-foreground">USDC</span> Yielding</div>
                   </div>
                 ) : (
                   <div className="space-y-3">
