@@ -554,7 +554,7 @@ export default function Send() {
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-lg font-semibold">Send USDC</h1>
+            <h1 className="text-lg font-bold font-heading tracking-tight">Send USDC</h1>
           </div>
           <div className="flex items-center gap-2">
             {/* Only show network toggle if user has balance on both chains */}

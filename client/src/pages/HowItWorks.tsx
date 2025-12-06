@@ -23,7 +23,7 @@ export default function HowItWorks() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="ml-2 text-lg font-semibold">How It Works</h1>
+          <h1 className="ml-2 text-lg font-bold font-heading tracking-tight">How It Works</h1>
         </div>
       </header>
 
@@ -31,7 +31,7 @@ export default function HowItWorks() {
         <div className="max-w-md mx-auto p-4 space-y-8">
         
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold">x402 Protocol</h2>
+          <h2 className="text-xl font-bold font-heading">x402 Protocol</h2>
           <p className="text-sm text-muted-foreground">
             x402 enables gasless USDC payments that work offline. You sign an authorization on your device; 
             our facilitator submits it on-chain and covers gas fees. No ETH or CELO needed.
@@ -51,7 +51,7 @@ export default function HowItWorks() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold">Security & Passkeys</h2>
+          <h2 className="text-xl font-bold font-heading">Security & Passkeys</h2>
           <p className="text-sm text-muted-foreground">
             Your private key is encrypted with AES-GCM and stored locally in IndexedDB. The wallet auto-locks after inactivity.
           </p>
@@ -65,7 +65,7 @@ export default function HowItWorks() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold">Networks</h2>
+          <h2 className="text-xl font-bold font-heading">Networks</h2>
           <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-2">
             <li><span className="font-medium">Base</span> — Native USDC. Aave V3 savings.</li>
             <li><span className="font-medium">Celo</span> — Native USDC. Aave V3 savings. GoodDollar UBI.</li>
@@ -77,7 +77,7 @@ export default function HowItWorks() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold">Savings & Yield</h2>
+          <h2 className="text-xl font-bold font-heading">Savings & Yield</h2>
           <p className="text-sm text-muted-foreground">
             Deposit USDC into Aave V3 to earn interest. You receive aUSDC tokens representing your deposit plus accrued yield.
           </p>
@@ -92,7 +92,7 @@ export default function HowItWorks() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold">Yield Allocation</h2>
+          <h2 className="text-xl font-bold font-heading">Yield Allocation</h2>
           <p className="text-sm text-muted-foreground">
             Choose what happens to your yield. Keep 100%, or allocate a percentage to the prize pool.
           </p>
@@ -102,7 +102,7 @@ export default function HowItWorks() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold">Prize Pool</h2>
+          <h2 className="text-xl font-bold font-heading">Prize Pool</h2>
           <p className="text-sm text-muted-foreground">
             A weekly prize-linked savings pool funded by participant yield contributions.
           </p>
@@ -118,7 +118,7 @@ export default function HowItWorks() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold">MaxFlow Signal</h2>
+          <h2 className="text-xl font-bold font-heading">MaxFlow Signal</h2>
           <p className="text-sm text-muted-foreground">
             A graph-based trust signal that measures your network health through flow computation. Anti-sybil by design.
           </p>
@@ -129,7 +129,7 @@ export default function HowItWorks() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold">GoodDollar</h2>
+          <h2 className="text-xl font-bold font-heading">GoodDollar</h2>
           <p className="text-sm text-muted-foreground">
             Daily UBI tokens (G$) on Celo for verified humans. Funded by DeFi interest and donations.
           </p>
@@ -141,7 +141,7 @@ export default function HowItWorks() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold">Circles</h2>
+          <h2 className="text-xl font-bold font-heading">Circles</h2>
           <p className="text-sm text-muted-foreground">
             Community social money on Gnosis. Every registered human mints CRC at the same rate.
           </p>

@@ -106,7 +106,7 @@ export default function RestoreWallet() {
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
           <Shield className="h-12 w-12 mx-auto mb-4 text-primary" />
-          <h1 className="text-2xl font-semibold mb-2">Recover Wallet</h1>
+          <h1 className="text-2xl font-bold mb-2 font-heading tracking-tight">Recover Wallet</h1>
           <p className="text-sm text-muted-foreground">
             Use your private key to recover access and set a new password
           </p>

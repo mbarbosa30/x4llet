@@ -369,7 +369,7 @@ export default function Dashboard() {
       <div className="max-w-[1600px] mx-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
+            <h1 className="text-3xl font-bold font-heading tracking-tight">Analytics Dashboard</h1>
             <p className="text-muted-foreground">
               Comprehensive overview of nanoPay wallet activity
               {lastRefresh && (

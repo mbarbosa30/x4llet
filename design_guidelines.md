@@ -1,265 +1,261 @@
 # Design Guidelines: nanoPay - Lightweight Crypto Wallet PWA
 
-## Design Approach: Minimal Utility-First System
+## Design Approach: Relay Stories Inspired
 
-**Selected Approach:** Streamlined design system optimized for performance, accessibility, and trust
-
-**Rationale:** This is a financial utility application requiring maximum reliability, minimal bandwidth, and instant usability. Design must communicate security and efficiency over visual flourish.
+**Selected Approach:** Warm, modern design system with distinctive typography and clean aesthetics inspired by Relay Stories
 
 **Core Principles:**
-- Clarity and speed over visual embellishment
-- Trust through restraint and precision
-- Performance-first: every design decision considers bandwidth
-- Accessibility without compromise
+- Warm coral primary color (#F5623D) for energy and friendliness
+- Sharp-cornered containers paired with pill-shaped buttons for visual contrast
+- Outfit font for headings, Inter for body text
+- Colored shadows on primary buttons for depth and tactile feel
+- Clean white backgrounds with subtle card differentiation
+
+---
+
+## Color System
+
+**Primary Colors (Light Mode):**
+- Primary: `hsl(12, 90%, 60%)` - Warm coral (#F5623D)
+- Primary Foreground: White
+- Primary Shadow: `0px 10px 15px -3px rgba(245, 98, 61, 0.4)`
+
+**Background & Surface (Light Mode):**
+- Background: Pure white `hsl(0, 0%, 100%)`
+- Card: Very subtle off-white `hsl(0, 0%, 99%)`
+- Card Border: Light gray `hsl(0, 0%, 91%)`
+
+**Text (Light Mode):**
+- Foreground: Near black `hsl(240, 10%, 4%)`
+- Muted Foreground: `hsl(0, 0%, 45%)`
+
+**Primary Colors (Dark Mode):**
+- Primary: `hsl(12, 90%, 58%)` - Slightly brighter coral
+- Background: Deep dark `hsl(240, 10%, 4%)`
+- Card: `hsl(240, 8%, 7%)`
+
+**Status Colors:**
+- Success: `hsl(142, 71%, 45%)` - Green for earning/positive
+- Destructive: `hsl(0, 84%, 60%)` - Red for errors/warnings
 
 ---
 
 ## Typography System
 
 **Font Stack:**
-- Primary: System font stack (`-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`)
-- Avoids external font loading to minimize bundle size
-- Ensures instant rendering with native OS fonts
+- Headings: `"Outfit", -apple-system, BlinkMacSystemFont, sans-serif`
+- Body: `"Inter", -apple-system, BlinkMacSystemFont, sans-serif`
+- Monospace: `ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`
 
-**Type Scale:**
-- Hero numbers (balance): text-5xl (48px) - tabular figures, medium weight
-- Screen titles: text-2xl (24px) - semibold
-- Primary actions: text-base (16px) - medium
-- Body/labels: text-sm (14px) - regular
-- Micro text (tx details): text-xs (12px) - regular
-- Monospace (addresses): `font-mono` for `0x...` addresses and codes
+**Type Scale with Font Assignments:**
+- Hero balances: `text-5xl font-bold font-heading tracking-tight`
+- Page titles: `text-2xl font-bold font-heading tracking-tight`
+- Section headers: `text-lg font-bold font-heading`
+- App header: `text-lg font-bold font-heading tracking-tight`
+- Body/labels: `text-sm font-sans`
+- Micro text: `text-xs font-sans`
+- Addresses/codes: `font-mono`
 
 **Typography Rules:**
-- All monetary amounts use tabular figures for alignment
-- Recovery codes and addresses always monospace
-- Labels use sentence case; buttons use title case
-- Line heights: 1.2 for numbers, 1.5 for text
+- All monetary amounts use `tabular-nums` for alignment
+- Headings use `tracking-tight` for compact, modern feel
+- Dollar signs rendered at smaller size with reduced opacity
+
+---
+
+## Component Specifications
+
+### Buttons
+**Primary Button:**
+- Shape: Fully rounded (pill) - `rounded-full`
+- Height: `min-h-10` (default), `min-h-12` (lg)
+- Padding: `px-6` (default), `px-8` (lg)
+- Shadow: Colored coral shadow - `shadow-primary`
+- Border: Subtle darker coral border
+
+**Secondary Button:**
+- Shape: Fully rounded (pill) - `rounded-full`
+- Background: Light gray
+- No colored shadow
+
+**Outline Button:**
+- Shape: Fully rounded (pill) - `rounded-full`
+- Border: `border-foreground/20`
+- Background: Transparent
+
+**Ghost Button:**
+- Shape: Fully rounded (pill) - `rounded-full`
+- Background: Transparent, no border
+
+**Icon Buttons:**
+- Size: `h-10 w-10` (matches default button height)
+- Shape: Fully rounded - `rounded-full`
+
+### Cards
+**Card Component:**
+- Shape: Sharp corners - `rounded-none`
+- Border: Subtle border using `border-card-border`
+- Background: Very subtle off-white
+- No drop shadows
+
+### Input Fields
+**Text Input:**
+- Shape: Sharp corners - `rounded-none`
+- Height: `h-10`
+- Border: Standard input border
+- Padding: `px-4`
+
+### Badges
+**Badge Component:**
+- Shape: Fully rounded (pill) - `rounded-full`
+- Padding: `px-3 py-0.5`
+- Font: `text-xs font-medium`
+
+### Dialogs/Modals
+**Dialog Content:**
+- Shape: Sharp corners - `rounded-none`
+- Shadow: `shadow-xl` for floating effect
+- Padding: `p-5 sm:p-6`
+
+### Select Component
+**SelectTrigger (Interactive):**
+- Shape: Fully rounded (pill) - `rounded-full`
+- Height: `h-10`
+- This is an interactive element, so it follows the pill pattern
+
+**SelectContent (Container):**
+- Shape: Sharp corners - `rounded-none`
+- This is a dropdown container, so it follows the sharp pattern
+
+**SelectItem (Interactive):**
+- Shape: Fully rounded (pill) - `rounded-full`
+- Items inside the dropdown are interactive
+
+### Tabs Component
+**TabsList (Container):**
+- Shape: Sharp corners - `rounded-none`
+- Background: `bg-muted`
+- This is a container holding tab triggers
+
+**TabsTrigger (Interactive):**
+- Shape: Fully rounded (pill) - `rounded-full`
+- Each tab trigger is an interactive element
+
+### Dropdown Menu
+**DropdownMenuContent (Container):**
+- Shape: Sharp corners - `rounded-none`
+
+**DropdownMenuItem (Interactive):**
+- Shape: Fully rounded (pill) - `rounded-full`
 
 ---
 
 ## Layout System
 
-**Spacing Primitives:** 
-Tailwind units of **2, 4, 8, 12, 16** - creates consistent vertical and horizontal rhythm while keeping limited options for speed
-
 **Screen Structure:**
-- All screens follow fixed header (h-16) + scrollable content + optional fixed footer pattern
-- Container: max-w-md (448px) centered - optimized for one-handed mobile use
-- Padding: px-4 universal horizontal padding; py-6 for content sections
-- Safe areas: pb-safe for iOS bottom gestures
+- Fixed header: `h-16` with app branding
+- Scrollable content with safe area padding
+- Fixed bottom navigation when applicable
+- Container: `max-w-md` (448px) centered
 
-**Grid System:**
-- Single column layout throughout (no multi-column to avoid confusion)
-- Transaction list: full-width items with internal flex layout
-- Action buttons: full-width on mobile, max-w-xs on desktop
+**Spacing:**
+- Primary spacing unit: 4 (Tailwind's base unit)
+- Content padding: `p-4`
+- Component gaps: `space-y-4` or `gap-4`
+- Section spacing: `space-y-6`
 
 ---
 
-## Component Library
+## Visual Contrast Pattern
 
-### Core Navigation
-**Top Bar (Fixed):**
-- Logo/app name (left) - text-lg, semibold
-- Screen title (center) - text-base
-- Action icon (right) - settings/scan - size-6 icons
-- Height: h-16, border-b with subtle divider
+**Key Design Choice: Sharp vs. Round**
+The design creates visual interest through contrast:
+- Containers (cards, dialogs, inputs): Sharp corners
+- Interactive elements (buttons, badges): Pill shape
 
-**Bottom Navigation (when needed):**
-- 3 primary actions maximum (Home, Send, Receive)
-- Icon above label pattern
-- Active state: heavier icon weight + indicator dot
+This creates a clear visual hierarchy where actions stand out from content areas.
 
-### Balance Display
-**Home Balance Card:**
-- Large balance number (text-5xl) - primary position, top third of screen
-- Currency symbol and code (text-base) above number
-- Fiat equivalent (text-sm, muted) below
-- Full-width card with generous padding (p-8)
-- Subtle border, slightly elevated with minimal shadow
+---
 
-### Buttons & Actions
-**Primary Action Button:**
-- Full-width on mobile (w-full)
-- Height: h-12
-- Text: text-base, medium weight
-- Rounded: rounded-lg
-- States clearly defined through system defaults (no custom hover states on images)
+## Balance Display Pattern
 
-**Secondary Button:**
-- Outlined variant
-- Same dimensions as primary
-- Muted appearance
+**Primary Balance Card:**
+```
+<div className="text-5xl font-bold tabular-nums font-heading tracking-tight">
+  <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
+  <span>{amount}</span>
+</div>
+```
 
-**Icon Buttons:**
-- Square: size-12
-- Icon: size-6
-- Rounded: rounded-lg
-- Used for QR scan, copy, share actions
+**Key Elements:**
+- Dollar sign at smaller size with reduced opacity
+- Main digits in Outfit font, bold weight
+- Decimal precision shown with reduced opacity
+- Earning animation extras shown in small text with success color
 
-### Input Fields
-**Amount Input:**
-- Custom numeric keypad (3x4 grid)
-- Large display area above keypad (text-4xl for entered amount)
-- Button size: h-16 w-full for each key
-- Grid: grid-cols-3 gap-2
+---
 
-**Address Input:**
-- Single text input with paste/scan auxiliary buttons
-- Height: h-12
-- Monospace font for addresses
-- Clear button when populated
+## Header Component
 
-### Transaction List
-**List Item Structure:**
-- Full-width items
-- Height: h-20 per transaction
-- Flex layout: icon (size-10) | sender/recipient + timestamp | amount
-- Border separator between items: border-b
-- No hover states (tap to view details)
-
-### QR Code Display
-**Receive QR:**
-- QR code: size-64 (256px square) - centered
-- Address below in monospace (text-xs)
-- Copy button: full-width, below address
-- Container: p-8 with border
-
-### Status & Feedback
-**Transaction Status:**
-- Toast notifications: fixed bottom, max-w-sm, p-4
-- Auto-dismiss after 3s
-- States: success, pending, error (system provides styling)
-
-**Loading States:**
-- Skeleton screens for transaction list
-- Spinner for active operations (size-8, centered)
-- No progress bars (binary states only)
-
-### Modals & Overlays
-**Confirmation Sheets:**
-- Slide up from bottom
-- Max height: 90vh
-- Padding: p-6
-- Actions at bottom: Cancel (left) + Confirm (right, full-width)
-
-**Recovery Code Display:**
-- 12-character code in 3 groups of 4
-- Each group in separate card with p-4
-- Monospace, text-xl
-- "Save as image" and "Print" buttons below
-
-### Settings Screen
-**Settings List:**
-- Grouped sections with headers (text-xs, uppercase, tracking-wide)
-- Items: h-14, with chevron-right icon
-- Dividers between items within groups
-- Spacing between groups: mb-8
+**App Header:**
+- Brand name: `text-lg font-bold font-heading tracking-tight`
+- Height: `h-16` fixed
+- Trust score badge: Pill shape with icon
+- Icon buttons: Ghost variant, size icon
 
 ---
 
 ## Animation & Motion
 
-**Strict No-Animation Policy:**
-- No transitions, transforms, or animations except system defaults
-- Page changes: instant (no fade/slide)
-- Loading: static spinner only
-- Modals: instant appearance (no slide-up animation)
+**Allowed Animations:**
+- Real-time balance earning animation (for Aave yields)
+- Loading spinners
+- Subtle hover elevations via CSS utilities
 
-**Exception:** Native system animations only (e.g., iOS sheet presentation)
+**No Animations:**
+- Page transitions (instant)
+- Modal appearances (instant)
+- Layout changes on hover
 
 ---
 
 ## Iconography
 
-**Icon Library:** Heroicons (outline variant) via CDN
-- Navigation: home, arrow-right-start-on-rectangle, cog-6-tooth
-- Actions: qr-code, arrow-up, arrow-down, clipboard-document
-- Status: check-circle, exclamation-circle, clock
-- Size: size-5 for inline, size-6 for buttons, size-10 for list items
+**Icon Library:** Lucide React
+- Navigation: `Wallet`, `TrendingUp`, `Coins`, `Sparkles`
+- Actions: `ArrowUpRight`, `ArrowDownLeft`, `Copy`, `Share2`
+- Status: `Check`, `AlertCircle`, `Clock`, `Shield`
+- Size: `h-5 w-5` for buttons, `h-4 w-4` for inline
 
 ---
 
-## Screen-Specific Layouts
+## Trust & Financial UI Patterns
 
-### Create Wallet Screen
-- Centered content, max-w-sm
-- App logo/name at top (mb-12)
-- Two bullet points in list (space-y-4)
-- Primary "Create Wallet" button (mt-8)
-- Optional cloud backup toggle below (mt-4)
-- Recovery code shown in modal after creation
+**Earning Indicators:**
+- Pulsing green dot for active earning
+- Small superscript digits for extra precision
+- APY displayed in badges
 
-### Home Screen
-- Balance card at top (mt-4)
-- Three action buttons in row below balance (grid-cols-3, gap-2, mt-6)
-- Recent transactions heading (text-sm, mt-8, mb-4)
-- Transaction list below
-
-### Send Screen
-- Recipient input at top with scan button inline
-- Amount display (large, centered, mt-8)
-- Numeric keypad (mt-12)
-- Confirm button fixed at bottom
-
-### Receive Screen
-- QR code centered (mt-8)
-- Address display below QR (mt-6)
-- Copy address button (mt-4)
-- "Create payment link" secondary button (mt-2)
-
-### Settings Screen
-- Header with back button
-- Grouped list items (mt-4)
-- Sections: Security, Network, Preferences
-- Logout/Export at bottom (mt-8, danger styling)
-
----
-
-## Data Display Patterns
-
-**Monetary Amounts:**
-- Always right-aligned when in lists
-- Include currency symbol
-- Muted fiat equivalent below when applicable
-- Positive/negative indicated through subtle prefix (+ / -)
-
-**Addresses:**
-- Truncated: `0x1234...5678` format (first 6, last 4)
-- Full address shown only in dedicated views
-- Always with copy button adjacent
-
-**Timestamps:**
-- Relative for recent ("2m ago", "1h ago")
-- Absolute for older ("Jan 15, 2:30 PM")
-- Text-xs, muted
-
----
-
-## Accessibility
-
-- Minimum tap target: 44x44px (h-12 covers this)
-- WCAG AA contrast ratios throughout (system ensures)
-- Focus visible on all interactive elements
-- Keyboard navigation support for desktop PWA
-- Screen reader labels on all icons and actions
-- Form fields with proper labels and error states
-
----
-
-## Images
-
-**No hero images.** This is a utility application requiring instant access.
-
-**QR Codes:** Generated dynamically via library
-**Icons:** Heroicons library only
-**Illustrations:** None (contradicts minimal approach)
-**Photos/Backgrounds:** None
+**Transaction Status:**
+- Send: Negative prefix, `ArrowUpRight` icon
+- Receive: Positive styling, `ArrowDownLeft` icon
+- Chain badges for multi-chain context
 
 ---
 
 ## Responsive Behavior
 
-**Mobile-First:** Designed for 360px width minimum
-**Tablet:** Same layout, centered max-w-md container
-**Desktop:** Max-w-md centered, otherwise identical to mobile
-**No responsive grid changes** - single column maintained across all viewports
+- Mobile-first: 360px minimum width
+- Single column layout maintained throughout
+- Container max-width: 448px centered
+- No layout changes between breakpoints
+
+---
+
+## Accessibility
+
+- Minimum tap target: 44x44px
+- WCAG AA contrast ratios
+- Focus visible on all interactive elements
+- Proper form labels and error states
+- Data-testid on all interactive elements

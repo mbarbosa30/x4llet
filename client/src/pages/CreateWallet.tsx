@@ -157,7 +157,7 @@ export default function CreateWallet() {
           <div className="w-full max-w-md space-y-8">
             <div className="text-center">
               <Shield className="h-16 w-16 mx-auto mb-4 text-primary" />
-              <h1 className="text-2xl font-semibold mb-2">Backup Your Wallet</h1>
+              <h1 className="text-2xl font-bold mb-2 font-heading tracking-tight">Backup Your Wallet</h1>
               <p className="text-sm text-muted-foreground">
                 Save your private key to recover your wallet if needed
               </p>
@@ -254,7 +254,7 @@ export default function CreateWallet() {
         <div className="w-full max-w-md space-y-8">
           <div className="text-center">
             <Shield className="h-16 w-16 mx-auto mb-4 text-primary" />
-            <h1 className="text-2xl font-semibold mb-2">Create Your Wallet</h1>
+            <h1 className="text-2xl font-bold mb-2 font-heading tracking-tight">Create Your Wallet</h1>
             <p className="text-sm text-muted-foreground">
               Choose a strong password to secure your wallet
             </p>

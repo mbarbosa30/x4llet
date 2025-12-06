@@ -91,7 +91,7 @@ export default function AppHeader() {
     >
       <div className="flex items-center justify-between px-4 h-16">
       <div className="flex items-center gap-3">
-        <h1 className="text-lg font-semibold">nanoPay</h1>
+        <h1 className="text-lg font-bold font-heading tracking-tight">nanoPay</h1>
         <button
           onClick={() => setLocation('/maxflow')}
           className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium transition-colors ${

@@ -622,7 +622,7 @@ export default function Pool() {
         <Card className="max-w-md w-full mx-4 p-6 space-y-6">
           <div className="text-center space-y-2">
             <Trophy className="h-12 w-12 mx-auto text-muted-foreground" />
-            <h2 className="text-lg font-semibold">Prize Pool</h2>
+            <h2 className="text-lg font-bold font-heading">Prize Pool</h2>
             <p className="text-sm text-muted-foreground">
               Connect your wallet to participate
             </p>
@@ -703,7 +703,7 @@ export default function Pool() {
                   
                   return (
                     <div className="space-y-1">
-                      <div className="text-5xl font-medium tabular-nums flex items-center justify-center" data-testid="text-intro-prize">
+                      <div className="text-5xl font-bold tabular-nums flex items-center justify-center font-heading tracking-tight" data-testid="text-intro-prize">
                         <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
                         <span className="inline-flex items-baseline">
                           <span>{isAnimating ? Math.floor(prizePoolAnimation.animatedValue) : staticInt}</span>
@@ -833,7 +833,7 @@ export default function Pool() {
                     
                     return (
                       <div className="space-y-1">
-                        <div className="text-5xl font-medium tabular-nums flex items-center justify-center" data-testid="text-prize-amount">
+                        <div className="text-5xl font-bold tabular-nums flex items-center justify-center font-heading tracking-tight" data-testid="text-prize-amount">
                           <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
                           <span className="inline-flex items-baseline">
                             <span>{isAnimating ? Math.floor(prizePoolAnimation.animatedValue) : staticInt}</span>

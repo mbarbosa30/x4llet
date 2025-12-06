@@ -285,8 +285,8 @@ export default function BalanceCard({
 
       {/* Content overlay */}
       <div className="relative z-10">
-        <div className="text-sm text-muted-foreground mb-2">{currency} Balance</div>
-        <div className="text-5xl font-medium tabular-nums mb-2 flex items-center justify-center" data-testid="text-balance">
+        <div className="text-sm text-muted-foreground mb-2 font-medium tracking-wide">{currency} Balance</div>
+        <div className="text-5xl font-bold tabular-nums mb-2 flex items-center justify-center font-heading tracking-tight" data-testid="text-balance">
           <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
           {isEarning ? (
             <span className="inline-flex items-baseline">

@@ -83,9 +83,9 @@ export default function Landing() {
         <div className="w-full max-w-md space-y-12">
           <div className="text-center space-y-6">
             <div>
-              <div className="text-sm font-semibold text-primary mb-2 mt-12">nanoPay</div>
-              <h1 className="text-3xl font-bold mb-3">Money, Simplified.</h1>
-              <p className="text-muted-foreground mb-8 text-base">
+              <div className="text-sm font-semibold text-primary mb-3 mt-12 tracking-wide">nanoPay</div>
+              <h1 className="text-4xl font-bold mb-4 font-heading tracking-tight">Money, Simplified.</h1>
+              <p className="text-muted-foreground mb-8 text-lg">
                 No internet? No gas? No ID? No problem.
               </p>
             </div>

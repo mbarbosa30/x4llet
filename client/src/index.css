@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* LIGHT MODE */
+/* LIGHT MODE - Relay Stories inspired warm coral theme */
 :root {
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
@@ -14,84 +14,98 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
+  /* Pure white background */
   --background: 0 0% 100%;
 
-  --foreground: 0 0% 9%;
+  /* Near-black foreground */
+  --foreground: 240 10% 4%;
 
-  --border: 0 0% 89%;
+  --border: 0 0% 91%;
 
-  --card: 0 0% 98%;
+  /* Very subtle off-white cards */
+  --card: 0 0% 99%;
 
-  --card-foreground: 0 0% 9%;
+  --card-foreground: 240 10% 4%;
 
-  --card-border: 0 0% 93%;
+  --card-border: 0 0% 91%;
 
-  --sidebar: 0 0% 96%;
+  --sidebar: 0 0% 98%;
 
-  --sidebar-foreground: 0 0% 9%;
+  --sidebar-foreground: 240 10% 4%;
 
   --sidebar-border: 0 0% 91%;
 
-  --sidebar-primary: 214 95% 36%;
+  /* Warm coral primary - #F5623D */
+  --sidebar-primary: 12 90% 60%;
 
   --sidebar-primary-foreground: 0 0% 100%;
 
-  --sidebar-accent: 0 0% 93%;
+  --sidebar-accent: 0 0% 95%;
 
-  --sidebar-accent-foreground: 0 0% 9%;
+  --sidebar-accent-foreground: 240 10% 4%;
 
-  --sidebar-ring: 214 95% 36%;
+  --sidebar-ring: 12 90% 60%;
 
-  --popover: 0 0% 95%;
+  --popover: 0 0% 100%;
 
-  --popover-foreground: 0 0% 9%;
+  --popover-foreground: 240 10% 4%;
 
-  --popover-border: 0 0% 90%;
+  --popover-border: 0 0% 91%;
 
-  --primary: 214 95% 36%;
+  /* Warm coral primary - #F5623D */
+  --primary: 12 90% 60%;
 
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 0 0% 92%;
+  --secondary: 0 0% 96%;
 
-  --secondary-foreground: 0 0% 9%;
+  --secondary-foreground: 240 10% 4%;
 
-  --muted: 210 8% 94%;
+  --muted: 0 0% 96%;
 
-  --muted-foreground: 0 0% 40%;
+  --muted-foreground: 0 0% 45%;
 
-  --accent: 210 6% 93%;
+  --accent: 0 0% 96%;
 
-  --accent-foreground: 0 0% 9%;
+  --accent-foreground: 240 10% 4%;
 
-  --destructive: 0 84% 35%;
+  --destructive: 0 84% 60%;
 
   --destructive-foreground: 0 0% 100%;
 
-  --success: 142 60% 35%;
+  --success: 142 71% 45%;
 
   --success-foreground: 0 0% 100%;
 
-  --input: 0 0% 76%;
-  --ring: 214 95% 36%;
-  --chart-1: 214 95% 36%;
+  --input: 0 0% 80%;
+  --ring: 12 90% 60%;
+  --chart-1: 12 90% 60%;
   --chart-2: 173 58% 39%;
   --chart-3: 197 37% 24%;
   --chart-4: 43 74% 49%;
   --chart-5: 27 87% 47%;
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  /* Typography */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-heading: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --radius: .5rem; /* 8px */
-  --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
-  --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
-  --shadow-sm: 0px 2px 0px 0px hsl(0 0% 0% / 0.00), 0px 1px 2px -1px hsl(0 0% 0% / 0.00);
-  --shadow: 0px 2px 0px 0px hsl(0 0% 0% / 0.00), 0px 1px 2px -1px hsl(0 0% 0% / 0.00);
-  --shadow-md: 0px 2px 0px 0px hsl(0 0% 0% / 0.00), 0px 2px 4px -1px hsl(0 0% 0% / 0.00);
-  --shadow-lg: 0px 2px 0px 0px hsl(0 0% 0% / 0.00), 0px 4px 6px -1px hsl(0 0% 0% / 0.00);
-  --shadow-xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.00), 0px 8px 10px -1px hsl(0 0% 0% / 0.00);
-  --shadow-2xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
+  
+  /* Sharp corners for containers, full rounded for buttons */
+  --radius: 0rem;
+  --radius-button: 9999px;
+  
+  /* Colored shadows for primary buttons */
+  --shadow-primary: 0px 10px 15px -3px rgba(245, 98, 61, 0.4), 0px 4px 6px -4px rgba(245, 98, 61, 0.4);
+  
+  --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.03);
+  --shadow-xs: 0px 1px 3px 0px hsl(0 0% 0% / 0.04);
+  --shadow-sm: 0px 2px 4px -1px hsl(0 0% 0% / 0.06);
+  --shadow: 0px 4px 6px -1px hsl(0 0% 0% / 0.08);
+  --shadow-md: 0px 6px 10px -1px hsl(0 0% 0% / 0.08);
+  --shadow-lg: 0px 10px 15px -3px hsl(0 0% 0% / 0.08);
+  --shadow-xl: 0px 20px 25px -5px hsl(0 0% 0% / 0.10);
+  --shadow-2xl: 0px 25px 50px -12px hsl(0 0% 0% / 0.25);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 
@@ -136,80 +150,86 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  --background: 0 0% 7%;
+  /* Deep dark background */
+  --background: 240 10% 4%;
 
   --foreground: 0 0% 98%;
 
-  --border: 0 0% 18%;
+  --border: 240 6% 15%;
 
-  --card: 0 0% 9%;
+  --card: 240 8% 7%;
 
   --card-foreground: 0 0% 98%;
 
-  --card-border: 0 0% 14%;
+  --card-border: 240 6% 12%;
 
-  --sidebar: 0 0% 11%;
+  --sidebar: 240 8% 6%;
 
   --sidebar-foreground: 0 0% 98%;
 
-  --sidebar-border: 0 0% 16%;
+  --sidebar-border: 240 6% 12%;
 
-  --sidebar-primary: 214 90% 50%;
+  /* Warm coral primary in dark mode - slightly brighter */
+  --sidebar-primary: 12 90% 58%;
 
   --sidebar-primary-foreground: 0 0% 100%;
 
-  --sidebar-accent: 0 0% 14%;
+  --sidebar-accent: 240 6% 12%;
 
   --sidebar-accent-foreground: 0 0% 98%;
 
-  --sidebar-ring: 214 90% 50%;
+  --sidebar-ring: 12 90% 58%;
 
-  --popover: 0 0% 12%;
+  --popover: 240 8% 8%;
 
   --popover-foreground: 0 0% 98%;
 
-  --popover-border: 0 0% 17%;
+  --popover-border: 240 6% 15%;
 
-  --primary: 214 90% 50%;
+  /* Warm coral primary */
+  --primary: 12 90% 58%;
 
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 0 0% 15%;
+  --secondary: 240 6% 12%;
 
   --secondary-foreground: 0 0% 98%;
 
-  --muted: 210 8% 13%;
+  --muted: 240 6% 12%;
 
-  --muted-foreground: 0 0% 65%;
+  --muted-foreground: 0 0% 60%;
 
-  --accent: 210 6% 14%;
+  --accent: 240 6% 12%;
 
   --accent-foreground: 0 0% 98%;
 
-  --destructive: 0 84% 35%;
+  --destructive: 0 84% 60%;
 
   --destructive-foreground: 0 0% 100%;
 
-  --success: 142 55% 55%;
+  --success: 142 71% 45%;
 
   --success-foreground: 0 0% 100%;
 
-  --input: 0 0% 28%;
-  --ring: 214 90% 50%;
-  --chart-1: 214 90% 65%;
+  --input: 240 6% 20%;
+  --ring: 12 90% 58%;
+  --chart-1: 12 90% 65%;
   --chart-2: 173 58% 65%;
   --chart-3: 197 37% 70%;
   --chart-4: 43 74% 70%;
   --chart-5: 27 87% 68%;
+  
+  /* Colored shadow for primary buttons in dark mode */
+  --shadow-primary: 0px 10px 15px -3px rgba(245, 98, 61, 0.3), 0px 4px 6px -4px rgba(245, 98, 61, 0.3);
 
-  --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
-  --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
-  --shadow-sm: 0px 2px 0px 0px hsl(0 0% 0% / 0.00), 0px 1px 2px -1px hsl(0 0% 0% / 0.00);
-  --shadow: 0px 2px 0px 0px hsl(0 0% 0% / 0.00), 0px 1px 2px -1px hsl(0 0% 0% / 0.00);
-  --shadow-md: 0px 2px 0px 0px hsl(0 0% 0% / 0.00), 0px 2px 4px -1px hsl(0 0% 0% / 0.00);
-  --shadow-lg: 0px 2px 0px 0px hsl(0 0% 0% / 0.00), 0px 4px 6px -1px hsl(0 0% 0% / 0.00);
-  --shadow-xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.00), 0px 8px 10px -1px hsl(0 0% 0% / 0.00);
-  --shadow-2xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.00);
+  --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.10);
+  --shadow-xs: 0px 1px 3px 0px hsl(0 0% 0% / 0.12);
+  --shadow-sm: 0px 2px 4px -1px hsl(0 0% 0% / 0.15);
+  --shadow: 0px 4px 6px -1px hsl(0 0% 0% / 0.18);
+  --shadow-md: 0px 6px 10px -1px hsl(0 0% 0% / 0.20);
+  --shadow-lg: 0px 10px 15px -3px hsl(0 0% 0% / 0.22);
+  --shadow-xl: 0px 20px 25px -5px hsl(0 0% 0% / 0.25);
+  --shadow-2xl: 0px 25px 50px -12px hsl(0 0% 0% / 0.40);
 
   /* Fallback for older browsers */
   --sidebar-primary-border: hsl(var(--sidebar-primary));

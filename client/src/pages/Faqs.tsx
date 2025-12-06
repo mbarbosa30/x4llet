@@ -29,7 +29,7 @@ export default function Faqs() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="ml-2 text-lg font-semibold">FAQs</h1>
+          <h1 className="ml-2 text-lg font-bold font-heading tracking-tight">FAQs</h1>
         </div>
       </header>
 

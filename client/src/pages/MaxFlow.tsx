@@ -176,7 +176,7 @@ export default function MaxFlow() {
 
       <main className="max-w-md mx-auto p-4 space-y-4">
         <div className="text-center space-y-1">
-          <h1 className="text-lg font-semibold">Network Signal</h1>
+          <h1 className="text-lg font-bold font-heading tracking-tight">Network Signal</h1>
           <p className="text-xs text-muted-foreground">Your trust network health score</p>
         </div>
 
@@ -186,7 +186,7 @@ export default function MaxFlow() {
               <div className="text-center space-y-4">
                 <Shield className="h-12 w-12 mx-auto text-muted-foreground" />
                 <div>
-                  <h2 className="text-lg font-semibold mb-2">Build Your Network Signal</h2>
+                  <h2 className="text-lg font-bold font-heading mb-2">Build Your Network Signal</h2>
                   <p className="text-sm text-muted-foreground">
                     Your network signal is currently at zero. Here's how to get started.
                   </p>

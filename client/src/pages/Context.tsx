@@ -25,14 +25,14 @@ export default function Context() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="ml-2 text-lg font-semibold">Context</h1>
+          <h1 className="ml-2 text-lg font-bold font-heading tracking-tight">Context</h1>
         </div>
       </header>
 
       <main className="flex-1 overflow-y-auto pb-6">
         <div className="max-w-md mx-auto px-4 pt-6 space-y-6">
           <div className="space-y-3">
-            <h2 className="text-2xl font-bold">No internet? No gas? No ID? No problem.</h2>
+            <h2 className="text-2xl font-bold font-heading tracking-tight">No internet? No gas? No ID? No problem.</h2>
             <p className="text-muted-foreground leading-relaxed">
               nanoPay is a lightweight PWA wallet for the real world—unreliable connectivity, budget phones, shared devices. Send and receive USDC gaslessly via the x402 protocol. Works offline. Your keys stay on your device.
             </p>

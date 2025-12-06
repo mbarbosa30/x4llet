@@ -431,7 +431,7 @@ export default function Admin() {
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         <div>
-          <h1 className="text-3xl font-bold mb-2" data-testid="text-admin-title">Admin Dashboard</h1>
+          <h1 className="text-3xl font-bold mb-2 font-heading tracking-tight" data-testid="text-admin-title">Admin Dashboard</h1>
           <p className="text-muted-foreground">System management and maintenance tools</p>
         </div>
 

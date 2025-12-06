@@ -97,7 +97,7 @@ export default function Receive() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-lg font-semibold">Receive</h1>
+          <h1 className="text-lg font-bold font-heading tracking-tight">Receive</h1>
         </div>
 
         <div className="text-center space-y-6">

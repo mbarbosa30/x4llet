@@ -978,7 +978,7 @@ export default function Earn() {
               <div className="text-center space-y-2">
                 <div className="flex items-center justify-center gap-2">
                   <Sparkles className="h-6 w-6 text-primary" />
-                  <h1 className="text-2xl font-bold" data-testid="text-earn-title">Earn</h1>
+                  <h1 className="text-2xl font-bold font-heading tracking-tight" data-testid="text-earn-title">Earn</h1>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Put your USDC to work and earn interest automatically
@@ -1004,7 +1004,7 @@ export default function Earn() {
                   </div>
                 ) : effectiveHasAaveBalance ? (
                   <div className="space-y-1">
-                    <div className="text-5xl font-medium tabular-nums flex items-center justify-center" data-testid="text-earning-amount">
+                    <div className="text-5xl font-bold tabular-nums flex items-center justify-center font-heading tracking-tight" data-testid="text-earning-amount">
                       <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
                       <span className="inline-flex items-baseline">
                         <span>{Math.floor(totalEarningAnimation.animatedValue)}</span>
@@ -1020,7 +1020,7 @@ export default function Earn() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="text-5xl font-medium tabular-nums flex items-center justify-center">
+                    <div className="text-5xl font-bold tabular-nums flex items-center justify-center font-heading tracking-tight">
                       <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
                       <span>0.00</span>
                     </div>
