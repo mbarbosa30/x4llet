@@ -280,14 +280,19 @@ export default function Pool() {
   });
 
   // Sync opt-in from server and cache view state
+  // Only sync if user already has a saved opt-in > 0 (participating users)
+  // New users keep the 50% default until they explicitly join
   useEffect(() => {
     if (poolStatus?.user?.optInPercent !== undefined && !hasInitializedOptIn) {
-      // Sync the saved opt-in value from server
-      setOptInPercent(poolStatus.user.optInPercent);
+      const hasParticipated = poolStatus.user.optInPercent > 0;
+      
+      // Only override the 50% default if user is already participating
+      if (hasParticipated) {
+        setOptInPercent(poolStatus.user.optInPercent);
+      }
       setHasInitializedOptIn(true);
       
       // Cache the view state to prevent flash on navigation
-      const hasParticipated = poolStatus.user.optInPercent > 0;
       setCachedHasParticipated(hasParticipated);
       setCachedViewState(hasParticipated);
     }
@@ -727,7 +732,7 @@ export default function Pool() {
                 })()}
               </div>
               <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                Contribute some of your Aave savings yield for a chance to win the weekly prize
+                Deposit USDC on Celo via the Earn page, then contribute your yield for a chance to win
               </p>
               <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground pt-2">
                 <span className="flex items-center gap-1">
@@ -745,7 +750,7 @@ export default function Pool() {
             <Card className="p-4 space-y-4">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">YIELD TO CONTRIBUTE</span>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">YIELD TO PARTICIPATE</span>
                   <Badge variant="outline" className="font-bold px-2" data-testid="text-intro-opt-in">
                     {optInPercent}%
                   </Badge>
