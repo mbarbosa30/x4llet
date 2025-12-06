@@ -1100,12 +1100,12 @@ export default function Pool() {
                           <AreaChart data={kellyData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                             <defs>
                               <linearGradient id="kellyGradient" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                                <stop offset="5%" stopColor="#0055FF" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#0055FF" stopOpacity={0}/>
                               </linearGradient>
                               <linearGradient id="optimalGradient" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="hsl(142, 76%, 36%)" stopOpacity={0.4}/>
-                                <stop offset="95%" stopColor="hsl(142, 76%, 36%)" stopOpacity={0.1}/>
+                                <stop offset="5%" stopColor="#0055FF" stopOpacity={0.4}/>
+                                <stop offset="95%" stopColor="#0055FF" stopOpacity={0.1}/>
                               </linearGradient>
                             </defs>
                             <XAxis 
@@ -1132,7 +1132,7 @@ export default function Pool() {
                             <Area 
                               type="monotone" 
                               dataKey="growth" 
-                              stroke="hsl(var(--primary))"
+                              stroke="#0055FF"
                               strokeWidth={2}
                               fill="url(#kellyGradient)"
                             />
@@ -1142,7 +1142,7 @@ export default function Pool() {
                                 x={optInPercent} 
                                 y={currentGrowth}
                                 r={5}
-                                fill="hsl(var(--primary))"
+                                fill="#0055FF"
                                 stroke="hsl(var(--background))"
                                 strokeWidth={2}
                               />
@@ -1151,7 +1151,7 @@ export default function Pool() {
                             {optimalOptIn > 0 && (
                               <ReferenceLine 
                                 x={optimalOptIn} 
-                                stroke="hsl(142, 76%, 36%)"
+                                stroke="#0055FF"
                                 strokeDasharray="3 3"
                                 strokeWidth={1}
                               />
@@ -1364,24 +1364,26 @@ export default function Pool() {
                               <Line 
                                 type="monotone" 
                                 dataKey="current" 
-                                stroke="hsl(var(--primary))"
+                                stroke="#0055FF"
                                 strokeWidth={2}
                                 dot={false}
                               />
                               <Line 
                                 type="monotone" 
                                 dataKey="increased" 
-                                stroke="hsl(45, 93%, 47%)"
+                                stroke="#0055FF"
                                 strokeWidth={1.5}
                                 strokeDasharray="4 2"
+                                strokeOpacity={0.6}
                                 dot={false}
                               />
                               <Line 
                                 type="monotone" 
                                 dataKey="referral" 
-                                stroke="hsl(142, 76%, 36%)"
+                                stroke="#0055FF"
                                 strokeWidth={1.5}
                                 strokeDasharray="4 2"
+                                strokeOpacity={0.4}
                                 dot={false}
                               />
                             </LineChart>
@@ -1395,11 +1397,11 @@ export default function Pool() {
                             <span className="text-muted-foreground">Current</span>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <div className="w-3 h-0.5" style={{ backgroundColor: 'hsl(45, 93%, 47%)' }} />
+                            <div className="w-3 h-0.5 bg-[#0055FF] opacity-60" />
                             <span className="text-muted-foreground">+25% opt-in</span>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <div className="w-3 h-0.5" style={{ backgroundColor: 'hsl(142, 76%, 36%)' }} />
+                            <div className="w-3 h-0.5 bg-[#0055FF] opacity-40" />
                             <span className="text-muted-foreground">+2 referrals</span>
                           </div>
                         </div>
@@ -1664,8 +1666,8 @@ export default function Pool() {
                               <AreaChart data={lorenzData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                                 <defs>
                                   <linearGradient id="inequalityGradient" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.05}/>
+                                    <stop offset="5%" stopColor="#0055FF" stopOpacity={0.3}/>
+                                    <stop offset="95%" stopColor="#0055FF" stopOpacity={0.05}/>
                                   </linearGradient>
                                 </defs>
                                 <XAxis 
@@ -1710,7 +1712,7 @@ export default function Pool() {
                                 <Area 
                                   type="monotone" 
                                   dataKey="actual" 
-                                  stroke="hsl(var(--primary))"
+                                  stroke="#0055FF"
                                   strokeWidth={2}
                                   fill="url(#inequalityGradient)"
                                 />

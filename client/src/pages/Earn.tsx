@@ -1240,7 +1240,7 @@ export default function Earn() {
 
             {effectiveHasAaveBalance && (baseBalanceNum > 0 || celoBalanceNum > 0 || gnosisBalanceNum > 0) && [baseBalanceNum, celoBalanceNum, gnosisBalanceNum].filter(b => b > 0).length > 1 && (
               <Card className="p-4 space-y-3" data-testid="card-chain-breakdown">
-                <div className="text-xs font-medium flex items-center gap-2 text-foreground/80">
+                <div className="text-xs font-semibold uppercase tracking-wide flex items-center gap-2 text-foreground/80">
                   <Layers className="h-4 w-4 text-[#0055FF]" />
                   BALANCE & RATES BY NETWORK
                 </div>
@@ -1327,7 +1327,7 @@ export default function Earn() {
 
             {effectiveHasAaveBalance && combinedChartData.length > 0 && (
               <Card className="p-4 space-y-3" data-testid="card-projected-earnings">
-                <div className="text-xs font-medium flex items-center gap-2 text-foreground/80">
+                <div className="text-xs font-semibold uppercase tracking-wide flex items-center gap-2 text-foreground/80">
                   <TrendingUp className="h-4 w-4 text-[#0055FF]" />
                   PROJECTED EARNINGS
                 </div>
