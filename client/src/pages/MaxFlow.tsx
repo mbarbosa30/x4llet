@@ -230,9 +230,9 @@ export default function MaxFlow() {
               <div>
                 <h2 className="text-sm text-muted-foreground mb-2">Your MaxFlow Score</h2>
                 {isLoadingMaxFlow ? (
-                  <div className="text-4xl font-bold text-foreground">--</div>
+                  <div className="text-4xl font-bold text-foreground tracking-tight">--</div>
                 ) : (
-                  <div className="text-5xl font-bold tabular-nums text-foreground" data-testid="text-score">
+                  <div className="text-5xl font-bold tabular-nums text-foreground tracking-tight" data-testid="text-score">
                     {Math.round(score)}
                   </div>
                 )}

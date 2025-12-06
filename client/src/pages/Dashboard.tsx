@@ -671,7 +671,7 @@ export default function Dashboard() {
                     <CardContent className="space-y-4">
                       <div className="text-center p-4 bg-gradient-to-br from-primary/10 to-primary/5 ">
                         <p className="text-sm text-muted-foreground mb-1">Prize Pool</p>
-                        <p className="text-4xl font-bold text-primary">
+                        <p className="text-4xl font-bold text-primary tracking-tight">
                           {formatMicroUsdc(poolAnalytics?.currentDraw?.totalPool || '0')}
                         </p>
                         <p className="text-sm text-muted-foreground mt-2">
