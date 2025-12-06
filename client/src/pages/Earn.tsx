@@ -1063,20 +1063,16 @@ export default function Earn() {
                       className="w-full bg-transparent p-0 border-none text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all disabled:cursor-default disabled:hover:opacity-100 disabled:active:scale-100 focus-visible:outline-none"
                       data-testid="button-refresh-earning"
                     >
-                      <span className="text-3xl font-normal text-muted-foreground mr-1.5">$</span>
-                      {isRefreshingAave ? (
-                        <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
-                      ) : (
-                        <span className="inline-flex items-baseline" data-testid="text-earning-amount">
-                          <span>{Math.floor(totalEarningAnimation.animatedValue)}</span>
-                          <span>.{totalEarningAnimation.mainDecimals}</span>
-                          {totalEarningAnimation.extraDecimals && (
-                            <span className="text-[0.28em] font-light text-muted-foreground relative ml-0.5" style={{ top: '-0.65em' }}>
-                              {totalEarningAnimation.extraDecimals}
-                            </span>
-                          )}
-                        </span>
-                      )}
+                      <span className={`text-3xl font-normal text-muted-foreground mr-1.5 transition-opacity duration-300 ${isRefreshingAave ? 'opacity-50' : ''}`}>$</span>
+                      <span className={`inline-flex items-baseline transition-opacity duration-300 ${isRefreshingAave ? 'opacity-50 animate-pulse' : ''}`} data-testid="text-earning-amount">
+                        <span>{Math.floor(totalEarningAnimation.animatedValue)}</span>
+                        <span>.{totalEarningAnimation.mainDecimals}</span>
+                        {totalEarningAnimation.extraDecimals && (
+                          <span className="text-[0.28em] font-light text-muted-foreground relative ml-0.5" style={{ top: '-0.65em' }}>
+                            {totalEarningAnimation.extraDecimals}
+                          </span>
+                        )}
+                      </span>
                     </button>
                     <div className="text-xs text-muted-foreground font-mono uppercase tracking-widest">USDC Yielding</div>
                   </div>

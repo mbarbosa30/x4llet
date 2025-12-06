@@ -844,20 +844,16 @@ export default function Pool() {
                           className="w-full bg-transparent p-0 border-none text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all disabled:cursor-default disabled:hover:opacity-100 disabled:active:scale-100 focus-visible:outline-none"
                           data-testid="button-refresh-prize"
                         >
-                          <span className="text-3xl font-normal text-muted-foreground mr-1.5">$</span>
-                          {isRefreshingPrize ? (
-                            <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
-                          ) : (
-                            <span className="inline-flex items-baseline" data-testid="text-prize-amount">
-                              <span>{isAnimating ? Math.floor(prizePoolAnimation.animatedValue) : staticInt}</span>
-                              <span>.{isAnimating ? prizePoolAnimation.mainDecimals : staticDec}</span>
-                              {isAnimating && prizePoolAnimation.extraDecimals && (
-                                <span className="text-[0.28em] font-light text-muted-foreground relative ml-0.5" style={{ top: '-0.65em' }}>
-                                  {prizePoolAnimation.extraDecimals}
-                                </span>
-                              )}
-                            </span>
-                          )}
+                          <span className={`text-3xl font-normal text-muted-foreground mr-1.5 transition-opacity duration-300 ${isRefreshingPrize ? 'opacity-50' : ''}`}>$</span>
+                          <span className={`inline-flex items-baseline transition-opacity duration-300 ${isRefreshingPrize ? 'opacity-50 animate-pulse' : ''}`} data-testid="text-prize-amount">
+                            <span>{isAnimating ? Math.floor(prizePoolAnimation.animatedValue) : staticInt}</span>
+                            <span>.{isAnimating ? prizePoolAnimation.mainDecimals : staticDec}</span>
+                            {isAnimating && prizePoolAnimation.extraDecimals && (
+                              <span className="text-[0.28em] font-light text-muted-foreground relative ml-0.5" style={{ top: '-0.65em' }}>
+                                {prizePoolAnimation.extraDecimals}
+                              </span>
+                            )}
+                          </span>
                         </button>
                         <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest text-center">
                           USDC Pooling

@@ -5,7 +5,6 @@ import { useInflationAnimation } from '@/hooks/use-inflation-animation';
 import { useEarningAnimation } from '@/hooks/use-earning-animation';
 import AnimatedBalance from './AnimatedBalance';
 import { useState, useEffect } from 'react';
-import { RefreshCw } from 'lucide-react';
 
 interface ChainBalance {
   chainId: number;
@@ -297,11 +296,9 @@ export default function BalanceCard({
           className="w-full bg-transparent p-0 border-none text-5xl font-bold tabular-nums mb-2 flex items-center justify-center tracking-tight cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all disabled:cursor-default disabled:hover:opacity-100 disabled:active:scale-100 focus-visible:outline-none group"
           data-testid="button-refresh-balance"
         >
-          <span className="text-3xl font-normal text-muted-foreground mr-1.5">$</span>
-          {isRefreshing ? (
-            <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
-          ) : isEarning ? (
-            <span className="inline-flex items-baseline" data-testid="text-balance">
+          <span className={`text-3xl font-normal text-muted-foreground mr-1.5 transition-opacity duration-300 ${isRefreshing ? 'opacity-50' : ''}`}>$</span>
+          {isEarning ? (
+            <span className={`inline-flex items-baseline transition-opacity duration-300 ${isRefreshing ? 'opacity-50 animate-pulse' : ''}`} data-testid="text-balance">
               <span>{Math.floor(earningAnimation.animatedValue)}</span>
               <span>.{earningAnimation.mainDecimals}</span>
               {earningAnimation.extraDecimals && (
@@ -311,7 +308,7 @@ export default function BalanceCard({
               )}
             </span>
           ) : (
-            <span data-testid="text-balance">{balance}</span>
+            <span className={`transition-opacity duration-300 ${isRefreshing ? 'opacity-50 animate-pulse' : ''}`} data-testid="text-balance">{balance}</span>
           )}
         </button>
         
