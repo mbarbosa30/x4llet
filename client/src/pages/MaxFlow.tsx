@@ -175,11 +175,6 @@ export default function MaxFlow() {
       )}
 
       <main className="max-w-md mx-auto p-4 space-y-4">
-        <div className="text-center space-y-1">
-          <h1 className="text-lg font-bold font-heading tracking-tight">Network Signal</h1>
-          <p className="text-xs text-muted-foreground">Your trust network health score</p>
-        </div>
-
         <Card className="p-6 space-y-6">
           {!isLoadingMaxFlow && score === 0 ? (
             <div className="space-y-6">
