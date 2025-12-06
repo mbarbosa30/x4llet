@@ -9,6 +9,7 @@ import {
   authenticateWithPasskey,
   removePasskey 
 } from './webauthn';
+import { walletStore } from './walletStore';
 
 const WALLET_KEY = 'wallet_encrypted_key';
 const WALLET_V2_KEY = 'wallet_v2';
@@ -21,24 +22,18 @@ interface WalletV2Data {
   version: 2;
 }
 
-const SESSION_DEK_KEY = 'session_dek';
 let memoryPassword: string | null = null;
 
 function getSessionDek(): Uint8Array | null {
-  if (typeof window === 'undefined') return null;
-  const stored = sessionStorage.getItem(SESSION_DEK_KEY);
-  if (!stored) return null;
-  return Uint8Array.from(atob(stored), c => c.charCodeAt(0));
+  return walletStore.getDek();
 }
 
 function setSessionDek(dek: Uint8Array): void {
-  if (typeof window === 'undefined') return;
-  sessionStorage.setItem(SESSION_DEK_KEY, btoa(String.fromCharCode(...dek)));
+  walletStore.setDek(dek);
 }
 
 function clearSessionDek(): void {
-  if (typeof window === 'undefined') return;
-  sessionStorage.removeItem(SESSION_DEK_KEY);
+  walletStore.clearDek();
 }
 
 function getSessionPassword(): string | null {

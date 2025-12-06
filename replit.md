@@ -17,6 +17,13 @@ Developed using Express.js (TypeScript), Drizzle ORM, and PostgreSQL (via Neon s
 ### Cryptographic Architecture
 Wallet generation uses `viem` for secp256k1 private key creation. Private keys are encrypted with WebCrypto API (AES-GCM with PBKDF2) and stored in IndexedDB, protected by a user-defined password. EIP-712 typed data signing is used for gasless transfers, compatible with USDC's EIP-3009, handling domain differences across networks.
 
+**Session Security Model**:
+- Password is never stored (memory only, cleared on any page unload)
+- DEK (Data Encryption Key) is stored in pure JavaScript runtime memory via `walletStore.ts`
+- NO sessionStorage or localStorage for sensitive key material
+- Tab close or refresh = DEK gone = must re-enter password
+- This is the most secure browser-based approach: no persistence layer that could leak
+
 **WebAuthn Passkey Support**: The wallet supports WebAuthn passkeys for biometric unlock (Face ID, fingerprint). Architecture uses a Data Encryption Key (DEK) pattern with PRF extension for secure key derivation:
 - DEK encrypts the private key (AES-GCM)
 - DEK is wrapped twice: (1) by passkey PRF-derived key, (2) by password-derived key (PBKDF2)
