@@ -226,7 +226,6 @@ export default function MaxFlow() {
             </div>
           ) : (
             <div className="text-center space-y-4">
-              <Shield className="h-12 w-12 mx-auto text-primary" />
               <div>
                 <h2 className="text-sm text-muted-foreground mb-2">Your MaxFlow Score</h2>
                 {isLoadingMaxFlow ? (
@@ -276,7 +275,7 @@ export default function MaxFlow() {
               )}
 
               <p className="text-xs text-muted-foreground">
-                This score is a neutral signal of your trust-network health — computed via max-flow/min-cut.
+                This score is a sybil-resistant neutral graph signal of your trust-network health.
               </p>
             </div>
           )}
@@ -345,6 +344,21 @@ export default function MaxFlow() {
             </div>
           )}
         </Card>
+
+        <div className="pt-6 space-y-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">About</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            <a 
+              href="https://maxflow.one" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-[#0055FF] hover:underline"
+            >
+              MaxFlow.one
+            </a>{' '}
+            is neutral reputation infrastructure that converts public binary endorsements ("vouches") into verifiable graph signals using max-flow/min-cut algorithms and recursive trust weighting. It computes mathematical signals that applications interpret according to their own policies—for creditworthiness, governance weight, access control, or grant allocation.
+          </p>
+        </div>
       </main>
     </div>
   );
