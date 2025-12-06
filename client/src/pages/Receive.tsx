@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Share2, Copy, Check, Loader2 } from 'lucide-react';
+import { Share2, Copy, Check, Loader2 } from 'lucide-react';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import { getWallet } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
@@ -88,18 +88,6 @@ export default function Receive() {
       }}
     >
       <main className="max-w-md mx-auto p-4 space-y-6">
-        <div className="flex items-center gap-2 -mx-4 px-4 -mt-4 pt-4 pb-4 border-b">
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => setLocation('/home')}
-            data-testid="button-back"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-lg font-bold font-heading tracking-tight">Receive</h1>
-        </div>
-
         <div className="text-center space-y-6">
           <div className="flex justify-center" data-testid="qr-wallet-address">
             <QRCodeDisplay value={address} size={240} />

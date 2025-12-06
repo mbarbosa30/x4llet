@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, QrCode, Scan, Clipboard, MessageSquare, Repeat, Loader2 } from 'lucide-react';
+import { QrCode, Scan, Clipboard, MessageSquare, Repeat, Loader2 } from 'lucide-react';
 import NumericKeypad from '@/components/NumericKeypad';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import QRScanner from '@/components/QRScanner';
@@ -35,7 +35,7 @@ export default function Send() {
   const [inputValue, setInputValue] = useState(''); // User's editing buffer in current currency
   const [usdcAmount, setUsdcAmount] = useState(''); // Canonical USDC amount (always in USDC)
   const [address, setAddress] = useState<string | null>(null);
-  const [network, setNetwork] = useState<'base' | 'celo'>('celo');
+  const [network, setNetwork] = useState<'base' | 'celo' | 'gnosis'>('celo');
   const [chainId, setChainId] = useState(42220);
   const [currency, setCurrency] = useState('USD');
   const [displayCurrency, setDisplayCurrency] = useState<'USDC' | 'fiat'>('USDC');
@@ -67,7 +67,7 @@ export default function Send() {
         if (storedRequest) {
           try {
             const request: PaymentRequest = JSON.parse(storedRequest);
-            const requestNetwork = request.chainId === 42220 ? 'celo' : 'base';
+            const requestNetwork = request.chainId === 42220 ? 'celo' : request.chainId === 100 ? 'gnosis' : 'base';
             const requestChainId = request.chainId;
             
             // Set network to match payment request
@@ -116,13 +116,18 @@ export default function Send() {
     
     const baseBalance = BigInt(balanceData.chains.base.balanceMicro);
     const celoBalance = BigInt(balanceData.chains.celo.balanceMicro);
+    const gnosisBalance = BigInt(balanceData.chains.gnosis.balanceMicro);
     
-    // Select chain with more USDC
-    const selectedNetwork = baseBalance > celoBalance ? 'base' : 'celo';
-    const selectedChainId = baseBalance > celoBalance ? 8453 : 42220;
+    // Select chain with most USDC
+    const balances = [
+      { network: 'base' as const, chainId: 8453, balance: baseBalance },
+      { network: 'celo' as const, chainId: 42220, balance: celoBalance },
+      { network: 'gnosis' as const, chainId: 100, balance: gnosisBalance },
+    ];
+    const best = balances.reduce((a, b) => a.balance > b.balance ? a : b);
     
-    setNetwork(selectedNetwork);
-    setChainId(selectedChainId);
+    setNetwork(best.network);
+    setChainId(best.chainId);
     hasAutoSelectedRef.current = true; // Mark as auto-selected, won't run again
   }, [balanceData?.chains]);
 
@@ -144,9 +149,24 @@ export default function Send() {
 
   // Get balance for selected chain
   const selectedChainBalance = balanceData?.chains 
-    ? (chainId === 8453 ? balanceData.chains.base.balance : balanceData.chains.celo.balance)
+    ? (network === 'base' ? balanceData.chains.base.balance 
+       : network === 'gnosis' ? balanceData.chains.gnosis.balance 
+       : balanceData.chains.celo.balance)
     : '0.00';
   const balance = selectedChainBalance;
+  
+  // Get chains with USDC balance for selector
+  const chainsWithBalance = balanceData?.chains ? [
+    { network: 'base' as const, chainId: 8453, balance: balanceData.chains.base.balance, balanceMicro: BigInt(balanceData.chains.base.balanceMicro) },
+    { network: 'celo' as const, chainId: 42220, balance: balanceData.chains.celo.balance, balanceMicro: BigInt(balanceData.chains.celo.balanceMicro) },
+    { network: 'gnosis' as const, chainId: 100, balance: balanceData.chains.gnosis.balance, balanceMicro: BigInt(balanceData.chains.gnosis.balanceMicro) },
+  ].filter(c => c.balanceMicro > 0n) : [];
+  
+  const handleNetworkChange = (newNetwork: 'base' | 'celo' | 'gnosis') => {
+    const chainIds = { base: 8453, celo: 42220, gnosis: 100 };
+    setNetwork(newNetwork);
+    setChainId(chainIds[newNetwork]);
+  };
   
   const rate = exchangeRate?.rate || 1;
   const rateLoaded = currency === 'USD' || !!exchangeRate;
@@ -161,13 +181,7 @@ export default function Send() {
   const hasAaveFunds = aaveUsdcAmount > 0;
   const aaveCouldCover = hasAaveFunds && (balanceNum + aaveUsdcAmount) >= usdcAmountNum;
 
-  const handleNetworkToggle = () => {
-    const newNetwork = network === 'base' ? 'celo' : 'base';
-    const newChainId = newNetwork === 'base' ? 8453 : 42220;
-    setNetwork(newNetwork);
-    setChainId(newChainId);
-  };
-
+  
   // Convert input to canonical USDC only when USER changes input (not when rate updates)
   useEffect(() => {
     // Skip during toggle to prevent precision loss from rounded inputValue
@@ -535,26 +549,6 @@ export default function Send() {
       }}
     >
       <main className="max-w-md mx-auto p-4 space-y-6">
-        {/* Page header */}
-        <div className="flex items-center gap-2 -mx-4 px-4 -mt-4 pt-4 pb-4 border-b">
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => {
-              if (step !== 'input') {
-                setStep('input');
-                setPaymentRequest(null);
-                setAuthorizationQR(null);
-              } else {
-                setLocation('/home');
-              }
-            }}
-            data-testid="button-back"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-lg font-bold font-heading tracking-tight">Send</h1>
-        </div>
         {step === 'input' && (
           <>
             <Tabs value={mode} onValueChange={(v) => setMode(v as 'online' | 'offline')} className="w-full">
@@ -659,20 +653,25 @@ export default function Send() {
                   )}
                   <div className="flex items-center justify-center gap-2 mt-3 text-sm text-muted-foreground">
                     <span data-testid="text-balance">{balance} USDC on</span>
-                    {balanceData?.chains && 
-                     BigInt(balanceData.chains.base.balanceMicro) > 0n && 
-                     BigInt(balanceData.chains.celo.balanceMicro) > 0n ? (
-                      <Button 
-                        variant="outline"
-                        size="sm"
-                        onClick={handleNetworkToggle}
-                        className="text-xs h-6 px-2"
-                        data-testid="button-toggle-network"
-                      >
-                        {network === 'base' ? 'Base' : 'Celo'}
-                      </Button>
+                    {chainsWithBalance.length > 1 ? (
+                      <div className="flex items-center gap-1" data-testid="network-selector">
+                        {chainsWithBalance.map((chain) => (
+                          <Button 
+                            key={chain.network}
+                            variant={network === chain.network ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handleNetworkChange(chain.network)}
+                            className="text-xs h-6 px-2"
+                            data-testid={`button-network-${chain.network}`}
+                          >
+                            {chain.network === 'base' ? 'Base' : chain.network === 'celo' ? 'Celo' : 'Gnosis'}
+                          </Button>
+                        ))}
+                      </div>
                     ) : (
-                      <span className="font-medium">{network === 'base' ? 'Base' : 'Celo'}</span>
+                      <span className="font-medium">
+                        {network === 'base' ? 'Base' : network === 'celo' ? 'Celo' : 'Gnosis'}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -684,7 +683,7 @@ export default function Send() {
                   <div className="text-sm">
                     <span className="text-destructive font-medium">Insufficient balance</span>
                     <span className="text-muted-foreground ml-1">
-                      on {network === 'base' ? 'Base' : 'Celo'}
+                      on {network === 'base' ? 'Base' : network === 'celo' ? 'Celo' : 'Gnosis'}
                     </span>
                   </div>
                   {earnMode && aaveCouldCover && (
@@ -694,11 +693,10 @@ export default function Send() {
                   )}
                   {!aaveCouldCover && balanceData?.chains && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      Available: ${balanceNum.toFixed(2)} on {network === 'base' ? 'Base' : 'Celo'}
-                      {network === 'base' && parseFloat(balanceData.chains.celo.balance) > 0 && 
-                        ` (${balanceData.chains.celo.balance} on Celo)`}
-                      {network === 'celo' && parseFloat(balanceData.chains.base.balance) > 0 && 
-                        ` (${balanceData.chains.base.balance} on Base)`}
+                      Available: ${balanceNum.toFixed(2)} on {network === 'base' ? 'Base' : network === 'celo' ? 'Celo' : 'Gnosis'}
+                      {chainsWithBalance.filter(c => c.network !== network).map(c => 
+                        ` (${c.balance} on ${c.network === 'base' ? 'Base' : c.network === 'celo' ? 'Celo' : 'Gnosis'})`
+                      ).join('')}
                     </p>
                   )}
                 </Card>
