@@ -71,6 +71,9 @@
 
   /* Blue accent color - #0055FF */
   --link: 216 100% 50%;
+  
+  /* CTA Blue - for primary buttons and key accents */
+  --cta: 216 100% 50%;
 
   --destructive: 0 84% 60%;
 
@@ -199,6 +202,9 @@
   --accent-foreground: 0 0% 98%;
 
   --link: 216 100% 60%;
+  
+  /* CTA Blue - slightly brighter for dark mode */
+  --cta: 216 100% 55%;
 
   --destructive: 0 84% 60%;
 
@@ -258,15 +264,36 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
   
-  /* Heading styles - bold Inter with tight tracking */
+  /* ============================================
+     COMMONS FOREST BRUTALIST TYPOGRAPHY SYSTEM
+     ============================================ */
+  
+  /* Ultra-bold heading - Inter Black/Extra Bold, tight tracking */
   .font-heading {
-    @apply font-bold tracking-tight;
+    @apply font-extrabold tracking-tight;
     font-family: var(--font-heading);
   }
   
-  /* Monospace labels - for protocol/technical labels */
+  /* Hero headlines - massive, all caps, ultra-tight tracking */
+  .text-hero {
+    @apply uppercase font-black tracking-tighter leading-none;
+    font-family: var(--font-heading);
+  }
+  
+  /* Section headlines - bold, all caps */
+  .text-section {
+    @apply uppercase font-bold tracking-tight leading-tight;
+    font-family: var(--font-heading);
+  }
+  
+  /* Protocol labels - monospace, uppercase (// MUTUAL_CREDIT style) */
   .font-label {
-    @apply font-mono text-xs uppercase tracking-wider;
+    @apply font-mono text-xs uppercase tracking-widest;
+  }
+  
+  /* Protocol tag with prefix */
+  .protocol-tag::before {
+    content: "// ";
   }
 }
 
@@ -345,5 +372,56 @@
   /* Blue link styling */
   .text-link {
     color: hsl(var(--link));
+  }
+  
+  /* ============================================
+     COMMONS FOREST ACCENT UTILITIES
+     ============================================ */
+  
+  /* Blue accent text - #0055FF */
+  .text-accent-blue {
+    color: hsl(var(--link));
+  }
+  
+  /* Black bar with white text (for tickers/footers) */
+  .bar-black {
+    @apply bg-foreground text-background;
+  }
+  
+  /* Blue bar with white text */
+  .bar-blue {
+    background-color: hsl(var(--link));
+    @apply text-white;
+  }
+  
+  /* Section with visible black border */
+  .section-bordered {
+    @apply border border-foreground/20;
+  }
+  
+  /* Strong black border for grid cells */
+  .cell-bordered {
+    @apply border border-foreground;
+  }
+  
+  /* ============================================
+     MARQUEE/TICKER ANIMATION
+     ============================================ */
+  
+  @keyframes marquee {
+    0% {
+      transform: translateX(0%);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+  
+  .animate-marquee {
+    animation: marquee 30s linear infinite;
+  }
+  
+  .animate-marquee:hover {
+    animation-play-state: paused;
   }
 }

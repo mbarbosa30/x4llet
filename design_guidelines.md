@@ -2,41 +2,41 @@
 
 ## Design Approach: Commons Forest Brutalist
 
-**Selected Approach:** Minimal brutalist design system inspired by commonsforest2.replit.app
+**Inspired by:** commonsforest2.replit.app
 
 **Core Principles:**
-- Black and white primary palette with blue (#0055FF) accent
-- Sharp corners (0px border radius) everywhere - no rounded elements
-- Inter font for both headings and body text (bold weights for headings)
+- Bold, high-contrast black/white palette
+- Blue (#0055FF) as the primary CTA and accent color
+- Sharp corners (0px border radius) on ALL surfaces - no rounded elements
+- All-caps, ultra-bold typography for headlines and buttons
+- Inter font for both headings and body (weights 600-900 for impact)
 - IBM Plex Mono for labels, protocol references, and technical text
 - No shadows, minimal decoration
-- High contrast, functional simplicity
+- Visible black borders for section separation
 
 ---
 
 ## Color System
 
+**CTA Blue - The Hero Color:**
+- `--cta: hsl(216, 100%, 50%)` - #0055FF
+- Used for primary buttons, key accents, highlighted text
+- Commands attention and drives action
+
 **Primary Colors (Light Mode):**
-- Primary: `hsl(0, 0%, 0%)` - Pure black
-- Primary Foreground: White
-- Accent/Link: `hsl(216, 100%, 50%)` - Bright blue (#0055FF)
-
-**Background & Surface (Light Mode):**
 - Background: Pure white `hsl(0, 0%, 100%)`
-- Card: White `hsl(0, 0%, 100%)`
-- Card Border: Light gray `hsl(0, 0%, 80%)`
-
-**Text (Light Mode):**
 - Foreground: Pure black `hsl(0, 0%, 0%)`
-- Muted Foreground: `hsl(220, 9%, 46%)`
-- Secondary Foreground: Blue `hsl(216, 100%, 50%)` - for secondary button text
+- CTA: Bright blue #0055FF
 
-**Primary Colors (Dark Mode):**
-- Primary: `hsl(0, 0%, 100%)` - White (inverted)
-- Primary Foreground: Black
-- Accent/Link: `hsl(216, 100%, 60%)` - Brighter blue
+**Secondary Colors (Light Mode):**
+- Secondary: Light gray `hsl(0, 0%, 96%)` - #F5F5F5
+- Secondary Foreground: Blue `hsl(216, 100%, 50%)` - for secondary button text
+- Muted: `hsl(220, 9%, 46%)`
+
+**Dark Mode Adjustments:**
 - Background: Near black `hsl(0, 0%, 5%)`
-- Card: `hsl(0, 0%, 8%)`
+- Foreground: Near white `hsl(0, 0%, 98%)`
+- CTA: Slightly brighter blue `hsl(216, 100%, 55%)`
 
 **Status Colors:**
 - Success: `hsl(142, 71%, 45%)` - Green for earning/positive
@@ -47,242 +47,246 @@
 ## Typography System
 
 **Font Stack:**
-- Headings: `"Inter", -apple-system, BlinkMacSystemFont, sans-serif` (weights 600-900)
-- Body: `"Inter", -apple-system, BlinkMacSystemFont, sans-serif` (weights 400-500)
+- Sans/Heading: `"Inter", -apple-system, BlinkMacSystemFont, sans-serif`
 - Monospace: `"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`
 
-**Type Scale with Font Assignments:**
-- Hero text: `text-6xl font-black font-heading tracking-tight` (96px for display)
-- Page titles: `text-4xl font-bold font-heading tracking-tight`
-- Section headers: `text-2xl font-bold font-heading`
-- App header: `text-lg font-bold font-heading tracking-tight`
-- Body/labels: `text-sm font-sans`
-- Micro text: `text-xs font-sans`
-- Protocol labels: `font-mono text-xs uppercase tracking-wider` (use font-label class)
+**Typography Classes:**
 
-**Typography Rules:**
-- All monetary amounts use `tabular-nums` for alignment
-- Headings use `tracking-tight` for bold, condensed feel
-- Protocol labels use uppercase with letter-spacing
-- Dollar signs rendered at smaller size with reduced opacity
+| Class | Usage | Style |
+|-------|-------|-------|
+| `.text-hero` | Hero headlines | `uppercase font-black tracking-tighter leading-none` |
+| `.text-section` | Section titles | `uppercase font-bold tracking-tight leading-tight` |
+| `.font-heading` | Bold headings | `font-extrabold tracking-tight` |
+| `.font-label` | Protocol labels | `font-mono text-xs uppercase tracking-widest` |
+| `.protocol-tag` | Auto-prefixed labels | Adds `// ` prefix via CSS |
 
-**Usage Examples:**
+**Type Scale:**
+- Hero: `text-4xl` to `text-6xl` + `text-hero` class
+- Section headers: `text-2xl` to `text-3xl` + `text-section` class
+- Body: `text-base` or `text-sm`
+- Labels: `text-xs` + `font-label` class
+
+**Blue Accent Text:**
+Use `text-accent-blue` or `text-[#0055FF]` for highlighted words in headlines.
+
 ```tsx
-// Hero heading
-<h1 className="text-6xl font-black tracking-tight">
-  INFRASTRUCTURE
+// Hero with blue accent
+<h1 className="text-4xl text-hero">
+  Money, <span className="text-[#0055FF]">Simplified.</span>
 </h1>
 
 // Protocol label
 <span className="font-label text-muted-foreground">
-  [ PROTOCOL_V1 ]
+  // PROTOCOL_V1
 </span>
-
-// Section label
-<span className="font-mono text-sm">// MUTUAL_CREDIT</span>
 ```
 
 ---
 
-## Component Specifications
+## Button System
 
-### Buttons
-**Primary Button:**
-- Shape: Sharp corners - `rounded-none`
-- Background: Black (white in dark mode)
-- Text: White (black in dark mode)
-- Height: `min-h-10` (default), `min-h-12` (lg)
-- Padding: `px-6` (default), `px-8` (lg)
-- No shadow
+### Primary Button (CTA Blue)
+- Background: Blue #0055FF (`bg-cta`)
+- Text: White, uppercase, semibold
+- Border: Blue border
+- Use for: Main actions, important CTAs
 
-**Secondary Button:**
-- Shape: Sharp corners - `rounded-none`
-- Background: Light gray (#F5F5F5)
-- Text: Blue (#0055FF)
+### Secondary Button
+- Background: Light gray #F5F5F5 (`bg-secondary`)
+- Text: Blue #0055FF
 - Border: Subtle gray border
+- Use for: Alternative actions
 
-**Outline Button:**
-- Shape: Sharp corners - `rounded-none`
-- Border: `border-foreground/20`
+### Outline Button
 - Background: Transparent
+- Text: Black
+- Border: Black 1px
+- Use for: Tertiary actions
 
-**Ghost Button:**
-- Shape: Sharp corners - `rounded-none`
+### Dark Button (variant="dark")
+- Background: Black (`bg-primary`)
+- Text: White
+- Use for: Dark-themed sections, inverted contexts
+
+### Ghost Button
 - Background: Transparent, no border
+- Normal case (not uppercase)
+- Use for: Icon buttons, subtle actions
 
-**Icon Buttons:**
-- Size: `h-10 w-10` (matches default button height)
-- Shape: Sharp corners - `rounded-none`
+**All buttons:**
+- Sharp corners: `rounded-none`
+- Uppercase text with `tracking-wide`
+- Height: `min-h-10` (default), `min-h-12` (lg)
 
-### Cards
-**Card Component:**
-- Shape: Sharp corners - `rounded-none`
-- Border: 1px solid border using `border-card-border`
-- Background: White (matches background or subtle distinction)
+---
+
+## Section & Border Styling
+
+**Black Ticker Bar:**
+- Full-width black background with white text
+- Monospace, uppercase, scrolling content
+- Use for status indicators, announcements
+
+```tsx
+// Bar classes
+<div className="bar-black">...</div>  // Black bg, white text
+<div className="bar-blue">...</div>   // Blue bg, white text
+```
+
+**Section Borders:**
+- Use `border-foreground` for strong black borders
+- Use `border-l-2` for left accent lines on list items
+- Use `cell-bordered` for grid cells with full borders
+
+```tsx
+// List item with left border accent
+<div className="border-l-2 border-foreground pl-3">
+  <div className="font-semibold uppercase">Feature Name</div>
+</div>
+
+// Blue accent border
+<div className="border-l-2 border-[#0055FF] pl-3">
+  <div className="font-semibold uppercase">Highlighted Feature</div>
+</div>
+```
+
+---
+
+## Marquee Component
+
+For scrolling ticker/announcement bars:
+
+```tsx
+import { Marquee, MarqueeItem } from '@/components/ui/marquee'
+
+<Marquee>
+  <MarqueeItem>Gasless Transfers</MarqueeItem>
+  <MarqueeItem>Multi-Chain</MarqueeItem>
+  <MarqueeItem>Offline-Ready</MarqueeItem>
+</Marquee>
+```
+
+---
+
+## Header & Navigation
+
+**App Header:**
+- Blue square icon (4x4 pixels) next to brand name
+- Brand name: `font-extrabold uppercase tracking-tight`
+- Border: `border-b border-foreground`
+
+```tsx
+<div className="flex items-center gap-2">
+  <div className="w-4 h-4 bg-[#0055FF]" aria-hidden="true" />
+  <h1 className="text-base font-extrabold uppercase tracking-tight">nanoPay</h1>
+</div>
+```
+
+**Bottom Navigation:**
+- Black background with white text
+- Active item: Blue text
+- Uppercase labels
+
+---
+
+## Badge System
+
+```tsx
+// Default (black)
+<Badge>Default</Badge>
+
+// Accent (blue)
+<Badge variant="accent">Featured</Badge>
+
+// Secondary
+<Badge variant="secondary">Info</Badge>
+
+// Outline
+<Badge variant="outline">Status</Badge>
+```
+
+---
+
+## Card Component
+
+- Sharp corners: `rounded-none`
+- Border: Use `border-foreground` for strong borders
 - No drop shadows
 
-### Input Fields
-**Text Input:**
-- Shape: Sharp corners - `rounded-none`
-- Height: `h-10`
-- Border: Standard input border (#CCCCCC)
-- Padding: `px-4`
+```tsx
+<Card className="border-foreground">
+  <CardContent className="p-6">
+    ...
+  </CardContent>
+</Card>
+```
 
-### Badges
-**Badge Component:**
-- Shape: Sharp corners - `rounded-none`
-- Padding: `px-3 py-0.5`
-- Font: `text-xs font-medium`
+---
 
-### Dialogs/Modals
-**Dialog Content:**
-- Shape: Sharp corners - `rounded-none`
-- Shadow: `shadow-xl` for floating effect
-- Padding: `p-5 sm:p-6`
+## Balance Display
 
-### Select Component
-**SelectTrigger:**
-- Shape: Sharp corners - `rounded-none`
-- Height: `h-10`
+```tsx
+<div className="text-5xl font-black tabular-nums tracking-tighter">
+  <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
+  <span>{amount}</span>
+</div>
+<div className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
+  USDC Balance
+</div>
+```
 
-**SelectContent:**
-- Shape: Sharp corners - `rounded-none`
+---
 
-**SelectItem:**
-- Shape: Sharp corners - `rounded-none`
+## Functional Exceptions (Rounded Elements)
 
-### Tabs Component
-**TabsList:**
-- Shape: Sharp corners - `rounded-none`
-- Background: `bg-muted`
-
-**TabsTrigger:**
-- Shape: Sharp corners - `rounded-none`
-
-### All Menu Components
-- DropdownMenu, ContextMenu, Menubar: All `rounded-none`
-- Menu items: `rounded-none`
-
-### Exceptions (Functional Circles)
-These retain `rounded-full` for functional reasons:
+These retain `rounded-full` for functional/usability reasons:
 - Avatar: Circular user photos
 - Switch thumb: Sliding toggle indicator
 - Radio button: Standard form control
 - Slider thumb: Draggable control
-
----
-
-## Layout System
-
-**Screen Structure:**
-- Fixed header: `h-16` with app branding
-- Scrollable content with safe area padding
-- Fixed bottom navigation when applicable
-- Container: `max-w-md` (448px) centered
-
-**Spacing:**
-- Primary spacing unit: 8px
-- Content padding: `p-4`
-- Component gaps: `gap-4`
-- Section spacing: `space-y-6`
-- Large section gaps: `space-y-8` or `space-y-12`
-
----
-
-## Visual Language
-
-**Key Design Choice: All Sharp Corners**
-Unlike the previous design, there is NO contrast between interactive and container elements. Everything is sharp and geometric, creating a bold brutalist aesthetic.
-
-**Grid & Alignment:**
-- Strong horizontal lines
-- Clean column layouts
-- Generous whitespace
-- Bold typography as visual anchors
-
----
-
-## Balance Display Pattern
-
-**Primary Balance Card:**
-```tsx
-<div className="text-5xl font-bold tabular-nums tracking-tight">
-  <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
-  <span>{amount}</span>
-</div>
-```
-
-**Stats Display:**
-```tsx
-<div className="text-6xl font-bold">42</div>
-<div className="text-sm text-muted-foreground">Active Hubs</div>
-```
-
----
-
-## Header Component
-
-**App Header:**
-- Brand name: `text-lg font-bold tracking-tight`
-- Height: `h-16` fixed
-- Clean, minimal navigation
-- Icon buttons: Ghost variant
+- Chart indicator dots
 
 ---
 
 ## Animation & Motion
 
-**Minimal to None:**
-- Real-time balance earning animation (for Aave yields)
-- Loading spinners
-- Subtle hover opacity changes
+**Marquee Animation:**
+- Smooth horizontal scroll for ticker bars
+- Pauses on hover
+
+**Earning Animation:**
+- Real-time balance updates for Aave yields
+- Subtle digit changes
 
 **No Decorative Animations:**
-- Page transitions (instant)
-- Modal appearances (instant)
-- No layout changes on hover
-- No scale transforms
-
----
-
-## Iconography
-
-**Icon Library:** Lucide React
-- Navigation: `Wallet`, `TrendingUp`, `Coins`, `Sparkles`
-- Actions: `ArrowUpRight`, `ArrowDownLeft`, `Copy`, `Share2`
-- Status: `Check`, `AlertCircle`, `Clock`, `Shield`
-- Size: `h-5 w-5` for buttons, `h-4 w-4` for inline
-- Color: Inherit from text color
-
----
-
-## Trust & Financial UI Patterns
-
-**Earning Indicators:**
-- Pulsing green dot for active earning
-- Small superscript digits for extra precision
-- APY displayed in badges
-
-**Transaction Status:**
-- Send: Negative prefix, `ArrowUpRight` icon
-- Receive: Positive styling, `ArrowDownLeft` icon
-- Chain badges for multi-chain context
-
----
-
-## Responsive Behavior
-
-- Mobile-first: 360px minimum width
-- Single column layout maintained throughout
-- Container max-width: 448px centered
-- No layout changes between breakpoints
+- Page transitions: instant
+- Modal appearances: instant
+- No scale transforms on hover
+- No layout shifts
 
 ---
 
 ## Accessibility
 
 - Minimum tap target: 44x44px
-- WCAG AA contrast ratios (black/white provides excellent contrast)
+- WCAG AA contrast (black/white provides excellent contrast)
+- Blue #0055FF meets contrast requirements on white backgrounds
 - Focus visible ring on all interactive elements
-- Proper form labels and error states
 - Data-testid on all interactive elements
+
+---
+
+## Quick Reference
+
+| Element | Class/Style |
+|---------|-------------|
+| Blue CTA button | `<Button>` (default variant) |
+| Black button | `<Button variant="dark">` |
+| Blue text | `text-[#0055FF]` or `text-accent-blue` |
+| Hero headline | `text-4xl text-hero` |
+| Section title | `text-2xl text-section` |
+| Protocol label | `font-label` |
+| Blue icon square | `w-4 h-4 bg-[#0055FF]` |
+| Strong border | `border-foreground` |
+| Black bar | `bar-black` |
+| Left accent | `border-l-2 border-foreground pl-3` |

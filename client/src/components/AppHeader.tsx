@@ -81,7 +81,7 @@ export default function AppHeader() {
 
   return (
     <header 
-      className="fixed top-0 left-0 right-0 bg-background border-b"
+      className="fixed top-0 left-0 right-0 bg-background border-b border-foreground"
       style={{ 
         paddingTop: 'env(safe-area-inset-top)',
         height: 'calc(4rem + env(safe-area-inset-top))',
@@ -91,13 +91,16 @@ export default function AppHeader() {
     >
       <div className="flex items-center justify-between px-4 h-16">
       <div className="flex items-center gap-3">
-        <h1 className="text-lg font-bold font-heading tracking-tight">nanoPay</h1>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-[#0055FF]" aria-hidden="true" />
+          <h1 className="text-base font-extrabold uppercase tracking-tight">nanoPay</h1>
+        </div>
         <button
           onClick={() => setLocation('/maxflow')}
-          className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide transition-colors border ${
             location === '/maxflow' 
-              ? 'bg-primary text-primary-foreground' 
-              : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+              ? 'bg-primary text-primary-foreground border-primary' 
+              : 'bg-secondary border-foreground/20 text-foreground hover:bg-muted'
           }`}
           data-testid="button-maxflow-chip"
           title="Your MaxFlow trust score"

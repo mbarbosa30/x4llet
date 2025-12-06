@@ -1,5 +1,4 @@
 import { useLocation } from 'wouter';
-import { Button } from '@/components/ui/button';
 import { Coins, Wallet, TrendingUp, Sparkles } from 'lucide-react';
 
 export default function BottomNav() {
@@ -9,7 +8,7 @@ export default function BottomNav() {
 
   return (
     <nav 
-      className="fixed bottom-0 left-0 right-0 bg-background border-t"
+      className="fixed bottom-0 left-0 right-0 bg-foreground text-background border-t border-foreground"
       style={{ 
         paddingBottom: 'env(safe-area-inset-bottom)',
         position: 'fixed',
@@ -17,58 +16,50 @@ export default function BottomNav() {
       }}
       data-testid="bottom-nav"
     >
-      <div className="max-w-md mx-auto h-16 flex items-center px-1">
-        <Button
-          variant="ghost"
-          size="sm"
+      <div className="max-w-md mx-auto h-14 flex items-center px-1">
+        <button
           onClick={() => setLocation('/claim')}
-          className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-12 rounded-none px-1 ${
-            isActive('/claim') ? 'text-primary' : 'text-muted-foreground'
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-12 px-1 font-semibold uppercase text-xs tracking-wide transition-colors ${
+            isActive('/claim') ? 'text-[#0055FF]' : 'text-background/70 hover:text-background'
           }`}
           data-testid="nav-claim"
         >
           <Coins className="h-5 w-5" />
-          <span className="text-xs">Claim</span>
-        </Button>
+          <span>Claim</span>
+        </button>
 
-        <Button
-          variant="ghost"
-          size="sm"
+        <button
           onClick={() => setLocation('/home')}
-          className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-12 rounded-none px-1 ${
-            isActive('/home') ? 'text-primary' : 'text-muted-foreground'
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-12 px-1 font-semibold uppercase text-xs tracking-wide transition-colors ${
+            isActive('/home') ? 'text-[#0055FF]' : 'text-background/70 hover:text-background'
           }`}
           data-testid="nav-wallet"
         >
           <Wallet className="h-5 w-5" />
-          <span className="text-xs">Wallet</span>
-        </Button>
+          <span>Wallet</span>
+        </button>
 
-        <Button
-          variant="ghost"
-          size="sm"
+        <button
           onClick={() => setLocation('/earn')}
-          className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-12 rounded-none px-1 ${
-            isActive('/earn') ? 'text-primary' : 'text-muted-foreground'
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-12 px-1 font-semibold uppercase text-xs tracking-wide transition-colors ${
+            isActive('/earn') ? 'text-[#0055FF]' : 'text-background/70 hover:text-background'
           }`}
           data-testid="nav-earn"
         >
           <TrendingUp className="h-5 w-5" />
-          <span className="text-xs">Earn</span>
-        </Button>
+          <span>Earn</span>
+        </button>
 
-        <Button
-          variant="ghost"
-          size="sm"
+        <button
           onClick={() => setLocation('/pool')}
-          className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-12 rounded-none px-1 ${
-            isActive('/pool') ? 'text-primary' : 'text-muted-foreground'
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-12 px-1 font-semibold uppercase text-xs tracking-wide transition-colors ${
+            isActive('/pool') ? 'text-[#0055FF]' : 'text-background/70 hover:text-background'
           }`}
           data-testid="nav-pool"
         >
           <Sparkles className="h-5 w-5" />
-          <span className="text-xs">Pool</span>
-        </Button>
+          <span>Pool</span>
+        </button>
       </div>
     </nav>
   );

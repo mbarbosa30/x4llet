@@ -255,7 +255,7 @@ export default function BalanceCard({
   };
 
   return (
-    <Card className="p-8 text-center relative overflow-hidden" data-testid="card-balance">
+    <Card className="p-8 text-center relative overflow-hidden border-foreground" data-testid="card-balance">
       {/* Background chart */}
       {chartData.length > 1 && (
         <div className="absolute inset-0 opacity-10">
@@ -285,8 +285,8 @@ export default function BalanceCard({
 
       {/* Content overlay */}
       <div className="relative z-10">
-        <div className="text-sm text-muted-foreground mb-2 font-medium tracking-wide">{currency} Balance</div>
-        <div className="text-5xl font-bold tabular-nums mb-2 flex items-center justify-center font-heading tracking-tight" data-testid="text-balance">
+        <div className="text-xs text-muted-foreground mb-2 font-mono uppercase tracking-widest">{currency} Balance</div>
+        <div className="text-5xl font-black tabular-nums mb-2 flex items-center justify-center tracking-tighter" data-testid="text-balance">
           <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
           {isEarning ? (
             <span className="inline-flex items-baseline">
@@ -321,12 +321,12 @@ export default function BalanceCard({
         {/* Aave earning indicator */}
         {earnMode && aaveBalance && BigInt(aaveBalance.totalAUsdcBalance) > 0n && (
           <div 
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-xs mb-3"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0055FF] text-white text-xs font-semibold uppercase tracking-wide mb-3"
             data-testid="badge-earning"
           >
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
             </span>
             <span>
               Earning {weightedApy.toFixed(2)}% APY

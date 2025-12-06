@@ -61,6 +61,9 @@ export default {
           DEFAULT: "hsl(var(--success) / <alpha-value>)",
           foreground: "hsl(var(--success-foreground) / <alpha-value>)",
         },
+        cta: {
+          DEFAULT: "hsl(var(--cta) / <alpha-value>)",
+        },
         ring: "hsl(var(--ring) / <alpha-value>)",
         chart: {
           "1": "hsl(var(--chart-1) / <alpha-value>)",
@@ -97,6 +100,22 @@ export default {
         heading: ["var(--font-heading)"],
         serif: ["var(--font-serif)"],
         mono: ["var(--font-mono)"],
+      },
+      fontWeight: {
+        normal: "400",
+        medium: "500",
+        semibold: "600",
+        bold: "700",
+        extrabold: "800",
+        black: "900",
+      },
+      letterSpacing: {
+        tighter: "-0.05em",
+        tight: "-0.025em",
+        normal: "0em",
+        wide: "0.025em",
+        wider: "0.05em",
+        widest: "0.1em",
       },
       boxShadow: {
         'primary': 'var(--shadow-primary)',

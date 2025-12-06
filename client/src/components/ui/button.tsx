@@ -5,19 +5,20 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-none text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0" +
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-none text-sm font-semibold uppercase tracking-wide transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0" +
   " hover-elevate active-elevate-2",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground border border-primary-border",
+          "bg-cta text-white border border-cta",
         destructive:
           "bg-destructive text-destructive-foreground border border-destructive-border",
         outline:
-          "border border-foreground/20 bg-background hover:bg-accent",
-        secondary: "border bg-secondary text-secondary-foreground border-secondary-border",
-        ghost: "border border-transparent",
+          "border border-foreground bg-background",
+        secondary: "border bg-secondary text-secondary-foreground border-foreground/20",
+        ghost: "border border-transparent normal-case font-medium tracking-normal",
+        dark: "bg-primary text-primary-foreground border border-primary-border",
       },
       size: {
         default: "min-h-10 px-6 py-2",
