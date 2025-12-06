@@ -280,6 +280,17 @@ export default function BalanceCard({
 
       {/* Content overlay */}
       <div className="relative z-10">
+        {/* Chain breakdown - compact single line above balance, hide zero balances */}
+        {chains && (
+          <div className="text-xs mb-2 font-mono text-muted-foreground" data-testid="text-chain-breakdown">
+            {[
+              BigInt(chains.base.balanceMicro) > 0n && `Base $${chains.base.balance}`,
+              BigInt(chains.celo.balanceMicro) > 0n && `Celo $${chains.celo.balance}`,
+              chains.gnosis && BigInt(chains.gnosis.balanceMicro) > 0n && `Gnosis $${chains.gnosis.balance}`,
+            ].filter(Boolean).join(' · ') || 'No balance'}
+          </div>
+        )}
+        
         <div className="text-xs mb-2 font-mono uppercase tracking-widest text-muted-foreground">{currency} Balance</div>
         <button
           onClick={onRefresh}
@@ -290,17 +301,6 @@ export default function BalanceCard({
           <span className={`text-3xl font-normal text-muted-foreground mr-1.5 transition-opacity duration-300 ${isRefreshing ? 'opacity-50' : ''}`}>$</span>
           <span className={`transition-opacity duration-300 ${isRefreshing ? 'opacity-50 animate-pulse' : ''}`} data-testid="text-balance">{balance}</span>
         </button>
-        
-        {/* Chain breakdown - compact single line, hide zero balances */}
-        {chains && (
-          <div className="text-xs mb-3 font-mono text-muted-foreground" data-testid="text-chain-breakdown">
-            {[
-              BigInt(chains.base.balanceMicro) > 0n && `Base $${chains.base.balance}`,
-              BigInt(chains.celo.balanceMicro) > 0n && `Celo $${chains.celo.balance}`,
-              chains.gnosis && BigInt(chains.gnosis.balanceMicro) > 0n && `Gnosis $${chains.gnosis.balance}`,
-            ].filter(Boolean).join(' · ') || 'No balance'}
-          </div>
-        )}
 
         {/* Aave earning indicator - condensed */}
         {earnMode && aaveBalance && BigInt(aaveBalance.totalAUsdcBalance) > 0n && (
