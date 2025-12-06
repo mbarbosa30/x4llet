@@ -986,52 +986,52 @@ export default function Earn() {
               </div>
             )}
 
-            <Card className="p-4 space-y-3" data-testid="card-earning-balance">
+            <div className="bg-[#0055FF] text-white p-6 space-y-4" data-testid="card-earning-balance">
               <div className="flex items-center justify-between">
-                <div className="text-sm font-medium flex items-center gap-2">
-                  <PiggyBank className="h-4 w-4 text-primary" />
+                <div className="text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
+                  <PiggyBank className="h-4 w-4" />
                   Total Earning
                 </div>
-                <Badge variant="secondary" className="text-xs">
+                <div className="bg-white/20 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide">
                   {weightedApy > 0 ? `${weightedApy.toFixed(2)}%` : '—'} APY
-                </Badge>
+                </div>
               </div>
               
               <div className="text-center py-4">
                 {isAaveBalanceBaseLoading || isAaveBalanceCeloLoading ? (
                   <div className="flex items-center justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <Loader2 className="h-8 w-8 animate-spin text-white/60" />
                   </div>
                 ) : effectiveHasAaveBalance ? (
                   <div className="space-y-1">
-                    <div className="text-5xl font-bold tabular-nums flex items-center justify-center font-heading tracking-tight" data-testid="text-earning-amount">
-                      <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
-                      <span className="inline-flex items-baseline">
+                    <div className="text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight text-white" data-testid="text-earning-amount">
+                      <span className="text-3xl font-normal text-white/70 mr-1.5">$</span>
+                      <span className="inline-flex items-baseline text-white">
                         <span>{Math.floor(totalEarningAnimation.animatedValue)}</span>
-                        <span className="opacity-90">.{totalEarningAnimation.mainDecimals}</span>
+                        <span>.{totalEarningAnimation.mainDecimals}</span>
                         {totalEarningAnimation.extraDecimals && (
-                          <span className="text-[0.28em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.65em' }}>
+                          <span className="text-[0.28em] font-light text-white/80 relative ml-0.5" style={{ top: '-0.65em' }}>
                             {totalEarningAnimation.extraDecimals}
                           </span>
                         )}
                       </span>
                     </div>
-                    <div className="text-xs text-muted-foreground">USDC yielding</div>
+                    <div className="text-xs text-white/80 font-mono uppercase tracking-widest">USDC Yielding</div>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="text-5xl font-bold tabular-nums flex items-center justify-center font-heading tracking-tight">
-                      <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
-                      <span>0.00</span>
+                    <div className="text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight text-white">
+                      <span className="text-3xl font-normal text-white/70 mr-1.5">$</span>
+                      <span className="text-white">0.00</span>
                     </div>
-                    <div className="text-xs text-muted-foreground">No deposits yet</div>
+                    <div className="text-xs text-white/80 font-mono uppercase tracking-widest">No Deposits Yet</div>
                   </div>
                 )}
               </div>
 
               <div className="flex gap-2">
                 <Button 
-                  className="flex-1" 
+                  className="flex-1 bg-white text-[#0055FF] hover:bg-white/90 border-white" 
                   onClick={() => {
                     resetAaveDialog();
                     setShowAaveDeposit(true);
@@ -1043,7 +1043,7 @@ export default function Earn() {
                 </Button>
                 <Button 
                   variant="outline"
-                  className="flex-1" 
+                  className="flex-1 border-white/50 text-white hover:bg-white/10" 
                   onClick={() => {
                     resetAaveDialog();
                     setShowAaveWithdraw(true);
@@ -1055,7 +1055,7 @@ export default function Earn() {
                   Withdraw
                 </Button>
               </div>
-            </Card>
+            </div>
 
             {/* Claimable Rewards Section */}
             {hasClaimableRewards && (

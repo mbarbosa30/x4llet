@@ -811,55 +811,53 @@ export default function Pool() {
             {/* Pool Tab */}
             <TabsContent value="pool" className="mt-4 space-y-4">
               {/* This Week's Prize */}
-              <Card className="p-4 space-y-3" data-testid="card-prize-pool">
+              <div className="bg-[#0055FF] text-white p-6 space-y-4" data-testid="card-prize-pool">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium flex items-center gap-2">
-                    <Trophy className="h-4 w-4 text-primary" />
+                  <div className="text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
+                    <Trophy className="h-4 w-4" />
                     This Week's Prize
                   </div>
-                  <Badge variant="secondary" className="text-xs">
+                  <div className="bg-white/20 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide">
                     Week {poolStatus.draw.weekNumber}
-                  </Badge>
+                  </div>
                 </div>
                 <div className="text-center py-4">
                   {(() => {
-                    // Pool value = sponsor deposits (on-chain aUSDC) + participant committed yields
                     const poolValue = Number(poolStatus.draw.totalPool) / 1_000_000;
                     const isAnimating = prizePoolAnimation.animatedValue > 0 && !!celoApyData?.apy;
                     
-                    // Static fallback
                     const staticInt = Math.floor(poolValue);
                     const staticDec = (poolValue % 1).toFixed(2).slice(2);
                     
                     return (
                       <div className="space-y-1">
-                        <div className="text-5xl font-bold tabular-nums flex items-center justify-center font-heading tracking-tight" data-testid="text-prize-amount">
-                          <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
-                          <span className="inline-flex items-baseline">
+                        <div className="text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight text-white" data-testid="text-prize-amount">
+                          <span className="text-3xl font-normal text-white/70 mr-1.5">$</span>
+                          <span className="inline-flex items-baseline text-white">
                             <span>{isAnimating ? Math.floor(prizePoolAnimation.animatedValue) : staticInt}</span>
-                            <span className="opacity-90">.{isAnimating ? prizePoolAnimation.mainDecimals : staticDec}</span>
+                            <span>.{isAnimating ? prizePoolAnimation.mainDecimals : staticDec}</span>
                             {isAnimating && prizePoolAnimation.extraDecimals && (
-                              <span className="text-[0.28em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.65em' }}>
+                              <span className="text-[0.28em] font-light text-white/80 relative ml-0.5" style={{ top: '-0.65em' }}>
                                 {prizePoolAnimation.extraDecimals}
                               </span>
                             )}
                           </span>
                         </div>
-                        <p className="text-xs text-muted-foreground text-center">
-                          USDC pooling
+                        <p className="text-xs text-white/80 font-mono uppercase tracking-widest text-center">
+                          USDC Pooling
                         </p>
                       </div>
                     );
                   })()}
                 </div>
                 <div className="flex items-center justify-center gap-4">
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1 text-sm text-white/80">
                     <Users className="h-4 w-4" />
                     <span data-testid="text-participant-count">
                       {poolStatus.draw.participantCount} participants
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1 text-sm text-white/80">
                     <Clock className="h-4 w-4" />
                     <span data-testid="text-countdown">
                       {formatCountdown(
@@ -869,31 +867,31 @@ export default function Pool() {
                     </span>
                   </div>
                 </div>
-              </Card>
+              </div>
 
               {/* Your Position - Uses actual interest data */}
               <Card className="p-4 space-y-3" data-testid="card-your-position">
-                <div className="text-sm font-medium flex items-center gap-2">
-                  <Target className="h-4 w-4 text-primary" />
+                <div className="text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
+                  <Target className="h-4 w-4 text-[#0055FF]" />
                   Your Position
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="text-center p-3 bg-muted/50 rounded-lg">
+                  <div className="text-center p-3 bg-muted/50">
                     <div className="space-y-0.5">
-                      <p className="text-2xl font-medium" data-testid="text-your-tickets">
+                      <p className="text-2xl font-bold" data-testid="text-your-tickets">
                         {formatTickets(poolStatus.user.totalTickets)}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground font-mono uppercase tracking-wide">
                         Your tickets
                       </p>
                     </div>
                   </div>
-                  <div className="text-center p-3 bg-muted/50 rounded-lg">
+                  <div className="text-center p-3 bg-muted/50">
                     <div className="space-y-0.5">
-                      <p className="text-2xl font-medium text-primary" data-testid="text-your-odds">
+                      <p className="text-2xl font-bold text-[#0055FF]" data-testid="text-your-odds">
                         {poolStatus.user.odds}%
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground font-mono uppercase tracking-wide">
                         Win odds
                       </p>
                     </div>
@@ -904,8 +902,8 @@ export default function Pool() {
               {/* Contribution */}
               <Card className="p-4 space-y-3" data-testid="card-yield-contribution">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium flex items-center gap-2">
-                    <Coins className="h-4 w-4 text-primary" />
+                  <div className="text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
+                    <Coins className="h-4 w-4 text-[#0055FF]" />
                     Yield Contribution
                   </div>
                   <Badge variant="outline" className="font-bold px-2" data-testid="text-opt-in-percent">
@@ -920,7 +918,7 @@ export default function Pool() {
                   className="w-full"
                   data-testid="slider-opt-in"
                 />
-                <div className="flex justify-between text-xs text-muted-foreground">
+                <div className="flex justify-between text-xs text-muted-foreground font-mono uppercase tracking-wide">
                   <span>Keep all yield</span>
                   <span>Max tickets</span>
                 </div>

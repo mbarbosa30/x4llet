@@ -255,10 +255,10 @@ export default function BalanceCard({
   };
 
   return (
-    <Card className="p-8 text-center relative overflow-hidden border-foreground" data-testid="card-balance">
+    <div className="bg-[#0055FF] text-white p-8 text-center relative overflow-hidden" data-testid="card-balance">
       {/* Background chart */}
       {chartData.length > 1 && (
-        <div className="absolute inset-0 opacity-10">
+        <div className="absolute inset-0 opacity-20">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
               <YAxis domain={getYDomain()} hide />
@@ -268,12 +268,12 @@ export default function BalanceCard({
                   tooltipAnimation={tooltipAnimation}
                   onHoverPoint={setHoveredBalanceMicro}
                 />}
-                cursor={{ stroke: 'currentColor', strokeWidth: 1, strokeDasharray: '5 5' }}
+                cursor={{ stroke: 'white', strokeWidth: 1, strokeDasharray: '5 5' }}
               />
               <Line 
                 type="natural" 
                 dataKey="value" 
-                stroke="currentColor" 
+                stroke="white" 
                 strokeWidth={2}
                 dot={false}
                 isAnimationActive={false}
@@ -284,34 +284,34 @@ export default function BalanceCard({
       )}
 
       {/* Content overlay */}
-      <div className="relative z-10">
-        <div className="text-xs text-muted-foreground mb-2 font-mono uppercase tracking-widest">{currency} Balance</div>
-        <div className="text-5xl font-bold tabular-nums mb-2 flex items-center justify-center tracking-tight" data-testid="text-balance">
-          <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
+      <div className="relative z-10 text-white">
+        <div className="text-xs mb-2 font-mono uppercase tracking-widest text-white/80">{currency} Balance</div>
+        <div className="text-5xl font-bold tabular-nums mb-2 flex items-center justify-center tracking-tight text-white" data-testid="text-balance">
+          <span className="text-3xl font-normal text-white/70 mr-1.5">$</span>
           {isEarning ? (
-            <span className="inline-flex items-baseline">
+            <span className="inline-flex items-baseline text-white">
               <span>{Math.floor(earningAnimation.animatedValue)}</span>
-              <span className="opacity-90">.{earningAnimation.mainDecimals}</span>
+              <span>.{earningAnimation.mainDecimals}</span>
               {earningAnimation.extraDecimals && (
-                <span className="text-[0.28em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.65em' }}>
+                <span className="text-[0.28em] font-light text-white/80 relative ml-0.5" style={{ top: '-0.65em' }}>
                   {earningAnimation.extraDecimals}
                 </span>
               )}
             </span>
           ) : (
-            <span>{balance}</span>
+            <span className="text-white">{balance}</span>
           )}
         </div>
         
         {/* Chain breakdown - always show when chains data is available */}
         {chains && (
-          <div className="text-xs text-muted-foreground mb-3 flex items-center justify-center gap-3 opacity-40 flex-wrap">
+          <div className="text-xs mb-3 flex items-center justify-center gap-3 text-white/70 flex-wrap">
             <span data-testid="text-base-balance">${chains.base.balance} Base</span>
-            <span className="opacity-50">+</span>
+            <span className="text-white/50">+</span>
             <span data-testid="text-celo-balance">${chains.celo.balance} Celo</span>
             {chains.gnosis && BigInt(chains.gnosis.balanceMicro) > 0n && (
               <>
-                <span className="opacity-50">+</span>
+                <span className="text-white/50">+</span>
                 <span data-testid="text-gnosis-balance">${chains.gnosis.balance} Gnosis</span>
               </>
             )}
@@ -321,14 +321,14 @@ export default function BalanceCard({
         {/* Aave earning indicator */}
         {earnMode && aaveBalance && BigInt(aaveBalance.totalAUsdcBalance) > 0n && (
           <div 
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0055FF] text-white text-xs font-semibold uppercase tracking-wide mb-3"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/20 text-white text-xs font-semibold uppercase tracking-wide mb-3"
             data-testid="badge-earning"
           >
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
             </span>
-            <span>
+            <span className="text-white">
               Earning {weightedApy.toFixed(2)}% APY
             </span>
           </div>
@@ -337,18 +337,18 @@ export default function BalanceCard({
         {balanceMicro && exchangeRate && (
           <div className="text-base" data-testid="text-fiat-value">
             <div className="flex items-baseline justify-center">
-              <span className="text-muted-foreground mr-2">≈</span>
+              <span className="text-white/70 mr-2">≈</span>
               <AnimatedBalance
                 value={animation.animatedValue}
                 mainDecimals={animation.mainDecimals}
                 extraDecimals={animation.extraDecimals}
                 currency={fiatCurrency}
-                className="text-muted-foreground"
+                className="text-white/90"
               />
             </div>
           </div>
         )}
       </div>
-    </Card>
+    </div>
   );
 }
