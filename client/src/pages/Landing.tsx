@@ -173,9 +173,9 @@ export default function Landing() {
             </div>
           </div>
 
-          <div className="pt-8 pb-4 border-t border-foreground/10">
-            <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-4 text-center">Powered By</div>
-            <div className="space-y-3 text-left max-w-sm mx-auto">
+          <div className="pt-10 pb-4 border-t border-foreground/10">
+            <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-6 text-center">Powered By</div>
+            <div className="space-y-4 text-left max-w-sm mx-auto">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
                   <Zap className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
