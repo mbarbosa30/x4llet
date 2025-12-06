@@ -1,8 +1,6 @@
-import { Card } from '@/components/ui/card';
 import { useQuery } from '@tanstack/react-query';
 import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip, TooltipProps } from 'recharts';
 import { useInflationAnimation } from '@/hooks/use-inflation-animation';
-import { useEarningAnimation } from '@/hooks/use-earning-animation';
 import AnimatedBalance from './AnimatedBalance';
 import { useState, useEffect } from 'react';
 
@@ -211,14 +209,7 @@ export default function BalanceCard({
   
   const weightedApy = calculateWeightedApy();
 
-  // Animate USDC balance with earning effect when Earn Mode is active
-  const earningAnimation = useEarningAnimation({
-    usdcMicro: balanceMicro || '0',
-    aaveBalanceMicro: aaveBalance?.totalAUsdcBalance || '0',
-    apyRate: weightedApy / 100,
-    enabled: !!earnMode && !!aaveBalance && BigInt(aaveBalance.totalAUsdcBalance) > 0n,
-  });
-  
+  // Check if earning (for showing yield indicator)
   const isEarning = earnMode && aaveBalance && BigInt(aaveBalance.totalAUsdcBalance) > 0n;
 
   // Prepare chart data with enriched data for tooltip
@@ -260,9 +251,9 @@ export default function BalanceCard({
 
   return (
     <div className="bg-card border border-foreground/10 p-8 text-center relative overflow-hidden" data-testid="card-balance">
-      {/* Background chart */}
+      {/* Background chart - subtle */}
       {chartData.length > 1 && (
-        <div className="absolute inset-0 opacity-10">
+        <div className="absolute inset-0 opacity-[0.04]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
               <YAxis domain={getYDomain()} hide />
@@ -297,49 +288,27 @@ export default function BalanceCard({
           data-testid="button-refresh-balance"
         >
           <span className={`text-3xl font-normal text-muted-foreground mr-1.5 transition-opacity duration-300 ${isRefreshing ? 'opacity-50' : ''}`}>$</span>
-          {isEarning ? (
-            <span className={`inline-flex items-baseline transition-opacity duration-300 ${isRefreshing ? 'opacity-50 animate-pulse' : ''}`} data-testid="text-balance">
-              <span>{Math.floor(earningAnimation.animatedValue)}</span>
-              <span>.{earningAnimation.mainDecimals}</span>
-              {earningAnimation.extraDecimals && (
-                <span className="text-[0.28em] font-light text-muted-foreground relative ml-0.5" style={{ top: '-0.65em' }}>
-                  {earningAnimation.extraDecimals}
-                </span>
-              )}
-            </span>
-          ) : (
-            <span className={`transition-opacity duration-300 ${isRefreshing ? 'opacity-50 animate-pulse' : ''}`} data-testid="text-balance">{balance}</span>
-          )}
+          <span className={`transition-opacity duration-300 ${isRefreshing ? 'opacity-50 animate-pulse' : ''}`} data-testid="text-balance">{balance}</span>
         </button>
         
-        {/* Chain breakdown - always show when chains data is available */}
+        {/* Chain breakdown - compact single line, hide zero balances */}
         {chains && (
-          <div className="text-xs mb-3 flex items-center justify-center gap-3 text-muted-foreground flex-wrap">
-            <span data-testid="text-base-balance">${chains.base.balance} Base</span>
-            <span className="opacity-50">+</span>
-            <span data-testid="text-celo-balance">${chains.celo.balance} Celo</span>
-            {chains.gnosis && BigInt(chains.gnosis.balanceMicro) > 0n && (
-              <>
-                <span className="opacity-50">+</span>
-                <span data-testid="text-gnosis-balance">${chains.gnosis.balance} Gnosis</span>
-              </>
-            )}
+          <div className="text-xs mb-3 font-mono text-muted-foreground" data-testid="text-chain-breakdown">
+            {[
+              BigInt(chains.base.balanceMicro) > 0n && `Base $${chains.base.balance}`,
+              BigInt(chains.celo.balanceMicro) > 0n && `Celo $${chains.celo.balance}`,
+              chains.gnosis && BigInt(chains.gnosis.balanceMicro) > 0n && `Gnosis $${chains.gnosis.balance}`,
+            ].filter(Boolean).join(' · ') || 'No balance'}
           </div>
         )}
 
-        {/* Aave earning indicator */}
+        {/* Aave earning indicator - condensed */}
         {earnMode && aaveBalance && BigInt(aaveBalance.totalAUsdcBalance) > 0n && (
           <div 
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0055FF] text-white text-xs font-semibold uppercase tracking-wide mb-3"
+            className="text-xs text-[#0055FF] font-semibold uppercase tracking-wide mb-3"
             data-testid="badge-earning"
           >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-            </span>
-            <span>
-              Earning {weightedApy.toFixed(2)}% APY
-            </span>
+            Yielding {weightedApy.toFixed(1)}% APY
           </div>
         )}
         
