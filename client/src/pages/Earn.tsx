@@ -1060,7 +1060,7 @@ export default function Earn() {
                     <button
                       onClick={handleRefreshAaveBalance}
                       disabled={isRefreshingAave}
-                      className="text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all disabled:cursor-default disabled:hover:opacity-100 disabled:active:scale-100"
+                      className="w-full bg-transparent p-0 border-none text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all disabled:cursor-default disabled:hover:opacity-100 disabled:active:scale-100 focus-visible:outline-none"
                       data-testid="button-refresh-earning"
                     >
                       <span className="text-3xl font-normal text-muted-foreground mr-1.5">$</span>

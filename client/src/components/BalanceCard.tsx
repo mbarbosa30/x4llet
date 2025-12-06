@@ -294,7 +294,7 @@ export default function BalanceCard({
         <button
           onClick={onRefresh}
           disabled={isRefreshing || !onRefresh}
-          className="text-5xl font-bold tabular-nums mb-2 flex items-center justify-center tracking-tight cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all disabled:cursor-default disabled:hover:opacity-100 disabled:active:scale-100 group"
+          className="w-full bg-transparent p-0 border-none text-5xl font-bold tabular-nums mb-2 flex items-center justify-center tracking-tight cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all disabled:cursor-default disabled:hover:opacity-100 disabled:active:scale-100 focus-visible:outline-none group"
           data-testid="button-refresh-balance"
         >
           <span className="text-3xl font-normal text-muted-foreground mr-1.5">$</span>
