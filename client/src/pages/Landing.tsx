@@ -173,32 +173,32 @@ export default function Landing() {
             </div>
           </div>
 
-          <div className="pt-6 pb-4 border-t border-foreground/10">
-            <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-4 text-center">Powered By</div>
+          <div className="pt-4 pb-4 border-t border-foreground/10">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-4 text-center">Powered By</div>
             <div className="space-y-3 text-left max-w-sm mx-auto">
-              <div className="flex items-baseline gap-3">
-                <Zap className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+              <div className="flex items-start gap-3">
+                <Zap className="h-4 w-4 flex-shrink-0 text-muted-foreground mt-0.5" />
                 <div>
                   <span className="text-xs font-semibold uppercase tracking-wide leading-tight">x402 Protocol</span>
                   <p className="text-xs text-muted-foreground mt-0.5">Gasless autonomous execution, by default. USDC transfers via EIP-3009. Works off-line.</p>
                 </div>
               </div>
-              <div className="flex items-baseline gap-3">
-                <Sliders className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+              <div className="flex items-start gap-3">
+                <Sliders className="h-4 w-4 flex-shrink-0 text-muted-foreground mt-0.5" />
                 <div>
                   <span className="text-xs font-semibold uppercase tracking-wide leading-tight">Yield Allocation</span>
                   <p className="text-xs text-muted-foreground mt-0.5">Access prize-linked savings, vulnerable communities, AI tools & models, Buy Now Pay Later.</p>
                 </div>
               </div>
-              <div className="flex items-baseline gap-3">
-                <Network className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+              <div className="flex items-start gap-3">
+                <Network className="h-4 w-4 flex-shrink-0 text-muted-foreground mt-0.5" />
                 <div>
                   <span className="text-xs font-semibold uppercase tracking-wide leading-tight">Trust Infrastructure</span>
                   <p className="text-xs text-muted-foreground mt-0.5">MaxFlow graph signals computation, Circles web of trust, GoodDollar verification.</p>
                 </div>
               </div>
-              <div className="flex items-baseline gap-3">
-                <Layers className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+              <div className="flex items-start gap-3">
+                <Layers className="h-4 w-4 flex-shrink-0 text-muted-foreground mt-0.5" />
                 <div>
                   <span className="text-xs font-semibold uppercase tracking-wide leading-tight">Multi-Chain</span>
                   <p className="text-xs text-muted-foreground mt-0.5">Seamless experience on Base, Celo, and Gnosis networks. More soon.</p>
