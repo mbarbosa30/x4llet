@@ -97,10 +97,10 @@ export default function AppHeader() {
         </div>
         <button
           onClick={() => setLocation('/maxflow')}
-          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide transition-colors border ${
+          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide transition-colors ${
             location === '/maxflow' 
-              ? 'bg-[#0055FF] text-white border-[#0055FF]' 
-              : 'bg-muted border-foreground/10 text-foreground hover:border-foreground/20'
+              ? 'bg-[#0055FF] text-white' 
+              : 'bg-foreground/5 text-foreground hover:bg-foreground/10'
           }`}
           data-testid="button-maxflow-chip"
           title="Your MaxFlow trust score"
