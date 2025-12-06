@@ -1,0 +1,107 @@
+{
+  "colorScheme": "light",
+  "fonts": [
+    {
+      "family": "Inter",
+      "role": "body"
+    },
+    {
+      "family": "Outfit",
+      "role": "body"
+    }
+  ],
+  "colors": {
+    "primary": "#F5623D",
+    "accent": "#F5623D",
+    "background": "#FFFFFF",
+    "textPrimary": "#09090B",
+    "link": "#4A5565"
+  },
+  "typography": {
+    "fontFamilies": {
+      "primary": "Inter",
+      "heading": "Inter"
+    },
+    "fontStacks": {
+      "heading": [
+        "Outfit",
+        "sans-serif"
+      ],
+      "body": [
+        "Inter",
+        "sans-serif"
+      ],
+      "paragraph": [
+        "Inter",
+        "sans-serif"
+      ]
+    },
+    "fontSizes": {
+      "h1": "72px",
+      "h2": "36px",
+      "body": "20px"
+    }
+  },
+  "spacing": {
+    "baseUnit": 8,
+    "borderRadius": "0px"
+  },
+  "components": {
+    "input": {
+      "borderColor": "#CCCCCC",
+      "borderRadius": "0px"
+    },
+    "buttonPrimary": {
+      "background": "#F5623D",
+      "textColor": "#FFFFFF",
+      "borderColor": "#E4E4E7",
+      "borderRadius": "33554400px",
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.901 0.0251228 0.0717276 / 0.5) 0px 10px 15px -3px, oklab(0.901 0.0251228 0.0717276 / 0.5) 0px 4px 6px -4px"
+    },
+    "buttonSecondary": {
+      "background": "transparent",
+      "textColor": "#09090B",
+      "borderColor": "#09090B",
+      "borderRadius": "33554400px",
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px"
+    }
+  },
+  "images": {
+    "logo": "File saved at: attached_assets/logo.svg",
+    "favicon": "https://relaystories2.replit.app/favicon.png",
+    "ogImage": "https://Relaystories2.replit.app/opengraph.jpg"
+  },
+  "__framework_hints": [],
+  "__llm_logo_reasoning": {
+    "selectedIndex": 0,
+    "reasoning": "The logo matches the brand name 'Scroll stories. Route your yield. Change lives.' and is located in the header, making it the main brand logo.",
+    "confidence": 0.9
+  },
+  "__llm_button_reasoning": {
+    "primary": {
+      "index": 0,
+      "text": "Get Early Access",
+      "reasoning": "Button #0 has vibrant background color #F5623D, which is the brand color, and action-oriented text 'Get Early Access', making it the primary CTA."
+    },
+    "secondary": {
+      "index": 2,
+      "text": "See How It Works",
+      "reasoning": "Button #2 has a transparent background, which is distinctly different from the primary button's vibrant color, making it suitable as the secondary button."
+    },
+    "confidence": 0.95
+  },
+  "personality": {
+    "tone": "modern",
+    "energy": "high",
+    "targetAudience": "tech-savvy individuals interested in storytelling and content creation"
+  },
+  "designSystem": {
+    "framework": "tailwind",
+    "componentLibrary": null
+  },
+  "confidence": {
+    "buttons": 0.95,
+    "colors": 0.9,
+    "overall": 0.925
+  }
+}
