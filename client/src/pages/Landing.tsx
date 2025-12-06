@@ -90,7 +90,7 @@ export default function Landing() {
               <h1 className="text-4xl font-black uppercase tracking-tighter mb-4 leading-none">
                 Money, <span className="text-[#0055FF]">Simplified.</span>
               </h1>
-              <p className="text-muted-foreground mb-8 text-base font-medium">
+              <p className="text-muted-foreground mb-8 text-base font-normal">
                 No internet? No gas? No ID? No problem.
               </p>
             </div>
