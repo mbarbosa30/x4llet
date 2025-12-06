@@ -811,13 +811,13 @@ export default function Pool() {
             {/* Pool Tab */}
             <TabsContent value="pool" className="mt-4 space-y-4">
               {/* This Week's Prize */}
-              <div className="bg-[#0055FF] text-white p-6 space-y-4" data-testid="card-prize-pool">
+              <Card className="p-6 space-y-4" data-testid="card-prize-pool">
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
-                    <Trophy className="h-4 w-4" />
+                    <Trophy className="h-4 w-4 text-[#0055FF]" />
                     This Week's Prize
                   </div>
-                  <div className="bg-white/20 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide">
+                  <div className="bg-[#0055FF] text-white px-2.5 py-1 text-xs font-semibold uppercase tracking-wide">
                     Week {poolStatus.draw.weekNumber}
                   </div>
                 </div>
@@ -831,19 +831,19 @@ export default function Pool() {
                     
                     return (
                       <div className="space-y-1">
-                        <div className="text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight text-white" data-testid="text-prize-amount">
-                          <span className="text-3xl font-normal text-white/70 mr-1.5">$</span>
-                          <span className="inline-flex items-baseline text-white">
+                        <div className="text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight" data-testid="text-prize-amount">
+                          <span className="text-3xl font-normal text-muted-foreground mr-1.5">$</span>
+                          <span className="inline-flex items-baseline">
                             <span>{isAnimating ? Math.floor(prizePoolAnimation.animatedValue) : staticInt}</span>
                             <span>.{isAnimating ? prizePoolAnimation.mainDecimals : staticDec}</span>
                             {isAnimating && prizePoolAnimation.extraDecimals && (
-                              <span className="text-[0.28em] font-light text-white/80 relative ml-0.5" style={{ top: '-0.65em' }}>
+                              <span className="text-[0.28em] font-light text-muted-foreground relative ml-0.5" style={{ top: '-0.65em' }}>
                                 {prizePoolAnimation.extraDecimals}
                               </span>
                             )}
                           </span>
                         </div>
-                        <p className="text-xs text-white/80 font-mono uppercase tracking-widest text-center">
+                        <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest text-center">
                           USDC Pooling
                         </p>
                       </div>
@@ -851,13 +851,13 @@ export default function Pool() {
                   })()}
                 </div>
                 <div className="flex items-center justify-center gap-4">
-                  <div className="flex items-center gap-1 text-sm text-white/80">
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <Users className="h-4 w-4" />
                     <span data-testid="text-participant-count">
                       {poolStatus.draw.participantCount} participants
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 text-sm text-white/80">
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <Clock className="h-4 w-4" />
                     <span data-testid="text-countdown">
                       {formatCountdown(
@@ -867,7 +867,7 @@ export default function Pool() {
                     </span>
                   </div>
                 </div>
-              </div>
+              </Card>
 
               {/* Your Position - Uses actual interest data */}
               <Card className="p-4 space-y-3" data-testid="card-your-position">

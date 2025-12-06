@@ -8,7 +8,7 @@ export default function BottomNav() {
 
   return (
     <nav 
-      className="fixed bottom-0 left-0 right-0 bg-background border-t border-foreground"
+      className="fixed bottom-0 left-0 right-0 bg-[#0055FF] border-t border-[#0055FF]"
       style={{ 
         paddingBottom: 'env(safe-area-inset-bottom)',
         position: 'fixed',
@@ -16,11 +16,11 @@ export default function BottomNav() {
       }}
       data-testid="bottom-nav"
     >
-      <div className="max-w-md mx-auto h-14 flex items-center">
+      <div className="max-w-md mx-auto h-16 flex items-center">
         <button
           onClick={() => setLocation('/claim')}
-          className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-12 text-xs font-semibold tracking-wide transition-colors ${
-            isActive('/claim') ? 'text-[#0055FF]' : 'text-foreground'
+          className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-[10px] font-semibold tracking-wide transition-colors ${
+            isActive('/claim') ? 'text-white' : 'text-white/70'
           }`}
           data-testid="nav-claim"
         >
@@ -30,8 +30,8 @@ export default function BottomNav() {
 
         <button
           onClick={() => setLocation('/home')}
-          className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-12 text-xs font-semibold tracking-wide transition-colors ${
-            isActive('/home') ? 'text-[#0055FF]' : 'text-foreground'
+          className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-[10px] font-semibold tracking-wide transition-colors ${
+            isActive('/home') ? 'text-white' : 'text-white/70'
           }`}
           data-testid="nav-wallet"
         >
@@ -41,8 +41,8 @@ export default function BottomNav() {
 
         <button
           onClick={() => setLocation('/earn')}
-          className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-12 text-xs font-semibold tracking-wide transition-colors ${
-            isActive('/earn') ? 'text-[#0055FF]' : 'text-foreground'
+          className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-[10px] font-semibold tracking-wide transition-colors ${
+            isActive('/earn') ? 'text-white' : 'text-white/70'
           }`}
           data-testid="nav-earn"
         >
@@ -52,8 +52,8 @@ export default function BottomNav() {
 
         <button
           onClick={() => setLocation('/pool')}
-          className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-12 text-xs font-semibold tracking-wide transition-colors ${
-            isActive('/pool') ? 'text-[#0055FF]' : 'text-foreground'
+          className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-[10px] font-semibold tracking-wide transition-colors ${
+            isActive('/pool') ? 'text-white' : 'text-white/70'
           }`}
           data-testid="nav-pool"
         >

@@ -96,16 +96,16 @@ export default function Landing() {
             </div>
 
             <div className="space-y-4 text-left max-w-sm mx-auto">
-              <div className="flex items-start gap-3 border-l-2 border-foreground pl-3">
-                <WifiOff className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3 border-l-2 border-[#0055FF] pl-3">
+                <WifiOff className="h-4 w-4 text-[#0055FF] flex-shrink-0 mt-0.5" />
                 <div>
                   <div className="text-sm font-semibold uppercase tracking-wide">Works Anywhere</div>
                   <div className="text-xs text-muted-foreground">Any browser. Offline-ready. Gasless transfers.</div>
                 </div>
               </div>
               
-              <div className="flex items-start gap-3 border-l-2 border-foreground pl-3">
-                <Lock className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3 border-l-2 border-[#0055FF] pl-3">
+                <Lock className="h-4 w-4 text-[#0055FF] flex-shrink-0 mt-0.5" />
                 <div>
                   <div className="text-sm font-semibold uppercase tracking-wide">Your Keys, Your Control</div>
                   <div className="text-xs text-muted-foreground">Encrypted on your device, locally. Nowhere else.</div>
@@ -122,16 +122,16 @@ export default function Landing() {
                 </div>
               </div>
               
-              <div className="flex items-start gap-3 border-l-2 border-foreground pl-3">
-                <Sliders className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3 border-l-2 border-[#0055FF] pl-3">
+                <Sliders className="h-4 w-4 text-[#0055FF] flex-shrink-0 mt-0.5" />
                 <div>
                   <div className="text-sm font-semibold uppercase tracking-wide">Yield Allocation</div>
                   <div className="text-xs text-muted-foreground">Pool prizes, causes, AI credits, & more.</div>
                 </div>
               </div>
               
-              <div className="flex items-start gap-3 border-l-2 border-foreground pl-3">
-                <Gift className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3 border-l-2 border-[#0055FF] pl-3">
+                <Gift className="h-4 w-4 text-[#0055FF] flex-shrink-0 mt-0.5" />
                 <div>
                   <div className="text-sm font-semibold uppercase tracking-wide">Free Tokens</div>
                   <div className="text-xs text-muted-foreground">Daily UBI from GoodDollar & Circles.</div>
@@ -144,7 +144,7 @@ export default function Landing() {
           <div className="space-y-4">
             <Button
               size="lg"
-              className="w-full"
+              className="w-full uppercase"
               onClick={() => setLocation('/create')}
               data-testid="button-create-wallet"
             >
@@ -154,7 +154,7 @@ export default function Landing() {
             <Button
               size="lg"
               variant="outline"
-              className="w-full"
+              className="w-full uppercase"
               onClick={() => setLocation('/restore')}
               data-testid="button-restore-wallet"
             >
@@ -162,14 +162,14 @@ export default function Landing() {
             </Button>
 
             <div className="text-center pt-2">
-              <Link href="/unlock" className="text-sm text-muted-foreground hover:text-foreground" data-testid="link-unlock">
+              <Link href="/unlock" className="text-sm text-muted-foreground hover:text-foreground uppercase tracking-wide" data-testid="link-unlock">
                 Already have a wallet? Unlock
               </Link>
             </div>
           </div>
 
           <div className="pt-6 border-t border-foreground">
-            <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-4 text-center">/// Powered By</div>
+            <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-4 text-center">Powered By</div>
             <div className="space-y-3 text-left max-w-sm mx-auto">
               <div>
                 <div className="flex items-center gap-3">
