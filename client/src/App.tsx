@@ -229,9 +229,11 @@ function App() {
 
   // Warn user before page refresh/close when wallet is unlocked
   useEffect(() => {
+    console.log('[App] beforeunload effect running, isUnlocked:', isUnlocked);
     if (!isUnlocked) return;
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      console.log('[App] beforeunload triggered');
       e.preventDefault();
       // Modern browsers ignore custom messages and show a generic one
       // Setting returnValue is required for the dialog to show
@@ -239,8 +241,12 @@ function App() {
       return e.returnValue;
     };
 
+    console.log('[App] Registering beforeunload listener');
     window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      console.log('[App] Removing beforeunload listener');
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, [isUnlocked]);
 
   // Show loading screen during emergency reset
