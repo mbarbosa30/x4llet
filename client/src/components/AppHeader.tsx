@@ -100,7 +100,7 @@ export default function AppHeader() {
           className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide transition-colors ${
             location === '/maxflow' 
               ? 'bg-[#0055FF] text-white' 
-              : 'bg-foreground/5 text-foreground hover:bg-foreground/10'
+              : 'bg-foreground/[0.02] text-foreground hover:bg-foreground/5'
           }`}
           data-testid="button-maxflow-chip"
           title="Your MaxFlow trust score"
