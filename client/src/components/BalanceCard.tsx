@@ -280,7 +280,9 @@ export default function BalanceCard({
 
       {/* Content overlay */}
       <div className="relative z-10">
-        {/* Chain breakdown - compact single line above balance, hide zero balances */}
+        <div className="text-xs mb-2 font-mono uppercase tracking-widest text-muted-foreground">{currency} Balance</div>
+        
+        {/* Chain breakdown - between label and main amount */}
         {chains && (
           <div className="text-xs mb-2 font-mono text-muted-foreground" data-testid="text-chain-breakdown">
             {[
@@ -291,7 +293,6 @@ export default function BalanceCard({
           </div>
         )}
         
-        <div className="text-xs mb-2 font-mono uppercase tracking-widest text-muted-foreground">{currency} Balance</div>
         <button
           onClick={onRefresh}
           disabled={isRefreshing || !onRefresh}
