@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
+import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock, Users, ArrowUpDown, ChevronDown, ChevronUp } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { formatAmount } from '@/lib/formatAmount';
 
@@ -31,6 +31,22 @@ interface RecentTransaction {
   timestamp: string;
   chainId: number;
 }
+
+interface WalletDetails {
+  address: string;
+  createdAt: string;
+  lastSeen: string;
+  totalBalance: string;
+  balanceByChain: { base: string; celo: string; gnosis: string };
+  transferCount: number;
+  totalVolume: string;
+  savingsBalance: string;
+  poolOptInPercent: number;
+  poolApproved: boolean;
+}
+
+type SortField = 'balance' | 'transfers' | 'volume' | 'created' | 'lastSeen' | 'pool';
+type SortDirection = 'asc' | 'desc';
 
 function createAuthHeader(username: string, password: string): string {
   const credentials = btoa(`${username}:${password}`);
@@ -75,6 +91,11 @@ export default function Admin() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [apiHealth, setApiHealth] = useState<ApiHealthStatus | null>(null);
   const [recentActivity, setRecentActivity] = useState<RecentTransaction[]>([]);
+  const [walletList, setWalletList] = useState<WalletDetails[]>([]);
+  const [isLoadingWallets, setIsLoadingWallets] = useState(false);
+  const [sortField, setSortField] = useState<SortField>('lastSeen');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [expandedWallet, setExpandedWallet] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,6 +142,81 @@ export default function Admin() {
       console.error('Failed to load dashboard data:', error);
     }
   };
+
+  const loadWalletList = async (auth: string) => {
+    setIsLoadingWallets(true);
+    try {
+      const res = await authenticatedRequest('GET', '/api/admin/wallets', auth);
+      const wallets = await res.json();
+      setWalletList(wallets);
+    } catch (error) {
+      console.error('Failed to load wallet list:', error);
+      toast({
+        title: 'Load Failed',
+        description: 'Failed to load wallet list',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingWallets(false);
+    }
+  };
+
+  const sortedWallets = [...walletList].sort((a, b) => {
+    let comparison = 0;
+    const safeBalance = (val: string) => {
+      try { return BigInt(val || '0'); } catch { return BigInt(0); }
+    };
+    switch (sortField) {
+      case 'balance': {
+        const aVal = safeBalance(a.totalBalance);
+        const bVal = safeBalance(b.totalBalance);
+        comparison = aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+        break;
+      }
+      case 'transfers':
+        comparison = a.transferCount - b.transferCount;
+        break;
+      case 'volume': {
+        const aVol = safeBalance(a.totalVolume);
+        const bVol = safeBalance(b.totalVolume);
+        comparison = aVol > bVol ? 1 : aVol < bVol ? -1 : 0;
+        break;
+      }
+      case 'created':
+        comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        break;
+      case 'lastSeen':
+        comparison = new Date(a.lastSeen).getTime() - new Date(b.lastSeen).getTime();
+        break;
+      case 'pool':
+        comparison = a.poolOptInPercent - b.poolOptInPercent;
+        break;
+    }
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const SortButton = ({ field, label }: { field: SortField; label: string }) => (
+    <button
+      onClick={() => handleSort(field)}
+      className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+    >
+      {label}
+      {sortField === field ? (
+        sortDirection === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+      ) : (
+        <ArrowUpDown className="h-3 w-3 opacity-50" />
+      )}
+    </button>
+  );
 
   const handleBackfillBalances = async () => {
     if (!walletAddress) {
@@ -644,6 +740,111 @@ export default function Admin() {
             ) : null}
             <Button onClick={() => loadDashboardData(authHeader)} variant="outline" className="w-full" data-testid="button-fetch-activity">
               {recentActivity.length > 0 ? 'Refresh Activity' : 'Load Recent Activity'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Wallet List */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              All Wallets
+            </CardTitle>
+            <CardDescription>
+              Complete list of registered wallets with balances, activity, and pool status
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {walletList.length > 0 ? (
+              <>
+                <div className="grid grid-cols-6 gap-2 px-2 py-1 border-b text-xs">
+                  <div className="col-span-2">Address</div>
+                  <SortButton field="balance" label="Balance" />
+                  <SortButton field="transfers" label="Transfers" />
+                  <SortButton field="lastSeen" label="Last Seen" />
+                  <SortButton field="pool" label="Pool %" />
+                </div>
+                <div className="space-y-1 max-h-96 overflow-y-auto">
+                  {sortedWallets.map((wallet) => (
+                    <div key={wallet.address} className="text-xs">
+                      <div
+                        className="grid grid-cols-6 gap-2 p-2 bg-muted cursor-pointer hover:bg-muted/80"
+                        onClick={() => setExpandedWallet(expandedWallet === wallet.address ? null : wallet.address)}
+                      >
+                        <div className="col-span-2 font-mono truncate">
+                          {wallet.address.slice(0, 8)}...{wallet.address.slice(-6)}
+                        </div>
+                        <div className="font-mono">{formatAmount(wallet.totalBalance || '0')}</div>
+                        <div>{wallet.transferCount || 0}</div>
+                        <div className="text-muted-foreground">
+                          {new Date(wallet.lastSeen).toLocaleDateString()}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span>{wallet.poolOptInPercent}%</span>
+                          {wallet.poolApproved && (
+                            <CheckCircle2 className="h-3 w-3 text-green-500" />
+                          )}
+                        </div>
+                      </div>
+                      {expandedWallet === wallet.address && (
+                        <div className="p-2 bg-background border border-t-0 space-y-2">
+                          <div className="grid grid-cols-3 gap-2 text-muted-foreground">
+                            <div>
+                              <span className="block text-[10px] uppercase">Base</span>
+                              <span className="font-mono">{formatAmount(wallet.balanceByChain?.base || '0')}</span>
+                            </div>
+                            <div>
+                              <span className="block text-[10px] uppercase">Celo</span>
+                              <span className="font-mono">{formatAmount(wallet.balanceByChain?.celo || '0')}</span>
+                            </div>
+                            <div>
+                              <span className="block text-[10px] uppercase">Gnosis</span>
+                              <span className="font-mono">{formatAmount(wallet.balanceByChain?.gnosis || '0')}</span>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 text-muted-foreground">
+                            <div>
+                              <span className="block text-[10px] uppercase">Created</span>
+                              <span>{new Date(wallet.createdAt).toLocaleDateString()}</span>
+                            </div>
+                            <div>
+                              <span className="block text-[10px] uppercase">Volume</span>
+                              <span className="font-mono">{formatAmount(wallet.totalVolume || '0')}</span>
+                            </div>
+                            <div>
+                              <span className="block text-[10px] uppercase">Pool Status</span>
+                              <span>{wallet.poolApproved ? 'Approved' : 'Not Approved'}</span>
+                            </div>
+                          </div>
+                          <div className="pt-1">
+                            <span className="text-[10px] uppercase text-muted-foreground">Full Address</span>
+                            <div className="font-mono text-[11px] break-all">{wallet.address}</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : null}
+            <Button
+              onClick={() => loadWalletList(authHeader)}
+              disabled={isLoadingWallets}
+              variant="outline"
+              className="w-full"
+              data-testid="button-load-wallets"
+            >
+              {isLoadingWallets ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Loading...
+                </>
+              ) : walletList.length > 0 ? (
+                'Refresh Wallet List'
+              ) : (
+                'Load Wallet List'
+              )}
             </Button>
           </CardContent>
         </Card>

@@ -2306,6 +2306,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/admin/wallets', adminAuthMiddleware, async (req, res) => {
+    try {
+      const wallets = await storage.getAllWalletsWithDetails();
+      res.json(wallets);
+    } catch (error) {
+      console.error('Error fetching wallet details:', error);
+      res.status(500).json({ error: 'Failed to fetch wallet details' });
+    }
+  });
+
   app.get('/api/admin/health', adminAuthMiddleware, async (req, res) => {
     try {
       const health = {

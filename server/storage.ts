@@ -1729,6 +1729,89 @@ export class DbStorage extends MemStorage {
     }
   }
 
+  async getAllWalletsWithDetails(): Promise<Array<{
+    address: string;
+    createdAt: string;
+    lastSeen: string;
+    totalBalance: string;
+    balanceByChain: { base: string; celo: string; gnosis: string };
+    transferCount: number;
+    totalVolume: string;
+    savingsBalance: string;
+    poolOptInPercent: number;
+    poolApproved: boolean;
+  }>> {
+    try {
+      const allWallets = await db.select().from(wallets).orderBy(desc(wallets.lastSeen));
+      
+      const results = await Promise.all(allWallets.map(async (wallet) => {
+        const address = wallet.address.toLowerCase();
+        
+        const balanceData = await db
+          .select()
+          .from(cachedBalances)
+          .where(eq(cachedBalances.address, address));
+        
+        const balanceByChain = { base: '0', celo: '0', gnosis: '0' };
+        let totalBalance = BigInt(0);
+        
+        for (const b of balanceData) {
+          const balanceStr = b.balance || '0';
+          const amount = BigInt(balanceStr);
+          totalBalance += amount;
+          if (b.chainId === 8453) balanceByChain.base = balanceStr;
+          else if (b.chainId === 42220) balanceByChain.celo = balanceStr;
+          else if (b.chainId === 100) balanceByChain.gnosis = balanceStr;
+        }
+        
+        const txData = await db
+          .select({
+            count: sql<number>`count(*)`,
+            volume: sql<string>`COALESCE(SUM(CAST(amount AS BIGINT)), 0)`,
+          })
+          .from(cachedTransactions)
+          .where(
+            or(
+              eq(cachedTransactions.from, address),
+              eq(cachedTransactions.to, address)
+            )
+          );
+        
+        const transferCount = Number(txData[0]?.count || 0);
+        const totalVolume = txData[0]?.volume || '0';
+        
+        const savingsBalance = '0';
+        
+        const poolData = await db
+          .select()
+          .from(poolSettings)
+          .where(eq(poolSettings.walletAddress, address))
+          .limit(1);
+        
+        const poolOptInPercent = poolData[0]?.optInPercent || 0;
+        const poolApproved = poolData[0]?.facilitatorApproved || false;
+        
+        return {
+          address: wallet.address,
+          createdAt: wallet.createdAt.toISOString(),
+          lastSeen: wallet.lastSeen.toISOString(),
+          totalBalance: totalBalance.toString(),
+          balanceByChain,
+          transferCount,
+          totalVolume,
+          savingsBalance,
+          poolOptInPercent,
+          poolApproved,
+        };
+      }));
+      
+      return results;
+    } catch (error) {
+      console.error('[Admin] Error fetching wallet details:', error);
+      throw error;
+    }
+  }
+
   async getRecentActivity(): Promise<Array<{
     txHash: string;
     from: string;
