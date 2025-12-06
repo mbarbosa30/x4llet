@@ -179,7 +179,7 @@ export default function RestoreWallet() {
               <p className="text-xs text-destructive">{passwordError}</p>
             )}
             <p className="text-xs text-muted-foreground">
-              Create a new password for this device (8+ chars, uppercase, lowercase, number)
+              Create a new password for this device (6+ characters)
             </p>
           </div>
 
