@@ -1091,21 +1091,21 @@ export default function Earn() {
                 )}
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full">
                 <Button 
-                  className="flex-1" 
+                  className="flex-1 min-w-0" 
                   onClick={() => {
                     resetAaveDialog();
                     setShowAaveDeposit(true);
                   }}
                   data-testid="button-earn-deposit"
                 >
-                  <ArrowUpToLine className="h-4 w-4 mr-2" />
-                  Deposit
+                  <ArrowUpToLine className="h-4 w-4 mr-2 shrink-0" />
+                  <span className="truncate">Deposit</span>
                 </Button>
                 <Button 
                   variant="outline"
-                  className="flex-1" 
+                  className="flex-1 min-w-0" 
                   onClick={() => {
                     resetAaveDialog();
                     setShowAaveWithdraw(true);
@@ -1113,8 +1113,8 @@ export default function Earn() {
                   disabled={!hasAaveBalance}
                   data-testid="button-earn-withdraw"
                 >
-                  <ArrowDownToLine className="h-4 w-4 mr-2" />
-                  Withdraw
+                  <ArrowDownToLine className="h-4 w-4 mr-2 shrink-0" />
+                  <span className="truncate">Withdraw</span>
                 </Button>
               </div>
             </Card>
