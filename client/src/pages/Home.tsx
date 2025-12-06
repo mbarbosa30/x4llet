@@ -75,7 +75,7 @@ export default function Home() {
   }, [setLocation]);
 
   // Fetch aggregated balance from all chains
-  const { data: balanceData, isLoading } = useQuery<BalanceResponse & { chains?: any }>({
+  const { data: balanceData, isLoading, isFetching: isRefreshingBalance, refetch: refetchBalance } = useQuery<BalanceResponse & { chains?: any }>({
     queryKey: ['/api/balance', address],
     enabled: !!address,
     refetchInterval: 30000,
@@ -85,6 +85,10 @@ export default function Home() {
       return res.json();
     },
   });
+
+  const handleRefreshBalance = async () => {
+    await refetchBalance();
+  };
 
   // Fetch aggregated transactions from all chains
   const { data: allTransactions } = useQuery<(SchemaTransaction & { chainId?: number })[]>({
@@ -241,6 +245,8 @@ export default function Home() {
             chains={chains}
             aaveBalance={aaveBalance}
             earnMode={earnMode}
+            onRefresh={handleRefreshBalance}
+            isRefreshing={isRefreshingBalance && !isLoading}
           />
         )}
 

@@ -37,7 +37,8 @@ import {
   ArrowRight,
   PiggyBank,
   Shield,
-  UserPlus
+  UserPlus,
+  RefreshCw
 } from "lucide-react";
 import { BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine, ReferenceDot } from 'recharts';
 
@@ -245,10 +246,16 @@ export default function Pool() {
     }
   }, [search, address]);
 
-  const { data: poolStatus, isLoading: isLoadingStatus } = useQuery<PoolStatus>({
+  const { data: poolStatus, isLoading: isLoadingStatus, isFetching: isRefreshingPool, refetch: refetchPoolStatus } = useQuery<PoolStatus>({
     queryKey: ["/api/pool/status", address],
     enabled: !!address,
   });
+
+  const handleRefreshPool = async () => {
+    await refetchPoolStatus();
+  };
+
+  const isRefreshingPrize = isRefreshingPool && !isLoadingStatus;
 
   const { data: historyData, isLoading: isLoadingHistory } = useQuery<DrawHistory>({
     queryKey: ["/api/pool/history"],
@@ -831,18 +838,27 @@ export default function Pool() {
                     
                     return (
                       <div className="space-y-1">
-                        <div className="text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight" data-testid="text-prize-amount">
+                        <button
+                          onClick={handleRefreshPool}
+                          disabled={isRefreshingPrize}
+                          className="text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all disabled:cursor-default disabled:hover:opacity-100 disabled:active:scale-100"
+                          data-testid="button-refresh-prize"
+                        >
                           <span className="text-3xl font-normal text-muted-foreground mr-1.5">$</span>
-                          <span className="inline-flex items-baseline">
-                            <span>{isAnimating ? Math.floor(prizePoolAnimation.animatedValue) : staticInt}</span>
-                            <span>.{isAnimating ? prizePoolAnimation.mainDecimals : staticDec}</span>
-                            {isAnimating && prizePoolAnimation.extraDecimals && (
-                              <span className="text-[0.28em] font-light text-muted-foreground relative ml-0.5" style={{ top: '-0.65em' }}>
-                                {prizePoolAnimation.extraDecimals}
-                              </span>
-                            )}
-                          </span>
-                        </div>
+                          {isRefreshingPrize ? (
+                            <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
+                          ) : (
+                            <span className="inline-flex items-baseline" data-testid="text-prize-amount">
+                              <span>{isAnimating ? Math.floor(prizePoolAnimation.animatedValue) : staticInt}</span>
+                              <span>.{isAnimating ? prizePoolAnimation.mainDecimals : staticDec}</span>
+                              {isAnimating && prizePoolAnimation.extraDecimals && (
+                                <span className="text-[0.28em] font-light text-muted-foreground relative ml-0.5" style={{ top: '-0.65em' }}>
+                                  {prizePoolAnimation.extraDecimals}
+                                </span>
+                              )}
+                            </span>
+                          )}
+                        </button>
                         <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest text-center">
                           USDC Pooling
                         </p>

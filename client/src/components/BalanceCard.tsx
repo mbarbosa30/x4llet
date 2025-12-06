@@ -5,6 +5,7 @@ import { useInflationAnimation } from '@/hooks/use-inflation-animation';
 import { useEarningAnimation } from '@/hooks/use-earning-animation';
 import AnimatedBalance from './AnimatedBalance';
 import { useState, useEffect } from 'react';
+import { RefreshCw } from 'lucide-react';
 
 interface ChainBalance {
   chainId: number;
@@ -42,6 +43,8 @@ interface BalanceCardProps {
   };
   aaveBalance?: AaveBalance;
   earnMode?: boolean;
+  onRefresh?: () => Promise<void>;
+  isRefreshing?: boolean;
 }
 
 interface BalanceHistoryPoint {
@@ -130,6 +133,8 @@ export default function BalanceCard({
   chains,
   aaveBalance,
   earnMode,
+  onRefresh,
+  isRefreshing,
 }: BalanceCardProps) {
 
   // Fetch aggregated balance history (chainId=0) when no specific chain selected
@@ -286,10 +291,17 @@ export default function BalanceCard({
       {/* Content overlay */}
       <div className="relative z-10">
         <div className="text-xs mb-2 font-mono uppercase tracking-widest text-muted-foreground">{currency} Balance</div>
-        <div className="text-5xl font-bold tabular-nums mb-2 flex items-center justify-center tracking-tight" data-testid="text-balance">
+        <button
+          onClick={onRefresh}
+          disabled={isRefreshing || !onRefresh}
+          className="text-5xl font-bold tabular-nums mb-2 flex items-center justify-center tracking-tight cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all disabled:cursor-default disabled:hover:opacity-100 disabled:active:scale-100 group"
+          data-testid="button-refresh-balance"
+        >
           <span className="text-3xl font-normal text-muted-foreground mr-1.5">$</span>
-          {isEarning ? (
-            <span className="inline-flex items-baseline">
+          {isRefreshing ? (
+            <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
+          ) : isEarning ? (
+            <span className="inline-flex items-baseline" data-testid="text-balance">
               <span>{Math.floor(earningAnimation.animatedValue)}</span>
               <span>.{earningAnimation.mainDecimals}</span>
               {earningAnimation.extraDecimals && (
@@ -299,9 +311,9 @@ export default function BalanceCard({
               )}
             </span>
           ) : (
-            <span>{balance}</span>
+            <span data-testid="text-balance">{balance}</span>
           )}
-        </div>
+        </button>
         
         {/* Chain breakdown - always show when chains data is available */}
         {chains && (

@@ -30,7 +30,8 @@ import {
   PiggyBank,
   Settings,
   Layers,
-  ShoppingBag
+  ShoppingBag,
+  RefreshCw
 } from 'lucide-react';
 import { ComposedChart, AreaChart, Area, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import {
@@ -275,7 +276,7 @@ export default function Earn() {
     },
   });
 
-  const { data: aaveBalanceBase, isLoading: isAaveBalanceBaseLoading } = useQuery<{ aUsdcBalance: string; apy: number }>({
+  const { data: aaveBalanceBase, isLoading: isAaveBalanceBaseLoading, isFetching: isRefreshingBase, refetch: refetchBase } = useQuery<{ aUsdcBalance: string; apy: number }>({
     queryKey: ['/api/aave/balance', address, 8453],
     enabled: !!address,
     queryFn: async () => {
@@ -286,7 +287,7 @@ export default function Earn() {
     refetchInterval: 30000,
   });
 
-  const { data: aaveBalanceCelo, isLoading: isAaveBalanceCeloLoading } = useQuery<{ aUsdcBalance: string; apy: number }>({
+  const { data: aaveBalanceCelo, isLoading: isAaveBalanceCeloLoading, isFetching: isRefreshingCelo, refetch: refetchCelo } = useQuery<{ aUsdcBalance: string; apy: number }>({
     queryKey: ['/api/aave/balance', address, 42220],
     enabled: !!address,
     queryFn: async () => {
@@ -297,7 +298,7 @@ export default function Earn() {
     refetchInterval: 30000,
   });
 
-  const { data: aaveBalanceGnosis, isLoading: isAaveBalanceGnosisLoading } = useQuery<{ aUsdcBalance: string; apy: number }>({
+  const { data: aaveBalanceGnosis, isLoading: isAaveBalanceGnosisLoading, isFetching: isRefreshingGnosis, refetch: refetchGnosis } = useQuery<{ aUsdcBalance: string; apy: number }>({
     queryKey: ['/api/aave/balance', address, 100],
     enabled: !!address,
     queryFn: async () => {
@@ -307,6 +308,12 @@ export default function Earn() {
     },
     refetchInterval: 30000,
   });
+
+  const isRefreshingAave = (isRefreshingBase || isRefreshingCelo || isRefreshingGnosis) && !isAaveBalanceBaseLoading && !isAaveBalanceCeloLoading && !isAaveBalanceGnosisLoading;
+
+  const handleRefreshAaveBalance = async () => {
+    await Promise.all([refetchBase(), refetchCelo(), refetchGnosis()]);
+  };
 
   interface InterestChainData {
     chainId: number;
@@ -1050,18 +1057,27 @@ export default function Earn() {
                   </div>
                 ) : effectiveHasAaveBalance ? (
                   <div className="space-y-1">
-                    <div className="text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight" data-testid="text-earning-amount">
+                    <button
+                      onClick={handleRefreshAaveBalance}
+                      disabled={isRefreshingAave}
+                      className="text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all disabled:cursor-default disabled:hover:opacity-100 disabled:active:scale-100"
+                      data-testid="button-refresh-earning"
+                    >
                       <span className="text-3xl font-normal text-muted-foreground mr-1.5">$</span>
-                      <span className="inline-flex items-baseline">
-                        <span>{Math.floor(totalEarningAnimation.animatedValue)}</span>
-                        <span>.{totalEarningAnimation.mainDecimals}</span>
-                        {totalEarningAnimation.extraDecimals && (
-                          <span className="text-[0.28em] font-light text-muted-foreground relative ml-0.5" style={{ top: '-0.65em' }}>
-                            {totalEarningAnimation.extraDecimals}
-                          </span>
-                        )}
-                      </span>
-                    </div>
+                      {isRefreshingAave ? (
+                        <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
+                      ) : (
+                        <span className="inline-flex items-baseline" data-testid="text-earning-amount">
+                          <span>{Math.floor(totalEarningAnimation.animatedValue)}</span>
+                          <span>.{totalEarningAnimation.mainDecimals}</span>
+                          {totalEarningAnimation.extraDecimals && (
+                            <span className="text-[0.28em] font-light text-muted-foreground relative ml-0.5" style={{ top: '-0.65em' }}>
+                              {totalEarningAnimation.extraDecimals}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </button>
                     <div className="text-xs text-muted-foreground font-mono uppercase tracking-widest">USDC Yielding</div>
                   </div>
                 ) : (
