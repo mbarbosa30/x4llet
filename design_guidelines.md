@@ -183,9 +183,18 @@ import { Marquee, MarqueeItem } from '@/components/ui/marquee'
 ```
 
 **Bottom Navigation:**
-- Black background with white text
-- Active item: Blue text
+- White/light background (`bg-background`) with subtle top border (`border-foreground/10`)
+- Inactive items: Gray text (`text-foreground/60`), medium weight
+- Active items: Blue text (`text-[#0055FF]`), semibold, with blue underline indicator
 - Uppercase labels
+
+```tsx
+<button className={`... ${isActive ? 'text-[#0055FF] font-semibold' : 'text-foreground/60 font-medium'}`}>
+  <Icon className="h-5 w-5" />
+  <span className="uppercase">Label</span>
+  {isActive && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#0055FF]" />}
+</button>
+```
 
 ---
 
@@ -225,8 +234,10 @@ import { Marquee, MarqueeItem } from '@/components/ui/marquee'
 
 ## Balance Display
 
+Use consistent `font-bold` (not `font-black`) for balance amounts across all pages:
+
 ```tsx
-<div className="text-5xl font-black tabular-nums tracking-tighter">
+<div className="text-5xl font-bold tabular-nums tracking-tight">
   <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
   <span>{amount}</span>
 </div>
