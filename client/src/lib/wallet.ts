@@ -13,7 +13,6 @@ import {
 const WALLET_KEY = 'wallet_encrypted_key';
 const WALLET_V2_KEY = 'wallet_v2';
 const PREFERENCES_KEY = 'user_preferences';
-const SESSION_DEK_KEY = 'session_dek';
 
 interface WalletV2Data {
   encryptedPrivateKey: string;
@@ -22,38 +21,31 @@ interface WalletV2Data {
   version: 2;
 }
 
+let memoryDek: Uint8Array | null = null;
+let memoryPassword: string | null = null;
+
 function getSessionDek(): Uint8Array | null {
-  if (typeof window === 'undefined') return null;
-  const stored = sessionStorage.getItem(SESSION_DEK_KEY);
-  if (!stored) return null;
-  return Uint8Array.from(atob(stored), c => c.charCodeAt(0));
+  return memoryDek;
 }
 
 function setSessionDek(dek: Uint8Array): void {
-  if (typeof window === 'undefined') return;
-  sessionStorage.setItem(SESSION_DEK_KEY, btoa(String.fromCharCode(...dek)));
+  memoryDek = dek;
 }
 
 function clearSessionDek(): void {
-  if (typeof window === 'undefined') return;
-  sessionStorage.removeItem(SESSION_DEK_KEY);
+  memoryDek = null;
 }
 
-const SESSION_PASSWORD_KEY = 'session_password';
-
 function getSessionPassword(): string | null {
-  if (typeof window === 'undefined') return null;
-  return sessionStorage.getItem(SESSION_PASSWORD_KEY);
+  return memoryPassword;
 }
 
 function setSessionPassword(password: string): void {
-  if (typeof window === 'undefined') return;
-  sessionStorage.setItem(SESSION_PASSWORD_KEY, password);
+  memoryPassword = password;
 }
 
 function clearSessionPassword(): void {
-  if (typeof window === 'undefined') return;
-  sessionStorage.removeItem(SESSION_PASSWORD_KEY);
+  memoryPassword = null;
 }
 
 function generateRecoveryCode(): string {
