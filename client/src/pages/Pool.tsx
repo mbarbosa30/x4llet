@@ -732,7 +732,10 @@ export default function Pool() {
                 })()}
               </div>
               <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                Deposit USDC on Celo via the Earn page, then contribute your yield for a chance to win
+                Allocate part of your USDC savings yield for a chance to win weekly prizes
+              </p>
+              <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                Celo network only for now
               </p>
               <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground pt-2">
                 <span className="flex items-center gap-1">
