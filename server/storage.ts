@@ -84,8 +84,8 @@ function parseTransactionResponse(data: any, address: string, chainName: string)
     return {
       id: tx.hash,
       type: isSend ? 'send' : 'receive',
-      from: tx.from,
-      to: tx.to,
+      from: normalizedFrom,
+      to: normalizedTo,
       amount,
       timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
       status: 'completed',
@@ -841,6 +841,9 @@ export class DbStorage extends MemStorage {
   }
 
   async getTransactions(address: string, chainId: number): Promise<Transaction[]> {
+    // Normalize address to lowercase for case-insensitive matching
+    const normalizedAddress = address.toLowerCase();
+    
     // Check cache first
     const cachedResults = await db
       .select()
@@ -849,8 +852,8 @@ export class DbStorage extends MemStorage {
         and(
           eq(cachedTransactions.chainId, chainId),
           or(
-            eq(cachedTransactions.from, address),
-            eq(cachedTransactions.to, address)
+            sql`LOWER(${cachedTransactions.from}) = ${normalizedAddress}`,
+            sql`LOWER(${cachedTransactions.to}) = ${normalizedAddress}`
           )
         )
       )
