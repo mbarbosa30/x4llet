@@ -81,7 +81,7 @@ export default function AppHeader() {
 
   return (
     <header 
-      className="fixed top-0 left-0 right-0 bg-background border-b border-foreground/15"
+      className="fixed top-0 left-0 right-0 bg-background border-b border-foreground/10"
       style={{ 
         paddingTop: 'env(safe-area-inset-top)',
         height: 'calc(4rem + env(safe-area-inset-top))',

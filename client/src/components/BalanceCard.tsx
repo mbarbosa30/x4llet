@@ -255,7 +255,7 @@ export default function BalanceCard({
   };
 
   return (
-    <div className="bg-card border border-foreground/15 p-8 text-center relative overflow-hidden" data-testid="card-balance">
+    <div className="bg-card border border-foreground/10 p-8 text-center relative overflow-hidden" data-testid="card-balance">
       {/* Background chart */}
       {chartData.length > 1 && (
         <div className="absolute inset-0 opacity-10">
