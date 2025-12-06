@@ -1483,6 +1483,11 @@ export default function Pool() {
                       onChange={(e) => setReferralInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))}
                       className="font-mono text-center text-lg tracking-wider"
                       maxLength={8}
+                      autoComplete="off"
+                      autoCapitalize="characters"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      inputMode="text"
                       data-testid="input-referral-code"
                     />
                     <Button
