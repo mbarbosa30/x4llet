@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AlertTriangle, RotateCcw, Loader2 } from "lucide-react";
+import { useWalletStore } from "@/lib/walletStore";
 import Landing from "@/pages/Landing";
 import CreateWallet from "@/pages/CreateWallet";
 import Unlock from "@/pages/Unlock";
@@ -215,6 +216,7 @@ function Router() {
 function App() {
   const [location] = useLocation();
   const [isEmergencyResetting, setIsEmergencyResetting] = useState(false);
+  const { isUnlocked } = useWalletStore();
 
   // Check for emergency reset URL parameter (?reset=1)
   useEffect(() => {
@@ -224,6 +226,22 @@ function App() {
       performEmergencyReset();
     }
   }, []);
+
+  // Warn user before page refresh/close when wallet is unlocked
+  useEffect(() => {
+    if (!isUnlocked) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Modern browsers ignore custom messages and show a generic one
+      // Setting returnValue is required for the dialog to show
+      e.returnValue = 'You will need to unlock your wallet with your password after refreshing.';
+      return e.returnValue;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isUnlocked]);
 
   // Show loading screen during emergency reset
   if (isEmergencyResetting) {
