@@ -333,7 +333,7 @@ export default function Settings() {
               <div className="flex items-center gap-3">
                 <Fingerprint className={`h-5 w-5 ${passkeySupportStatus?.supported ? 'text-muted-foreground' : 'text-muted-foreground/50'}`} />
                 <div className="text-left">
-                  <div className={`text-sm font-medium ${!passkeySupportStatus?.supported ? 'text-muted-foreground' : ''}`}>
+                  <div className={`text-xs font-medium text-foreground/70 ${!passkeySupportStatus?.supported ? 'text-muted-foreground' : ''}`}>
                     Passkey Unlock
                   </div>
                   <div className="text-xs text-muted-foreground">
@@ -360,7 +360,7 @@ export default function Settings() {
             >
               <div className="flex items-center gap-3">
                 <Key className="h-5 w-5 text-muted-foreground" />
-                <span className="text-sm font-medium">Export Private Key</span>
+                <span className="text-xs font-medium text-foreground/70">Export Private Key</span>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
@@ -371,7 +371,7 @@ export default function Settings() {
             >
               <div className="flex items-center gap-3">
                 <Lock className="h-5 w-5 text-muted-foreground" />
-                <span className="text-sm font-medium">Lock Wallet</span>
+                <span className="text-xs font-medium text-foreground/70">Lock Wallet</span>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
@@ -391,7 +391,7 @@ export default function Settings() {
               <div className="flex items-center gap-3">
                 <Palette className="h-5 w-5 text-muted-foreground" />
                 <div className="text-left">
-                  <div className="text-sm font-medium">Theme</div>
+                  <div className="text-xs font-medium text-foreground/70">Theme</div>
                   <div className="text-xs text-muted-foreground capitalize">{theme}</div>
                 </div>
               </div>
@@ -405,7 +405,7 @@ export default function Settings() {
               <div className="flex items-center gap-3">
                 <DollarSign className="h-5 w-5 text-muted-foreground" />
                 <div className="text-left">
-                  <div className="text-sm font-medium">Display Currency</div>
+                  <div className="text-xs font-medium text-foreground/70">Display Currency</div>
                   <div className="text-xs text-muted-foreground">{currency}</div>
                 </div>
               </div>
@@ -418,7 +418,7 @@ export default function Settings() {
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="text-sm font-medium">{currency} vs USD</h3>
+                  <h3 className="text-xs font-medium text-foreground/70">{currency} vs USD</h3>
                 </div>
                 
                 {exchangeRate && (
@@ -468,7 +468,7 @@ export default function Settings() {
             >
               <div className="flex items-center gap-3">
                 <HelpCircle className="h-5 w-5 text-muted-foreground" />
-                <span className="text-sm font-medium">Context</span>
+                <span className="text-xs font-medium text-foreground/70">Context</span>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
@@ -479,7 +479,7 @@ export default function Settings() {
             >
               <div className="flex items-center gap-3">
                 <BookOpen className="h-5 w-5 text-muted-foreground" />
-                <span className="text-sm font-medium">How It Works</span>
+                <span className="text-xs font-medium text-foreground/70">How It Works</span>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
@@ -490,7 +490,7 @@ export default function Settings() {
             >
               <div className="flex items-center gap-3">
                 <MessageCircleQuestion className="h-5 w-5 text-muted-foreground" />
-                <span className="text-sm font-medium">FAQs</span>
+                <span className="text-xs font-medium text-foreground/70">FAQs</span>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
@@ -510,7 +510,7 @@ export default function Settings() {
               <div className="flex items-center gap-3">
                 <RotateCcw className="h-5 w-5 text-muted-foreground" />
                 <div className="text-left">
-                  <div className="text-sm font-medium">Reset App Data</div>
+                  <div className="text-xs font-medium text-foreground/70">Reset App Data</div>
                   <div className="text-xs text-muted-foreground">Clear cache if app isn't working</div>
                 </div>
               </div>

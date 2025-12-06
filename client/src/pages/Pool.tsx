@@ -738,7 +738,7 @@ export default function Pool() {
             <Card className="p-4 space-y-4">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Yield to contribute</span>
+                  <span className="text-xs font-medium text-foreground/70">Yield to contribute</span>
                   <Badge variant="outline" className="font-bold px-2" data-testid="text-intro-opt-in">
                     {optInPercent}%
                   </Badge>
@@ -813,7 +813,7 @@ export default function Pool() {
               {/* This Week's Prize */}
               <Card className="p-6 space-y-4" data-testid="card-prize-pool">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/70 flex items-center gap-2">
                     <Trophy className="h-4 w-4 text-[#0055FF]" />
                     This Week's Prize
                   </div>
@@ -871,7 +871,7 @@ export default function Pool() {
 
               {/* Your Position - Uses actual interest data */}
               <Card className="p-4 space-y-3" data-testid="card-your-position">
-                <div className="text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
+                <div className="text-xs font-semibold uppercase tracking-wide text-foreground/70 flex items-center gap-2">
                   <Target className="h-4 w-4 text-[#0055FF]" />
                   Your Position
                 </div>
@@ -902,7 +902,7 @@ export default function Pool() {
               {/* Contribution */}
               <Card className="p-4 space-y-3" data-testid="card-yield-contribution">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/70 flex items-center gap-2">
                     <Coins className="h-4 w-4 text-[#0055FF]" />
                     Yield Contribution
                   </div>
@@ -1063,7 +1063,7 @@ export default function Pool() {
                 
                 return (
                   <Card className="p-4 space-y-3">
-                    <div className="text-sm font-medium flex items-center gap-2">
+                    <div className="text-xs font-medium text-foreground/70 flex items-center gap-2">
                       <TrendingUp className="h-4 w-4 text-primary" />
                       Optimal Allocation
                     </div>
@@ -1071,7 +1071,7 @@ export default function Pool() {
                     {/* Status badge */}
                     <div className={`rounded-none p-3 ${statusBg}`}>
                       <div className="flex items-center justify-between gap-2">
-                        <span className={`text-sm font-medium ${statusColor}`} data-testid="text-kelly-status">
+                        <span className={`text-xs font-medium ${statusColor}`} data-testid="text-kelly-status">
                           {status === 'optimal' && 'Optimal zone'}
                           {status === 'under' && 'Room to increase'}
                           {status === 'over' && 'Aggressive allocation'}
@@ -1121,7 +1121,6 @@ export default function Pool() {
                               contentStyle={{
                                 backgroundColor: 'hsl(var(--card))',
                                 border: '1px solid hsl(var(--border))',
-                                borderRadius: '8px',
                                 fontSize: '11px'
                               }}
                               formatter={(value: number, name: string) => [
@@ -1176,7 +1175,7 @@ export default function Pool() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Shield className="h-4 w-4 text-amber-600" />
-                      <span className="text-sm font-medium">Yield Collection</span>
+                      <span className="text-xs font-medium text-foreground/70">Yield Collection</span>
                     </div>
                     <Badge 
                       variant="secondary"
@@ -1216,7 +1215,7 @@ export default function Pool() {
             <TabsContent value="tickets" className="mt-4 space-y-4">
               {/* Ticket Breakdown - Uses actual interest data */}
               <Card className="p-4 space-y-3" data-testid="card-ticket-breakdown">
-                <div className="text-sm font-medium flex items-center gap-2">
+                <div className="text-xs font-medium text-foreground/70 flex items-center gap-2">
                   <Ticket className="h-4 w-4 text-primary" />
                   Ticket Breakdown
                 </div>
@@ -1314,7 +1313,7 @@ export default function Pool() {
                 
                 return (
                   <Card className="p-4 space-y-3" data-testid="card-when-win">
-                    <div className="text-sm font-medium flex items-center gap-2">
+                    <div className="text-xs font-medium text-foreground/70 flex items-center gap-2">
                       <Target className="h-4 w-4 text-primary" />
                       When Will You Win?
                     </div>
@@ -1346,7 +1345,6 @@ export default function Pool() {
                                 contentStyle={{
                                   backgroundColor: 'hsl(var(--card))',
                                   border: '1px solid hsl(var(--border))',
-                                  borderRadius: '8px',
                                   fontSize: '11px'
                                 }}
                                 formatter={(value: number, name: string) => [
@@ -1429,7 +1427,7 @@ export default function Pool() {
               <Card className="p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Share2 className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium">Share & Earn</span>
+                  <span className="text-xs font-medium text-foreground/70">Share & Earn</span>
                   <Badge variant="secondary" className="ml-auto" data-testid="badge-referral-count">
                     {poolStatus.referral.activeReferrals} referred
                   </Badge>
@@ -1503,7 +1501,7 @@ export default function Pool() {
               {/* Prize Trend Chart */}
               {historyData?.draws && historyData.draws.length > 1 ? (
                 <Card className="p-4 space-y-3">
-                  <div className="text-sm font-medium flex items-center gap-2">
+                  <div className="text-xs font-medium text-foreground/70 flex items-center gap-2">
                     <BarChart3 className="h-4 w-4 text-primary" />
                     Prize Trend
                   </div>
@@ -1530,7 +1528,6 @@ export default function Pool() {
                           contentStyle={{
                             backgroundColor: 'hsl(var(--card))',
                             border: '1px solid hsl(var(--border))',
-                            borderRadius: '8px',
                             fontSize: '12px'
                           }}
                           formatter={(value: number) => [`$${formatMicroUsdc(String(value * 1_000_000))}`, 'Prize']}
@@ -1546,7 +1543,7 @@ export default function Pool() {
                 </Card>
               ) : (
                 <Card className="p-4 space-y-3 border-dashed">
-                  <div className="text-sm font-medium flex items-center gap-2">
+                  <div className="text-xs font-medium text-foreground/70 flex items-center gap-2">
                     <BarChart3 className="h-4 w-4 text-muted-foreground" />
                     Prize Trend
                   </div>
@@ -1560,7 +1557,7 @@ export default function Pool() {
 
               {/* Past Draws */}
               <Card className="p-4 space-y-3">
-                <div className="text-sm font-medium flex items-center gap-2">
+                <div className="text-xs font-medium text-foreground/70 flex items-center gap-2">
                   <History className="h-4 w-4 text-primary" />
                   Past Draws
                 </div>
@@ -1647,7 +1644,7 @@ export default function Pool() {
                 
                 return (
                   <Card className="p-4 space-y-3">
-                    <div className="text-sm font-medium flex items-center gap-2">
+                    <div className="text-xs font-medium text-foreground/70 flex items-center gap-2">
                       <Users className="h-4 w-4 text-primary" />
                       Fairness & Network
                     </div>
@@ -1692,7 +1689,6 @@ export default function Pool() {
                                   contentStyle={{
                                     backgroundColor: 'hsl(var(--card))',
                                     border: '1px solid hsl(var(--border))',
-                                    borderRadius: '8px',
                                     fontSize: '11px'
                                   }}
                                   formatter={(value: number, name: string) => [

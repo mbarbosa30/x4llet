@@ -988,7 +988,7 @@ export default function Earn() {
 
             <Card className="p-6 space-y-4" data-testid="card-earning-balance">
               <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
+                <div className="text-xs font-semibold uppercase tracking-wide text-foreground/70 flex items-center gap-2">
                   <PiggyBank className="h-4 w-4 text-[#0055FF]" />
                   Total Earning
                 </div>
@@ -1061,7 +1061,7 @@ export default function Earn() {
             {hasClaimableRewards && (
               <Card className="p-4 space-y-3" data-testid="card-claimable-rewards">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium flex items-center gap-2">
+                  <div className="text-xs font-medium flex items-center gap-2 text-foreground/70">
                     <Gift className="h-4 w-4 text-primary" />
                     Claimable Rewards
                   </div>
@@ -1131,7 +1131,7 @@ export default function Earn() {
             {/* Earnings Preview for users with no deposits */}
             {!effectiveHasAaveBalance && aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && (
               <Card className="p-4 space-y-4 border-dashed" data-testid="card-earnings-preview">
-                <div className="text-sm font-medium flex items-center gap-2">
+                <div className="text-xs font-medium flex items-center gap-2 text-foreground/70">
                   <Sparkles className="h-4 w-4 text-primary" />
                   What You Could Earn
                 </div>
@@ -1194,7 +1194,7 @@ export default function Earn() {
 
             {effectiveHasAaveBalance && (baseBalanceNum > 0 || celoBalanceNum > 0 || gnosisBalanceNum > 0) && [baseBalanceNum, celoBalanceNum, gnosisBalanceNum].filter(b => b > 0).length > 1 && (
               <Card className="p-4 space-y-3" data-testid="card-chain-breakdown">
-                <div className="text-sm font-medium flex items-center gap-2">
+                <div className="text-xs font-medium flex items-center gap-2 text-foreground/70">
                   <Layers className="h-4 w-4 text-primary" />
                   Balance & Rates by Network
                 </div>
@@ -1281,7 +1281,7 @@ export default function Earn() {
 
             {effectiveHasAaveBalance && combinedChartData.length > 0 && (
               <Card className="p-4 space-y-3" data-testid="card-projected-earnings">
-                <div className="text-sm font-medium flex items-center gap-2">
+                <div className="text-xs font-medium flex items-center gap-2 text-foreground/70">
                   <TrendingUp className="h-4 w-4 text-primary" />
                   Projected Earnings
                 </div>
@@ -1478,7 +1478,7 @@ export default function Earn() {
             {interestEarnedData && (
               <Card className="p-4 space-y-2" data-testid="card-interest-earned">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-sm font-medium flex items-center gap-2">
+                  <div className="text-xs font-medium flex items-center gap-2 text-foreground/70">
                     <Coins className="h-4 w-4 text-primary" />
                     Interest Earned
                   </div>
@@ -1545,7 +1545,7 @@ export default function Earn() {
             )}
 
             <Card className="p-4 space-y-3" data-testid="card-how-it-works">
-              <div className="text-sm font-medium flex items-center gap-2">
+              <div className="text-xs font-medium flex items-center gap-2 text-foreground/70">
                 <Info className="h-4 w-4 text-primary" />
                 How it works
               </div>
@@ -1631,7 +1631,7 @@ export default function Earn() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-medium">Prize Pool</h3>
+                    <h3 className="text-xs font-medium text-foreground/70">Prize Pool</h3>
                     {(localOptInPercent ?? 0) > 0 && (
                       <Badge variant="outline" className="text-xs text-success border-success/30">Active</Badge>
                     )}
@@ -1673,7 +1673,7 @@ export default function Earn() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-medium text-muted-foreground">Support Causes</h3>
+                      <h3 className="text-xs font-medium text-muted-foreground">Support Causes</h3>
                       <Lock className="h-3 w-3 text-muted-foreground" />
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
@@ -1691,7 +1691,7 @@ export default function Earn() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-medium text-muted-foreground">Buy Now, Pay Later</h3>
+                      <h3 className="text-xs font-medium text-muted-foreground">Buy Now, Pay Later</h3>
                       <Lock className="h-3 w-3 text-muted-foreground" />
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
@@ -1709,7 +1709,7 @@ export default function Earn() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-medium text-muted-foreground">Token Buyback</h3>
+                      <h3 className="text-xs font-medium text-muted-foreground">Token Buyback</h3>
                       <Lock className="h-3 w-3 text-muted-foreground" />
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
@@ -1727,7 +1727,7 @@ export default function Earn() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-medium text-muted-foreground">AI Credits</h3>
+                      <h3 className="text-xs font-medium text-muted-foreground">AI Credits</h3>
                       <Lock className="h-3 w-3 text-muted-foreground" />
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
@@ -1745,7 +1745,7 @@ export default function Earn() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-medium text-muted-foreground">Custom Address</h3>
+                      <h3 className="text-xs font-medium text-muted-foreground">Custom Address</h3>
                       <Lock className="h-3 w-3 text-muted-foreground" />
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
