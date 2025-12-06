@@ -1740,6 +1740,7 @@ export class DbStorage extends MemStorage {
     savingsBalance: string;
     poolOptInPercent: number;
     poolApproved: boolean;
+    maxFlowScore: number | null;
   }>> {
     try {
       const allWallets = await db.select().from(wallets).orderBy(desc(wallets.lastSeen));
@@ -1791,6 +1792,22 @@ export class DbStorage extends MemStorage {
         const poolOptInPercent = poolData[0]?.optInPercent || 0;
         const poolApproved = poolData[0]?.facilitatorApproved || false;
         
+        const maxflowData = await db
+          .select()
+          .from(cachedMaxflowScores)
+          .where(eq(cachedMaxflowScores.address, address))
+          .limit(1);
+        
+        let maxFlowScore: number | null = null;
+        if (maxflowData.length > 0) {
+          try {
+            const scoreData = JSON.parse(maxflowData[0].scoreData);
+            maxFlowScore = scoreData.localHealth || null;
+          } catch {
+            maxFlowScore = null;
+          }
+        }
+        
         return {
           address: wallet.address,
           createdAt: wallet.createdAt.toISOString(),
@@ -1802,6 +1819,7 @@ export class DbStorage extends MemStorage {
           savingsBalance,
           poolOptInPercent,
           poolApproved,
+          maxFlowScore,
         };
       }));
       

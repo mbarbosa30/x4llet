@@ -43,9 +43,10 @@ interface WalletDetails {
   savingsBalance: string;
   poolOptInPercent: number;
   poolApproved: boolean;
+  maxFlowScore: number | null;
 }
 
-type SortField = 'balance' | 'transfers' | 'volume' | 'created' | 'lastSeen' | 'pool';
+type SortField = 'balance' | 'transfers' | 'maxflow' | 'volume' | 'created' | 'lastSeen' | 'pool';
 type SortDirection = 'asc' | 'desc';
 
 function createAuthHeader(username: string, password: string): string {
@@ -176,6 +177,12 @@ export default function Admin() {
       case 'transfers':
         comparison = a.transferCount - b.transferCount;
         break;
+      case 'maxflow': {
+        const aScore = a.maxFlowScore ?? -1;
+        const bScore = b.maxFlowScore ?? -1;
+        comparison = aScore - bScore;
+        break;
+      }
       case 'volume': {
         const aVol = safeBalance(a.totalVolume);
         const bVol = safeBalance(b.totalVolume);
@@ -758,10 +765,11 @@ export default function Admin() {
           <CardContent className="space-y-3">
             {walletList.length > 0 ? (
               <>
-                <div className="grid grid-cols-6 gap-2 px-2 py-1 border-b text-xs">
+                <div className="grid grid-cols-7 gap-2 px-2 py-1 border-b text-xs">
                   <div className="col-span-2">Address</div>
                   <SortButton field="balance" label="Balance" />
-                  <SortButton field="transfers" label="Transfers" />
+                  <SortButton field="transfers" label="Txns" />
+                  <SortButton field="maxflow" label="Score" />
                   <SortButton field="lastSeen" label="Last Seen" />
                   <SortButton field="pool" label="Pool %" />
                 </div>
@@ -769,7 +777,7 @@ export default function Admin() {
                   {sortedWallets.map((wallet) => (
                     <div key={wallet.address} className="text-xs">
                       <div
-                        className="grid grid-cols-6 gap-2 p-2 bg-muted cursor-pointer hover:bg-muted/80"
+                        className="grid grid-cols-7 gap-2 p-2 bg-muted cursor-pointer hover:bg-muted/80"
                         onClick={() => setExpandedWallet(expandedWallet === wallet.address ? null : wallet.address)}
                       >
                         <div className="col-span-2 font-mono truncate">
@@ -777,6 +785,9 @@ export default function Admin() {
                         </div>
                         <div className="font-mono">{formatAmount(wallet.totalBalance || '0')}</div>
                         <div>{wallet.transferCount || 0}</div>
+                        <div className="font-mono text-muted-foreground">
+                          {wallet.maxFlowScore !== null ? wallet.maxFlowScore.toFixed(2) : '—'}
+                        </div>
                         <div className="text-muted-foreground">
                           {new Date(wallet.lastSeen).toLocaleDateString()}
                         </div>
@@ -803,7 +814,7 @@ export default function Admin() {
                               <span className="font-mono">{formatAmount(wallet.balanceByChain?.gnosis || '0')}</span>
                             </div>
                           </div>
-                          <div className="grid grid-cols-3 gap-2 text-muted-foreground">
+                          <div className="grid grid-cols-4 gap-2 text-muted-foreground">
                             <div>
                               <span className="block text-[10px] uppercase">Created</span>
                               <span>{new Date(wallet.createdAt).toLocaleDateString()}</span>
@@ -811,6 +822,10 @@ export default function Admin() {
                             <div>
                               <span className="block text-[10px] uppercase">Volume</span>
                               <span className="font-mono">{formatAmount(wallet.totalVolume || '0')}</span>
+                            </div>
+                            <div>
+                              <span className="block text-[10px] uppercase">MaxFlow Score</span>
+                              <span className="font-mono">{wallet.maxFlowScore !== null ? wallet.maxFlowScore.toFixed(4) : 'N/A'}</span>
                             </div>
                             <div>
                               <span className="block text-[10px] uppercase">Pool Status</span>
