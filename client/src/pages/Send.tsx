@@ -535,46 +535,25 @@ export default function Send() {
       }}
     >
       <main className="max-w-md mx-auto p-4 space-y-6">
-        {/* Page subheader */}
-        <div className="flex items-center justify-between -mx-4 px-4 -mt-4 pt-4 pb-4 border-b">
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => {
-                if (step !== 'input') {
-                  setStep('input');
-                  setPaymentRequest(null);
-                  setAuthorizationQR(null);
-                } else {
-                  setLocation('/home');
-                }
-              }}
-              data-testid="button-back"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <h1 className="text-lg font-bold font-heading tracking-tight">Send USDC</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Only show network toggle if user has balance on both chains */}
-            {balanceData?.chains && 
-             BigInt(balanceData.chains.base.balanceMicro) > 0n && 
-             BigInt(balanceData.chains.celo.balanceMicro) > 0n && (
-              <Button 
-                variant="outline"
-                size="sm"
-                onClick={handleNetworkToggle}
-                className="text-xs h-7"
-                data-testid="button-toggle-network"
-              >
-                {network === 'base' ? 'Base' : 'Celo'}
-              </Button>
-            )}
-            <div className="text-sm text-muted-foreground" data-testid="text-balance">
-              {balance} USDC
-            </div>
-          </div>
+        {/* Page header */}
+        <div className="flex items-center gap-2 -mx-4 px-4 -mt-4 pt-4 pb-4 border-b">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => {
+              if (step !== 'input') {
+                setStep('input');
+                setPaymentRequest(null);
+                setAuthorizationQR(null);
+              } else {
+                setLocation('/home');
+              }
+            }}
+            data-testid="button-back"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-bold font-heading tracking-tight">Send</h1>
         </div>
         {step === 'input' && (
           <>
@@ -678,6 +657,24 @@ export default function Send() {
                       ≈ {(parseFloat(usdcAmount) * rate).toFixed(2)} {currency}
                     </div>
                   )}
+                  <div className="flex items-center justify-center gap-2 mt-3 text-sm text-muted-foreground">
+                    <span data-testid="text-balance">{balance} USDC on</span>
+                    {balanceData?.chains && 
+                     BigInt(balanceData.chains.base.balanceMicro) > 0n && 
+                     BigInt(balanceData.chains.celo.balanceMicro) > 0n ? (
+                      <Button 
+                        variant="outline"
+                        size="sm"
+                        onClick={handleNetworkToggle}
+                        className="text-xs h-6 px-2"
+                        data-testid="button-toggle-network"
+                      >
+                        {network === 'base' ? 'Base' : 'Celo'}
+                      </Button>
+                    ) : (
+                      <span className="font-medium">{network === 'base' ? 'Base' : 'Celo'}</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
