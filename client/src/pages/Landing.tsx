@@ -149,7 +149,7 @@ export default function Landing() {
           <div className="space-y-4">
             <Button
               size="lg"
-              className="w-full font-mono uppercase tracking-widest"
+              className="w-full"
               onClick={() => setLocation('/create')}
               data-testid="button-create-wallet"
             >
@@ -159,7 +159,7 @@ export default function Landing() {
             <Button
               size="lg"
               variant="outline"
-              className="w-full font-mono uppercase tracking-widest"
+              className="w-full"
               onClick={() => setLocation('/restore')}
               data-testid="button-restore-wallet"
             >
