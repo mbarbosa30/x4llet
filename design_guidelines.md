@@ -1,38 +1,42 @@
 # Design Guidelines: nanoPay - Lightweight Crypto Wallet PWA
 
-## Design Approach: Relay Stories Inspired
+## Design Approach: Commons Forest Brutalist
 
-**Selected Approach:** Warm, modern design system with distinctive typography and clean aesthetics inspired by Relay Stories
+**Selected Approach:** Minimal brutalist design system inspired by commonsforest2.replit.app
 
 **Core Principles:**
-- Warm coral primary color (#F5623D) for energy and friendliness
-- Sharp-cornered containers paired with pill-shaped buttons for visual contrast
-- Outfit font for headings, Inter for body text
-- Colored shadows on primary buttons for depth and tactile feel
-- Clean white backgrounds with subtle card differentiation
+- Black and white primary palette with blue (#0055FF) accent
+- Sharp corners (0px border radius) everywhere - no rounded elements
+- Inter font for both headings and body text (bold weights for headings)
+- IBM Plex Mono for labels, protocol references, and technical text
+- No shadows, minimal decoration
+- High contrast, functional simplicity
 
 ---
 
 ## Color System
 
 **Primary Colors (Light Mode):**
-- Primary: `hsl(12, 90%, 60%)` - Warm coral (#F5623D)
+- Primary: `hsl(0, 0%, 0%)` - Pure black
 - Primary Foreground: White
-- Primary Shadow: `0px 10px 15px -3px rgba(245, 98, 61, 0.4)`
+- Accent/Link: `hsl(216, 100%, 50%)` - Bright blue (#0055FF)
 
 **Background & Surface (Light Mode):**
 - Background: Pure white `hsl(0, 0%, 100%)`
-- Card: Very subtle off-white `hsl(0, 0%, 99%)`
-- Card Border: Light gray `hsl(0, 0%, 91%)`
+- Card: White `hsl(0, 0%, 100%)`
+- Card Border: Light gray `hsl(0, 0%, 80%)`
 
 **Text (Light Mode):**
-- Foreground: Near black `hsl(240, 10%, 4%)`
-- Muted Foreground: `hsl(0, 0%, 45%)`
+- Foreground: Pure black `hsl(0, 0%, 0%)`
+- Muted Foreground: `hsl(220, 9%, 46%)`
+- Secondary Foreground: Blue `hsl(216, 100%, 50%)` - for secondary button text
 
 **Primary Colors (Dark Mode):**
-- Primary: `hsl(12, 90%, 58%)` - Slightly brighter coral
-- Background: Deep dark `hsl(240, 10%, 4%)`
-- Card: `hsl(240, 8%, 7%)`
+- Primary: `hsl(0, 0%, 100%)` - White (inverted)
+- Primary Foreground: Black
+- Accent/Link: `hsl(216, 100%, 60%)` - Brighter blue
+- Background: Near black `hsl(0, 0%, 5%)`
+- Card: `hsl(0, 0%, 8%)`
 
 **Status Colors:**
 - Success: `hsl(142, 71%, 45%)` - Green for earning/positive
@@ -43,23 +47,40 @@
 ## Typography System
 
 **Font Stack:**
-- Headings: `"Outfit", -apple-system, BlinkMacSystemFont, sans-serif`
-- Body: `"Inter", -apple-system, BlinkMacSystemFont, sans-serif`
-- Monospace: `ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`
+- Headings: `"Inter", -apple-system, BlinkMacSystemFont, sans-serif` (weights 600-900)
+- Body: `"Inter", -apple-system, BlinkMacSystemFont, sans-serif` (weights 400-500)
+- Monospace: `"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`
 
 **Type Scale with Font Assignments:**
-- Hero balances: `text-5xl font-bold font-heading tracking-tight`
-- Page titles: `text-2xl font-bold font-heading tracking-tight`
-- Section headers: `text-lg font-bold font-heading`
+- Hero text: `text-6xl font-black font-heading tracking-tight` (96px for display)
+- Page titles: `text-4xl font-bold font-heading tracking-tight`
+- Section headers: `text-2xl font-bold font-heading`
 - App header: `text-lg font-bold font-heading tracking-tight`
 - Body/labels: `text-sm font-sans`
 - Micro text: `text-xs font-sans`
-- Addresses/codes: `font-mono`
+- Protocol labels: `font-mono text-xs uppercase tracking-wider` (use font-label class)
 
 **Typography Rules:**
 - All monetary amounts use `tabular-nums` for alignment
-- Headings use `tracking-tight` for compact, modern feel
+- Headings use `tracking-tight` for bold, condensed feel
+- Protocol labels use uppercase with letter-spacing
 - Dollar signs rendered at smaller size with reduced opacity
+
+**Usage Examples:**
+```tsx
+// Hero heading
+<h1 className="text-6xl font-black tracking-tight">
+  INFRASTRUCTURE
+</h1>
+
+// Protocol label
+<span className="font-label text-muted-foreground">
+  [ PROTOCOL_V1 ]
+</span>
+
+// Section label
+<span className="font-mono text-sm">// MUTUAL_CREDIT</span>
+```
 
 ---
 
@@ -67,47 +88,49 @@
 
 ### Buttons
 **Primary Button:**
-- Shape: Fully rounded (pill) - `rounded-full`
+- Shape: Sharp corners - `rounded-none`
+- Background: Black (white in dark mode)
+- Text: White (black in dark mode)
 - Height: `min-h-10` (default), `min-h-12` (lg)
 - Padding: `px-6` (default), `px-8` (lg)
-- Shadow: Colored coral shadow - `shadow-primary`
-- Border: Subtle darker coral border
+- No shadow
 
 **Secondary Button:**
-- Shape: Fully rounded (pill) - `rounded-full`
-- Background: Light gray
-- No colored shadow
+- Shape: Sharp corners - `rounded-none`
+- Background: Light gray (#F5F5F5)
+- Text: Blue (#0055FF)
+- Border: Subtle gray border
 
 **Outline Button:**
-- Shape: Fully rounded (pill) - `rounded-full`
+- Shape: Sharp corners - `rounded-none`
 - Border: `border-foreground/20`
 - Background: Transparent
 
 **Ghost Button:**
-- Shape: Fully rounded (pill) - `rounded-full`
+- Shape: Sharp corners - `rounded-none`
 - Background: Transparent, no border
 
 **Icon Buttons:**
 - Size: `h-10 w-10` (matches default button height)
-- Shape: Fully rounded - `rounded-full`
+- Shape: Sharp corners - `rounded-none`
 
 ### Cards
 **Card Component:**
 - Shape: Sharp corners - `rounded-none`
-- Border: Subtle border using `border-card-border`
-- Background: Very subtle off-white
+- Border: 1px solid border using `border-card-border`
+- Background: White (matches background or subtle distinction)
 - No drop shadows
 
 ### Input Fields
 **Text Input:**
 - Shape: Sharp corners - `rounded-none`
 - Height: `h-10`
-- Border: Standard input border
+- Border: Standard input border (#CCCCCC)
 - Padding: `px-4`
 
 ### Badges
 **Badge Component:**
-- Shape: Fully rounded (pill) - `rounded-full`
+- Shape: Sharp corners - `rounded-none`
 - Padding: `px-3 py-0.5`
 - Font: `text-xs font-medium`
 
@@ -118,35 +141,34 @@
 - Padding: `p-5 sm:p-6`
 
 ### Select Component
-**SelectTrigger (Interactive):**
-- Shape: Fully rounded (pill) - `rounded-full`
-- Height: `h-10`
-- This is an interactive element, so it follows the pill pattern
-
-**SelectContent (Container):**
+**SelectTrigger:**
 - Shape: Sharp corners - `rounded-none`
-- This is a dropdown container, so it follows the sharp pattern
+- Height: `h-10`
 
-**SelectItem (Interactive):**
-- Shape: Fully rounded (pill) - `rounded-full`
-- Items inside the dropdown are interactive
+**SelectContent:**
+- Shape: Sharp corners - `rounded-none`
+
+**SelectItem:**
+- Shape: Sharp corners - `rounded-none`
 
 ### Tabs Component
-**TabsList (Container):**
+**TabsList:**
 - Shape: Sharp corners - `rounded-none`
 - Background: `bg-muted`
-- This is a container holding tab triggers
 
-**TabsTrigger (Interactive):**
-- Shape: Fully rounded (pill) - `rounded-full`
-- Each tab trigger is an interactive element
-
-### Dropdown Menu
-**DropdownMenuContent (Container):**
+**TabsTrigger:**
 - Shape: Sharp corners - `rounded-none`
 
-**DropdownMenuItem (Interactive):**
-- Shape: Fully rounded (pill) - `rounded-full`
+### All Menu Components
+- DropdownMenu, ContextMenu, Menubar: All `rounded-none`
+- Menu items: `rounded-none`
+
+### Exceptions (Functional Circles)
+These retain `rounded-full` for functional reasons:
+- Avatar: Circular user photos
+- Switch thumb: Sliding toggle indicator
+- Radio button: Standard form control
+- Slider thumb: Draggable control
 
 ---
 
@@ -159,63 +181,67 @@
 - Container: `max-w-md` (448px) centered
 
 **Spacing:**
-- Primary spacing unit: 4 (Tailwind's base unit)
+- Primary spacing unit: 8px
 - Content padding: `p-4`
-- Component gaps: `space-y-4` or `gap-4`
+- Component gaps: `gap-4`
 - Section spacing: `space-y-6`
+- Large section gaps: `space-y-8` or `space-y-12`
 
 ---
 
-## Visual Contrast Pattern
+## Visual Language
 
-**Key Design Choice: Sharp vs. Round**
-The design creates visual interest through contrast:
-- Containers (cards, dialogs, inputs): Sharp corners
-- Interactive elements (buttons, badges): Pill shape
+**Key Design Choice: All Sharp Corners**
+Unlike the previous design, there is NO contrast between interactive and container elements. Everything is sharp and geometric, creating a bold brutalist aesthetic.
 
-This creates a clear visual hierarchy where actions stand out from content areas.
+**Grid & Alignment:**
+- Strong horizontal lines
+- Clean column layouts
+- Generous whitespace
+- Bold typography as visual anchors
 
 ---
 
 ## Balance Display Pattern
 
 **Primary Balance Card:**
-```
-<div className="text-5xl font-bold tabular-nums font-heading tracking-tight">
+```tsx
+<div className="text-5xl font-bold tabular-nums tracking-tight">
   <span className="text-3xl font-normal opacity-50 mr-1.5">$</span>
   <span>{amount}</span>
 </div>
 ```
 
-**Key Elements:**
-- Dollar sign at smaller size with reduced opacity
-- Main digits in Outfit font, bold weight
-- Decimal precision shown with reduced opacity
-- Earning animation extras shown in small text with success color
+**Stats Display:**
+```tsx
+<div className="text-6xl font-bold">42</div>
+<div className="text-sm text-muted-foreground">Active Hubs</div>
+```
 
 ---
 
 ## Header Component
 
 **App Header:**
-- Brand name: `text-lg font-bold font-heading tracking-tight`
+- Brand name: `text-lg font-bold tracking-tight`
 - Height: `h-16` fixed
-- Trust score badge: Pill shape with icon
-- Icon buttons: Ghost variant, size icon
+- Clean, minimal navigation
+- Icon buttons: Ghost variant
 
 ---
 
 ## Animation & Motion
 
-**Allowed Animations:**
+**Minimal to None:**
 - Real-time balance earning animation (for Aave yields)
 - Loading spinners
-- Subtle hover elevations via CSS utilities
+- Subtle hover opacity changes
 
-**No Animations:**
+**No Decorative Animations:**
 - Page transitions (instant)
 - Modal appearances (instant)
-- Layout changes on hover
+- No layout changes on hover
+- No scale transforms
 
 ---
 
@@ -226,6 +252,7 @@ This creates a clear visual hierarchy where actions stand out from content areas
 - Actions: `ArrowUpRight`, `ArrowDownLeft`, `Copy`, `Share2`
 - Status: `Check`, `AlertCircle`, `Clock`, `Shield`
 - Size: `h-5 w-5` for buttons, `h-4 w-4` for inline
+- Color: Inherit from text color
 
 ---
 
@@ -255,7 +282,7 @@ This creates a clear visual hierarchy where actions stand out from content areas
 ## Accessibility
 
 - Minimum tap target: 44x44px
-- WCAG AA contrast ratios
-- Focus visible on all interactive elements
+- WCAG AA contrast ratios (black/white provides excellent contrast)
+- Focus visible ring on all interactive elements
 - Proper form labels and error states
 - Data-testid on all interactive elements
