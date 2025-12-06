@@ -1749,12 +1749,13 @@ export class DbStorage extends MemStorage {
       const allWallets = await db.select().from(wallets).orderBy(desc(wallets.lastSeen));
       
       const results = await Promise.all(allWallets.map(async (wallet) => {
-        const address = wallet.address.toLowerCase();
+        const normalizedAddress = wallet.address.toLowerCase();
         
+        // Use case-insensitive matching for cached balances
         const balanceData = await db
           .select()
           .from(cachedBalances)
-          .where(eq(cachedBalances.address, address));
+          .where(sql`LOWER(${cachedBalances.address}) = ${normalizedAddress}`);
         
         const balanceByChain = { base: '0', celo: '0', gnosis: '0' };
         let totalBalance = BigInt(0);
@@ -1768,6 +1769,7 @@ export class DbStorage extends MemStorage {
           else if (b.chainId === 100) balanceByChain.gnosis = balanceStr;
         }
         
+        // Use case-insensitive matching for transactions
         const txData = await db
           .select({
             count: sql<number>`count(*)`,
@@ -1776,8 +1778,8 @@ export class DbStorage extends MemStorage {
           .from(cachedTransactions)
           .where(
             or(
-              eq(cachedTransactions.from, address),
-              eq(cachedTransactions.to, address)
+              sql`LOWER(${cachedTransactions.from}) = ${normalizedAddress}`,
+              sql`LOWER(${cachedTransactions.to}) = ${normalizedAddress}`
             )
           );
         
@@ -1786,19 +1788,21 @@ export class DbStorage extends MemStorage {
         
         const savingsBalance = '0';
         
+        // Use case-insensitive matching for pool settings
         const poolData = await db
           .select()
           .from(poolSettings)
-          .where(eq(poolSettings.walletAddress, address))
+          .where(sql`LOWER(${poolSettings.walletAddress}) = ${normalizedAddress}`)
           .limit(1);
         
         const poolOptInPercent = poolData[0]?.optInPercent || 0;
         const poolApproved = poolData[0]?.facilitatorApproved || false;
         
+        // Use case-insensitive matching for maxflow scores
         const maxflowData = await db
           .select()
           .from(cachedMaxflowScores)
-          .where(eq(cachedMaxflowScores.address, address))
+          .where(sql`LOWER(${cachedMaxflowScores.address}) = ${normalizedAddress}`)
           .limit(1);
         
         let maxFlowScore: number | null = null;
