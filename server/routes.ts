@@ -2697,16 +2697,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const snapshot = await storage.getYieldSnapshot(normalizedAddr);
       let netDeposits = BigInt(snapshot?.netDeposits || '0');
       
-      // Auto-initialize: if user has aUSDC but no netDeposits tracking, 
+      // Auto-initialize: if user has aUSDC but netDeposits is 0, 
       // set netDeposits = currentBalance (assumes 0 interest baseline)
-      // This self-heals after database resets
-      if (totalBalance > 0n && netDeposits === 0n && !snapshot?.netDeposits) {
-        console.log(`[Pool] Auto-initializing netDeposits for ${normalizedAddr}: ${totalBalance.toString()}`);
+      // This self-heals after database resets or when existing snapshots have netDeposits=0
+      if (totalBalance > 0n && netDeposits === 0n) {
+        console.log(`[Pool] Auto-initializing netDeposits for ${normalizedAddr}: ${totalBalance.toString()} (current aUSDC balance)`);
         await storage.upsertYieldSnapshot(normalizedAddr, {
           netDeposits: totalBalance.toString(),
           lastAusdcBalance: totalBalance.toString(),
         });
-        netDeposits = totalBalance; // Use current balance as baseline
+        netDeposits = totalBalance; // Use current balance as baseline (0 interest)
       }
 
       // interest = currentBalance - netDeposits
@@ -2783,9 +2783,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Use netDeposits from database as principal
           let netDeposits = BigInt(snapshot?.netDeposits || '0');
           
-          // Auto-initialize if user has aUSDC but no netDeposits tracking
-          if (totalBalance > 0n && netDeposits === 0n && !snapshot?.netDeposits) {
-            console.log(`[Pool] Batch: Auto-initializing netDeposits for ${normalizedAddr}: ${totalBalance.toString()}`);
+          // Auto-initialize if user has aUSDC but netDeposits is 0
+          // This handles both new users and existing snapshots with netDeposits=0
+          if (totalBalance > 0n && netDeposits === 0n) {
+            console.log(`[Pool] Batch: Auto-initializing netDeposits for ${normalizedAddr}: ${totalBalance.toString()} (current aUSDC balance)`);
             await storage.upsertYieldSnapshot(normalizedAddr, {
               netDeposits: totalBalance.toString(),
               lastAusdcBalance: totalBalance.toString(),
