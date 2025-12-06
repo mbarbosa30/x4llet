@@ -975,20 +975,66 @@ export default function Earn() {
 
           <TabsContent value="savings" className="mt-4 space-y-6">
             {!effectiveHasAaveBalance && aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && (
-              <div className="text-center space-y-2">
-                <div className="flex items-center justify-center gap-2">
-                  <Sparkles className="h-6 w-6 text-primary" />
-                  <h1 className="text-2xl font-bold font-heading tracking-tight" data-testid="text-earn-title">Earn</h1>
+              <div className="space-y-4">
+                <div className="text-center space-y-2">
+                  <div className="flex items-center justify-center gap-2">
+                    <Sparkles className="h-6 w-6 text-primary" />
+                    <h1 className="text-2xl font-bold font-heading tracking-tight" data-testid="text-earn-title">Earn</h1>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Put your USDC to work and earn interest automatically
+                  </p>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Put your USDC to work and earn interest automatically
-                </p>
+
+                <Card className="p-4 space-y-3" data-testid="card-how-it-works">
+                  <div className="text-xs font-medium flex items-center gap-2 text-foreground/80">
+                    <Info className="h-4 w-4 text-[#0055FF]" />
+                    HOW IT WORKS
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="p-2">
+                      <ArrowUpToLine className="h-5 w-5 mx-auto mb-1.5 text-[#0055FF]" />
+                      <div className="text-xs font-medium">Deposit</div>
+                      <div className="text-xs text-muted-foreground">One tap</div>
+                    </div>
+                    <div className="p-2">
+                      <TrendingUp className="h-5 w-5 mx-auto mb-1.5 text-success" />
+                      <div className="text-xs font-medium">Earn</div>
+                      <div className="text-xs text-muted-foreground">Automatically</div>
+                    </div>
+                    <div className="p-2">
+                      <ArrowDownToLine className="h-5 w-5 mx-auto mb-1.5 text-[#0055FF]" />
+                      <div className="text-xs font-medium">Withdraw</div>
+                      <div className="text-xs text-muted-foreground">Anytime</div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 pt-1 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Shield className="h-3 w-3 text-success" />
+                      Secured by Aave
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Trophy className="h-3 w-3 text-yellow-500" />
+                      Prize pool available on Celo only
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Zap className="h-3 w-3" />
+                      Gasless
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      No lock-up
+                    </span>
+                  </div>
+                </Card>
               </div>
             )}
 
             <Card className="p-6 space-y-4" data-testid="card-earning-balance">
               <div className="flex items-center justify-between">
-                <div className="text-xs font-semibold uppercase tracking-wide text-foreground/70 flex items-center gap-2">
+                <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
                   <PiggyBank className="h-4 w-4 text-[#0055FF]" />
                   Total Earning
                 </div>
@@ -1061,9 +1107,9 @@ export default function Earn() {
             {hasClaimableRewards && (
               <Card className="p-4 space-y-3" data-testid="card-claimable-rewards">
                 <div className="flex items-center justify-between">
-                  <div className="text-xs font-medium flex items-center gap-2 text-foreground/70">
-                    <Gift className="h-4 w-4 text-primary" />
-                    Claimable Rewards
+                  <div className="text-xs font-medium flex items-center gap-2 text-foreground/80">
+                    <Gift className="h-4 w-4 text-[#0055FF]" />
+                    CLAIMABLE REWARDS
                   </div>
                 </div>
                 
@@ -1131,9 +1177,9 @@ export default function Earn() {
             {/* Earnings Preview for users with no deposits */}
             {!effectiveHasAaveBalance && aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && (
               <Card className="p-4 space-y-4 border-dashed" data-testid="card-earnings-preview">
-                <div className="text-xs font-medium flex items-center gap-2 text-foreground/70">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  What You Could Earn
+                <div className="text-xs font-medium flex items-center gap-2 text-foreground/80">
+                  <Sparkles className="h-4 w-4 text-[#0055FF]" />
+                  WHAT YOU COULD EARN
                 </div>
                 
                 {weightedApy > 0 ? (
@@ -1194,9 +1240,9 @@ export default function Earn() {
 
             {effectiveHasAaveBalance && (baseBalanceNum > 0 || celoBalanceNum > 0 || gnosisBalanceNum > 0) && [baseBalanceNum, celoBalanceNum, gnosisBalanceNum].filter(b => b > 0).length > 1 && (
               <Card className="p-4 space-y-3" data-testid="card-chain-breakdown">
-                <div className="text-xs font-medium flex items-center gap-2 text-foreground/70">
-                  <Layers className="h-4 w-4 text-primary" />
-                  Balance & Rates by Network
+                <div className="text-xs font-medium flex items-center gap-2 text-foreground/80">
+                  <Layers className="h-4 w-4 text-[#0055FF]" />
+                  BALANCE & RATES BY NETWORK
                 </div>
                 
                 {baseBalanceNum > 0 && (
@@ -1281,9 +1327,9 @@ export default function Earn() {
 
             {effectiveHasAaveBalance && combinedChartData.length > 0 && (
               <Card className="p-4 space-y-3" data-testid="card-projected-earnings">
-                <div className="text-xs font-medium flex items-center gap-2 text-foreground/70">
-                  <TrendingUp className="h-4 w-4 text-primary" />
-                  Projected Earnings
+                <div className="text-xs font-medium flex items-center gap-2 text-foreground/80">
+                  <TrendingUp className="h-4 w-4 text-[#0055FF]" />
+                  PROJECTED EARNINGS
                 </div>
                 
                 <div className="h-36 w-full">
@@ -1474,115 +1520,6 @@ export default function Earn() {
               </Card>
             )}
 
-            {/* Interest Earned Subsection */}
-            {interestEarnedData && (
-              <Card className="p-4 space-y-2" data-testid="card-interest-earned">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs font-medium flex items-center gap-2 text-foreground/70">
-                    <Coins className="h-4 w-4 text-primary" />
-                    Interest Earned
-                  </div>
-                  {Number(interestEarnedData.totalInterestEarnedMicro) > 0 && (
-                    <Badge variant="secondary" className="text-xs text-success">
-                      +${(Number(interestEarnedData.totalInterestEarnedMicro) / 1_000_000).toFixed(4)}
-                    </Badge>
-                  )}
-                </div>
-                {interestEarnedData.chains.some(c => c.hasTrackingData) ? (
-                  <div>
-                    {(() => {
-                      const baseData = interestEarnedData.chains.find(c => c.chainId === 8453);
-                      const celoData = interestEarnedData.chains.find(c => c.chainId === 42220);
-                      const gnosisData = interestEarnedData.chains.find(c => c.chainId === 100);
-                      const hasAnyEarnings = [baseData, celoData, gnosisData].some(
-                        d => d?.hasTrackingData && Number(d.interestEarnedMicro) > 0
-                      );
-                      
-                      if (!hasAnyEarnings) {
-                        return (
-                          <p className="text-sm text-muted-foreground">
-                            Interest is accruing. Check back soon!
-                          </p>
-                        );
-                      }
-                      
-                      return (
-                        <div className="grid grid-cols-3 gap-3 text-center">
-                          {baseData?.hasTrackingData && (
-                            <div className="p-2 bg-muted/50 rounded-none">
-                              <div className="text-xs text-muted-foreground mb-0.5">Base</div>
-                              <div className="text-sm font-medium text-blue-400">
-                                +${(Number(baseData.interestEarnedMicro) / 1_000_000).toFixed(4)}
-                              </div>
-                            </div>
-                          )}
-                          {celoData?.hasTrackingData && (
-                            <div className="p-2 bg-muted/50 rounded-none">
-                              <div className="text-xs text-muted-foreground mb-0.5">Celo</div>
-                              <div className="text-sm font-medium text-yellow-400">
-                                +${(Number(celoData.interestEarnedMicro) / 1_000_000).toFixed(4)}
-                              </div>
-                            </div>
-                          )}
-                          {gnosisData?.hasTrackingData && (
-                            <div className="p-2 bg-muted/50 rounded-none">
-                              <div className="text-xs text-muted-foreground mb-0.5">Gnosis</div>
-                              <div className="text-sm font-medium text-purple-400">
-                                +${(Number(gnosisData.interestEarnedMicro) / 1_000_000).toFixed(4)}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Interest tracking starts with your next deposit
-                  </p>
-                )}
-              </Card>
-            )}
-
-            <Card className="p-4 space-y-3" data-testid="card-how-it-works">
-              <div className="text-xs font-medium flex items-center gap-2 text-foreground/70">
-                <Info className="h-4 w-4 text-primary" />
-                How it works
-              </div>
-              
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="p-2">
-                  <ArrowUpToLine className="h-5 w-5 mx-auto mb-1.5 text-primary" />
-                  <div className="text-xs font-medium">Deposit</div>
-                  <div className="text-xs text-muted-foreground">One tap</div>
-                </div>
-                <div className="p-2">
-                  <TrendingUp className="h-5 w-5 mx-auto mb-1.5 text-success" />
-                  <div className="text-xs font-medium">Earn</div>
-                  <div className="text-xs text-muted-foreground">Automatically</div>
-                </div>
-                <div className="p-2">
-                  <ArrowDownToLine className="h-5 w-5 mx-auto mb-1.5 text-primary" />
-                  <div className="text-xs font-medium">Withdraw</div>
-                  <div className="text-xs text-muted-foreground">Anytime</div>
-                </div>
-              </div>
-              
-              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 pt-1 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Shield className="h-3 w-3 text-success" />
-                  Secured by Aave
-                </span>
-                <span className="flex items-center gap-1">
-                  <Zap className="h-3 w-3" />
-                  Gasless
-                </span>
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  No lock-up
-                </span>
-              </div>
-            </Card>
 
             <Accordion type="single" collapsible className="w-full">
               <AccordionItem value="faq" className="border-none">
@@ -1631,7 +1568,7 @@ export default function Earn() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-xs font-medium text-foreground/70">Prize Pool</h3>
+                    <h3 className="text-xs font-medium text-foreground/80">Prize Pool</h3>
                     {(localOptInPercent ?? 0) > 0 && (
                       <Badge variant="outline" className="text-xs text-success border-success/30">Active</Badge>
                     )}

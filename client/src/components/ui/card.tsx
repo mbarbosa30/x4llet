@@ -36,7 +36,7 @@ const CardTitle = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "text-xs font-semibold uppercase tracking-wide text-foreground/70",
+      "text-xs font-semibold uppercase tracking-wide text-foreground/80",
       className
     )}
     {...props}

@@ -738,7 +738,7 @@ export default function Pool() {
             <Card className="p-4 space-y-4">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-foreground/70">Yield to contribute</span>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">YIELD TO CONTRIBUTE</span>
                   <Badge variant="outline" className="font-bold px-2" data-testid="text-intro-opt-in">
                     {optInPercent}%
                   </Badge>
@@ -813,9 +813,9 @@ export default function Pool() {
               {/* This Week's Prize */}
               <Card className="p-6 space-y-4" data-testid="card-prize-pool">
                 <div className="flex items-center justify-between">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/70 flex items-center gap-2">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
                     <Trophy className="h-4 w-4 text-[#0055FF]" />
-                    This Week's Prize
+                    THIS WEEK'S PRIZE
                   </div>
                   <div className="bg-[#0055FF] text-white px-2.5 py-1 text-xs font-semibold uppercase tracking-wide">
                     Week {poolStatus.draw.weekNumber}
@@ -871,9 +871,9 @@ export default function Pool() {
 
               {/* Your Position - Uses actual interest data */}
               <Card className="p-4 space-y-3" data-testid="card-your-position">
-                <div className="text-xs font-semibold uppercase tracking-wide text-foreground/70 flex items-center gap-2">
+                <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
                   <Target className="h-4 w-4 text-[#0055FF]" />
-                  Your Position
+                  YOUR POSITION
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="text-center p-3 bg-muted/50">
@@ -902,9 +902,9 @@ export default function Pool() {
               {/* Contribution */}
               <Card className="p-4 space-y-3" data-testid="card-yield-contribution">
                 <div className="flex items-center justify-between">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/70 flex items-center gap-2">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
                     <Coins className="h-4 w-4 text-[#0055FF]" />
-                    Yield Contribution
+                    YIELD CONTRIBUTION
                   </div>
                   <Badge variant="outline" className="font-bold px-2" data-testid="text-opt-in-percent">
                     {optInPercent}%
@@ -1063,9 +1063,9 @@ export default function Pool() {
                 
                 return (
                   <Card className="p-4 space-y-3">
-                    <div className="text-xs font-medium text-foreground/70 flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-primary" />
-                      Optimal Allocation
+                    <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-[#0055FF]" />
+                      OPTIMAL ALLOCATION
                     </div>
                     
                     {/* Status badge */}
@@ -1175,7 +1175,7 @@ export default function Pool() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Shield className="h-4 w-4 text-amber-600" />
-                      <span className="text-xs font-medium text-foreground/70">Yield Collection</span>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">YIELD COLLECTION</span>
                     </div>
                     <Badge 
                       variant="secondary"
@@ -1215,9 +1215,9 @@ export default function Pool() {
             <TabsContent value="tickets" className="mt-4 space-y-4">
               {/* Ticket Breakdown - Uses actual interest data */}
               <Card className="p-4 space-y-3" data-testid="card-ticket-breakdown">
-                <div className="text-xs font-medium text-foreground/70 flex items-center gap-2">
-                  <Ticket className="h-4 w-4 text-primary" />
-                  Ticket Breakdown
+                <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
+                  <Ticket className="h-4 w-4 text-[#0055FF]" />
+                  TICKET BREAKDOWN
                 </div>
                 {(() => {
                   // Values from actual earned interest (via Aave's scaledBalanceOf)
@@ -1313,9 +1313,9 @@ export default function Pool() {
                 
                 return (
                   <Card className="p-4 space-y-3" data-testid="card-when-win">
-                    <div className="text-xs font-medium text-foreground/70 flex items-center gap-2">
-                      <Target className="h-4 w-4 text-primary" />
-                      When Will You Win?
+                    <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
+                      <Target className="h-4 w-4 text-[#0055FF]" />
+                      WHEN WILL YOU WIN?
                     </div>
                     
                     {currentOdds > 0 ? (
@@ -1426,8 +1426,8 @@ export default function Pool() {
               {/* Referral System */}
               <Card className="p-4 space-y-3">
                 <div className="flex items-center gap-2">
-                  <Share2 className="h-4 w-4 text-primary" />
-                  <span className="text-xs font-medium text-foreground/70">Share & Earn</span>
+                  <Share2 className="h-4 w-4 text-[#0055FF]" />
+                  <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">SHARE & EARN</span>
                   <Badge variant="secondary" className="ml-auto" data-testid="badge-referral-count">
                     {poolStatus.referral.activeReferrals} referred
                   </Badge>
@@ -1501,9 +1501,9 @@ export default function Pool() {
               {/* Prize Trend Chart */}
               {historyData?.draws && historyData.draws.length > 1 ? (
                 <Card className="p-4 space-y-3">
-                  <div className="text-xs font-medium text-foreground/70 flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4 text-primary" />
-                    Prize Trend
+                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-[#0055FF]" />
+                    PRIZE TREND
                   </div>
                   <div className="h-32">
                     <ResponsiveContainer width="100%" height="100%">
@@ -1543,9 +1543,9 @@ export default function Pool() {
                 </Card>
               ) : (
                 <Card className="p-4 space-y-3 border-dashed">
-                  <div className="text-xs font-medium text-foreground/70 flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                    Prize Trend
+                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-[#0055FF]" />
+                    PRIZE TREND
                   </div>
                   <div className="h-24 flex items-center justify-center">
                     <p className="text-sm text-muted-foreground text-center">
@@ -1557,9 +1557,9 @@ export default function Pool() {
 
               {/* Past Draws */}
               <Card className="p-4 space-y-3">
-                <div className="text-xs font-medium text-foreground/70 flex items-center gap-2">
-                  <History className="h-4 w-4 text-primary" />
-                  Past Draws
+                <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
+                  <History className="h-4 w-4 text-[#0055FF]" />
+                  PAST DRAWS
                 </div>
                 {isLoadingHistory ? (
                   <div className="space-y-2">
@@ -1644,9 +1644,9 @@ export default function Pool() {
                 
                 return (
                   <Card className="p-4 space-y-3">
-                    <div className="text-xs font-medium text-foreground/70 flex items-center gap-2">
-                      <Users className="h-4 w-4 text-primary" />
-                      Fairness & Network
+                    <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
+                      <Users className="h-4 w-4 text-[#0055FF]" />
+                      FAIRNESS & NETWORK
                     </div>
                     
                     {participantCount > 1 ? (

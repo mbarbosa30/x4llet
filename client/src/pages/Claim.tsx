@@ -768,14 +768,14 @@ export default function Claim() {
 
                   <div className="space-y-4 text-left">
                     <div className="space-y-2">
-                      <h3 className="text-xs font-semibold text-foreground/70">What is Circles?</h3>
+                      <h3 className="text-xs font-semibold text-foreground/80">What is Circles?</h3>
                       <p className="text-sm text-muted-foreground">
                         Every human can claim the same amount of CRC over time. It's social money designed to support people and local communities.
                       </p>
                     </div>
 
                     <div className="space-y-2">
-                      <h3 className="text-xs font-semibold text-foreground/70">How it Works</h3>
+                      <h3 className="text-xs font-semibold text-foreground/80">How it Works</h3>
                       <p className="text-sm text-muted-foreground">
                         You earn 1 CRC per hour (up to 24/day). Trust others to let your CRC flow through their network. A ~7% yearly decay keeps CRC circulating fairly.
                       </p>
@@ -792,7 +792,7 @@ export default function Claim() {
                       ) : inviterStatus ? (
                         <div className="border rounded-none p-4 space-y-3">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium text-foreground/70">Community Inviter</span>
+                            <span className="text-xs font-medium text-foreground/80">Community Inviter</span>
                             {inviterStatus.isReady ? (
                               <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                                 <CheckCircle className="h-3 w-3" />
@@ -843,7 +843,7 @@ export default function Claim() {
                           <CollapsibleContent className="pt-3 space-y-4">
                             {/* Why you need an inviter */}
                             <div className="border rounded-none p-4 space-y-2">
-                              <h4 className="text-xs font-semibold text-foreground/70 flex items-center gap-2">
+                              <h4 className="text-xs font-semibold text-foreground/80 flex items-center gap-2">
                                 <Users className="h-4 w-4 text-primary" />
                                 Why do I need an inviter?
                               </h4>
@@ -854,7 +854,7 @@ export default function Claim() {
 
                             {/* Ways to speed up */}
                             <div className="border rounded-none p-4 space-y-3">
-                              <h4 className="text-xs font-semibold text-foreground/70">Speed up your registration</h4>
+                              <h4 className="text-xs font-semibold text-foreground/80">Speed up your registration</h4>
                               
                               <div className="space-y-3">
                                 <a 
@@ -868,7 +868,7 @@ export default function Claim() {
                                     <MessageCircle className="h-4 w-4 text-blue-500" />
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-medium text-foreground/70">Join Circles Telegram</p>
+                                    <p className="text-xs font-medium text-foreground/80">Join Circles Telegram</p>
                                     <p className="text-xs text-muted-foreground truncate">Ask the community to trust you</p>
                                   </div>
                                   <ExternalLink className="h-3 w-3 text-muted-foreground" />
@@ -885,7 +885,7 @@ export default function Claim() {
                                     <MessageCircle className="h-4 w-4 text-indigo-500" />
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-medium text-foreground/70">Join Circles Discord</p>
+                                    <p className="text-xs font-medium text-foreground/80">Join Circles Discord</p>
                                     <p className="text-xs text-muted-foreground truncate">Connect with Circles members</p>
                                   </div>
                                   <ExternalLink className="h-3 w-3 text-muted-foreground" />
@@ -902,7 +902,7 @@ export default function Claim() {
                                     <Share2 className="h-4 w-4" />
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-medium text-foreground/70">Share on X</p>
+                                    <p className="text-xs font-medium text-foreground/80">Share on X</p>
                                     <p className="text-xs text-muted-foreground truncate">Ask your network for a trust</p>
                                   </div>
                                   <ExternalLink className="h-3 w-3 text-muted-foreground" />
@@ -918,7 +918,7 @@ export default function Claim() {
                                     <UserPlus className="h-4 w-4 text-green-500" />
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-medium text-foreground/70">Ask a friend on Circles</p>
+                                    <p className="text-xs font-medium text-foreground/80">Ask a friend on Circles</p>
                                     <p className="text-xs text-muted-foreground truncate">Have them trust you, then register with their address</p>
                                   </div>
                                 </button>
@@ -968,7 +968,7 @@ export default function Claim() {
                   ) : (
                     <div className="space-y-4">
                       <div className="border rounded-none p-4 space-y-3">
-                        <h3 className="text-xs font-semibold text-foreground/70">Use Your Own Inviter</h3>
+                        <h3 className="text-xs font-semibold text-foreground/80">Use Your Own Inviter</h3>
                         <p className="text-xs text-muted-foreground">
                           If a Circles Human friend has already trusted your address, enter their address below to register.
                         </p>
@@ -1189,21 +1189,21 @@ export default function Claim() {
 
                   <div className="space-y-4 text-left">
                     <div className="space-y-2">
-                      <h3 className="text-xs font-semibold text-foreground/70">What is GoodDollar?</h3>
+                      <h3 className="text-xs font-semibold text-foreground/80">What is GoodDollar?</h3>
                       <p className="text-sm text-muted-foreground">
                         GoodDollar is a universal basic income protocol on Celo. Everyone who verifies their identity gets the same daily G$ distribution — no exceptions.
                       </p>
                     </div>
 
                     <div className="space-y-2">
-                      <h3 className="text-xs font-semibold text-foreground/70">How it Works</h3>
+                      <h3 className="text-xs font-semibold text-foreground/80">How it Works</h3>
                       <p className="text-sm text-muted-foreground">
                         Verify your face once (it's privacy-preserving — only a hash is stored). Then claim your G$ every day. Re-verify every {gdIdentity?.authenticationPeriod || 180} days.
                       </p>
                     </div>
 
                     <div className="space-y-2">
-                      <h3 className="text-xs font-semibold text-foreground/70">Get Started</h3>
+                      <h3 className="text-xs font-semibold text-foreground/80">Get Started</h3>
                       <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
                         <li>Verify your face (takes ~1 minute)</li>
                         <li>Claim G$ daily right here in nanoPay</li>
@@ -1245,7 +1245,7 @@ export default function Claim() {
             {gdIdentity?.isWhitelisted && (
               <Card className="p-4 mt-4">
                 <div className="space-y-3">
-                  <h3 className="text-xs font-semibold text-foreground/70">About GoodDollar</h3>
+                  <h3 className="text-xs font-semibold text-foreground/80">About GoodDollar</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     GoodDollar is a non-profit protocol creating free money for everyone. 
                     It distributes G$ tokens daily to verified humans around the world — 
