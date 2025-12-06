@@ -172,7 +172,10 @@ export const poolYieldSnapshots = pgTable("pool_yield_snapshots", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   walletAddress: text("wallet_address").notNull().unique(),
   chainId: integer("chain_id").notNull().default(42220), // Celo only for now
-  // Snapshot of accrued yield at last draw (aUSDC - principal at that moment)
+  // Net deposits tracking: total deposited - total withdrawn
+  // Interest = currentAaveBalance - netDeposits
+  netDeposits: text("net_deposits").notNull().default('0'), // micro-USDC (deposits - withdrawals)
+  // Snapshot of accrued yield at last draw
   // First week: no snapshot, use full accrued yield for tickets
   // Subsequent weeks: tickets = (currentAccrued - snapshotYield) × optIn%
   snapshotYield: text("snapshot_yield").notNull().default('0'), // Accrued yield at last snapshot (micro-USDC)

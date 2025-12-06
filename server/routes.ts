@@ -1479,6 +1479,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       console.log('[Aave Supply] Supply confirmed! User now has aTokens');
 
+      // Update net deposits for Pool interest tracking (Celo only)
+      if (chainId === 42220) {
+        const normalizedAddr = userAddress.toLowerCase();
+        const depositAmount = BigInt(amount);
+        const existingSnapshot = await storage.getYieldSnapshot(normalizedAddr);
+        const currentNetDeposits = BigInt(existingSnapshot?.netDeposits || '0');
+        const newNetDeposits = currentNetDeposits + depositAmount;
+        
+        await storage.upsertYieldSnapshot(normalizedAddr, {
+          netDeposits: newNetDeposits.toString(),
+          lastAusdcBalance: (currentNetDeposits + depositAmount).toString(), // approximate
+        });
+        console.log(`[Aave Supply] Updated netDeposits for ${normalizedAddr}: ${newNetDeposits.toString()}`);
+      }
+
       res.json({
         success: true,
         operationId,
@@ -1562,6 +1577,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
+
+      // Update net deposits for Pool interest tracking (Celo only)
+      if (chainId === 42220) {
+        const normalizedAddr = userAddress.toLowerCase();
+        const withdrawAmount = BigInt(amount);
+        const existingSnapshot = await storage.getYieldSnapshot(normalizedAddr);
+        const currentNetDeposits = BigInt(existingSnapshot?.netDeposits || '0');
+        // Reduce netDeposits, but don't go below 0
+        const newNetDeposits = currentNetDeposits > withdrawAmount 
+          ? currentNetDeposits - withdrawAmount 
+          : 0n;
+        
+        await storage.upsertYieldSnapshot(normalizedAddr, {
+          netDeposits: newNetDeposits.toString(),
+        });
+        console.log(`[Aave Withdraw] Updated netDeposits for ${normalizedAddr}: ${newNetDeposits.toString()}`);
+      }
 
       res.json({
         success: true,
@@ -2606,14 +2638,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  // Calculate ACTUAL interest earned by a user from Aave using scaledBalanceOf
-  // Formula: interest = balanceOf - (scaledBalanceOf × liquidityIndex / 1e27)
-  // This gives the exact yield, not an APY-based estimate
+  // Calculate ACTUAL interest earned by a user from Aave
+  // Formula: interest = currentAaveBalance - netDeposits (tracked in database)
+  // Note: On-chain scaledBalance × liquidityIndex equals balanceOf, so we must track deposits
   interface AaveUserInterest {
     totalBalance: bigint;      // balanceOf (principal + interest)
     scaledBalance: bigint;     // scaledBalanceOf (principal normalized)
-    principal: bigint;         // scaledBalance × liquidityIndex / RAY
-    interest: bigint;          // totalBalance - principal (actual earned yield)
+    principal: bigint;         // netDeposits from database (actual deposits - withdrawals)
+    interest: bigint;          // totalBalance - netDeposits (actual earned yield)
     liquidityIndex: bigint;    // Current liquidity index from Pool
   }
   
@@ -2659,19 +2691,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // liquidityIndex is in RAY (1e27 precision)
       const liquidityIndex = BigInt(reserveData.liquidityIndex.toString());
-      const RAY = 10n ** 27n;
 
-      // principal = scaledBalance × liquidityIndex / RAY
-      const principal = (scaledBalance * liquidityIndex) / RAY;
+      // Get netDeposits from database (actual deposits - withdrawals)
+      const normalizedAddr = userAddress.toLowerCase();
+      const snapshot = await storage.getYieldSnapshot(normalizedAddr);
+      let netDeposits = BigInt(snapshot?.netDeposits || '0');
+      
+      // Auto-initialize: if user has aUSDC but no netDeposits tracking, 
+      // set netDeposits = currentBalance (assumes 0 interest baseline)
+      // This self-heals after database resets
+      if (totalBalance > 0n && netDeposits === 0n && !snapshot?.netDeposits) {
+        console.log(`[Pool] Auto-initializing netDeposits for ${normalizedAddr}: ${totalBalance.toString()}`);
+        await storage.upsertYieldSnapshot(normalizedAddr, {
+          netDeposits: totalBalance.toString(),
+          lastAusdcBalance: totalBalance.toString(),
+        });
+        netDeposits = totalBalance; // Use current balance as baseline
+      }
 
-      // interest = totalBalance - principal
-      // This can be negative in edge cases (rounding), so use max(0, interest)
-      const interest = totalBalance > principal ? totalBalance - principal : 0n;
+      // interest = currentBalance - netDeposits
+      // Guard against negative values (e.g., if user withdrew and netDeposits is stale)
+      const interest = totalBalance > netDeposits ? totalBalance - netDeposits : 0n;
 
       return {
         totalBalance,
         scaledBalance,
-        principal,
+        principal: netDeposits, // Use netDeposits as "principal"
         interest,
         liquidityIndex,
       };
@@ -2682,6 +2727,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Get actual interest for multiple users in batch (more efficient)
+  // Uses netDeposits from database to calculate real interest
   async function getAaveUsersInterest(userAddresses: string[]): Promise<Map<string, AaveUserInterest>> {
     const results = new Map<string, AaveUserInterest>();
     
@@ -2711,13 +2757,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }) as any;
       
       const liquidityIndex = BigInt(reserveData.liquidityIndex.toString());
-      const RAY = 10n ** 27n;
 
       // Batch fetch balances for all users
       const balancePromises = userAddresses.map(async (addr) => {
         try {
           const normalizedAddress = getAddress(addr);
-          const [totalBalance, scaledBalance] = await Promise.all([
+          const normalizedAddr = addr.toLowerCase();
+          
+          const [totalBalance, scaledBalance, snapshot] = await Promise.all([
             client.readContract({
               address: aUsdcAddress,
               abi: ATOKEN_ABI,
@@ -2730,17 +2777,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
               functionName: 'scaledBalanceOf',
               args: [normalizedAddress],
             }) as Promise<bigint>,
+            storage.getYieldSnapshot(normalizedAddr),
           ]);
 
-          const principal = (scaledBalance * liquidityIndex) / RAY;
-          const interest = totalBalance > principal ? totalBalance - principal : 0n;
+          // Use netDeposits from database as principal
+          let netDeposits = BigInt(snapshot?.netDeposits || '0');
+          
+          // Auto-initialize if user has aUSDC but no netDeposits tracking
+          if (totalBalance > 0n && netDeposits === 0n && !snapshot?.netDeposits) {
+            console.log(`[Pool] Batch: Auto-initializing netDeposits for ${normalizedAddr}: ${totalBalance.toString()}`);
+            await storage.upsertYieldSnapshot(normalizedAddr, {
+              netDeposits: totalBalance.toString(),
+              lastAusdcBalance: totalBalance.toString(),
+            });
+            netDeposits = totalBalance;
+          }
+          
+          // interest = currentBalance - netDeposits
+          const interest = totalBalance > netDeposits ? totalBalance - netDeposits : 0n;
 
           return {
-            address: addr.toLowerCase(),
+            address: normalizedAddr,
             data: {
               totalBalance,
               scaledBalance,
-              principal,
+              principal: netDeposits,
               interest,
               liquidityIndex,
             },

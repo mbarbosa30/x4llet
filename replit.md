@@ -72,18 +72,22 @@ Multi-chain UX includes aggregated USDC balance display, chain badges for transa
 - Admin endpoint `/api/admin/pool/draw` for executing weekly draws with on-chain yield collection and prize transfer
 - Dry run mode supported via `dryRun: true` parameter
 
-**Pool Architecture - Actual Interest Model (Celo-Only)**:
-- Uses Aave's `scaledBalanceOf()` and `liquidityIndex` to calculate **actual earned interest** (not APY estimates)
-- Formula: `interest = balanceOf() - (scaledBalanceOf() × liquidityIndex / 1e27)` where scaledBalanceOf represents principal
+**Pool Architecture - netDeposits Tracking Model (Celo-Only)**:
+- Interest is calculated as: `interest = currentAaveBalance - netDeposits`
+- **netDeposits**: Database-tracked cumulative deposits minus withdrawals for each user
+  - Updated when user supplies to Aave (netDeposits += depositAmount)
+  - Updated when user withdraws from Aave (netDeposits -= withdrawAmount)
+  - Auto-initialized: Users with aUSDC but no tracking record get netDeposits = currentBalance (0 interest baseline)
+  - This self-healing behavior ensures the app works correctly after database resets (remix)
+- **Note**: On-chain `scaledBalanceOf() × liquidityIndex / RAY` mathematically equals `balanceOf()`, so we CANNOT derive interest purely from on-chain data. The database must track deposit history.
 - **Weekly yield snapshots**: Database table `poolYieldSnapshots` stores per-user yield snapshots after each draw
+  - `netDeposits`: Total deposited minus total withdrawn (micro-USDC)
   - `snapshotYield`: Total accrued interest at the time of the last draw
   - `isFirstWeek`: Flag indicating if user has never participated before
   - First week: Tickets based on total accrued interest (entire earnings history)
   - Subsequent weeks: Tickets based on yield delta (current accrued - snapshotYield from last draw)
 - Tickets calculation: `weeklyYield × optInPercent + referralBonus`
-- Helper functions in `shared/aave.ts`: `getAaveUserInterest()` and `getAaveUsersInterest()` for batched queries
-- ATOKEN_ABI includes `scaledBalanceOf` method for precise principal tracking
-- No mid-week transfers; all calculations are from live on-chain balances at draw time
+- Helper functions: `getAaveUserInterest()` and `getAaveUsersInterest()` in server/routes.ts
 - Celo aUSDC address: 0xFF8309b9e99bfd2D4021bc71a362aBD93dBd4785 (from shared/networks.ts)
 - **Sponsored Pool**: On-chain aUSDC balance of the facilitator wallet. Anyone can sponsor by sending aUSDC directly to the facilitator address on Celo. Sponsors' aUSDC earns yield too. No tickets are issued for sponsor deposits - they're purely donations to the prize pool.
 - **UI Display**: Prize pool shows the current total value (sponsor deposits + participant yields) with real-time growth animation at the current APY rate

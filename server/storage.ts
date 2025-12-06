@@ -2347,9 +2347,11 @@ export class DbStorage extends MemStorage {
   }
 
   async upsertYieldSnapshot(walletAddress: string, data: {
-    lastAusdcBalance: string;
+    lastAusdcBalance?: string;
     lastCollectedAt?: Date;
     totalYieldCollected?: string;
+    // Net deposits tracking for interest calculation
+    netDeposits?: string;
     // Weekly yield tracking - stores accrued yield at last draw
     snapshotYield?: string;
     weekNumber?: number;
@@ -2362,9 +2364,11 @@ export class DbStorage extends MemStorage {
         await db
           .update(poolYieldSnapshots)
           .set({
-            lastAusdcBalance: data.lastAusdcBalance,
+            ...(data.lastAusdcBalance !== undefined && { lastAusdcBalance: data.lastAusdcBalance }),
             lastCollectedAt: data.lastCollectedAt || new Date(),
             totalYieldCollected: data.totalYieldCollected || existing.totalYieldCollected,
+            // Update net deposits if provided
+            ...(data.netDeposits !== undefined && { netDeposits: data.netDeposits }),
             // Update weekly tracking fields if provided
             ...(data.snapshotYield !== undefined && { snapshotYield: data.snapshotYield }),
             ...(data.weekNumber !== undefined && { weekNumber: data.weekNumber }),
@@ -2376,9 +2380,10 @@ export class DbStorage extends MemStorage {
       } else {
         await db.insert(poolYieldSnapshots).values({
           walletAddress: walletAddress.toLowerCase(),
-          lastAusdcBalance: data.lastAusdcBalance,
+          lastAusdcBalance: data.lastAusdcBalance || '0',
           lastCollectedAt: data.lastCollectedAt || new Date(),
           totalYieldCollected: data.totalYieldCollected || '0',
+          netDeposits: data.netDeposits || '0',
           snapshotYield: data.snapshotYield || '0',
           weekNumber: data.weekNumber,
           year: data.year,
