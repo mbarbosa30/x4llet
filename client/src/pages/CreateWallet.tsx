@@ -178,7 +178,7 @@ export default function CreateWallet() {
 
             <Card className="p-6 space-y-4">
               <div className="space-y-2">
-                <Label>Your Private Key</Label>
+                <Label className="font-label">Your Private Key</Label>
                 <div className="space-y-2">
                   <div className="font-mono text-xs break-all bg-muted p-3 border" data-testid="text-private-key">
                     {privateKey}
@@ -262,7 +262,7 @@ export default function CreateWallet() {
 
           <Card className="p-6 space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="font-label">Password</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -284,9 +284,9 @@ export default function CreateWallet() {
               {strength && (
                 <div className="space-y-1">
                   <div className="flex gap-1">
-                    <div className={`h-1 flex-1 rounded ${strength === 'weak' ? strengthColors.weak : 'bg-muted'}`} />
-                    <div className={`h-1 flex-1 rounded ${strength === 'medium' || strength === 'strong' ? strengthColors.medium : 'bg-muted'}`} />
-                    <div className={`h-1 flex-1 rounded ${strength === 'strong' ? strengthColors.strong : 'bg-muted'}`} />
+                    <div className={`h-1 flex-1 ${strength === 'weak' ? strengthColors.weak : 'bg-muted'}`} />
+                    <div className={`h-1 flex-1 ${strength === 'medium' || strength === 'strong' ? strengthColors.medium : 'bg-muted'}`} />
+                    <div className={`h-1 flex-1 ${strength === 'strong' ? strengthColors.strong : 'bg-muted'}`} />
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Password strength: <span className="capitalize">{strength}</span>
@@ -296,7 +296,7 @@ export default function CreateWallet() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirm Password</Label>
+              <Label htmlFor="confirm-password" className="font-label">Confirm Password</Label>
               <div className="relative">
                 <Input
                   id="confirm-password"
