@@ -206,8 +206,8 @@ export default function CreateWallet() {
 
               <div className="pt-2 space-y-2 text-xs text-muted-foreground">
                 <p className="font-label text-muted-foreground">How to Save Your Private Key</p>
-                <ul className="space-y-1 list-disc list-inside">
-                  <li>Write it down on paper and store it securely</li>
+                <ul className="space-y-1 list-disc list-inside font-mono text-xs uppercase tracking-wide">
+                  <li>Write it down on paper and store securely</li>
                   <li>Save it in a password manager</li>
                   <li>Never share it with anyone</li>
                   <li>Keep it separate from your password</li>
@@ -229,7 +229,7 @@ export default function CreateWallet() {
                   className="font-label cursor-pointer space-y-1"
                 >
                   <span className="block">I have saved my private key</span>
-                  <span className="block text-muted-foreground font-normal normal-case text-xs">
+                  <span className="block text-muted-foreground font-normal text-xs">
                     Without it, lost passwords cannot be recovered
                   </span>
                 </label>
@@ -292,8 +292,8 @@ export default function CreateWallet() {
                     <div className={`h-1 flex-1 ${strength === 'medium' || strength === 'strong' ? strengthColors.medium : 'bg-muted'}`} />
                     <div className={`h-1 flex-1 ${strength === 'strong' ? strengthColors.strong : 'bg-muted'}`} />
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Password strength: <span className="capitalize">{strength}</span>
+                  <p className="text-xs text-muted-foreground uppercase">
+                    Password strength: <span className="uppercase">{strength}</span>
                   </p>
                 </div>
               )}
@@ -323,10 +323,10 @@ export default function CreateWallet() {
 
             <div className="pt-2 space-y-2 text-xs text-muted-foreground">
               <p className="font-label text-muted-foreground">Password Requirement</p>
-              <ul className="space-y-1 list-disc list-inside">
+              <ul className="space-y-1 list-disc list-inside font-mono text-xs uppercase tracking-wide">
                 <li>At least 6 characters</li>
               </ul>
-              <p className="text-muted-foreground mt-2">
+              <p className="font-mono text-xs uppercase tracking-wide text-muted-foreground mt-2">
                 Tip: Longer passwords (10+ characters) are more secure
               </p>
             </div>
@@ -334,8 +334,8 @@ export default function CreateWallet() {
 
           <Card className="p-4 bg-muted/50 border-primary/20">
             <p className="text-xs text-muted-foreground">
-              <strong className="text-foreground">How security works:</strong> Your password encrypts your wallet locally on this device. 
-              You'll see your private key backup next - that's your master recovery key if you lose your password or switch devices.
+              <strong className="font-label text-foreground">How Security Works</strong>
+              <span className="block mt-1">Your password encrypts your wallet locally on this device. You'll see your private key backup next - that's your master recovery key if you lose your password or switch devices.</span>
             </p>
           </Card>
 
@@ -352,7 +352,7 @@ export default function CreateWallet() {
           <div className="text-center">
             <Link 
               href="/unlock"
-              className="text-sm text-muted-foreground hover:text-foreground"
+              className="font-label text-muted-foreground hover:text-foreground"
               data-testid="link-unlock"
             >
               Already have a wallet? Unlock
