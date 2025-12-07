@@ -2271,6 +2271,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/admin/refetch-maxflow-scores', adminAuthMiddleware, async (req, res) => {
+    try {
+      const wallets = await storage.getAllWalletsWithDetails();
+      
+      let updated = 0;
+      let failed = 0;
+      const errors: string[] = [];
+      
+      for (const wallet of wallets) {
+        try {
+          const response = await fetch(`https://maxflow.one/api/ego/${wallet.address}/score`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            await storage.saveMaxFlowScore(wallet.address, data);
+            updated++;
+          } else {
+            failed++;
+            if (response.status !== 404) {
+              errors.push(`${wallet.address}: HTTP ${response.status}`);
+            }
+          }
+        } catch (error: any) {
+          failed++;
+          errors.push(`${wallet.address}: ${error.message}`);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      res.json({
+        walletsProcessed: wallets.length,
+        scoresUpdated: updated,
+        failed,
+        errors: errors.slice(0, 10),
+      });
+    } catch (error) {
+      console.error('Error refetching MaxFlow scores:', error);
+      res.status(500).json({ error: 'Failed to refetch MaxFlow scores' });
+    }
+  });
+
   app.post('/api/admin/prune-old-data', adminAuthMiddleware, async (req, res) => {
     try {
       const result = await storage.pruneOldBalanceHistory();

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock, Users, ArrowUpDown, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock, Users, ArrowUpDown, ChevronDown, ChevronUp, Network } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { formatAmount } from '@/lib/formatAmount';
 
@@ -88,6 +88,7 @@ export default function Admin() {
   const [isClearingTransactionsAndBalances, setIsClearingTransactionsAndBalances] = useState(false);
   const [isPruning, setIsPruning] = useState(false);
   const [isMigrating, setIsMigrating] = useState(false);
+  const [isRefetchingMaxFlow, setIsRefetchingMaxFlow] = useState(false);
   const [walletAddress, setWalletAddress] = useState('');
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [apiHealth, setApiHealth] = useState<ApiHealthStatus | null>(null);
@@ -308,6 +309,41 @@ export default function Admin() {
       });
     } finally {
       setIsBackfillingAllWallets(false);
+    }
+  };
+
+  const handleRefetchMaxFlowScores = async () => {
+    if (!confirm('This will refetch MaxFlow scores for ALL wallets from the MaxFlow API. This may take a while. Continue?')) {
+      return;
+    }
+
+    setIsRefetchingMaxFlow(true);
+    try {
+      const res = await authenticatedRequest('POST', '/api/admin/refetch-maxflow-scores', authHeader);
+      const result = await res.json();
+
+      const errorMsg = (result.errors && result.errors.length > 0)
+        ? ` (${result.errors.length} errors)`
+        : '';
+
+      toast({
+        title: 'MaxFlow Scores Updated',
+        description: `Processed ${result.walletsProcessed || 0} wallets, updated ${result.scoresUpdated || 0} scores${errorMsg}`,
+      });
+
+      if (result.errors && result.errors.length > 0) {
+        console.error('MaxFlow refetch errors:', result.errors);
+      }
+
+      loadWalletList(authHeader);
+    } catch (error: any) {
+      toast({
+        title: 'Refetch Failed',
+        description: error.message || 'Failed to refetch MaxFlow scores',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRefetchingMaxFlow(false);
     }
   };
 
@@ -615,6 +651,29 @@ export default function Admin() {
               >
                 {isBackfillingAllWallets && <Loader2 className="h-4 w-4 animate-spin" />}
                 Backfill All Wallets
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Network className="h-5 w-5" />
+                Refetch MaxFlow Scores
+              </CardTitle>
+              <CardDescription>
+                Fetch fresh MaxFlow scores from the API for all wallets
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={handleRefetchMaxFlowScores}
+                disabled={isRefetchingMaxFlow}
+                className="w-full"
+                data-testid="button-refetch-maxflow"
+              >
+                {isRefetchingMaxFlow && <Loader2 className="h-4 w-4 animate-spin" />}
+                Refetch MaxFlow Scores
               </Button>
             </CardContent>
           </Card>
