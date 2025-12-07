@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Shield, Eye, EyeOff, Fingerprint, Loader2 } from 'lucide-react';
 import { getWallet, unlockWithPasskey, canUsePasskey } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
+import { queryClient } from '@/lib/queryClient';
 
 export default function Unlock() {
   const [, setLocation] = useLocation();
@@ -25,6 +26,8 @@ export default function Unlock() {
         if (available) {
           const wallet = await unlockWithPasskey();
           if (wallet) {
+            queryClient.invalidateQueries({ queryKey: ['/api/balance', wallet.address] });
+            queryClient.invalidateQueries({ queryKey: ['/api/transactions', wallet.address] });
             toast({
               title: "Wallet unlocked",
             });
@@ -47,6 +50,8 @@ export default function Unlock() {
       setIsUnlocking(true);
       const wallet = await unlockWithPasskey();
       if (wallet) {
+        queryClient.invalidateQueries({ queryKey: ['/api/balance', wallet.address] });
+        queryClient.invalidateQueries({ queryKey: ['/api/transactions', wallet.address] });
         toast({
           title: "Wallet unlocked",
         });
@@ -87,6 +92,8 @@ export default function Unlock() {
       console.log('[Unlock] getWallet result:', wallet ? 'wallet found' : 'null');
       
       if (wallet) {
+        queryClient.invalidateQueries({ queryKey: ['/api/balance', wallet.address] });
+        queryClient.invalidateQueries({ queryKey: ['/api/transactions', wallet.address] });
         toast({
           title: "Wallet unlocked",
         });
