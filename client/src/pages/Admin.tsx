@@ -3,8 +3,9 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock, Users, ArrowUpDown, ChevronDown, ChevronUp, Network, UserCheck } from 'lucide-react';
+import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock, Users, ArrowUpDown, ChevronDown, ChevronUp, Network, UserCheck, PiggyBank, Coins, Shield, Settings, BarChart3, Clock, DollarSign, Wallet, Gift, RefreshCw } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { formatAmount } from '@/lib/formatAmount';
 
@@ -50,6 +51,118 @@ interface TrustedUnfundedWallet {
   address: string;
   maxFlowScore: number;
   lastSeen: string;
+}
+
+interface AnalyticsOverview {
+  totalWallets: number;
+  activeWallets: number;
+  totalTransactions: number;
+  totalVolumeUsd: string;
+  poolParticipants: number;
+  totalYieldCollected: string;
+}
+
+interface PoolDraw {
+  id: string;
+  weekNumber: number;
+  year: number;
+  weekStart: string;
+  weekEnd: string;
+  totalPool: string;
+  totalTickets: string;
+  sponsoredPool: string;
+  participantCount: number;
+  winnerAddress: string | null;
+  winnerTickets: string | null;
+  status: string;
+  drawnAt: string | null;
+  winningNumber: string | null;
+}
+
+interface PoolAnalytics {
+  currentDraw: PoolDraw | null;
+  totalPrizesPaid: string;
+  totalContributions: string;
+  drawHistory: PoolDraw[];
+  participationByPercent: Array<{ percent: number; count: number }>;
+  referralStats: { total: number; activeReferrers: number };
+}
+
+interface AaveAnalytics {
+  totalDeposits: string;
+  totalWithdrawals: string;
+  activeOperations: number;
+  operationsByChain: Array<{ chainId: number; deposits: string; withdrawals: string }>;
+}
+
+interface FacilitatorAnalytics {
+  totalTransfersProcessed: number;
+  totalGasDrips: number;
+  gasDripsByChain: Array<{ chainId: number; count: number; totalAmount: string }>;
+  authorizationsByStatus: Array<{ status: string; count: number }>;
+}
+
+interface MaxFlowAnalytics {
+  totalScored: number;
+  scoreDistribution: Array<{ range: string; count: number }>;
+  averageScore: number;
+}
+
+interface WalletGrowthPoint {
+  date: string;
+  count: number;
+}
+
+interface TransactionVolumePoint {
+  date: string;
+  volume: string;
+  count: number;
+}
+
+interface SchedulerStatus {
+  scheduler: {
+    isRunning: boolean;
+    isConfigured: boolean;
+    nextDrawTime: string;
+    hoursUntilDraw: number;
+    currentWeekDraw: {
+      weekNumber: number;
+      year: number;
+      status: string;
+    } | null;
+    lastExecutedDrawKey: string;
+    facilitatorBalances: {
+      celo: string;
+      aUsdc: string;
+      hasMinGas: boolean;
+    };
+    drawSchedule: string;
+    checkInterval: string;
+  };
+}
+
+interface AaveOperation {
+  id: string;
+  userAddress: string;
+  chainId: number;
+  operationType: string;
+  amount: string;
+  status: string;
+  step: string | null;
+  transferTxHash: string | null;
+  approveTxHash: string | null;
+  supplyTxHash: string | null;
+  refundTxHash: string | null;
+  errorMessage: string | null;
+  retryCount: number;
+  createdAt: string;
+  updatedAt: string;
+  chainName?: string;
+}
+
+interface AaveOperationsResponse {
+  count: number;
+  operations: AaveOperation[];
 }
 
 type SortField = 'balance' | 'transfers' | 'maxflow' | 'volume' | 'created' | 'lastSeen' | 'pool';
