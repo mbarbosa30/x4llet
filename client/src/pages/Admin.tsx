@@ -250,6 +250,11 @@ export default function Admin() {
   const [isLoadingGoodDollarAnalytics, setIsLoadingGoodDollarAnalytics] = useState(false);
   const [isLoadingSchedulerStatus, setIsLoadingSchedulerStatus] = useState(false);
   const [isLoadingAaveOperations, setIsLoadingAaveOperations] = useState(false);
+  
+  // GoodDollar sync claims state
+  const [syncClaimsAddress, setSyncClaimsAddress] = useState('');
+  const [isSyncingClaims, setIsSyncingClaims] = useState(false);
+  const [syncClaimsResult, setSyncClaimsResult] = useState<{ inserted: number; skipped: number; claims: Array<{ txHash: string; amountFormatted: string; claimedDay: number }> } | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -390,6 +395,54 @@ export default function Admin() {
       console.error('Failed to load gooddollar analytics:', error);
     } finally {
       setIsLoadingGoodDollarAnalytics(false);
+    }
+  };
+
+  const handleSyncGoodDollarClaims = async () => {
+    if (!syncClaimsAddress || !/^0x[a-fA-F0-9]{40}$/.test(syncClaimsAddress)) {
+      toast({
+        title: 'Invalid Address',
+        description: 'Please enter a valid wallet address',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSyncingClaims(true);
+    setSyncClaimsResult(null);
+    try {
+      const response = await fetch('/api/admin/gooddollar/sync-claims', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authHeader,
+        },
+        body: JSON.stringify({ walletAddress: syncClaimsAddress }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Sync failed' }));
+        throw new Error(errorData.error || 'Failed to sync claims');
+      }
+
+      const result = await response.json();
+      setSyncClaimsResult(result);
+      
+      toast({
+        title: 'Sync Complete',
+        description: `Synced ${result.inserted} new claims, ${result.skipped} already existed`,
+      });
+
+      // Refresh analytics to show updated data
+      loadGoodDollarAnalytics(authHeader);
+    } catch (error: any) {
+      toast({
+        title: 'Sync Failed',
+        description: error.message || 'Failed to sync claims from blockchain',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSyncingClaims(false);
     }
   };
 
@@ -1520,6 +1573,57 @@ export default function Admin() {
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground">No claims recorded yet</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Sync Claims from Blockchain */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <RefreshCw className="h-5 w-5" />
+                      Sync Claims from Blockchain
+                    </CardTitle>
+                    <CardDescription>
+                      Fetch GoodDollar claim history from CeloScan for a wallet address
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="0x... wallet address"
+                        value={syncClaimsAddress}
+                        onChange={(e) => setSyncClaimsAddress(e.target.value)}
+                        className="font-mono text-sm"
+                        data-testid="input-sync-claims-address"
+                      />
+                      <Button 
+                        onClick={handleSyncGoodDollarClaims} 
+                        disabled={isSyncingClaims || !syncClaimsAddress}
+                        data-testid="button-sync-claims"
+                      >
+                        {isSyncingClaims && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        Sync Claims
+                      </Button>
+                    </div>
+                    
+                    {syncClaimsResult && (
+                      <div className="space-y-2">
+                        <div className="flex gap-4 text-sm">
+                          <span className="text-green-600">Inserted: {syncClaimsResult.inserted}</span>
+                          <span className="text-muted-foreground">Skipped: {syncClaimsResult.skipped}</span>
+                        </div>
+                        {syncClaimsResult.claims.length > 0 && (
+                          <div className="space-y-1 max-h-40 overflow-y-auto">
+                            {syncClaimsResult.claims.map((claim, idx) => (
+                              <div key={idx} className="text-xs p-2 bg-muted flex justify-between items-center" data-testid={`row-synced-claim-${idx}`}>
+                                <span className="font-mono text-muted-foreground">{claim.txHash.slice(0, 12)}...</span>
+                                <span>{claim.amountFormatted} G$ (Day {claim.claimedDay})</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </CardContent>
                 </Card>

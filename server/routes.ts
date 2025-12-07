@@ -4104,6 +4104,147 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Sync GoodDollar claims from blockchain
+  // Fetches G$ token transfers from CeloScan where FROM = UBI contract (claim events)
+  app.post('/api/admin/gooddollar/sync-claims', adminAuthMiddleware, async (req, res) => {
+    try {
+      const { walletAddress } = req.body;
+
+      if (!walletAddress || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+
+      console.log(`[GoodDollar Sync] Starting claim sync for ${walletAddress}`);
+
+      // GoodDollar contract addresses on Celo
+      const GD_TOKEN = '0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A';
+      const UBI_CONTRACT = '0x43d72Ff17701B2DA814620735C39C620Ce0ea4A1';
+      const CELO_CHAIN_ID = 42220;
+
+      // Try Etherscan v2 unified API first
+      const etherscanApiKey = process.env.ETHERSCAN_API_KEY;
+      let transfers: any[] = [];
+
+      if (etherscanApiKey) {
+        const url = `https://api.etherscan.io/v2/api?chainid=${CELO_CHAIN_ID}&module=account&action=tokentx&contractaddress=${GD_TOKEN}&address=${walletAddress}&sort=desc&apikey=${etherscanApiKey}`;
+        
+        try {
+          console.log('[GoodDollar Sync] Fetching from Etherscan v2 API...');
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (data.status === '1' && Array.isArray(data.result)) {
+            transfers = data.result;
+            console.log(`[GoodDollar Sync] Found ${transfers.length} G$ transfers from Etherscan v2`);
+          } else {
+            console.log('[GoodDollar Sync] Etherscan v2 returned no results, trying CeloScan fallback');
+          }
+        } catch (error) {
+          console.log('[GoodDollar Sync] Etherscan v2 failed, trying CeloScan fallback');
+        }
+      }
+
+      // Fallback to CeloScan direct API
+      if (transfers.length === 0) {
+        const celoscanApiKey = process.env.CELOSCAN_API_KEY;
+        if (celoscanApiKey) {
+          const url = `https://api.celoscan.io/api?module=account&action=tokentx&contractaddress=${GD_TOKEN}&address=${walletAddress}&sort=desc&apikey=${celoscanApiKey}`;
+          
+          try {
+            console.log('[GoodDollar Sync] Fetching from CeloScan API...');
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.status === '1' && Array.isArray(data.result)) {
+              transfers = data.result;
+              console.log(`[GoodDollar Sync] Found ${transfers.length} G$ transfers from CeloScan`);
+            }
+          } catch (error) {
+            console.error('[GoodDollar Sync] CeloScan request failed:', error);
+          }
+        } else {
+          console.log('[GoodDollar Sync] No CELOSCAN_API_KEY available');
+        }
+      }
+
+      if (transfers.length === 0) {
+        return res.json({
+          success: true,
+          message: 'No G$ transfers found',
+          claims: [],
+          inserted: 0,
+          skipped: 0,
+        });
+      }
+
+      // Filter for claim events: transfers FROM the UBI contract TO the wallet
+      const claimTransfers = transfers.filter((tx: any) => 
+        tx.from?.toLowerCase() === UBI_CONTRACT.toLowerCase() &&
+        tx.to?.toLowerCase() === walletAddress.toLowerCase()
+      );
+
+      console.log(`[GoodDollar Sync] Found ${claimTransfers.length} claim transfers (from UBI contract)`);
+
+      if (claimTransfers.length === 0) {
+        return res.json({
+          success: true,
+          message: 'No claim transfers found',
+          claims: [],
+          inserted: 0,
+          skipped: 0,
+        });
+      }
+
+      // Convert transfers to claim records
+      // G$ has 18 decimals
+      const claims = claimTransfers.map((tx: any) => {
+        const timestamp = parseInt(tx.timeStamp) * 1000;
+        const claimDate = new Date(timestamp);
+        
+        // Calculate claimedDay (days since GoodDollar epoch - January 1, 2020)
+        const epochStart = new Date('2020-01-01T00:00:00Z').getTime();
+        const claimedDay = Math.floor((timestamp - epochStart) / (24 * 60 * 60 * 1000));
+
+        // Format amount (G$ has 18 decimals)
+        const rawAmount = tx.value || '0';
+        const amountBigInt = BigInt(rawAmount);
+        const wholePart = amountBigInt / BigInt(10 ** 18);
+        const fractionalPart = amountBigInt % BigInt(10 ** 18);
+        const fractionalStr = fractionalPart.toString().padStart(18, '0').slice(0, 2);
+        const amountFormatted = `${wholePart}.${fractionalStr}`;
+
+        return {
+          walletAddress: walletAddress.toLowerCase(),
+          txHash: tx.hash,
+          amount: rawAmount,
+          amountFormatted,
+          claimedDay,
+          gasDripTxHash: null,
+        };
+      });
+
+      // Sync to database (upsert with deduplication by txHash)
+      const result = await storage.syncGoodDollarClaims(claims);
+
+      console.log(`[GoodDollar Sync] Sync complete: ${result.inserted} inserted, ${result.skipped} skipped (duplicates)`);
+
+      res.json({
+        success: true,
+        message: `Synced ${result.inserted} new claims, ${result.skipped} already existed`,
+        claims: claims.map(c => ({
+          txHash: c.txHash,
+          amountFormatted: c.amountFormatted,
+          claimedDay: c.claimedDay,
+        })),
+        inserted: result.inserted,
+        skipped: result.skipped,
+      });
+    } catch (error) {
+      console.error('[GoodDollar Sync] Error syncing claims:', error);
+      res.status(500).json({ error: 'Failed to sync claims from blockchain' });
+    }
+  });
+
   // Donate to prize pool (admin can add funds)
   // Donations increase the prize pool but do NOT add tickets - they're pure sponsorship
   app.post('/api/admin/pool/donate', adminAuthMiddleware, async (req, res) => {
