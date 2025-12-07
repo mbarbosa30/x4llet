@@ -110,14 +110,26 @@ Multi-chain UX includes aggregated USDC balance display, chain badges for transa
   - `POST /api/pool/record-approval` - Records approval after user signs tx
 
 **Weekly Draw Execution Flow**:
-1. Admin triggers draw via `/api/admin/pool/draw` with `weekNumber` and `year`
-2. System fetches all opted-in users with facilitator approval
-3. For each participant: reads live aUSDC balance, calculates weekly yield, checks allowance
-4. Referral bonuses calculated (10% of referee's yield → referrer's tickets)
-5. Weighted random selection picks winner
-6. Facilitator executes `transferFrom` for each participant's yield portion
-7. Total collected yield + sponsored pool transferred to winner's wallet
-8. Draw marked complete with winner address, tx hashes, and final totals
+1. System fetches all opted-in users with facilitator approval
+2. For each participant: reads live aUSDC balance, calculates weekly yield, checks allowance
+3. Referral bonuses calculated (10% of referee's yield → referrer's tickets)
+4. Weighted random selection picks winner
+5. Facilitator executes `transferFrom` for each participant's yield portion
+6. Total collected yield + sponsored pool transferred to winner's wallet
+7. Draw marked complete with winner address, tx hashes, and final totals
+
+**Pool Automation**:
+- **Shared draw executor (`server/drawExecutor.ts`)**: Core draw logic extracted into a reusable function that both the scheduler and admin endpoint call. Ensures identical behavior for automated and manual draws.
+- **Scheduler (`server/poolScheduler.ts`)**: Thin wrapper that monitors timing and calls the shared executor
+  - Draws execute automatically every Sunday at 00:00 UTC
+  - Hourly checks to determine if a draw is due
+  - Auto-creation of current week's draw record if missing
+  - Gas safety checks (0.1 CELO minimum) before execution
+  - Idempotency tracking prevents duplicate executions
+  - Starts automatically when the server boots
+- **Admin monitoring**: `GET /api/admin/pool/scheduler-status` shows scheduler status, next draw time, and facilitator balances
+- **Manual trigger**: Admin can execute draws via `POST /api/admin/pool/draw` with `{ weekNumber, year }`
+- **Dry run**: Test draws with `{ weekNumber, year, dryRun: true }` to see results without on-chain execution
 
 ## External Dependencies
 

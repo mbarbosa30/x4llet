@@ -10,6 +10,8 @@ import { AAVE_POOL_ABI, ATOKEN_ABI, ERC20_ABI, rayToPercent } from "@shared/aave
 import { createPublicClient, createWalletClient, http, type Address, type Hex, hexToSignature, recoverAddress, hashTypedData, getAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, celo, gnosis } from 'viem/chains';
+import { getSchedulerStatus } from './poolScheduler';
+import { executePoolDraw } from './drawExecutor';
 
 // USDC EIP-3009 ABI
 // Note: Both functions are defined, but this implementation uses transferWithAuthorization for all cases
@@ -3635,377 +3637,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Run weekly draw with on-chain yield collection
-  // Flow: 1) Calculate tickets from live balances, 2) Pick winner, 
-  // 3) Collect yields via transferFrom from approved participants, 4) Transfer prize to winner
+  // Uses shared executePoolDraw function for consistent behavior with scheduler
   app.post('/api/admin/pool/draw', adminAuthMiddleware, async (req, res) => {
     try {
       const { weekNumber, year, dryRun = false } = req.body;
       
-      const draw = await storage.getPoolDraw(weekNumber, year);
-      if (!draw) {
-        return res.status(404).json({ error: 'Draw not found' });
-      }
+      const result = await executePoolDraw(weekNumber, year, dryRun);
       
-      if (draw.status === 'completed') {
-        return res.status(400).json({ error: 'Draw already completed' });
-      }
-      
-      const celoNetwork = getNetworkByChainId(42220);
-      if (!celoNetwork?.aUsdcAddress) {
-        return res.status(500).json({ error: 'Celo aUSDC address not configured' });
-      }
-      const CELO_AUSDC_ADDRESS = getAddress(celoNetwork.aUsdcAddress);
-      
-      // Get only users with opt-in > 0 AND facilitator approved
-      const allSettings = await storage.getAllPoolSettings();
-      const approvedUsers = allSettings.filter(s => s.optInPercent > 0 && s.facilitatorApproved);
-      const unapprovedUsers = allSettings.filter(s => s.optInPercent > 0 && !s.facilitatorApproved);
-      
-      if (approvedUsers.length === 0) {
-        return res.json({ 
-          success: false, 
-          message: 'No approved participants in this draw',
-          unapprovedCount: unapprovedUsers.length,
-        });
-      }
-      
-      const client = createPublicClient({
-        chain: celo,
-        transport: http('https://forno.celo.org'),
-      });
-      
-      const facilitatorAccount = getFacilitatorAccount();
-      
-      // Get all referrals for bonus calculation
-      const allReferrals = await storage.getAllReferrals();
-      const refereeToReferrer = new Map<string, string>();
-      for (const ref of allReferrals) {
-        refereeToReferrer.set(ref.refereeAddress.toLowerCase(), ref.referrerAddress.toLowerCase());
-      }
-      
-      // Phase 1: Calculate WEEKLY yield and contributions using snapshots
-      // First week: use total accrued; Subsequent weeks: use delta from last snapshot
-      const addresses = approvedUsers.map(s => s.walletAddress);
-      const interestMap = await getAaveUsersInterest(addresses);
-      
-      // Get all snapshots for participants
-      const allSnapshots = await storage.getAllYieldSnapshots();
-      const snapshotMap = new Map<string, typeof allSnapshots[0]>();
-      for (const snap of allSnapshots) {
-        snapshotMap.set(snap.walletAddress.toLowerCase(), snap);
-      }
-      
-      const participantData: { 
-        address: string; 
-        totalBalance: bigint;
-        principal: bigint;
-        actualInterest: bigint; // Total accrued interest
-        weeklyYield: bigint; // This week's yield (for contribution calc)
-        contribution: bigint; // weeklyYield × opt-in%
-        allowance: bigint;
-        hasEnoughAllowance: boolean;
-      }[] = [];
-      
-      for (const settings of approvedUsers) {
-        try {
-          const addr = settings.walletAddress.toLowerCase();
-          const interestData = interestMap.get(addr);
-          
-          if (!interestData) continue;
-          
-          const totalAccrued = interestData.interest;
-          const snapshot = snapshotMap.get(addr);
-          const isFirstWeek = snapshot?.isFirstWeek ?? true;
-          const snapshotYield = BigInt(snapshot?.snapshotYield || '0');
-          
-          // Calculate weekly yield
-          let weeklyYield: bigint;
-          if (isFirstWeek) {
-            weeklyYield = totalAccrued;
-          } else {
-            weeklyYield = totalAccrued > snapshotYield ? totalAccrued - snapshotYield : 0n;
-          }
-          
-          if (weeklyYield === 0n) continue;
-          
-          // Calculate contribution: weekly yield × opt-in%
-          const contribution = (weeklyYield * BigInt(settings.optInPercent)) / 100n;
-          if (contribution === 0n) continue;
-          
-          // Check allowance
-          const userAddress = getAddress(settings.walletAddress);
-          const allowance = await client.readContract({
-            address: CELO_AUSDC_ADDRESS,
-            abi: [{
-              inputs: [
-                { name: 'owner', type: 'address' },
-                { name: 'spender', type: 'address' }
-              ],
-              name: 'allowance',
-              outputs: [{ name: '', type: 'uint256' }],
-              stateMutability: 'view',
-              type: 'function',
-            }],
-            functionName: 'allowance',
-            args: [userAddress, facilitatorAccount.address],
-          }) as bigint;
-          
-          participantData.push({
-            address: addr,
-            totalBalance: interestData.totalBalance,
-            principal: interestData.principal,
-            actualInterest: totalAccrued,
-            weeklyYield,
-            contribution,
-            allowance,
-            hasEnoughAllowance: allowance >= contribution,
-          });
-        } catch (error) {
-          console.error(`[Pool Draw] Error processing ${settings.walletAddress}:`, error);
+      if (!result.success && result.error) {
+        if (result.error === 'Draw not found') {
+          return res.status(404).json({ error: result.error });
+        }
+        if (result.error === 'Draw already completed') {
+          return res.status(400).json({ error: result.error });
         }
       }
       
-      // Calculate referral bonuses (10% of referee's contribution goes to referrer as bonus tickets)
-      const contributionMap = new Map<string, bigint>();
-      for (const p of participantData) {
-        contributionMap.set(p.address, p.contribution);
-      }
-      
-      const referralBonusMap = new Map<string, bigint>();
-      for (const [participantAddr, contribution] of contributionMap) {
-        const referrerAddr = refereeToReferrer.get(participantAddr);
-        if (referrerAddr && contribution > 0n) {
-          const bonus = contribution / 10n;
-          referralBonusMap.set(referrerAddr, (referralBonusMap.get(referrerAddr) || 0n) + bonus);
-        }
-      }
-      
-      // Build final participant list with tickets
-      const participantTickets: { 
-        address: string; 
-        yieldTickets: bigint; 
-        referralBonus: bigint; 
-        totalTickets: bigint;
-        yieldToCollect: bigint;
-        hasEnoughAllowance: boolean;
-      }[] = [];
-      
-      const allParticipantAddresses = new Set([...contributionMap.keys(), ...referralBonusMap.keys()]);
-      for (const addr of allParticipantAddresses) {
-        const participantInfo = participantData.find(p => p.address === addr);
-        const yieldTickets = contributionMap.get(addr) || 0n;
-        const referralBonus = referralBonusMap.get(addr) || 0n;
-        const totalTickets = yieldTickets + referralBonus;
-        
-        if (totalTickets > 0n) {
-          participantTickets.push({
-            address: addr,
-            yieldTickets,
-            referralBonus,
-            totalTickets,
-            yieldToCollect: participantInfo?.contribution || 0n,
-            hasEnoughAllowance: participantInfo?.hasEnoughAllowance ?? false,
-          });
-        }
-      }
-      
-      if (participantTickets.length === 0) {
-        return res.json({ 
-          success: false, 
-          message: 'No participants with tickets in this draw',
-        });
-      }
-      
-      // Only count participants with sufficient allowance for collection
-      const collectableParticipants = participantTickets.filter(p => p.hasEnoughAllowance && p.yieldToCollect > 0n);
-      const totalTickets = participantTickets.reduce((sum, p) => sum + p.totalTickets, 0n);
-      const totalYieldToCollect = collectableParticipants.reduce((sum, p) => sum + p.yieldToCollect, 0n);
-      // Sponsor pool = facilitator's on-chain aUSDC balance (already deposited, earning yield)
-      const sponsoredPool = await getFacilitatorAusdcBalance();
-      const totalPrizePool = totalYieldToCollect + sponsoredPool;
-      
-      // Generate random number for selection
-      const randomBytes = randomUUID().replace(/-/g, '');
-      const randomBigInt = BigInt('0x' + randomBytes) % totalTickets;
-      
-      // Select winner using weighted random
-      let cumulative = 0n;
-      let winner = participantTickets[0];
-      for (const participant of participantTickets) {
-        cumulative += participant.totalTickets;
-        if (randomBigInt < cumulative) {
-          winner = participant;
-          break;
-        }
-      }
-      
-      // Dry run mode: return simulation without executing on-chain
-      if (dryRun) {
-        return res.json({
-          success: true,
-          dryRun: true,
-          winner: {
-            address: winner.address,
-            yieldTickets: winner.yieldTickets.toString(),
-            referralBonus: winner.referralBonus.toString(),
-            totalTickets: winner.totalTickets.toString(),
-            prize: totalPrizePool.toString(),
-            prizeFormatted: (Number(totalPrizePool) / 1_000_000).toFixed(2),
-          },
-          totalParticipants: participantTickets.length,
-          collectableParticipants: collectableParticipants.length,
-          totalTickets: totalTickets.toString(),
-          totalYieldToCollect: totalYieldToCollect.toString(),
-          totalPrizePool: totalPrizePool.toString(),
-          sponsoredPool: sponsoredPool.toString(),
-          winningNumber: randomBigInt.toString(),
-          unapprovedUsers: unapprovedUsers.length,
-          participantsWithInsufficientAllowance: participantTickets.filter(p => !p.hasEnoughAllowance).length,
-        });
-      }
-      
-      // Phase 2: Collect yields from participants via transferFrom
-      const walletClient = createWalletClient({
-        chain: celo,
-        account: facilitatorAccount,
-        transport: http('https://forno.celo.org'),
-      });
-      
-      const collectionResults: { address: string; amount: string; txHash?: string; error?: string }[] = [];
-      let totalCollected = 0n;
-      
-      for (const participant of collectableParticipants) {
-        try {
-          const transferFromTx = await walletClient.writeContract({
-            address: CELO_AUSDC_ADDRESS,
-            abi: [{
-              inputs: [
-                { name: 'from', type: 'address' },
-                { name: 'to', type: 'address' },
-                { name: 'amount', type: 'uint256' }
-              ],
-              name: 'transferFrom',
-              outputs: [{ name: '', type: 'bool' }],
-              stateMutability: 'nonpayable',
-              type: 'function',
-            }],
-            functionName: 'transferFrom',
-            args: [getAddress(participant.address), facilitatorAccount.address, participant.yieldToCollect],
-          });
-          
-          await client.waitForTransactionReceipt({ hash: transferFromTx });
-          
-          collectionResults.push({
-            address: participant.address,
-            amount: participant.yieldToCollect.toString(),
-            txHash: transferFromTx,
-          });
-          totalCollected += participant.yieldToCollect;
-          
-          console.log(`[Pool Draw] Collected ${participant.yieldToCollect} from ${participant.address}: ${transferFromTx}`);
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message.slice(0, 100) : 'Unknown error';
-          console.error(`[Pool Draw] Failed to collect from ${participant.address}:`, errorMsg);
-          collectionResults.push({
-            address: participant.address,
-            amount: participant.yieldToCollect.toString(),
-            error: errorMsg,
-          });
-        }
-      }
-      
-      // Phase 3: Transfer prize to winner (total collected + sponsored pool)
-      const actualPrize = totalCollected + sponsoredPool;
-      let prizeTxHash: string | undefined;
-      
-      if (actualPrize > 0n) {
-        try {
-          prizeTxHash = await walletClient.writeContract({
-            address: CELO_AUSDC_ADDRESS,
-            abi: [{
-              inputs: [
-                { name: 'to', type: 'address' },
-                { name: 'amount', type: 'uint256' }
-              ],
-              name: 'transfer',
-              outputs: [{ name: '', type: 'bool' }],
-              stateMutability: 'nonpayable',
-              type: 'function',
-            }],
-            functionName: 'transfer',
-            args: [getAddress(winner.address), actualPrize],
-          });
-          
-          await client.waitForTransactionReceipt({ hash: prizeTxHash as `0x${string}` });
-          console.log(`[Pool Draw] Transferred prize ${actualPrize} to winner ${winner.address}: ${prizeTxHash}`);
-        } catch (error) {
-          console.error(`[Pool Draw] Failed to transfer prize to ${winner.address}:`, error);
-          return res.status(500).json({ 
-            error: 'Failed to transfer prize to winner',
-            collectionResults,
-            totalCollected: totalCollected.toString(),
-          });
-        }
-      }
-      
-      // Update draw with winner and final totals
-      await storage.completeDraw(draw.id, {
-        winnerAddress: winner.address,
-        winnerTickets: winner.totalTickets.toString(),
-        winningNumber: randomBigInt.toString(),
-        totalPool: actualPrize.toString(),
-        totalTickets: totalTickets.toString(),
-      });
-      
-      // Phase 4: Save snapshots for all participants
-      // Store their current total accrued interest so next week only counts the delta
-      const { weekNumber: currentWeek, year: currentYear } = getCurrentWeekInfo();
-      for (const participant of participantData) {
-        try {
-          await storage.upsertYieldSnapshot(participant.address, {
-            lastAusdcBalance: participant.totalBalance.toString(),
-            snapshotYield: participant.actualInterest.toString(), // Save current total accrued
-            weekNumber: currentWeek,
-            year: currentYear,
-            isFirstWeek: false, // Next week will use delta, not total
-            lastCollectedAt: new Date(),
-          });
-          console.log(`[Pool Draw] Saved snapshot for ${participant.address}: yield=${participant.actualInterest}`);
-        } catch (err) {
-          console.error(`[Pool Draw] Failed to save snapshot for ${participant.address}:`, err);
-        }
-      }
-      
-      console.log(`[Pool Draw] Completed: winner=${winner.address}, tickets=${winner.totalTickets}, prize=${actualPrize}, collected from ${collectionResults.filter(r => !r.error).length} participants`);
-      
-      res.json({
-        success: true,
-        winner: {
-          address: winner.address,
-          yieldTickets: winner.yieldTickets.toString(),
-          referralBonus: winner.referralBonus.toString(),
-          totalTickets: winner.totalTickets.toString(),
-          prize: actualPrize.toString(),
-          prizeFormatted: (Number(actualPrize) / 1_000_000).toFixed(2),
-          prizeTxHash,
-        },
-        collection: {
-          attempted: collectableParticipants.length,
-          successful: collectionResults.filter(r => !r.error).length,
-          failed: collectionResults.filter(r => r.error).length,
-          totalCollected: totalCollected.toString(),
-          results: collectionResults,
-        },
-        totalParticipants: participantTickets.length,
-        totalTickets: totalTickets.toString(),
-        totalPrizePool: actualPrize.toString(),
-        sponsoredPool: sponsoredPool.toString(),
-        winningNumber: randomBigInt.toString(),
-        unapprovedUsers: unapprovedUsers.length,
-      });
+      res.json(result);
     } catch (error) {
       console.error('[Pool] Error running draw:', error);
-      res.status(500).json({ error: 'Failed to run draw' });
+      const errorMsg = error instanceof Error ? error.message : 'Failed to run draw';
+      res.status(500).json({ error: errorMsg });
     }
   });
 
@@ -4277,6 +3929,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('[Pool] Error getting stats:', error);
       res.status(500).json({ error: 'Failed to get pool stats' });
+    }
+  });
+
+  // Admin: Get pool scheduler status
+  app.get('/api/admin/pool/scheduler', adminAuthMiddleware, async (req, res) => {
+    try {
+      const status = await getSchedulerStatus();
+      res.json({
+        scheduler: {
+          ...status,
+          drawSchedule: 'Sunday 00:00 UTC (weekly)',
+          checkInterval: 'Every hour',
+        },
+      });
+    } catch (error) {
+      console.error('[Pool] Error getting scheduler status:', error);
+      res.status(500).json({ error: 'Failed to get scheduler status' });
     }
   });
 
