@@ -1087,33 +1087,36 @@ export default function Earn() {
                 )}
               </div>
 
-              <div className="flex gap-2 w-full">
-                <Button 
-                  className="flex-1 min-w-0" 
-                  onClick={() => {
-                    resetAaveDialog();
-                    setShowAaveDeposit(true);
-                  }}
-                  data-testid="button-earn-deposit"
-                >
-                  <ArrowUpToLine className="h-4 w-4 mr-2 shrink-0" />
-                  <span className="truncate">Deposit</span>
-                </Button>
-                <Button 
-                  variant="outline"
-                  className="flex-1 min-w-0" 
-                  onClick={() => {
-                    resetAaveDialog();
-                    setShowAaveWithdraw(true);
-                  }}
-                  disabled={!hasAaveBalance}
-                  data-testid="button-earn-withdraw"
-                >
-                  <ArrowDownToLine className="h-4 w-4 mr-2 shrink-0" />
-                  <span className="truncate">Withdraw</span>
-                </Button>
-              </div>
-            </Card>
+              </Card>
+
+            <div className="grid grid-cols-2 gap-2">
+              <Button 
+                size="lg"
+                className="w-full" 
+                onClick={() => {
+                  resetAaveDialog();
+                  setShowAaveDeposit(true);
+                }}
+                data-testid="button-earn-deposit"
+              >
+                <ArrowUpToLine className="h-4 w-4 mr-2" />
+                Deposit
+              </Button>
+              <Button 
+                size="lg"
+                variant="outline"
+                className="w-full" 
+                onClick={() => {
+                  resetAaveDialog();
+                  setShowAaveWithdraw(true);
+                }}
+                disabled={!hasAaveBalance}
+                data-testid="button-earn-withdraw"
+              >
+                <ArrowDownToLine className="h-4 w-4 mr-2" />
+                Withdraw
+              </Button>
+            </div>
 
             {/* Claimable Rewards Section */}
             {hasClaimableRewards && (
