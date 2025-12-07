@@ -424,4 +424,20 @@
   .animate-marquee:hover {
     animation-play-state: paused;
   }
+  
+  /* ============================================
+     MODAL BUTTON STYLING
+     Remove brutalist shadows from buttons inside dialogs/modals
+     ============================================ */
+  
+  [role="dialog"] button,
+  [role="alertdialog"] button {
+    box-shadow: none !important;
+    transform: none !important;
+  }
+  
+  [role="dialog"] button:active,
+  [role="alertdialog"] button:active {
+    transform: none !important;
+  }
 }
