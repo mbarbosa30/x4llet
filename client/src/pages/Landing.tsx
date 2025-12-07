@@ -95,7 +95,7 @@ export default function Landing() {
               </p>
             </div>
 
-            <div className="space-y-6 text-left max-w-sm mx-auto">
+            <div className="space-y-6 text-left max-w-sm mx-auto py-4">
               <div className="flex items-center gap-4">
                 <WifiOff className="h-5 w-5 text-[#0055FF] flex-shrink-0" />
                 <div className="w-px h-10 bg-[#0055FF]" />
