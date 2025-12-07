@@ -82,6 +82,18 @@ export default function Claim() {
   const [customInviterAddress, setCustomInviterAddress] = useState('');
   const [inviterValidation, setInviterValidation] = useState<{ valid?: boolean; error?: string; checking?: boolean } | null>(null);
   const [showWaitingTips, setShowWaitingTips] = useState(false);
+  const [pendingFvResult, setPendingFvResult] = useState<{ isVerified: boolean; reason?: string } | null>(null);
+  const [isRefreshingIdentity, setIsRefreshingIdentity] = useState(false);
+
+  // Parse FV callback immediately on mount (before address loads)
+  useEffect(() => {
+    const fvResult = parseFVCallback();
+    if (fvResult) {
+      setPendingFvResult(fvResult);
+      // Clear URL immediately to prevent re-processing
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -167,26 +179,52 @@ export default function Claim() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Process pending FV result once address is available
   useEffect(() => {
-    const fvResult = parseFVCallback();
-    if (fvResult) {
-      if (fvResult.isVerified) {
+    if (!pendingFvResult || !address) return;
+
+    const processFvResult = async () => {
+      if (pendingFvResult.isVerified) {
+        setIsRefreshingIdentity(true);
         toast({
           title: "Face Verified",
-          description: "Your identity has been verified. You can now claim G$ daily.",
+          description: "Refreshing your identity status...",
         });
-        queryClient.invalidateQueries({ queryKey: ['/gooddollar/identity', address] });
-        queryClient.invalidateQueries({ queryKey: ['/gooddollar/claim', address] });
+        
+        try {
+          // Invalidate and refetch identity status
+          await queryClient.invalidateQueries({ queryKey: ['/gooddollar/identity', address] });
+          await queryClient.invalidateQueries({ queryKey: ['/gooddollar/claim', address] });
+          
+          // Force refetch to get fresh data - identity first, then claim
+          await queryClient.refetchQueries({ queryKey: ['/gooddollar/identity', address] });
+          await queryClient.refetchQueries({ queryKey: ['/gooddollar/claim', address] });
+          
+          toast({
+            title: "Ready to Claim",
+            description: "Your identity is verified. You can now claim G$ daily.",
+          });
+        } catch (error) {
+          console.error('Error refreshing identity status:', error);
+          toast({
+            title: "Verification Complete",
+            description: "Your identity is verified. Please refresh if claim status doesn't update.",
+          });
+        } finally {
+          setIsRefreshingIdentity(false);
+        }
       } else {
         toast({
           title: "Verification Failed",
-          description: fvResult.reason || "Face verification was not successful. Please try again.",
+          description: pendingFvResult.reason || "Face verification was not successful. Please try again.",
           variant: "destructive",
         });
       }
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, [address, queryClient, toast]);
+      setPendingFvResult(null);
+    };
+
+    processFvResult();
+  }, [pendingFvResult, address, queryClient, toast]);
 
   // Countdown timer for next claim
   useEffect(() => {
@@ -1061,12 +1099,14 @@ export default function Claim() {
 
           <TabsContent value="gooddollar" className="mt-4">
             <Card className="p-6 space-y-6">
-              {isLoadingGdIdentity ? (
+              {isLoadingGdIdentity || isRefreshingIdentity ? (
                 <div className="text-center space-y-4">
                   <Gift className="h-12 w-12 mx-auto text-muted-foreground" />
                   <div>
                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground mt-2">Checking GoodDollar status...</p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {isRefreshingIdentity ? "Verifying your identity..." : "Checking GoodDollar status..."}
+                    </p>
                   </div>
                 </div>
               ) : gdIdentity?.isWhitelisted ? (
