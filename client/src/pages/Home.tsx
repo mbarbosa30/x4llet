@@ -74,11 +74,10 @@ export default function Home() {
     loadWallet();
   }, [setLocation]);
 
-  // Fetch aggregated balance from all chains
+  // Fetch aggregated balance from all chains (no polling - manual refresh only)
   const { data: balanceData, isLoading, isFetching: isRefreshingBalance, refetch: refetchBalance } = useQuery<BalanceResponse & { chains?: any }>({
     queryKey: ['/api/balance', address],
     enabled: !!address,
-    refetchInterval: 30000,
     queryFn: async () => {
       const res = await fetch(`/api/balance/${address}`);
       if (!res.ok) throw new Error('Failed to fetch balance');
@@ -90,11 +89,10 @@ export default function Home() {
     await refetchBalance();
   };
 
-  // Fetch aggregated transactions from all chains
+  // Fetch aggregated transactions from all chains (no polling - manual refresh only)
   const { data: allTransactions } = useQuery<(SchemaTransaction & { chainId?: number })[]>({
     queryKey: ['/api/transactions', address],
     enabled: !!address,
-    refetchInterval: 30000,
     queryFn: async () => {
       const res = await fetch(`/api/transactions/${address}`);
       if (!res.ok) throw new Error('Failed to fetch transactions');
@@ -107,11 +105,10 @@ export default function Home() {
     enabled: !!currency,
   });
 
-  // Fetch Aave balance when earn mode is enabled
+  // Fetch Aave balance when earn mode is enabled (no polling)
   const { data: aaveBalance } = useQuery<AaveBalanceResponse>({
     queryKey: ['/api/aave/balance', address],
     enabled: !!address && earnMode,
-    refetchInterval: 60000, // Refresh every minute for aToken balance updates
     queryFn: async () => {
       const res = await fetch(`/api/aave/balance/${address}`);
       if (!res.ok) throw new Error('Failed to fetch Aave balance');

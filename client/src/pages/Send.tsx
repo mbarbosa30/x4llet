@@ -245,9 +245,17 @@ export default function Send() {
       toast({
         title: "Transaction sent",
       });
+      // Immediate invalidation to clear stale data
       queryClient.invalidateQueries({ queryKey: ['/api/balance', address] });
       queryClient.invalidateQueries({ queryKey: ['/api/transactions', address] });
       queryClient.invalidateQueries({ queryKey: ['/api/balance-history', address, chainId] });
+      
+      // Delayed refetch after 5 seconds to capture confirmed transaction
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['/api/balance', address] });
+        queryClient.invalidateQueries({ queryKey: ['/api/transactions', address] });
+      }, 5000);
+      
       setLocation('/home');
     },
     onError: async (error) => {
