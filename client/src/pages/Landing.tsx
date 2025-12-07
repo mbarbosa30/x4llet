@@ -174,7 +174,7 @@ export default function Landing() {
           </div>
 
           <div className="pt-10 pb-4 border-t border-foreground/10">
-            <div className="text-sm font-mono uppercase tracking-widest text-muted-foreground mb-6 text-center">Powered By</div>
+            <div className="text-sm font-mono uppercase tracking-widest text-muted-foreground pt-4 mb-8 text-center">Powered By</div>
             <div className="space-y-5 text-left max-w-sm mx-auto">
               <div className="space-y-1">
                 <div className="flex items-center gap-3">
