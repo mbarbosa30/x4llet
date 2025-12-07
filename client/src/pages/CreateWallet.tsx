@@ -225,7 +225,7 @@ export default function CreateWallet() {
                 />
                 <label
                   htmlFor="backup-confirmed"
-                  className="text-sm cursor-pointer"
+                  className="font-mono text-xs cursor-pointer leading-relaxed"
                 >
                   I understand this private key is my master backup. Without it, I cannot recover my wallet if I lose my password. I have saved it in a secure location.
                 </label>
