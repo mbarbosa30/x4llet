@@ -11,11 +11,11 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-cta text-white border border-foreground",
+          "bg-cta text-white border border-foreground shadow-[4px_4px_0px_0px_rgb(0,0,0)] active:shadow-none active:translate-x-[4px] active:translate-y-[4px]",
         destructive:
           "bg-destructive text-destructive-foreground border border-destructive-border",
         outline:
-          "border border-foreground bg-background",
+          "border border-foreground bg-background shadow-[4px_4px_0px_0px_rgb(0,0,0)] active:shadow-none active:translate-x-[4px] active:translate-y-[4px]",
         secondary: "border bg-secondary text-secondary-foreground border-foreground/20",
         ghost: "border border-transparent normal-case font-sans font-medium tracking-normal",
         dark: "bg-primary text-primary-foreground border border-primary-border",

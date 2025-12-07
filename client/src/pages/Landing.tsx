@@ -149,7 +149,7 @@ export default function Landing() {
           <div className="space-y-4">
             <Button
               size="lg"
-              className="w-full shadow-[4px_4px_0px_0px_rgb(0,0,0)] active:shadow-none active:translate-x-[4px] active:translate-y-[4px] transition-all duration-75"
+              className="w-full"
               onClick={() => setLocation('/create')}
               data-testid="button-create-wallet"
             >
@@ -159,7 +159,7 @@ export default function Landing() {
             <Button
               size="lg"
               variant="outline"
-              className="w-full shadow-[4px_4px_0px_0px_rgb(0,0,0)] active:shadow-none active:translate-x-[4px] active:translate-y-[4px] transition-all duration-75"
+              className="w-full"
               onClick={() => setLocation('/restore')}
               data-testid="button-restore-wallet"
             >
