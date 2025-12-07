@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock, Users, ArrowUpDown, ChevronDown, ChevronUp, Network, UserCheck, PiggyBank, Coins, Shield, Settings, BarChart3, Clock, DollarSign, Wallet, Gift, RefreshCw } from 'lucide-react';
+import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock, Users, ArrowUpDown, ChevronDown, ChevronUp, Network, UserCheck, PiggyBank, Coins, Shield, Settings, BarChart3, Clock, DollarSign, Wallet, Gift, RefreshCw, HandHeart } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { formatAmount } from '@/lib/formatAmount';
 
@@ -106,6 +106,20 @@ interface MaxFlowAnalytics {
   totalScored: number;
   scoreDistribution: Array<{ range: string; count: number }>;
   averageScore: number;
+}
+
+interface GoodDollarAnalytics {
+  totalVerifiedUsers: number;
+  totalClaims: number;
+  totalGdClaimed: string;
+  totalGdClaimedFormatted: string;
+  recentClaims: Array<{
+    walletAddress: string;
+    amountFormatted: string;
+    claimedDay: number;
+    createdAt: string;
+  }>;
+  activeClaimers: number;
 }
 
 interface WalletGrowthPoint {
@@ -226,12 +240,14 @@ export default function Admin() {
   const [aaveAnalytics, setAaveAnalytics] = useState<AaveAnalytics | null>(null);
   const [facilitatorAnalytics, setFacilitatorAnalytics] = useState<FacilitatorAnalytics | null>(null);
   const [maxFlowAnalytics, setMaxFlowAnalytics] = useState<MaxFlowAnalytics | null>(null);
+  const [goodDollarAnalytics, setGoodDollarAnalytics] = useState<GoodDollarAnalytics | null>(null);
   const [schedulerStatus, setSchedulerStatus] = useState<SchedulerStatus | null>(null);
   const [aaveOperations, setAaveOperations] = useState<AaveOperationsResponse | null>(null);
   const [isLoadingPoolAnalytics, setIsLoadingPoolAnalytics] = useState(false);
   const [isLoadingAaveAnalytics, setIsLoadingAaveAnalytics] = useState(false);
   const [isLoadingFacilitatorAnalytics, setIsLoadingFacilitatorAnalytics] = useState(false);
   const [isLoadingMaxFlowAnalytics, setIsLoadingMaxFlowAnalytics] = useState(false);
+  const [isLoadingGoodDollarAnalytics, setIsLoadingGoodDollarAnalytics] = useState(false);
   const [isLoadingSchedulerStatus, setIsLoadingSchedulerStatus] = useState(false);
   const [isLoadingAaveOperations, setIsLoadingAaveOperations] = useState(false);
 
@@ -365,6 +381,18 @@ export default function Admin() {
     }
   };
 
+  const loadGoodDollarAnalytics = async (auth: string) => {
+    setIsLoadingGoodDollarAnalytics(true);
+    try {
+      const res = await authenticatedRequest('GET', '/api/admin/analytics/gooddollar', auth);
+      setGoodDollarAnalytics(await res.json());
+    } catch (error) {
+      console.error('Failed to load gooddollar analytics:', error);
+    } finally {
+      setIsLoadingGoodDollarAnalytics(false);
+    }
+  };
+
   const loadSchedulerStatus = async (auth: string) => {
     setIsLoadingSchedulerStatus(true);
     try {
@@ -405,6 +433,8 @@ export default function Admin() {
       loadSchedulerStatus(authHeader);
     } else if (tab === 'wallets' && walletList.length === 0 && !isLoadingWallets) {
       loadWalletList(authHeader);
+    } else if (tab === 'gooddollar' && !goodDollarAnalytics && !isLoadingGoodDollarAnalytics) {
+      loadGoodDollarAnalytics(authHeader);
     }
   };
 
@@ -820,7 +850,7 @@ export default function Admin() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-6 mb-6" data-testid="admin-tabs">
+          <TabsList className="grid w-full grid-cols-7 mb-6" data-testid="admin-tabs">
             <TabsTrigger value="overview" className="flex items-center gap-1.5" data-testid="tab-overview">
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Overview</span>
@@ -836,6 +866,10 @@ export default function Admin() {
             <TabsTrigger value="trust" className="flex items-center gap-1.5" data-testid="tab-trust">
               <Shield className="h-4 w-4" />
               <span className="hidden sm:inline">Trust</span>
+            </TabsTrigger>
+            <TabsTrigger value="gooddollar" className="flex items-center gap-1.5" data-testid="tab-gooddollar">
+              <HandHeart className="h-4 w-4" />
+              <span className="hidden sm:inline">GoodDollar</span>
             </TabsTrigger>
             <TabsTrigger value="wallets" className="flex items-center gap-1.5" data-testid="tab-wallets">
               <Users className="h-4 w-4" />
@@ -1413,6 +1447,97 @@ export default function Admin() {
                   </Button>
                 )}
               </>
+            )}
+          </TabsContent>
+
+          {/* GoodDollar Tab */}
+          <TabsContent value="gooddollar" className="space-y-6">
+            {isLoadingGoodDollarAnalytics ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : goodDollarAnalytics ? (
+              <>
+                <div className="grid md:grid-cols-4 gap-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Verified Users</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold" data-testid="text-gd-verified-users">{goodDollarAnalytics.totalVerifiedUsers}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Total Claims</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold" data-testid="text-gd-total-claims">{goodDollarAnalytics.totalClaims}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Total G$ Claimed</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold" data-testid="text-gd-total-claimed">{goodDollarAnalytics.totalGdClaimedFormatted}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Active Claimers (7d)</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold" data-testid="text-gd-active-claimers">{goodDollarAnalytics.activeClaimers}</div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Recent Claims */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <HandHeart className="h-5 w-5" />
+                      Recent Claims
+                    </CardTitle>
+                    <CardDescription>Last 10 GoodDollar UBI claims</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {goodDollarAnalytics.recentClaims.length > 0 ? (
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {goodDollarAnalytics.recentClaims.map((claim, idx) => (
+                          <div key={idx} className="text-xs p-2 bg-muted flex justify-between items-center" data-testid={`row-gd-claim-${idx}`}>
+                            <div>
+                              <span className="font-mono">{claim.walletAddress.slice(0, 8)}...{claim.walletAddress.slice(-6)}</span>
+                              <span className="text-muted-foreground ml-2">Day {claim.claimedDay}</span>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-mono">{claim.amountFormatted} G$</div>
+                              <div className="text-muted-foreground">{new Date(claim.createdAt).toLocaleDateString()}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No claims recorded yet</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Button onClick={() => loadGoodDollarAnalytics(authHeader)} variant="outline" className="w-full" data-testid="button-refresh-gooddollar">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh GoodDollar Analytics
+                </Button>
+              </>
+            ) : (
+              <Card>
+                <CardContent className="py-8 text-center">
+                  <p className="text-muted-foreground mb-4">GoodDollar analytics not loaded</p>
+                  <Button onClick={() => loadGoodDollarAnalytics(authHeader)} data-testid="button-load-gooddollar-analytics">
+                    Load GoodDollar Analytics
+                  </Button>
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
 

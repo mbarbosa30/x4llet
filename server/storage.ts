@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo, gnosis } from 'viem/chains';
@@ -275,6 +275,27 @@ export interface IStorage {
   getPendingAaveOperations(): Promise<AaveOperation[]>;
   getFailedAaveOperations(): Promise<AaveOperation[]>;
   getAaveNetPrincipal(userAddress: string): Promise<{ chainId: number; netPrincipalMicro: string; trackingStarted: string | null }[]>;
+  
+  // GoodDollar UBI methods
+  upsertGoodDollarIdentity(data: InsertGoodDollarIdentity): Promise<GoodDollarIdentity>;
+  getGoodDollarIdentity(walletAddress: string): Promise<GoodDollarIdentity | null>;
+  recordGoodDollarClaim(data: InsertGoodDollarClaim): Promise<GoodDollarClaim>;
+  getGoodDollarClaimHistory(walletAddress: string, limit?: number): Promise<GoodDollarClaim[]>;
+  upsertGdBalance(address: string, balance: string, balanceFormatted: string, decimals?: number): Promise<CachedGdBalance>;
+  getGdBalance(address: string): Promise<CachedGdBalance | null>;
+  getGoodDollarAnalytics(): Promise<{
+    totalVerifiedUsers: number;
+    totalClaims: number;
+    totalGdClaimed: string;
+    totalGdClaimedFormatted: string;
+    recentClaims: Array<{
+      walletAddress: string;
+      amountFormatted: string;
+      claimedDay: number;
+      createdAt: Date;
+    }>;
+    activeClaimers: number;
+  }>;
 }
 
 export interface GasDrip {
@@ -679,6 +700,76 @@ export class MemStorage implements IStorage {
 
   async getAaveNetPrincipal(userAddress: string): Promise<{ chainId: number; netPrincipalMicro: string; trackingStarted: string | null }[]> {
     return [];
+  }
+
+  async upsertGoodDollarIdentity(data: InsertGoodDollarIdentity): Promise<GoodDollarIdentity> {
+    return {
+      id: randomUUID(),
+      walletAddress: data.walletAddress,
+      isWhitelisted: data.isWhitelisted ?? false,
+      whitelistedRoot: data.whitelistedRoot ?? null,
+      lastAuthenticated: data.lastAuthenticated ?? null,
+      authenticationPeriod: data.authenticationPeriod ?? null,
+      expiresAt: data.expiresAt ?? null,
+      isExpired: data.isExpired ?? false,
+      daysUntilExpiry: data.daysUntilExpiry ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  async getGoodDollarIdentity(walletAddress: string): Promise<GoodDollarIdentity | null> {
+    return null;
+  }
+
+  async recordGoodDollarClaim(data: InsertGoodDollarClaim): Promise<GoodDollarClaim> {
+    return {
+      id: randomUUID(),
+      walletAddress: data.walletAddress,
+      txHash: data.txHash,
+      amount: data.amount,
+      amountFormatted: data.amountFormatted,
+      claimedDay: data.claimedDay,
+      gasDripTxHash: data.gasDripTxHash ?? null,
+      createdAt: new Date(),
+    };
+  }
+
+  async getGoodDollarClaimHistory(walletAddress: string, limit?: number): Promise<GoodDollarClaim[]> {
+    return [];
+  }
+
+  async upsertGdBalance(address: string, balance: string, balanceFormatted: string, decimals: number = 2): Promise<CachedGdBalance> {
+    return {
+      id: randomUUID(),
+      address,
+      balance,
+      balanceFormatted,
+      decimals,
+      updatedAt: new Date(),
+    };
+  }
+
+  async getGdBalance(address: string): Promise<CachedGdBalance | null> {
+    return null;
+  }
+
+  async getGoodDollarAnalytics(): Promise<{
+    totalVerifiedUsers: number;
+    totalClaims: number;
+    totalGdClaimed: string;
+    totalGdClaimedFormatted: string;
+    recentClaims: Array<{ walletAddress: string; amountFormatted: string; claimedDay: number; createdAt: Date }>;
+    activeClaimers: number;
+  }> {
+    return {
+      totalVerifiedUsers: 0,
+      totalClaims: 0,
+      totalGdClaimed: '0',
+      totalGdClaimedFormatted: '0.00',
+      recentClaims: [],
+      activeClaimers: 0,
+    };
   }
 }
 
@@ -2969,6 +3060,185 @@ export class DbStorage extends MemStorage {
     } catch (error) {
       console.error('[Admin] Error fetching wallets with score but no balance:', error);
       throw error;
+    }
+  }
+
+  // GoodDollar UBI Methods
+  async upsertGoodDollarIdentity(data: InsertGoodDollarIdentity): Promise<GoodDollarIdentity> {
+    const normalizedAddress = data.walletAddress.toLowerCase();
+    const now = new Date();
+    
+    const result = await db.insert(gooddollarIdentities).values({
+      walletAddress: normalizedAddress,
+      isWhitelisted: data.isWhitelisted ?? false,
+      whitelistedRoot: data.whitelistedRoot ?? null,
+      lastAuthenticated: data.lastAuthenticated ?? null,
+      authenticationPeriod: data.authenticationPeriod ?? null,
+      expiresAt: data.expiresAt ?? null,
+      isExpired: data.isExpired ?? false,
+      daysUntilExpiry: data.daysUntilExpiry ?? null,
+      updatedAt: now,
+    }).onConflictDoUpdate({
+      target: gooddollarIdentities.walletAddress,
+      set: {
+        isWhitelisted: data.isWhitelisted ?? false,
+        whitelistedRoot: data.whitelistedRoot ?? null,
+        lastAuthenticated: data.lastAuthenticated ?? null,
+        authenticationPeriod: data.authenticationPeriod ?? null,
+        expiresAt: data.expiresAt ?? null,
+        isExpired: data.isExpired ?? false,
+        daysUntilExpiry: data.daysUntilExpiry ?? null,
+        updatedAt: now,
+      },
+    }).returning();
+    
+    console.log(`[GoodDollar] Upserted identity for ${normalizedAddress}: whitelisted=${data.isWhitelisted}`);
+    return result[0];
+  }
+
+  async getGoodDollarIdentity(walletAddress: string): Promise<GoodDollarIdentity | null> {
+    const normalizedAddress = walletAddress.toLowerCase();
+    const result = await db
+      .select()
+      .from(gooddollarIdentities)
+      .where(eq(gooddollarIdentities.walletAddress, normalizedAddress))
+      .limit(1);
+    
+    return result[0] || null;
+  }
+
+  async recordGoodDollarClaim(data: InsertGoodDollarClaim): Promise<GoodDollarClaim> {
+    const normalizedAddress = data.walletAddress.toLowerCase();
+    
+    const result = await db.insert(gooddollarClaims).values({
+      walletAddress: normalizedAddress,
+      txHash: data.txHash,
+      amount: data.amount,
+      amountFormatted: data.amountFormatted,
+      claimedDay: data.claimedDay,
+      gasDripTxHash: data.gasDripTxHash ?? null,
+    }).returning();
+    
+    console.log(`[GoodDollar] Recorded claim for ${normalizedAddress}: ${data.amountFormatted} G$ (day ${data.claimedDay})`);
+    return result[0];
+  }
+
+  async getGoodDollarClaimHistory(walletAddress: string, limit: number = 30): Promise<GoodDollarClaim[]> {
+    const normalizedAddress = walletAddress.toLowerCase();
+    const result = await db
+      .select()
+      .from(gooddollarClaims)
+      .where(eq(gooddollarClaims.walletAddress, normalizedAddress))
+      .orderBy(desc(gooddollarClaims.createdAt))
+      .limit(limit);
+    
+    return result;
+  }
+
+  async upsertGdBalance(address: string, balance: string, balanceFormatted: string, decimals: number = 2): Promise<CachedGdBalance> {
+    const normalizedAddress = address.toLowerCase();
+    const now = new Date();
+    
+    const result = await db.insert(cachedGdBalances).values({
+      address: normalizedAddress,
+      balance,
+      balanceFormatted,
+      decimals,
+      updatedAt: now,
+    }).onConflictDoUpdate({
+      target: cachedGdBalances.address,
+      set: {
+        balance,
+        balanceFormatted,
+        decimals,
+        updatedAt: now,
+      },
+    }).returning();
+    
+    return result[0];
+  }
+
+  async getGdBalance(address: string): Promise<CachedGdBalance | null> {
+    const normalizedAddress = address.toLowerCase();
+    const result = await db
+      .select()
+      .from(cachedGdBalances)
+      .where(eq(cachedGdBalances.address, normalizedAddress))
+      .limit(1);
+    
+    return result[0] || null;
+  }
+
+  async getGoodDollarAnalytics(): Promise<{
+    totalVerifiedUsers: number;
+    totalClaims: number;
+    totalGdClaimed: string;
+    totalGdClaimedFormatted: string;
+    recentClaims: Array<{
+      walletAddress: string;
+      amountFormatted: string;
+      claimedDay: number;
+      createdAt: Date;
+    }>;
+    activeClaimers: number;
+  }> {
+    try {
+      // Get total verified users
+      const [verifiedCount] = await db.select({ count: sql<number>`count(*)` })
+        .from(gooddollarIdentities)
+        .where(eq(gooddollarIdentities.isWhitelisted, true));
+
+      // Get total claims and sum
+      const claimStats = await db.execute(sql`
+        SELECT 
+          COUNT(*) as "totalClaims",
+          COALESCE(SUM(CAST(amount AS NUMERIC)), 0) as "totalAmount"
+        FROM gooddollar_claims
+      `);
+
+      // Get recent claims (last 10)
+      const recentClaims = await db
+        .select({
+          walletAddress: gooddollarClaims.walletAddress,
+          amountFormatted: gooddollarClaims.amountFormatted,
+          claimedDay: gooddollarClaims.claimedDay,
+          createdAt: gooddollarClaims.createdAt,
+        })
+        .from(gooddollarClaims)
+        .orderBy(desc(gooddollarClaims.createdAt))
+        .limit(10);
+
+      // Get active claimers (claimed in last 7 days)
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      const activeClaimersResult = await db.execute(sql`
+        SELECT COUNT(DISTINCT wallet_address) as "activeClaimers"
+        FROM gooddollar_claims
+        WHERE created_at >= ${sevenDaysAgo}
+      `);
+
+      const totalAmount = Number(claimStats.rows[0]?.totalAmount || 0);
+      const totalAmountFormatted = totalAmount.toFixed(2);
+
+      return {
+        totalVerifiedUsers: Number(verifiedCount?.count || 0),
+        totalClaims: Number(claimStats.rows[0]?.totalClaims || 0),
+        totalGdClaimed: totalAmount.toString(),
+        totalGdClaimedFormatted: totalAmountFormatted,
+        recentClaims,
+        activeClaimers: Number(activeClaimersResult.rows[0]?.activeClaimers || 0),
+      };
+    } catch (error) {
+      console.error('[GoodDollar] Error getting analytics:', error);
+      return {
+        totalVerifiedUsers: 0,
+        totalClaims: 0,
+        totalGdClaimed: '0',
+        totalGdClaimedFormatted: '0.00',
+        recentClaims: [],
+        activeClaimers: 0,
+      };
     }
   }
 }

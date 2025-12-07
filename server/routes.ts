@@ -4093,6 +4093,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get GoodDollar analytics
+  app.get('/api/admin/analytics/gooddollar', adminAuthMiddleware, async (req, res) => {
+    try {
+      const gdAnalytics = await storage.getGoodDollarAnalytics();
+      res.json(gdAnalytics);
+    } catch (error) {
+      console.error('[Analytics] Error getting GoodDollar analytics:', error);
+      res.status(500).json({ error: 'Failed to get GoodDollar analytics' });
+    }
+  });
+
   // Donate to prize pool (admin can add funds)
   // Donations increase the prize pool but do NOT add tickets - they're pure sponsorship
   app.post('/api/admin/pool/donate', adminAuthMiddleware, async (req, res) => {
@@ -4127,6 +4138,174 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('[Pool] Error processing donation:', error);
       res.status(500).json({ error: 'Failed to process donation' });
+    }
+  });
+
+  // ============================================
+  // GOODDOLLAR UBI ENDPOINTS
+  // ============================================
+
+  // Sync GoodDollar identity status from frontend
+  app.post('/api/gooddollar/sync-identity', async (req, res) => {
+    try {
+      const { 
+        walletAddress, 
+        isWhitelisted, 
+        whitelistedRoot,
+        lastAuthenticated,
+        authenticationPeriod,
+        expiresAt,
+        isExpired,
+        daysUntilExpiry
+      } = req.body;
+
+      if (!walletAddress || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+
+      const identity = await storage.upsertGoodDollarIdentity({
+        walletAddress,
+        isWhitelisted: isWhitelisted ?? false,
+        whitelistedRoot: whitelistedRoot ?? null,
+        lastAuthenticated: lastAuthenticated ? new Date(lastAuthenticated) : null,
+        authenticationPeriod: authenticationPeriod ?? null,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        isExpired: isExpired ?? false,
+        daysUntilExpiry: daysUntilExpiry ?? null,
+      });
+
+      res.json({ 
+        success: true, 
+        identity: {
+          walletAddress: identity.walletAddress,
+          isWhitelisted: identity.isWhitelisted,
+          isExpired: identity.isExpired,
+        }
+      });
+    } catch (error) {
+      console.error('[GoodDollar] Error syncing identity:', error);
+      res.status(500).json({ error: 'Failed to sync identity' });
+    }
+  });
+
+  // Record a GoodDollar claim
+  app.post('/api/gooddollar/record-claim', async (req, res) => {
+    try {
+      const { 
+        walletAddress, 
+        txHash, 
+        amount, 
+        amountFormatted, 
+        claimedDay,
+        gasDripTxHash
+      } = req.body;
+
+      if (!walletAddress || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+
+      if (!txHash || !/^0x[a-fA-F0-9]{64}$/.test(txHash)) {
+        return res.status(400).json({ error: 'Invalid transaction hash' });
+      }
+
+      if (!amount || !amountFormatted) {
+        return res.status(400).json({ error: 'Missing amount data' });
+      }
+
+      if (typeof claimedDay !== 'number') {
+        return res.status(400).json({ error: 'Invalid claimed day' });
+      }
+
+      const claim = await storage.recordGoodDollarClaim({
+        walletAddress,
+        txHash,
+        amount,
+        amountFormatted,
+        claimedDay,
+        gasDripTxHash: gasDripTxHash ?? null,
+      });
+
+      res.json({ 
+        success: true, 
+        claim: {
+          id: claim.id,
+          walletAddress: claim.walletAddress,
+          txHash: claim.txHash,
+          amountFormatted: claim.amountFormatted,
+          claimedDay: claim.claimedDay,
+          createdAt: claim.createdAt,
+        }
+      });
+    } catch (error: any) {
+      // Handle duplicate txHash gracefully
+      if (error.code === '23505' || error.message?.includes('duplicate key')) {
+        return res.status(409).json({ error: 'Claim already recorded' });
+      }
+      console.error('[GoodDollar] Error recording claim:', error);
+      res.status(500).json({ error: 'Failed to record claim' });
+    }
+  });
+
+  // Get claim history for a wallet
+  app.get('/api/gooddollar/claims/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      const limit = parseInt(req.query.limit as string) || 30;
+
+      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+
+      const claims = await storage.getGoodDollarClaimHistory(address, limit);
+
+      res.json({ 
+        claims: claims.map(c => ({
+          id: c.id,
+          txHash: c.txHash,
+          amount: c.amount,
+          amountFormatted: c.amountFormatted,
+          claimedDay: c.claimedDay,
+          createdAt: c.createdAt,
+        }))
+      });
+    } catch (error) {
+      console.error('[GoodDollar] Error fetching claim history:', error);
+      res.status(500).json({ error: 'Failed to fetch claim history' });
+    }
+  });
+
+  // Get identity status from database
+  app.get('/api/gooddollar/identity/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+
+      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+
+      const identity = await storage.getGoodDollarIdentity(address);
+
+      if (!identity) {
+        return res.json({ found: false, identity: null });
+      }
+
+      res.json({ 
+        found: true,
+        identity: {
+          walletAddress: identity.walletAddress,
+          isWhitelisted: identity.isWhitelisted,
+          whitelistedRoot: identity.whitelistedRoot,
+          lastAuthenticated: identity.lastAuthenticated,
+          authenticationPeriod: identity.authenticationPeriod,
+          expiresAt: identity.expiresAt,
+          isExpired: identity.isExpired,
+          daysUntilExpiry: identity.daysUntilExpiry,
+          updatedAt: identity.updatedAt,
+        }
+      });
+    } catch (error) {
+      console.error('[GoodDollar] Error fetching identity:', error);
+      res.status(500).json({ error: 'Failed to fetch identity' });
     }
   });
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -199,6 +200,29 @@ export default function Claim() {
           // Force refetch to get fresh data - identity first, then claim
           await queryClient.refetchQueries({ queryKey: ['/gooddollar/identity', address] });
           await queryClient.refetchQueries({ queryKey: ['/gooddollar/claim', address] });
+          
+          // Sync identity status to backend for analytics
+          const freshIdentity = await getIdentityStatus(address as `0x${string}`);
+          if (freshIdentity) {
+            try {
+              await apiRequest('/api/gooddollar/sync-identity', {
+                method: 'POST',
+                body: JSON.stringify({
+                  walletAddress: address,
+                  isWhitelisted: freshIdentity.isWhitelisted,
+                  whitelistedRoot: freshIdentity.whitelistedRoot,
+                  lastAuthenticated: freshIdentity.lastAuthenticated?.toISOString(),
+                  authenticationPeriod: freshIdentity.authenticationPeriod,
+                  expiresAt: freshIdentity.expiresAt?.toISOString(),
+                  isExpired: freshIdentity.isExpired,
+                  daysUntilExpiry: freshIdentity.daysUntilExpiry,
+                }),
+              });
+              console.log('[GoodDollar] Identity synced to backend');
+            } catch (syncError) {
+              console.error('[GoodDollar] Failed to sync identity to backend:', syncError);
+            }
+          }
           
           toast({
             title: "Ready to Claim",
@@ -441,7 +465,7 @@ export default function Claim() {
       
       return claimGoodDollarWithWallet(address as `0x${string}`, privateKey as `0x${string}`);
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       if (result.success) {
         toast({ 
           title: "G$ Claimed!", 
@@ -449,6 +473,26 @@ export default function Claim() {
         });
         queryClient.invalidateQueries({ queryKey: ['/gooddollar/claim', address] });
         queryClient.invalidateQueries({ queryKey: ['/gooddollar/balance', address] });
+        
+        // Record claim to backend for analytics
+        if (result.txHash && result.amountClaimed && gdClaimStatus?.currentDay) {
+          try {
+            await apiRequest('/api/gooddollar/record-claim', {
+              method: 'POST',
+              body: JSON.stringify({
+                walletAddress: address,
+                txHash: result.txHash,
+                amount: result.amountClaimed,
+                amountFormatted: result.amountClaimed,
+                claimedDay: gdClaimStatus.currentDay,
+                gasDripTxHash: result.gasDripTxHash,
+              }),
+            });
+            console.log('[GoodDollar] Claim recorded to backend');
+          } catch (recordError) {
+            console.error('[GoodDollar] Failed to record claim to backend:', recordError);
+          }
+        }
       } else {
         toast({
           title: "Claim Failed",
