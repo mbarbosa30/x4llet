@@ -203,6 +203,59 @@ export const insertPoolSettingsSchema = createInsertSchema(poolSettings).omit({
 });
 export type InsertPoolSettings = z.infer<typeof insertPoolSettingsSchema>;
 
+// GoodDollar UBI Tables
+
+export const gooddollarIdentities = pgTable("gooddollar_identities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: text("wallet_address").notNull().unique(),
+  isWhitelisted: boolean("is_whitelisted").notNull().default(false),
+  whitelistedRoot: text("whitelisted_root"), // Root address if linked
+  lastAuthenticated: timestamp("last_authenticated"), // When they last verified
+  authenticationPeriod: integer("authentication_period"), // Days before expiry
+  expiresAt: timestamp("expires_at"), // When identity expires
+  isExpired: boolean("is_expired").notNull().default(false),
+  daysUntilExpiry: integer("days_until_expiry"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const gooddollarClaims = pgTable("gooddollar_claims", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: text("wallet_address").notNull(),
+  txHash: text("tx_hash").notNull().unique(),
+  amount: text("amount").notNull(), // Raw BigInt string from contract
+  amountFormatted: text("amount_formatted").notNull(), // Human-readable
+  claimedDay: integer("claimed_day").notNull(), // GoodDollar day number
+  gasDripTxHash: text("gas_drip_tx_hash"), // If gas drip was needed
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const cachedGdBalances = pgTable("cached_gd_balances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  address: text("address").notNull().unique(),
+  balance: text("balance").notNull(), // Raw BigInt string
+  balanceFormatted: text("balance_formatted").notNull(), // Human-readable
+  decimals: integer("decimals").notNull().default(2),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type GoodDollarIdentity = typeof gooddollarIdentities.$inferSelect;
+export type GoodDollarClaim = typeof gooddollarClaims.$inferSelect;
+export type CachedGdBalance = typeof cachedGdBalances.$inferSelect;
+
+export const insertGoodDollarIdentitySchema = createInsertSchema(gooddollarIdentities).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertGoodDollarIdentity = z.infer<typeof insertGoodDollarIdentitySchema>;
+
+export const insertGoodDollarClaimSchema = createInsertSchema(gooddollarClaims).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertGoodDollarClaim = z.infer<typeof insertGoodDollarClaimSchema>;
+
 export const insertReferralSchema = createInsertSchema(referrals).omit({ id: true, createdAt: true });
 export type InsertReferral = z.infer<typeof insertReferralSchema>;
 
