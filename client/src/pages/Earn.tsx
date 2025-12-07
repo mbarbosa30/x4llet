@@ -1023,7 +1023,7 @@ export default function Earn() {
                       Secured by Aave
                     </span>
                     <span className="flex items-center gap-1">
-                      <Trophy className="h-3 w-3 text-[#0055FF]" />
+                      <Trophy className="h-3 w-3 text-yellow-500" />
                       Prize pool available on Celo only
                     </span>
                     <span className="flex items-center gap-1">
@@ -1133,8 +1133,8 @@ export default function Earn() {
                   {circlesAvatar?.isRegistered && (
                     <div className="flex items-center justify-between p-3 bg-muted/50 rounded-none">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-foreground/10 flex items-center justify-center">
-                          <CircleDot className="h-4 w-4 text-foreground" />
+                        <div className="w-8 h-8 bg-pink-500/10 flex items-center justify-center">
+                          <CircleDot className="h-4 w-4 text-pink-600" />
                         </div>
                         <div>
                           <div className="text-sm font-medium">Circles CRC</div>
@@ -1163,8 +1163,8 @@ export default function Earn() {
                   {gdIdentity?.isWhitelisted && gdClaimStatus?.canClaim && (
                     <div className="flex items-center justify-between p-3 bg-muted/50 rounded-none">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-[#0055FF]/10 flex items-center justify-center">
-                          <Gift className="h-4 w-4 text-[#0055FF]" />
+                        <div className="w-8 h-8 bg-green-500/10 flex items-center justify-center">
+                          <Gift className="h-4 w-4 text-green-600" />
                         </div>
                         <div>
                           <div className="text-sm font-medium">GoodDollar G$</div>
@@ -1263,8 +1263,8 @@ export default function Earn() {
                 {baseBalanceNum > 0 && (
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-none">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-[#0055FF]/10 flex items-center justify-center">
-                        <span className="text-xs font-bold text-[#0055FF]">B</span>
+                      <div className="w-8 h-8 bg-blue-500/10 flex items-center justify-center">
+                        <span className="text-xs font-bold text-blue-600">B</span>
                       </div>
                       <div>
                         <div className="text-sm font-medium">Base</div>
@@ -1289,8 +1289,8 @@ export default function Earn() {
                 {celoBalanceNum > 0 && (
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-none">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-foreground/10 flex items-center justify-center">
-                        <span className="text-xs font-bold text-foreground">C</span>
+                      <div className="w-8 h-8 bg-yellow-500/10 flex items-center justify-center">
+                        <span className="text-xs font-bold text-yellow-600">C</span>
                       </div>
                       <div>
                         <div className="text-sm font-medium">Celo</div>
@@ -1315,8 +1315,8 @@ export default function Earn() {
                 {gnosisBalanceNum > 0 && (
                   <div className="flex items-center justify-between p-3 bg-muted/50 rounded-none">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-foreground/10 flex items-center justify-center">
-                        <span className="text-xs font-bold text-foreground">G</span>
+                      <div className="w-8 h-8 bg-purple-500/10 flex items-center justify-center">
+                        <span className="text-xs font-bold text-purple-600">G</span>
                       </div>
                       <div>
                         <div className="text-sm font-medium">Gnosis</div>
@@ -1805,7 +1805,7 @@ export default function Earn() {
           
           {aaveOperationStep === 'complete' && (
             <div className="py-8 text-center space-y-3">
-              <CheckCircle2 className="h-12 w-12 mx-auto text-[#0055FF]" />
+              <CheckCircle2 className="h-12 w-12 mx-auto text-green-500" />
               <div className="text-sm font-medium">Deposit Complete!</div>
               <div className="text-xs text-muted-foreground">Your USDC is now earning interest</div>
             </div>
@@ -1930,7 +1930,7 @@ export default function Earn() {
           
           {aaveOperationStep === 'complete' && (
             <div className="py-8 text-center space-y-3">
-              <CheckCircle2 className="h-12 w-12 mx-auto text-[#0055FF]" />
+              <CheckCircle2 className="h-12 w-12 mx-auto text-green-500" />
               <div className="text-sm font-medium">Withdrawal Complete!</div>
               <div className="text-xs text-muted-foreground">USDC has been returned to your wallet</div>
             </div>

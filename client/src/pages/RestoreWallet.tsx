@@ -136,7 +136,7 @@ export default function RestoreWallet() {
               placeholder="0x..."
               value={privateKey}
               onChange={(e) => handlePrivateKeyChange(e.target.value)}
-              className={`font-mono text-xs min-h-[100px] ${privateKeyValidation.error ? 'border-destructive' : privateKeyValidation.valid ? 'border-[#0055FF]' : ''}`}
+              className={`font-mono text-xs min-h-[100px] ${privateKeyValidation.error ? 'border-destructive' : privateKeyValidation.valid ? 'border-green-500' : ''}`}
               data-testid="input-private-key"
             />
             {privateKeyValidation.error && (
@@ -146,7 +146,7 @@ export default function RestoreWallet() {
               <p className="text-xs text-muted-foreground">{privateKeyValidation.hint}</p>
             )}
             {privateKeyValidation.valid && (
-              <p className="text-xs text-[#0055FF]">Valid private key format</p>
+              <p className="text-xs text-green-600">Valid private key format</p>
             )}
             {!privateKey && (
               <p className="text-xs text-muted-foreground">

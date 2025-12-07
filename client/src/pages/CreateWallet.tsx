@@ -143,9 +143,9 @@ export default function CreateWallet() {
 
   const strength = getPasswordStrength();
   const strengthColors = {
-    weak: 'bg-destructive',
-    medium: 'bg-foreground/50',
-    strong: 'bg-[#0055FF]',
+    weak: 'bg-red-500',
+    medium: 'bg-yellow-500',
+    strong: 'bg-green-500',
   };
 
   const isPasswordValid = validatePassword() === null;
@@ -284,9 +284,9 @@ export default function CreateWallet() {
               {strength && (
                 <div className="space-y-1">
                   <div className="flex gap-1">
-                    <div className={`h-1 flex-1 ${strength === 'weak' ? strengthColors.weak : 'bg-muted'}`} />
-                    <div className={`h-1 flex-1 ${strength === 'medium' || strength === 'strong' ? strengthColors.medium : 'bg-muted'}`} />
-                    <div className={`h-1 flex-1 ${strength === 'strong' ? strengthColors.strong : 'bg-muted'}`} />
+                    <div className={`h-1 flex-1 rounded ${strength === 'weak' ? strengthColors.weak : 'bg-muted'}`} />
+                    <div className={`h-1 flex-1 rounded ${strength === 'medium' || strength === 'strong' ? strengthColors.medium : 'bg-muted'}`} />
+                    <div className={`h-1 flex-1 rounded ${strength === 'strong' ? strengthColors.strong : 'bg-muted'}`} />
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Password strength: <span className="capitalize">{strength}</span>

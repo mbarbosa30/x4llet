@@ -395,8 +395,8 @@ export default function Dashboard() {
               <Card data-testid="card-total-wallets">
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-[#0055FF]/10">
-                      <Wallet className="h-5 w-5 text-[#0055FF]" />
+                    <div className="p-2  bg-blue-100 dark:bg-blue-900">
+                      <Wallet className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Total Wallets</p>
@@ -409,8 +409,8 @@ export default function Dashboard() {
               <Card data-testid="card-active-wallets">
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-foreground/10">
-                      <Users className="h-5 w-5 text-foreground" />
+                    <div className="p-2  bg-green-100 dark:bg-green-900">
+                      <Users className="h-5 w-5 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Active (30d)</p>
@@ -423,8 +423,8 @@ export default function Dashboard() {
               <Card data-testid="card-total-transactions">
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-foreground/10">
-                      <Activity className="h-5 w-5 text-foreground" />
+                    <div className="p-2  bg-purple-100 dark:bg-purple-900">
+                      <Activity className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Transactions</p>
@@ -437,8 +437,8 @@ export default function Dashboard() {
               <Card data-testid="card-total-volume">
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-[#0055FF]/10">
-                      <DollarSign className="h-5 w-5 text-[#0055FF]" />
+                    <div className="p-2  bg-orange-100 dark:bg-orange-900">
+                      <DollarSign className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Total Volume</p>
@@ -451,8 +451,8 @@ export default function Dashboard() {
               <Card data-testid="card-pool-users">
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-foreground/10">
-                      <Trophy className="h-5 w-5 text-foreground" />
+                    <div className="p-2  bg-pink-100 dark:bg-pink-900">
+                      <Trophy className="h-5 w-5 text-pink-600 dark:text-pink-400" />
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Pool Users</p>
@@ -465,8 +465,8 @@ export default function Dashboard() {
               <Card data-testid="card-yield-collected">
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-[#0055FF]/10">
-                      <PiggyBank className="h-5 w-5 text-[#0055FF]" />
+                    <div className="p-2  bg-teal-100 dark:bg-teal-900">
+                      <PiggyBank className="h-5 w-5 text-teal-600 dark:text-teal-400" />
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Yield Collected</p>
@@ -817,17 +817,17 @@ export default function Dashboard() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 bg-muted/50">
-                          <p className="text-3xl font-bold text-foreground">{formatMicroUsdc(aaveAnalytics?.totalDeposits || '0')}</p>
+                        <div className="p-4 bg-green-50 dark:bg-green-950 ">
+                          <p className="text-3xl font-bold text-green-600">{formatMicroUsdc(aaveAnalytics?.totalDeposits || '0')}</p>
                           <p className="text-sm text-muted-foreground">Total Deposits</p>
                         </div>
-                        <div className="p-4 bg-muted/50">
-                          <p className="text-3xl font-bold text-foreground">{formatMicroUsdc(aaveAnalytics?.totalWithdrawals || '0')}</p>
+                        <div className="p-4 bg-red-50 dark:bg-red-950 ">
+                          <p className="text-3xl font-bold text-red-600">{formatMicroUsdc(aaveAnalytics?.totalWithdrawals || '0')}</p>
                           <p className="text-sm text-muted-foreground">Total Withdrawals</p>
                         </div>
                       </div>
-                      <div className="p-4 bg-[#0055FF]/10">
-                        <p className="text-3xl font-bold text-[#0055FF]">
+                      <div className="p-4 bg-blue-50 dark:bg-blue-950 ">
+                        <p className="text-3xl font-bold text-blue-600">
                           {formatMicroUsdc(
                             (BigInt(aaveAnalytics?.totalDeposits || '0') - BigInt(aaveAnalytics?.totalWithdrawals || '0')).toString()
                           )}
@@ -870,7 +870,7 @@ export default function Dashboard() {
                         <p className="text-sm font-medium mb-2">Authorization Status</p>
                         <div className="space-y-2">
                           {facilitatorAnalytics?.authorizationsByStatus.map(a => (
-                            <div key={a.status} className="flex items-center justify-between p-2 bg-muted/30">
+                            <div key={a.status} className="flex items-center justify-between p-2 bg-muted/30 rounded">
                               <Badge variant={a.status === 'used' ? 'default' : 'secondary'}>
                                 {a.status}
                               </Badge>

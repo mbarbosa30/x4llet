@@ -794,12 +794,12 @@ export default function Claim() {
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-medium text-foreground/80">Community Inviter</span>
                             {inviterStatus.isReady ? (
-                              <span className="flex items-center gap-1 text-xs text-[#0055FF]">
+                              <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                                 <CheckCircle className="h-3 w-3" />
                                 Ready
                               </span>
                             ) : (
-                              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
                                 <Clock className="h-3 w-3" />
                                 Accumulating
                               </span>
@@ -811,9 +811,9 @@ export default function Claim() {
                               <span>Progress</span>
                               <span>{inviterStatus.crcBalanceFormatted} / 96 CRC</span>
                             </div>
-                            <div className="w-full bg-muted h-2">
+                            <div className="w-full bg-muted rounded-full h-2">
                               <div 
-                                className={`h-2 transition-all ${inviterStatus.isReady ? 'bg-[#0055FF]' : 'bg-foreground/40'}`}
+                                className={`h-2 rounded-full transition-all ${inviterStatus.isReady ? 'bg-green-500' : 'bg-amber-500'}`}
                                 style={{ width: `${Math.min(100, (parseFloat(inviterStatus.crcBalanceFormatted) / 96) * 100)}%` }}
                               />
                             </div>
@@ -881,8 +881,8 @@ export default function Claim() {
                                   className="flex items-center gap-3 p-2 hover-elevate transition-colors"
                                   data-testid="link-circles-discord"
                                 >
-                                  <div className="h-8 w-8 bg-foreground/10 flex items-center justify-center">
-                                    <MessageCircle className="h-4 w-4 text-foreground" />
+                                  <div className="h-8 w-8 bg-indigo-500/10 flex items-center justify-center">
+                                    <MessageCircle className="h-4 w-4 text-indigo-500" />
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <p className="text-xs font-medium text-foreground/80">Join Circles Discord</p>
@@ -914,8 +914,8 @@ export default function Claim() {
                                   className="flex items-center gap-3 p-2 hover-elevate transition-colors w-full text-left"
                                   data-testid="link-ask-friend"
                                 >
-                                  <div className="h-8 w-8 bg-[#0055FF]/10 flex items-center justify-center">
-                                    <UserPlus className="h-4 w-4 text-[#0055FF]" />
+                                  <div className="h-8 w-8 bg-green-500/10 flex items-center justify-center">
+                                    <UserPlus className="h-4 w-4 text-green-500" />
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <p className="text-xs font-medium text-foreground/80">Ask a friend on Circles</p>
@@ -994,7 +994,7 @@ export default function Claim() {
                           </div>
                           
                           {inviterValidation && (
-                            <div className={`flex items-center gap-2 text-xs ${inviterValidation.valid ? 'text-[#0055FF]' : 'text-destructive'}`}>
+                            <div className={`flex items-center gap-2 text-xs ${inviterValidation.valid ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                               {inviterValidation.checking ? (
                                 <>
                                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -1090,7 +1090,7 @@ export default function Claim() {
                   </div>
 
                   {gdIdentity.daysUntilExpiry !== null && gdIdentity.daysUntilExpiry <= 30 && (
-                    <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                    <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1">
                       <AlertCircle className="h-3 w-3" />
                       Verification expires in {gdIdentity.daysUntilExpiry} days
                     </p>
@@ -1150,7 +1150,7 @@ export default function Claim() {
                       {gdIdentity?.daysUntilExpiry !== null && gdIdentity?.daysUntilExpiry !== undefined && (
                         <div className="space-y-1">
                           <span className="text-xs text-muted-foreground">Identity Expires</span>
-                          <p className={`font-mono font-medium ${gdIdentity.daysUntilExpiry <= 14 ? 'text-muted-foreground' : ''}`} data-testid="text-gd-expiry">
+                          <p className={`font-mono font-medium ${gdIdentity.daysUntilExpiry <= 14 ? 'text-amber-500' : ''}`} data-testid="text-gd-expiry">
                             {gdIdentity.daysUntilExpiry} days
                           </p>
                         </div>
@@ -1158,7 +1158,7 @@ export default function Claim() {
                       {gdClaimStatus?.hasActiveStreak && (
                         <div className="space-y-1">
                           <span className="text-xs text-muted-foreground">Streak</span>
-                          <p className="font-mono font-medium text-[#0055FF]" data-testid="text-gd-streak">Active</p>
+                          <p className="font-mono font-medium text-green-500" data-testid="text-gd-streak">Active</p>
                         </div>
                       )}
                     </div>
