@@ -95,51 +95,51 @@ export default function Landing() {
               </p>
             </div>
 
-            <div className="space-y-6 text-left max-w-sm mx-auto py-4">
-              <div className="flex items-center gap-4">
-                <WifiOff className="h-5 w-5 text-[#0055FF] flex-shrink-0" />
-                <div className="w-px h-10 bg-[#0055FF]" />
+            <div className="space-y-5 text-left max-w-sm mx-auto py-4">
+              <div className="flex items-center gap-3">
+                <WifiOff className="h-4 w-4 text-[#0055FF] flex-shrink-0" />
+                <div className="w-px h-9 bg-[#0055FF]" />
                 <div>
-                  <div className="text-sm font-semibold uppercase tracking-wide text-foreground/80">Works Anywhere</div>
-                  <div className="text-sm text-muted-foreground">Any browser. Offline-ready. No fees.</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Works Anywhere</div>
+                  <div className="text-xs text-muted-foreground">Any browser. Offline-ready. No fees.</div>
                 </div>
               </div>
               
-              <div className="flex items-center gap-4">
-                <Lock className="h-5 w-5 text-[#0055FF] flex-shrink-0" />
-                <div className="w-px h-10 bg-[#0055FF]" />
+              <div className="flex items-center gap-3">
+                <Lock className="h-4 w-4 text-[#0055FF] flex-shrink-0" />
+                <div className="w-px h-9 bg-[#0055FF]" />
                 <div>
-                  <div className="text-sm font-semibold uppercase tracking-wide text-foreground/80">Your Keys, With You</div>
-                  <div className="text-sm text-muted-foreground">Encrypted on your device. Nowhere else.</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Your Keys, With You</div>
+                  <div className="text-xs text-muted-foreground">Encrypted on your device. Nowhere else.</div>
                 </div>
               </div>
               
-              <div className="flex items-center gap-4">
-                <Sparkles className="h-5 w-5 text-[#0055FF] flex-shrink-0" />
-                <div className="w-px h-10 bg-[#0055FF]" />
+              <div className="flex items-center gap-3">
+                <Sparkles className="h-4 w-4 text-[#0055FF] flex-shrink-0" />
+                <div className="w-px h-9 bg-[#0055FF]" />
                 <div>
-                  <div className="text-sm font-semibold uppercase tracking-wide text-foreground/80">
-                    Auto Savings{apyDisplay && <span className="text-[#0055FF] text-xs ml-1"><span className="font-semibold">~{apyDisplay}</span> <span className="font-medium">APY</span></span>}
+                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
+                    Auto Savings{apyDisplay && <span className="text-[#0055FF] text-[10px] ml-1"><span className="font-semibold">~{apyDisplay}</span> <span className="font-medium">APY</span></span>}
                   </div>
-                  <div className="text-sm text-muted-foreground">One tap to start earning or withdraw.</div>
+                  <div className="text-xs text-muted-foreground">One tap to start earning or withdraw.</div>
                 </div>
               </div>
               
-              <div className="flex items-center gap-4">
-                <Sliders className="h-5 w-5 text-[#0055FF] flex-shrink-0" />
-                <div className="w-px h-10 bg-[#0055FF]" />
+              <div className="flex items-center gap-3">
+                <Sliders className="h-4 w-4 text-[#0055FF] flex-shrink-0" />
+                <div className="w-px h-9 bg-[#0055FF]" />
                 <div>
-                  <div className="text-sm font-semibold uppercase tracking-wide text-foreground/80">Yield Allocation</div>
-                  <div className="text-sm text-muted-foreground">Pool prizes, causes, AI credits, & more.</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Yield Allocation</div>
+                  <div className="text-xs text-muted-foreground">Pool prizes, causes, AI credits, & more.</div>
                 </div>
               </div>
               
-              <div className="flex items-center gap-4">
-                <Gift className="h-5 w-5 text-[#0055FF] flex-shrink-0" />
-                <div className="w-px h-10 bg-[#0055FF]" />
+              <div className="flex items-center gap-3">
+                <Gift className="h-4 w-4 text-[#0055FF] flex-shrink-0" />
+                <div className="w-px h-9 bg-[#0055FF]" />
                 <div>
-                  <div className="text-sm font-semibold uppercase tracking-wide text-foreground/80">Claim Tokens</div>
-                  <div className="text-sm text-muted-foreground">Campaigns & airdrops from partners.</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Claim Tokens</div>
+                  <div className="text-xs text-muted-foreground">Campaigns & airdrops from partners.</div>
                 </div>
               </div>
             </div>
