@@ -15,7 +15,7 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive text-destructive-foreground border border-destructive-border",
         outline:
-          "border border-foreground bg-background shadow-[4px_4px_0px_0px_rgb(0,0,0)] active:shadow-none active:translate-x-[4px] active:translate-y-[4px]",
+          "border border-foreground bg-background",
         secondary: "border bg-secondary text-secondary-foreground border-foreground/20",
         ghost: "border border-transparent normal-case font-sans font-medium tracking-normal",
         dark: "bg-primary text-primary-foreground border border-primary-border",
