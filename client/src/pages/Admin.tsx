@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock, Users, ArrowUpDown, ChevronDown, ChevronUp, Network } from 'lucide-react';
+import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock, Users, ArrowUpDown, ChevronDown, ChevronUp, Network, UserCheck } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { formatAmount } from '@/lib/formatAmount';
 
@@ -44,6 +44,12 @@ interface WalletDetails {
   poolOptInPercent: number;
   poolApproved: boolean;
   maxFlowScore: number | null;
+}
+
+interface TrustedUnfundedWallet {
+  address: string;
+  maxFlowScore: number;
+  lastSeen: string;
 }
 
 type SortField = 'balance' | 'transfers' | 'maxflow' | 'volume' | 'created' | 'lastSeen' | 'pool';
@@ -98,6 +104,8 @@ export default function Admin() {
   const [sortField, setSortField] = useState<SortField>('lastSeen');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [expandedWallet, setExpandedWallet] = useState<string | null>(null);
+  const [trustedUnfundedWallets, setTrustedUnfundedWallets] = useState<TrustedUnfundedWallet[]>([]);
+  const [isLoadingTrustedUnfunded, setIsLoadingTrustedUnfunded] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,6 +168,24 @@ export default function Admin() {
       });
     } finally {
       setIsLoadingWallets(false);
+    }
+  };
+
+  const loadTrustedUnfundedWallets = async (auth: string) => {
+    setIsLoadingTrustedUnfunded(true);
+    try {
+      const res = await authenticatedRequest('GET', '/api/admin/wallets-scored-no-balance', auth);
+      const wallets = await res.json();
+      setTrustedUnfundedWallets(wallets);
+    } catch (error) {
+      console.error('Failed to load trusted unfunded wallets:', error);
+      toast({
+        title: 'Load Failed',
+        description: 'Failed to load trusted unfunded wallets',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingTrustedUnfunded(false);
     }
   };
 
@@ -806,6 +832,62 @@ export default function Admin() {
             ) : null}
             <Button onClick={() => loadDashboardData(authHeader)} variant="outline" className="w-full" data-testid="button-fetch-activity">
               {recentActivity.length > 0 ? 'Refresh Activity' : 'Load Recent Activity'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Trusted Unfunded Wallets */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <UserCheck className="h-5 w-5" />
+              Trusted Unfunded Wallets
+            </CardTitle>
+            <CardDescription>
+              Wallets with MaxFlow score &gt; 0 but no USDC balance across all chains
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {trustedUnfundedWallets.length > 0 ? (
+              <>
+                <div className="grid grid-cols-3 gap-2 px-2 py-1 border-b text-xs">
+                  <div>Address</div>
+                  <div>MaxFlow Score</div>
+                  <div>Last Seen</div>
+                </div>
+                <div className="space-y-1 max-h-64 overflow-y-auto">
+                  {trustedUnfundedWallets.map((wallet) => (
+                    <div key={wallet.address} className="grid grid-cols-3 gap-2 p-2 bg-muted text-xs">
+                      <div className="font-mono truncate">
+                        {wallet.address.slice(0, 8)}...{wallet.address.slice(-6)}
+                      </div>
+                      <div className="font-mono">
+                        {wallet.maxFlowScore.toFixed(2)}
+                      </div>
+                      <div className="text-muted-foreground">
+                        {new Date(wallet.lastSeen).toLocaleDateString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {trustedUnfundedWallets.length} wallet{trustedUnfundedWallets.length !== 1 ? 's' : ''} with trust but no funds
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {isLoadingTrustedUnfunded ? 'Loading...' : 'No data loaded yet or all scored wallets have funds'}
+              </p>
+            )}
+            <Button 
+              onClick={() => loadTrustedUnfundedWallets(authHeader)} 
+              variant="outline" 
+              className="w-full" 
+              disabled={isLoadingTrustedUnfunded}
+              data-testid="button-load-trusted-unfunded"
+            >
+              {isLoadingTrustedUnfunded && <Loader2 className="h-4 w-4 animate-spin" />}
+              {trustedUnfundedWallets.length > 0 ? 'Refresh' : 'Load Trusted Unfunded Wallets'}
             </Button>
           </CardContent>
         </Card>

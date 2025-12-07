@@ -2360,6 +2360,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/admin/wallets-scored-no-balance', adminAuthMiddleware, async (req, res) => {
+    try {
+      const wallets = await storage.getWalletsWithScoreNoBalance();
+      res.json(wallets);
+    } catch (error) {
+      console.error('Error fetching wallets with score but no balance:', error);
+      res.status(500).json({ error: 'Failed to fetch wallets with score but no balance' });
+    }
+  });
+
   app.get('/api/admin/health', adminAuthMiddleware, async (req, res) => {
     try {
       const health = {

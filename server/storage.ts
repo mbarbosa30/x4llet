@@ -2889,6 +2889,88 @@ export class DbStorage extends MemStorage {
       };
     }
   }
+
+  async getWalletsWithScoreNoBalance(): Promise<Array<{
+    address: string;
+    maxFlowScore: number;
+    lastSeen: string;
+  }>> {
+    try {
+      // Get all scores, all balances, and all wallets in bulk
+      const [scores, allBalances, allWallets] = await Promise.all([
+        db.select().from(cachedMaxflowScores),
+        db.select().from(cachedBalances),
+        db.select().from(wallets),
+      ]);
+      
+      // Build lookup maps for efficient access
+      const balanceByAddress = new Map<string, bigint>();
+      for (const b of allBalances) {
+        const addr = b.address.toLowerCase();
+        const current = balanceByAddress.get(addr) || BigInt(0);
+        // Parse balance as micro-USDC integer (handles both "0" and numeric strings)
+        let amount = BigInt(0);
+        try {
+          // Balance is stored as micro-USDC string (e.g., "1000000" for 1 USDC)
+          const balanceStr = b.balance || '0';
+          // Handle potential decimal strings by removing decimals (shouldn't happen but be safe)
+          const intPart = balanceStr.split('.')[0];
+          amount = BigInt(intPart || '0');
+        } catch {
+          amount = BigInt(0);
+        }
+        balanceByAddress.set(addr, current + amount);
+      }
+      
+      const walletByAddress = new Map<string, typeof allWallets[0]>();
+      for (const w of allWallets) {
+        walletByAddress.set(w.address.toLowerCase(), w);
+      }
+      
+      const results: Array<{
+        address: string;
+        maxFlowScore: number;
+        lastSeen: string;
+      }> = [];
+      
+      for (const score of scores) {
+        try {
+          const scoreData = JSON.parse(score.scoreData);
+          const maxFlowScore = scoreData.localHealth || 0;
+          
+          // Skip if score is 0 or less
+          if (maxFlowScore <= 0) continue;
+          
+          const normalizedAddress = score.address.toLowerCase();
+          
+          // Check total balance across all chains
+          const totalBalance = balanceByAddress.get(normalizedAddress) || BigInt(0);
+          
+          // Only include if total balance is 0
+          if (totalBalance === BigInt(0)) {
+            const walletInfo = walletByAddress.get(normalizedAddress);
+            
+            results.push({
+              address: score.address,
+              maxFlowScore,
+              lastSeen: walletInfo?.lastSeen?.toISOString() || score.updatedAt.toISOString(),
+            });
+          }
+        } catch {
+          // Skip entries with invalid score data
+          continue;
+        }
+      }
+      
+      // Sort by maxFlowScore descending
+      results.sort((a, b) => b.maxFlowScore - a.maxFlowScore);
+      
+      return results;
+    } catch (error) {
+      console.error('[Admin] Error fetching wallets with score but no balance:', error);
+      throw error;
+    }
+  }
 }
 
 export const storage = new DbStorage();
