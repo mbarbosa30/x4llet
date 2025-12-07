@@ -25,19 +25,19 @@ export default function Context() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="ml-2 text-lg font-bold font-heading tracking-tight">Context</h1>
+          <h1 className="ml-2 text-lg text-section">Context</h1>
         </div>
       </header>
 
       <main className="flex-1 overflow-y-auto pb-6">
         <div className="max-w-md mx-auto px-4 pt-6 space-y-6">
           <div className="space-y-3">
-            <h2 className="text-2xl font-bold font-heading tracking-tight">No internet? No gas? No ID? No problem.</h2>
-            <p className="text-muted-foreground leading-relaxed">
-              nanoPay is a lightweight PWA wallet for the real world—unreliable connectivity, budget phones, shared devices. Send and receive USDC gaslessly via the x402 protocol. Works offline. Your keys stay on your device.
+            <h2 className="text-2xl text-section">No Internet? No Gas? No ID? No Problem.</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              nanoPay is a lightweight PWA wallet for the real world—unreliable connectivity, budget phones, shared devices. Send and receive USDC gaslessly via x402. Works offline. Your keys stay on your device.
             </p>
-            <p className="text-muted-foreground leading-relaxed">
-              Beyond payments, access savings that earn yield, prize-linked pools, and trust infrastructure through MaxFlow, Circles, and GoodDollar—all without centralized verification.
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Beyond payments: savings that earn yield, prize-linked pools, and trust infrastructure through MaxFlow, Circles, and GoodDollar—no centralized verification required.
             </p>
           </div>
 
@@ -47,7 +47,7 @@ export default function Context() {
             <div className="flex items-start gap-3">
               <Users className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
-                <h3 className="font-semibold">Who benefits</h3>
+                <h3 className="font-label text-foreground">Who Benefits</h3>
                 <ul className="space-y-1.5 text-sm text-muted-foreground">
                   <li><strong>Individuals:</strong> Pay and receive without gas fees or complex setup. Build verifiable identity through trust networks.</li>
                   <li><strong>Communities & NGOs:</strong> Safer disbursements via claim links. Auditable, lower leakage than vouchers.</li>
@@ -61,7 +61,7 @@ export default function Context() {
             <div className="flex items-start gap-3">
               <Zap className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
-                <h3 className="font-semibold">How x402 payments work</h3>
+                <h3 className="font-label text-foreground">How x402 Payments Work</h3>
                 <ul className="space-y-1.5 text-sm text-muted-foreground">
                   <li><strong>You sign, we relay:</strong> Sign an authorization off-chain using EIP-3009. Our facilitator submits it on-chain and covers gas.</li>
                   <li><strong>Works offline:</strong> Sign when disconnected. Submit when you (or anyone with the authorization) get online.</li>
@@ -75,7 +75,7 @@ export default function Context() {
             <div className="flex items-start gap-3">
               <Shield className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
-                <h3 className="font-semibold">Security</h3>
+                <h3 className="font-label text-foreground">Security</h3>
                 <ul className="space-y-1.5 text-sm text-muted-foreground">
                   <li><strong>Self-custodial:</strong> Your keys stay on your device. We never hold your funds.</li>
                   <li><strong>Encrypted storage:</strong> Keys encrypted with AES-GCM. Auto-lock on inactivity.</li>
@@ -90,7 +90,7 @@ export default function Context() {
             <div className="flex items-start gap-3">
               <Globe className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
-                <h3 className="font-semibold">Networks</h3>
+                <h3 className="font-label text-foreground">Networks</h3>
                 <ul className="space-y-1.5 text-sm text-muted-foreground">
                   <li><strong>Base:</strong> Native USDC. Aave V3 savings available.</li>
                   <li><strong>Celo:</strong> Native USDC. Aave V3 savings. GoodDollar UBI.</li>
@@ -107,7 +107,7 @@ export default function Context() {
             <div className="flex items-start gap-3">
               <PiggyBank className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
-                <h3 className="font-semibold">Savings on autopilot</h3>
+                <h3 className="font-label text-foreground">Savings on Autopilot</h3>
                 <p className="text-sm text-muted-foreground">
                   Deposit USDC into Aave V3 to earn yield automatically. No gas tokens needed—our facilitator handles on-chain transactions.
                 </p>
@@ -124,7 +124,7 @@ export default function Context() {
             <div className="flex items-start gap-3">
               <Gift className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
-                <h3 className="font-semibold">Prize-linked savings</h3>
+                <h3 className="font-label text-foreground">Prize-Linked Savings</h3>
                 <p className="text-sm text-muted-foreground">
                   Opt-in to contribute a percentage of your yield to a weekly prize pool. The more yield you contribute, the more tickets you earn.
                 </p>
@@ -144,7 +144,7 @@ export default function Context() {
             <div className="flex items-start gap-3">
               <HeartHandshake className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
-                <h3 className="font-semibold">Trust infrastructure</h3>
+                <h3 className="font-label text-foreground">Trust Infrastructure</h3>
                 <ul className="space-y-1.5 text-sm text-muted-foreground">
                   <li><strong>MaxFlow:</strong> Graph-based signal that measures your trust network health. Anti-sybil by design.</li>
                   <li><strong>Circles:</strong> Community social money on Gnosis. Claim 1 CRC/hour. Build trust with friends.</li>
@@ -158,7 +158,7 @@ export default function Context() {
             <div className="flex items-start gap-3">
               <TrendingUp className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
-                <h3 className="font-semibold">Coming soon</h3>
+                <h3 className="font-label text-foreground">Coming Soon</h3>
                 <ul className="space-y-1.5 text-sm text-muted-foreground">
                   <li><strong>Social recovery:</strong> Recover your wallet through trusted guardians.</li>
                   <li><strong>More yield destinations:</strong> Direct yield to vulnerable communities, BNPL, or AI tools.</li>
@@ -172,7 +172,7 @@ export default function Context() {
             <div className="flex items-start gap-3">
               <AlertCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
-                <h3 className="font-semibold">Good to know</h3>
+                <h3 className="font-label text-foreground">Good to Know</h3>
                 <ul className="space-y-1.5 text-sm text-muted-foreground">
                   <li>Signing works offline. Execution requires connectivity.</li>
                   <li>Self-custodial means you're responsible for your backup. No recovery without it.</li>

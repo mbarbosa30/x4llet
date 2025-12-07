@@ -29,7 +29,7 @@ export default function Faqs() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="ml-2 text-lg font-bold font-heading tracking-tight">FAQs</h1>
+          <h1 className="ml-2 text-lg text-section">FAQs</h1>
         </div>
       </header>
 
@@ -39,7 +39,7 @@ export default function Faqs() {
 
           {/* Basics */}
           <AccordionItem value="x402">
-            <AccordionTrigger data-testid="faq-x402">
+            <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left" data-testid="faq-x402">
               What is x402?
             </AccordionTrigger>
             <AccordionContent>
@@ -51,7 +51,7 @@ export default function Faqs() {
           </AccordionItem>
 
           <AccordionItem value="offline">
-            <AccordionTrigger data-testid="faq-offline">
+            <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left" data-testid="faq-offline">
               How do offline payments work?
             </AccordionTrigger>
             <AccordionContent>
@@ -68,7 +68,7 @@ export default function Faqs() {
           </AccordionItem>
 
           <AccordionItem value="networks">
-            <AccordionTrigger data-testid="faq-networks">
+            <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left" data-testid="faq-networks">
               What networks are supported?
             </AccordionTrigger>
             <AccordionContent>
@@ -85,7 +85,7 @@ export default function Faqs() {
 
           {/* Security */}
           <AccordionItem value="security">
-            <AccordionTrigger data-testid="faq-security">
+            <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left" data-testid="faq-security">
               Is my wallet secure?
             </AccordionTrigger>
             <AccordionContent>
@@ -97,7 +97,7 @@ export default function Faqs() {
           </AccordionItem>
 
           <AccordionItem value="passkey">
-            <AccordionTrigger data-testid="faq-passkey">
+            <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left" data-testid="faq-passkey">
               What are passkeys?
             </AccordionTrigger>
             <AccordionContent>
@@ -109,7 +109,7 @@ export default function Faqs() {
           </AccordionItem>
 
           <AccordionItem value="password">
-            <AccordionTrigger data-testid="faq-password">
+            <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left" data-testid="faq-password">
               What if I forget my password?
             </AccordionTrigger>
             <AccordionContent>
@@ -121,7 +121,7 @@ export default function Faqs() {
           </AccordionItem>
 
           <AccordionItem value="backup">
-            <AccordionTrigger data-testid="faq-backup">
+            <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left" data-testid="faq-backup">
               How do I back up my wallet?
             </AccordionTrigger>
             <AccordionContent>
@@ -133,7 +133,7 @@ export default function Faqs() {
 
           {/* Savings & Yield */}
           <AccordionItem value="earn-mode">
-            <AccordionTrigger data-testid="faq-earn-mode">
+            <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left" data-testid="faq-earn-mode">
               How does Earn Mode work?
             </AccordionTrigger>
             <AccordionContent>
@@ -145,7 +145,7 @@ export default function Faqs() {
           </AccordionItem>
 
           <AccordionItem value="earn-safe">
-            <AccordionTrigger data-testid="faq-earn-safe">
+            <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left" data-testid="faq-earn-safe">
               Is Aave safe?
             </AccordionTrigger>
             <AccordionContent>
@@ -157,7 +157,7 @@ export default function Faqs() {
           </AccordionItem>
 
           <AccordionItem value="yield-allocation">
-            <AccordionTrigger data-testid="faq-yield-allocation">
+            <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left" data-testid="faq-yield-allocation">
               What is yield allocation?
             </AccordionTrigger>
             <AccordionContent>
@@ -170,7 +170,7 @@ export default function Faqs() {
 
           {/* Prize Pool */}
           <AccordionItem value="pool">
-            <AccordionTrigger data-testid="faq-pool">
+            <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left" data-testid="faq-pool">
               What is the Prize Pool?
             </AccordionTrigger>
             <AccordionContent>
@@ -183,7 +183,7 @@ export default function Faqs() {
           </AccordionItem>
 
           <AccordionItem value="pool-tickets">
-            <AccordionTrigger data-testid="faq-pool-tickets">
+            <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left" data-testid="faq-pool-tickets">
               How do tickets work?
             </AccordionTrigger>
             <AccordionContent>
@@ -195,7 +195,7 @@ export default function Faqs() {
           </AccordionItem>
 
           <AccordionItem value="referrals">
-            <AccordionTrigger data-testid="faq-referrals">
+            <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left" data-testid="faq-referrals">
               How do referrals work?
             </AccordionTrigger>
             <AccordionContent>
@@ -207,7 +207,7 @@ export default function Faqs() {
           </AccordionItem>
 
           <AccordionItem value="pool-sponsors">
-            <AccordionTrigger data-testid="faq-pool-sponsors">
+            <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left" data-testid="faq-pool-sponsors">
               What are sponsored prizes?
             </AccordionTrigger>
             <AccordionContent>
@@ -219,7 +219,7 @@ export default function Faqs() {
 
           {/* Trust Infrastructure */}
           <AccordionItem value="maxflow">
-            <AccordionTrigger data-testid="faq-maxflow">
+            <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left" data-testid="faq-maxflow">
               What is MaxFlow?
             </AccordionTrigger>
             <AccordionContent>
@@ -231,7 +231,7 @@ export default function Faqs() {
           </AccordionItem>
 
           <AccordionItem value="gooddollar">
-            <AccordionTrigger data-testid="faq-gooddollar">
+            <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left" data-testid="faq-gooddollar">
               What is GoodDollar?
             </AccordionTrigger>
             <AccordionContent>
@@ -243,7 +243,7 @@ export default function Faqs() {
           </AccordionItem>
 
           <AccordionItem value="circles">
-            <AccordionTrigger data-testid="faq-circles">
+            <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left" data-testid="faq-circles">
               What is Circles?
             </AccordionTrigger>
             <AccordionContent>
@@ -256,7 +256,7 @@ export default function Faqs() {
 
           {/* Other */}
           <AccordionItem value="usdc">
-            <AccordionTrigger data-testid="faq-usdc">
+            <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left" data-testid="faq-usdc">
               What is USDC?
             </AccordionTrigger>
             <AccordionContent>
@@ -268,7 +268,7 @@ export default function Faqs() {
           </AccordionItem>
 
           <AccordionItem value="balance">
-            <AccordionTrigger data-testid="faq-balance">
+            <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left" data-testid="faq-balance">
               Why doesn't my balance update immediately?
             </AccordionTrigger>
             <AccordionContent>
