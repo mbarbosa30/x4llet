@@ -219,6 +219,21 @@ export default function Admin() {
   const [expandedWallet, setExpandedWallet] = useState<string | null>(null);
   const [trustedUnfundedWallets, setTrustedUnfundedWallets] = useState<TrustedUnfundedWallet[]>([]);
   const [isLoadingTrustedUnfunded, setIsLoadingTrustedUnfunded] = useState(false);
+  
+  // Analytics state
+  const [activeTab, setActiveTab] = useState('overview');
+  const [poolAnalytics, setPoolAnalytics] = useState<PoolAnalytics | null>(null);
+  const [aaveAnalytics, setAaveAnalytics] = useState<AaveAnalytics | null>(null);
+  const [facilitatorAnalytics, setFacilitatorAnalytics] = useState<FacilitatorAnalytics | null>(null);
+  const [maxFlowAnalytics, setMaxFlowAnalytics] = useState<MaxFlowAnalytics | null>(null);
+  const [schedulerStatus, setSchedulerStatus] = useState<SchedulerStatus | null>(null);
+  const [aaveOperations, setAaveOperations] = useState<AaveOperationsResponse | null>(null);
+  const [isLoadingPoolAnalytics, setIsLoadingPoolAnalytics] = useState(false);
+  const [isLoadingAaveAnalytics, setIsLoadingAaveAnalytics] = useState(false);
+  const [isLoadingFacilitatorAnalytics, setIsLoadingFacilitatorAnalytics] = useState(false);
+  const [isLoadingMaxFlowAnalytics, setIsLoadingMaxFlowAnalytics] = useState(false);
+  const [isLoadingSchedulerStatus, setIsLoadingSchedulerStatus] = useState(false);
+  const [isLoadingAaveOperations, setIsLoadingAaveOperations] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -299,6 +314,97 @@ export default function Admin() {
       });
     } finally {
       setIsLoadingTrustedUnfunded(false);
+    }
+  };
+
+  const loadPoolAnalytics = async (auth: string) => {
+    setIsLoadingPoolAnalytics(true);
+    try {
+      const res = await authenticatedRequest('GET', '/api/admin/analytics/pool', auth);
+      setPoolAnalytics(await res.json());
+    } catch (error) {
+      console.error('Failed to load pool analytics:', error);
+    } finally {
+      setIsLoadingPoolAnalytics(false);
+    }
+  };
+
+  const loadAaveAnalytics = async (auth: string) => {
+    setIsLoadingAaveAnalytics(true);
+    try {
+      const res = await authenticatedRequest('GET', '/api/admin/analytics/aave', auth);
+      setAaveAnalytics(await res.json());
+    } catch (error) {
+      console.error('Failed to load aave analytics:', error);
+    } finally {
+      setIsLoadingAaveAnalytics(false);
+    }
+  };
+
+  const loadFacilitatorAnalytics = async (auth: string) => {
+    setIsLoadingFacilitatorAnalytics(true);
+    try {
+      const res = await authenticatedRequest('GET', '/api/admin/analytics/facilitator', auth);
+      setFacilitatorAnalytics(await res.json());
+    } catch (error) {
+      console.error('Failed to load facilitator analytics:', error);
+    } finally {
+      setIsLoadingFacilitatorAnalytics(false);
+    }
+  };
+
+  const loadMaxFlowAnalytics = async (auth: string) => {
+    setIsLoadingMaxFlowAnalytics(true);
+    try {
+      const res = await authenticatedRequest('GET', '/api/admin/analytics/maxflow', auth);
+      setMaxFlowAnalytics(await res.json());
+    } catch (error) {
+      console.error('Failed to load maxflow analytics:', error);
+    } finally {
+      setIsLoadingMaxFlowAnalytics(false);
+    }
+  };
+
+  const loadSchedulerStatus = async (auth: string) => {
+    setIsLoadingSchedulerStatus(true);
+    try {
+      const res = await authenticatedRequest('GET', '/api/admin/pool/scheduler', auth);
+      setSchedulerStatus(await res.json());
+    } catch (error) {
+      console.error('Failed to load scheduler status:', error);
+    } finally {
+      setIsLoadingSchedulerStatus(false);
+    }
+  };
+
+  const loadAaveOperations = async (auth: string) => {
+    setIsLoadingAaveOperations(true);
+    try {
+      const res = await authenticatedRequest('GET', '/api/admin/aave-operations', auth);
+      setAaveOperations(await res.json());
+    } catch (error) {
+      console.error('Failed to load aave operations:', error);
+    } finally {
+      setIsLoadingAaveOperations(false);
+    }
+  };
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    // Load data on-demand when tab is selected
+    if (tab === 'pool' && !poolAnalytics && !isLoadingPoolAnalytics) {
+      loadPoolAnalytics(authHeader);
+      loadSchedulerStatus(authHeader);
+    } else if (tab === 'aave' && !aaveAnalytics && !isLoadingAaveAnalytics) {
+      loadAaveAnalytics(authHeader);
+    } else if (tab === 'trust' && !facilitatorAnalytics && !isLoadingFacilitatorAnalytics) {
+      loadFacilitatorAnalytics(authHeader);
+      loadMaxFlowAnalytics(authHeader);
+    } else if (tab === 'operations' && !aaveOperations && !isLoadingAaveOperations) {
+      loadAaveOperations(authHeader);
+      loadSchedulerStatus(authHeader);
+    } else if (tab === 'wallets' && walletList.length === 0 && !isLoadingWallets) {
+      loadWalletList(authHeader);
     }
   };
 
@@ -706,564 +812,980 @@ export default function Admin() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-8">
+    <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         <div>
           <h1 className="text-3xl font-bold mb-2 font-heading tracking-tight" data-testid="text-admin-title">Admin Dashboard</h1>
-          <p className="text-muted-foreground">System management and maintenance tools</p>
+          <p className="text-muted-foreground">System management and analytics</p>
         </div>
 
-        {/* Data Backfill Section */}
-        <div className="grid md:grid-cols-2 gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                Backfill Balance History
-              </CardTitle>
-              <CardDescription>
-                Reconstruct historical balance snapshots from cached transactions
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="wallet-address">Wallet Address</Label>
-                <Input
-                  id="wallet-address"
-                  placeholder="0x..."
-                  value={walletAddress}
-                  onChange={(e) => setWalletAddress(e.target.value)}
-                  data-testid="input-wallet-address"
-                />
-              </div>
-              <Button
-                onClick={handleBackfillBalances}
-                disabled={isBackfillingBalances}
-                className="w-full"
-                data-testid="button-backfill-balances"
-              >
-                {isBackfillingBalances && <Loader2 className="h-4 w-4 animate-spin" />}
-                Reconstruct Balance History
-              </Button>
-            </CardContent>
-          </Card>
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+          <TabsList className="grid w-full grid-cols-6 mb-6" data-testid="admin-tabs">
+            <TabsTrigger value="overview" className="flex items-center gap-1.5" data-testid="tab-overview">
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Overview</span>
+            </TabsTrigger>
+            <TabsTrigger value="pool" className="flex items-center gap-1.5" data-testid="tab-pool">
+              <Gift className="h-4 w-4" />
+              <span className="hidden sm:inline">Pool</span>
+            </TabsTrigger>
+            <TabsTrigger value="aave" className="flex items-center gap-1.5" data-testid="tab-aave">
+              <PiggyBank className="h-4 w-4" />
+              <span className="hidden sm:inline">Aave</span>
+            </TabsTrigger>
+            <TabsTrigger value="trust" className="flex items-center gap-1.5" data-testid="tab-trust">
+              <Shield className="h-4 w-4" />
+              <span className="hidden sm:inline">Trust</span>
+            </TabsTrigger>
+            <TabsTrigger value="wallets" className="flex items-center gap-1.5" data-testid="tab-wallets">
+              <Users className="h-4 w-4" />
+              <span className="hidden sm:inline">Wallets</span>
+            </TabsTrigger>
+            <TabsTrigger value="tools" className="flex items-center gap-1.5" data-testid="tab-tools">
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">Tools</span>
+            </TabsTrigger>
+          </TabsList>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Backfill Exchange Rates
-              </CardTitle>
-              <CardDescription>
-                Fetch past 90 days of historical exchange rates from Frankfurter API
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                onClick={handleBackfillRates}
-                disabled={isBackfillingRates}
-                className="w-full"
-                data-testid="button-backfill-rates"
-              >
-                {isBackfillingRates && <Loader2 className="h-4 w-4 animate-spin" />}
-                Backfill Exchange Rates
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                Backfill All Wallets
-              </CardTitle>
-              <CardDescription>
-                Reconstruct balance history for ALL wallets on both Base and Celo
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                onClick={handleBackfillAllWallets}
-                disabled={isBackfillingAllWallets}
-                className="w-full"
-                data-testid="button-backfill-all-wallets"
-              >
-                {isBackfillingAllWallets && <Loader2 className="h-4 w-4 animate-spin" />}
-                Backfill All Wallets
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Network className="h-5 w-5" />
-                Refetch MaxFlow Scores
-              </CardTitle>
-              <CardDescription>
-                Fetch fresh MaxFlow scores from the API for all wallets
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                onClick={handleRefetchMaxFlowScores}
-                disabled={isRefetchingMaxFlow}
-                className="w-full"
-                data-testid="button-refetch-maxflow"
-              >
-                {isRefetchingMaxFlow && <Loader2 className="h-4 w-4 animate-spin" />}
-                Refetch MaxFlow Scores
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* System Health Section */}
-        <div className="grid md:grid-cols-2 gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                Database Statistics
-              </CardTitle>
-              <CardDescription>Current database record counts</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {stats ? (
-                <>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Total Wallets</span>
-                    <span className="font-medium">{stats.totalWallets}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Cached Transactions</span>
-                    <span className="font-medium">{stats.totalTransactions}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Cached Balances</span>
-                    <span className="font-medium">{stats.cachedBalances}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Exchange Rate Snapshots</span>
-                    <span className="font-medium">{stats.exchangeRateSnapshots}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Balance History Points</span>
-                    <span className="font-medium">{stats.balanceHistoryPoints}</span>
-                  </div>
-                </>
-              ) : null}
-              <Button onClick={() => loadDashboardData(authHeader)} variant="outline" className="w-full" data-testid="button-fetch-stats">
-                {stats ? 'Refresh Stats' : 'Load Stats'}
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                API Health Check
-              </CardTitle>
-              <CardDescription>Test connectivity to external services</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {apiHealth ? (
-                <>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">MaxFlow API</span>
-                    {apiHealth.maxflowApi ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <AlertCircle className="h-4 w-4 text-red-500" />
-                    )}
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Frankfurter API</span>
-                    {apiHealth.frankfurterApi ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <AlertCircle className="h-4 w-4 text-red-500" />
-                    )}
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Base RPC</span>
-                    {apiHealth.baseRpc ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <AlertCircle className="h-4 w-4 text-red-500" />
-                    )}
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Celo RPC</span>
-                    {apiHealth.celoRpc ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <AlertCircle className="h-4 w-4 text-red-500" />
-                    )}
-                  </div>
-                </>
-              ) : null}
-              <Button onClick={() => loadDashboardData(authHeader)} variant="outline" className="w-full" data-testid="button-check-health">
-                {apiHealth ? 'Recheck Health' : 'Check Health'}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Recent Activity */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" />
-              Recent Activity
-            </CardTitle>
-            <CardDescription>Last 20 transactions across all users</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {recentActivity.length > 0 ? (
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {recentActivity.map((tx) => (
-                  <div key={tx.txHash} className="text-xs p-2 bg-muted">
-                    <div className="flex justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono">{formatAmount(tx.amount)}</span>
-                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-background border">
-                          {tx.chainId === 8453 ? 'Base' : 'Celo'}
-                        </span>
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="space-y-6">
+            {/* System Health Section */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Database className="h-5 w-5" />
+                    Database Statistics
+                  </CardTitle>
+                  <CardDescription>Current database record counts</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {stats ? (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Total Wallets</span>
+                        <span className="font-medium">{stats.totalWallets}</span>
                       </div>
-                      <span className="text-muted-foreground">
-                        {new Date(tx.timestamp).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="text-muted-foreground">
-                      {tx.from.slice(0, 6)}...{tx.from.slice(-4)} → {tx.to.slice(0, 6)}...{tx.to.slice(-4)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            <Button onClick={() => loadDashboardData(authHeader)} variant="outline" className="w-full" data-testid="button-fetch-activity">
-              {recentActivity.length > 0 ? 'Refresh Activity' : 'Load Recent Activity'}
-            </Button>
-          </CardContent>
-        </Card>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Cached Transactions</span>
+                        <span className="font-medium">{stats.totalTransactions}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Cached Balances</span>
+                        <span className="font-medium">{stats.cachedBalances}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Exchange Rate Snapshots</span>
+                        <span className="font-medium">{stats.exchangeRateSnapshots}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Balance History Points</span>
+                        <span className="font-medium">{stats.balanceHistoryPoints}</span>
+                      </div>
+                    </>
+                  ) : null}
+                  <Button onClick={() => loadDashboardData(authHeader)} variant="outline" className="w-full" data-testid="button-fetch-stats">
+                    {stats ? 'Refresh Stats' : 'Load Stats'}
+                  </Button>
+                </CardContent>
+              </Card>
 
-        {/* Trusted Unfunded Wallets */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UserCheck className="h-5 w-5" />
-              Trusted Unfunded Wallets
-            </CardTitle>
-            <CardDescription>
-              Wallets with MaxFlow score &gt; 0 but no USDC balance across all chains
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {trustedUnfundedWallets.length > 0 ? (
-              <>
-                <div className="grid grid-cols-3 gap-2 px-2 py-1 border-b text-xs">
-                  <div>Address</div>
-                  <div>MaxFlow Score</div>
-                  <div>Last Seen</div>
-                </div>
-                <div className="space-y-1 max-h-64 overflow-y-auto">
-                  {trustedUnfundedWallets.map((wallet) => (
-                    <div key={wallet.address} className="grid grid-cols-3 gap-2 p-2 bg-muted text-xs">
-                      <div className="font-mono truncate">
-                        {wallet.address.slice(0, 8)}...{wallet.address.slice(-6)}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5" />
+                    API Health Check
+                  </CardTitle>
+                  <CardDescription>Test connectivity to external services</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {apiHealth ? (
+                    <>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">MaxFlow API</span>
+                        {apiHealth.maxflowApi ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4 text-red-500" />
+                        )}
                       </div>
-                      <div className="font-mono">
-                        {wallet.maxFlowScore.toFixed(2)}
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Frankfurter API</span>
+                        {apiHealth.frankfurterApi ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4 text-red-500" />
+                        )}
                       </div>
-                      <div className="text-muted-foreground">
-                        {new Date(wallet.lastSeen).toLocaleDateString()}
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Base RPC</span>
+                        {apiHealth.baseRpc ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4 text-red-500" />
+                        )}
                       </div>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {trustedUnfundedWallets.length} wallet{trustedUnfundedWallets.length !== 1 ? 's' : ''} with trust but no funds
-                </p>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                {isLoadingTrustedUnfunded ? 'Loading...' : 'No data loaded yet or all scored wallets have funds'}
-              </p>
-            )}
-            <Button 
-              onClick={() => loadTrustedUnfundedWallets(authHeader)} 
-              variant="outline" 
-              className="w-full" 
-              disabled={isLoadingTrustedUnfunded}
-              data-testid="button-load-trusted-unfunded"
-            >
-              {isLoadingTrustedUnfunded && <Loader2 className="h-4 w-4 animate-spin" />}
-              {trustedUnfundedWallets.length > 0 ? 'Refresh' : 'Load Trusted Unfunded Wallets'}
-            </Button>
-          </CardContent>
-        </Card>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Celo RPC</span>
+                        {apiHealth.celoRpc ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4 text-red-500" />
+                        )}
+                      </div>
+                    </>
+                  ) : null}
+                  <Button onClick={() => loadDashboardData(authHeader)} variant="outline" className="w-full" data-testid="button-check-health">
+                    {apiHealth ? 'Recheck Health' : 'Check Health'}
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
 
-        {/* Wallet List */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              All Wallets
-            </CardTitle>
-            <CardDescription>
-              Complete list of registered wallets with balances, activity, and pool status
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {walletList.length > 0 ? (
-              <>
-                <div className="grid grid-cols-7 gap-2 px-2 py-1 border-b text-xs">
-                  <div className="col-span-2">Address</div>
-                  <SortButton field="balance" label="Balance" />
-                  <SortButton field="transfers" label="Txns" />
-                  <SortButton field="maxflow" label="Score" />
-                  <SortButton field="lastSeen" label="Last Seen" />
-                  <SortButton field="pool" label="Pool %" />
-                </div>
-                <div className="space-y-1 max-h-96 overflow-y-auto">
-                  {sortedWallets.map((wallet) => (
-                    <div key={wallet.address} className="text-xs">
-                      <div
-                        className="grid grid-cols-7 gap-2 p-2 bg-muted cursor-pointer hover:bg-muted/80"
-                        onClick={() => setExpandedWallet(expandedWallet === wallet.address ? null : wallet.address)}
-                      >
-                        <div className="col-span-2 font-mono truncate">
-                          {wallet.address.slice(0, 8)}...{wallet.address.slice(-6)}
-                        </div>
-                        <div className="font-mono">{formatAmount(wallet.totalBalance || '0')}</div>
-                        <div>{wallet.transferCount || 0}</div>
-                        <div className="font-mono text-muted-foreground">
-                          {wallet.maxFlowScore !== null ? wallet.maxFlowScore.toFixed(2) : '—'}
+            {/* Recent Activity */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Recent Activity
+                </CardTitle>
+                <CardDescription>Last 20 transactions across all users</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {recentActivity.length > 0 ? (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {recentActivity.map((tx) => (
+                      <div key={tx.txHash} className="text-xs p-2 bg-muted">
+                        <div className="flex justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono">{formatAmount(tx.amount)}</span>
+                            <span className="px-1.5 py-0.5 rounded text-[10px] bg-background border">
+                              {tx.chainId === 8453 ? 'Base' : tx.chainId === 42220 ? 'Celo' : 'Gnosis'}
+                            </span>
+                          </div>
+                          <span className="text-muted-foreground">
+                            {new Date(tx.timestamp).toLocaleString()}
+                          </span>
                         </div>
                         <div className="text-muted-foreground">
-                          {new Date(wallet.lastSeen).toLocaleDateString()}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span>{wallet.poolOptInPercent}%</span>
-                          {wallet.poolApproved && (
-                            <CheckCircle2 className="h-3 w-3 text-green-500" />
-                          )}
+                          {tx.from.slice(0, 6)}...{tx.from.slice(-4)} → {tx.to.slice(0, 6)}...{tx.to.slice(-4)}
                         </div>
                       </div>
-                      {expandedWallet === wallet.address && (
-                        <div className="p-2 bg-background border border-t-0 space-y-2">
-                          <div className="grid grid-cols-3 gap-2 text-muted-foreground">
-                            <div>
-                              <span className="block text-[10px] uppercase">Base</span>
-                              <span className="font-mono">{formatAmount(wallet.balanceByChain?.base || '0')}</span>
-                            </div>
-                            <div>
-                              <span className="block text-[10px] uppercase">Celo</span>
-                              <span className="font-mono">{formatAmount(wallet.balanceByChain?.celo || '0')}</span>
-                            </div>
-                            <div>
-                              <span className="block text-[10px] uppercase">Gnosis</span>
-                              <span className="font-mono">{formatAmount(wallet.balanceByChain?.gnosis || '0')}</span>
+                    ))}
+                  </div>
+                ) : null}
+                <Button onClick={() => loadDashboardData(authHeader)} variant="outline" className="w-full" data-testid="button-fetch-activity">
+                  {recentActivity.length > 0 ? 'Refresh Activity' : 'Load Recent Activity'}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Pool Tab */}
+          <TabsContent value="pool" className="space-y-6">
+            {isLoadingPoolAnalytics || isLoadingSchedulerStatus ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                {/* Scheduler Status */}
+                {schedulerStatus && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Clock className="h-5 w-5" />
+                        Pool Scheduler Status
+                      </CardTitle>
+                      <CardDescription>Weekly draw automation status</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                          <span className="text-xs text-muted-foreground block">Status</span>
+                          <span className="font-medium flex items-center gap-1">
+                            {schedulerStatus.scheduler.isRunning ? (
+                              <><CheckCircle2 className="h-4 w-4 text-green-500" /> Running</>
+                            ) : (
+                              <><AlertCircle className="h-4 w-4 text-red-500" /> Stopped</>
+                            )}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-xs text-muted-foreground block">Next Draw</span>
+                          <span className="font-medium">{new Date(schedulerStatus.scheduler.nextDrawTime).toLocaleString()}</span>
+                        </div>
+                        <div>
+                          <span className="text-xs text-muted-foreground block">Hours Until Draw</span>
+                          <span className="font-medium">{schedulerStatus.scheduler.hoursUntilDraw.toFixed(1)}</span>
+                        </div>
+                        <div>
+                          <span className="text-xs text-muted-foreground block">Gas Balance (CELO)</span>
+                          <span className="font-medium flex items-center gap-1">
+                            {schedulerStatus.scheduler.facilitatorBalances.celo}
+                            {schedulerStatus.scheduler.facilitatorBalances.hasMinGas ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4 text-red-500" />
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                      {schedulerStatus.scheduler.currentWeekDraw && (
+                        <div className="pt-2 border-t">
+                          <span className="text-xs text-muted-foreground">Current Week: </span>
+                          <span className="font-mono text-sm">
+                            W{schedulerStatus.scheduler.currentWeekDraw.weekNumber}/{schedulerStatus.scheduler.currentWeekDraw.year}
+                          </span>
+                          <span className="text-xs text-muted-foreground ml-2">Status: </span>
+                          <span className="text-sm">{schedulerStatus.scheduler.currentWeekDraw.status}</span>
+                        </div>
+                      )}
+                      <Button onClick={() => loadSchedulerStatus(authHeader)} variant="outline" className="w-full" data-testid="button-refresh-scheduler">
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Refresh Status
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Pool Analytics */}
+                {poolAnalytics && (
+                  <>
+                    <div className="grid md:grid-cols-3 gap-4">
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-medium text-muted-foreground">Total Prizes Paid</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">{formatAmount(poolAnalytics.totalPrizesPaid)}</div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-medium text-muted-foreground">Total Contributions</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">{formatAmount(poolAnalytics.totalContributions)}</div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-medium text-muted-foreground">Active Referrers</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">{poolAnalytics.referralStats.activeReferrers}</div>
+                          <p className="text-xs text-muted-foreground">{poolAnalytics.referralStats.total} total referrals</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Draw History */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Gift className="h-5 w-5" />
+                          Draw History
+                        </CardTitle>
+                        <CardDescription>Past pool draws and winners</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {poolAnalytics.drawHistory.length > 0 ? (
+                          <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {poolAnalytics.drawHistory.map((draw) => (
+                              <div key={draw.id} className="text-xs p-2 bg-muted flex justify-between items-center">
+                                <div>
+                                  <span className="font-medium">W{draw.weekNumber}/{draw.year}</span>
+                                  <span className="text-muted-foreground ml-2">{draw.participantCount} participants</span>
+                                </div>
+                                <div className="text-right">
+                                  <div className="font-mono">{formatAmount(draw.totalPool)}</div>
+                                  {draw.winnerAddress && (
+                                    <div className="text-muted-foreground">
+                                      Winner: {draw.winnerAddress.slice(0, 6)}...{draw.winnerAddress.slice(-4)}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No draws yet</p>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Participation Distribution */}
+                    {poolAnalytics.participationByPercent.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Users className="h-5 w-5" />
+                            Participation by Opt-in Percent
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-5 gap-2">
+                            {poolAnalytics.participationByPercent.map((p) => (
+                              <div key={p.percent} className="text-center p-2 bg-muted rounded">
+                                <div className="text-lg font-bold">{p.count}</div>
+                                <div className="text-xs text-muted-foreground">{p.percent}%</div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </>
+                )}
+
+                {!poolAnalytics && !isLoadingPoolAnalytics && (
+                  <Card>
+                    <CardContent className="py-8 text-center">
+                      <p className="text-muted-foreground mb-4">Pool analytics not loaded</p>
+                      <Button onClick={() => { loadPoolAnalytics(authHeader); loadSchedulerStatus(authHeader); }} data-testid="button-load-pool-analytics">
+                        Load Pool Analytics
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            )}
+          </TabsContent>
+
+          {/* Aave Tab */}
+          <TabsContent value="aave" className="space-y-6">
+            {isLoadingAaveAnalytics ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : aaveAnalytics ? (
+              <>
+                <div className="grid md:grid-cols-3 gap-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Total Deposits</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{formatAmount(aaveAnalytics.totalDeposits)}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Total Withdrawals</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{formatAmount(aaveAnalytics.totalWithdrawals)}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Active Operations</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{aaveAnalytics.activeOperations}</div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Operations by Chain */}
+                {aaveAnalytics.operationsByChain.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Coins className="h-5 w-5" />
+                        Operations by Chain
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {aaveAnalytics.operationsByChain.map((chain) => (
+                          <div key={chain.chainId} className="flex justify-between items-center p-2 bg-muted rounded">
+                            <span className="font-medium">
+                              {chain.chainId === 8453 ? 'Base' : chain.chainId === 42220 ? 'Celo' : 'Gnosis'}
+                            </span>
+                            <div className="flex gap-4 text-sm">
+                              <span className="text-green-600">+{formatAmount(chain.deposits)}</span>
+                              <span className="text-red-600">-{formatAmount(chain.withdrawals)}</span>
                             </div>
                           </div>
-                          <div className="grid grid-cols-4 gap-2 text-muted-foreground">
-                            <div>
-                              <span className="block text-[10px] uppercase">Created</span>
-                              <span>{new Date(wallet.createdAt).toLocaleDateString()}</span>
-                            </div>
-                            <div>
-                              <span className="block text-[10px] uppercase">Volume</span>
-                              <span className="font-mono">{formatAmount(wallet.totalVolume || '0')}</span>
-                            </div>
-                            <div>
-                              <span className="block text-[10px] uppercase">MaxFlow Score</span>
-                              <span className="font-mono">{wallet.maxFlowScore !== null ? wallet.maxFlowScore.toFixed(4) : 'N/A'}</span>
-                            </div>
-                            <div>
-                              <span className="block text-[10px] uppercase">Pool Status</span>
-                              <span>{wallet.poolApproved ? 'Approved' : 'Not Approved'}</span>
-                            </div>
-                          </div>
-                          <div className="pt-1">
-                            <span className="text-[10px] uppercase text-muted-foreground">Full Address</span>
-                            <div className="font-mono text-[11px] break-all">{wallet.address}</div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <Button onClick={() => loadAaveAnalytics(authHeader)} variant="outline" className="w-full" data-testid="button-refresh-aave">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh Aave Analytics
+                </Button>
+              </>
+            ) : (
+              <Card>
+                <CardContent className="py-8 text-center">
+                  <p className="text-muted-foreground mb-4">Aave analytics not loaded</p>
+                  <Button onClick={() => loadAaveAnalytics(authHeader)} data-testid="button-load-aave-analytics">
+                    Load Aave Analytics
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Trust Tab */}
+          <TabsContent value="trust" className="space-y-6">
+            {isLoadingFacilitatorAnalytics || isLoadingMaxFlowAnalytics ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                {/* MaxFlow Analytics */}
+                {maxFlowAnalytics && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Network className="h-5 w-5" />
+                        MaxFlow Score Distribution
+                      </CardTitle>
+                      <CardDescription>Network trust signal scoring</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <span className="text-xs text-muted-foreground block">Total Scored</span>
+                          <span className="text-2xl font-bold">{maxFlowAnalytics.totalScored}</span>
+                        </div>
+                        <div>
+                          <span className="text-xs text-muted-foreground block">Average Score</span>
+                          <span className="text-2xl font-bold">{maxFlowAnalytics.averageScore.toFixed(2)}</span>
+                        </div>
+                      </div>
+                      {maxFlowAnalytics.scoreDistribution.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-sm font-medium">Distribution</span>
+                          <div className="grid grid-cols-4 gap-2">
+                            {maxFlowAnalytics.scoreDistribution.map((d) => (
+                              <div key={d.range} className="text-center p-2 bg-muted rounded">
+                                <div className="text-lg font-bold">{d.count}</div>
+                                <div className="text-xs text-muted-foreground">{d.range}</div>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Facilitator Analytics */}
+                {facilitatorAnalytics && (
+                  <>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-medium text-muted-foreground">Total Transfers Processed</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">{facilitatorAnalytics.totalTransfersProcessed}</div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-medium text-muted-foreground">Total Gas Drips</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">{facilitatorAnalytics.totalGasDrips}</div>
+                        </CardContent>
+                      </Card>
                     </div>
-                  ))}
-                </div>
+
+                    {/* Gas Drips by Chain */}
+                    {facilitatorAnalytics.gasDripsByChain.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <DollarSign className="h-5 w-5" />
+                            Gas Drips by Chain
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {facilitatorAnalytics.gasDripsByChain.map((chain) => (
+                              <div key={chain.chainId} className="flex justify-between items-center p-2 bg-muted rounded">
+                                <span className="font-medium">
+                                  {chain.chainId === 8453 ? 'Base' : chain.chainId === 42220 ? 'Celo' : 'Gnosis'}
+                                </span>
+                                <div className="text-sm">
+                                  <span>{chain.count} drips</span>
+                                  <span className="ml-2 text-muted-foreground">({chain.totalAmount})</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Authorizations by Status */}
+                    {facilitatorAnalytics.authorizationsByStatus.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <UserCheck className="h-5 w-5" />
+                            Authorizations by Status
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-4 gap-2">
+                            {facilitatorAnalytics.authorizationsByStatus.map((s) => (
+                              <div key={s.status} className="text-center p-2 bg-muted rounded">
+                                <div className="text-lg font-bold">{s.count}</div>
+                                <div className="text-xs text-muted-foreground capitalize">{s.status}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </>
+                )}
+
+                {/* Trusted Unfunded Wallets */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <UserCheck className="h-5 w-5" />
+                      Trusted Unfunded Wallets
+                    </CardTitle>
+                    <CardDescription>
+                      Wallets with MaxFlow score &gt; 0 but no USDC balance
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {trustedUnfundedWallets.length > 0 ? (
+                      <>
+                        <div className="grid grid-cols-3 gap-2 px-2 py-1 border-b text-xs">
+                          <div>Address</div>
+                          <div>MaxFlow Score</div>
+                          <div>Last Seen</div>
+                        </div>
+                        <div className="space-y-1 max-h-64 overflow-y-auto">
+                          {trustedUnfundedWallets.map((wallet) => (
+                            <div key={wallet.address} className="grid grid-cols-3 gap-2 p-2 bg-muted text-xs">
+                              <div className="font-mono truncate">
+                                {wallet.address.slice(0, 8)}...{wallet.address.slice(-6)}
+                              </div>
+                              <div className="font-mono">
+                                {wallet.maxFlowScore.toFixed(2)}
+                              </div>
+                              <div className="text-muted-foreground">
+                                {new Date(wallet.lastSeen).toLocaleDateString()}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {trustedUnfundedWallets.length} wallet{trustedUnfundedWallets.length !== 1 ? 's' : ''} with trust but no funds
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        {isLoadingTrustedUnfunded ? 'Loading...' : 'No data loaded yet'}
+                      </p>
+                    )}
+                    <Button 
+                      onClick={() => loadTrustedUnfundedWallets(authHeader)} 
+                      variant="outline" 
+                      className="w-full" 
+                      disabled={isLoadingTrustedUnfunded}
+                      data-testid="button-load-trusted-unfunded"
+                    >
+                      {isLoadingTrustedUnfunded && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {trustedUnfundedWallets.length > 0 ? 'Refresh' : 'Load Trusted Unfunded Wallets'}
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {!facilitatorAnalytics && !maxFlowAnalytics && !isLoadingFacilitatorAnalytics && (
+                  <Button onClick={() => { loadFacilitatorAnalytics(authHeader); loadMaxFlowAnalytics(authHeader); }} data-testid="button-load-trust-analytics">
+                    Load Trust Analytics
+                  </Button>
+                )}
               </>
-            ) : null}
-            <Button
-              onClick={() => loadWalletList(authHeader)}
-              disabled={isLoadingWallets}
-              variant="outline"
-              className="w-full"
-              data-testid="button-load-wallets"
-            >
-              {isLoadingWallets ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading...
-                </>
-              ) : walletList.length > 0 ? (
-                'Refresh Wallet List'
-              ) : (
-                'Load Wallet List'
-              )}
-            </Button>
-          </CardContent>
-        </Card>
+            )}
+          </TabsContent>
 
-        {/* Maintenance Section */}
-        <div className="grid md:grid-cols-2 gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Trash2 className="h-5 w-5" />
-                Clear All Caches
-              </CardTitle>
-              <CardDescription>
-                Remove all cached balances, transactions, and MaxFlow scores
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                onClick={handleClearCaches}
-                disabled={isClearingCaches}
-                variant="destructive"
-                className="w-full"
-                data-testid="button-clear-caches"
-              >
-                {isClearingCaches && <Loader2 className="h-4 w-4 animate-spin" />}
-                Clear All Caches
-              </Button>
-            </CardContent>
-          </Card>
+          {/* Wallets Tab */}
+          <TabsContent value="wallets" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  All Wallets
+                </CardTitle>
+                <CardDescription>
+                  Complete list of registered wallets with balances, activity, and pool status
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {walletList.length > 0 ? (
+                  <>
+                    <div className="grid grid-cols-7 gap-2 px-2 py-1 border-b text-xs">
+                      <div className="col-span-2">Address</div>
+                      <SortButton field="balance" label="Balance" />
+                      <SortButton field="transfers" label="Txns" />
+                      <SortButton field="maxflow" label="Score" />
+                      <SortButton field="lastSeen" label="Last Seen" />
+                      <SortButton field="pool" label="Pool %" />
+                    </div>
+                    <div className="space-y-1 max-h-96 overflow-y-auto">
+                      {sortedWallets.map((wallet) => (
+                        <div key={wallet.address} className="text-xs">
+                          <div
+                            className="grid grid-cols-7 gap-2 p-2 bg-muted cursor-pointer hover:bg-muted/80"
+                            onClick={() => setExpandedWallet(expandedWallet === wallet.address ? null : wallet.address)}
+                          >
+                            <div className="col-span-2 font-mono truncate">
+                              {wallet.address.slice(0, 8)}...{wallet.address.slice(-6)}
+                            </div>
+                            <div className="font-mono">{formatAmount(wallet.totalBalance || '0')}</div>
+                            <div>{wallet.transferCount || 0}</div>
+                            <div className="font-mono text-muted-foreground">
+                              {wallet.maxFlowScore !== null ? wallet.maxFlowScore.toFixed(2) : '—'}
+                            </div>
+                            <div className="text-muted-foreground">
+                              {new Date(wallet.lastSeen).toLocaleDateString()}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span>{wallet.poolOptInPercent}%</span>
+                              {wallet.poolApproved && (
+                                <CheckCircle2 className="h-3 w-3 text-green-500" />
+                              )}
+                            </div>
+                          </div>
+                          {expandedWallet === wallet.address && (
+                            <div className="p-2 bg-background border border-t-0 space-y-2">
+                              <div className="grid grid-cols-3 gap-2 text-muted-foreground">
+                                <div>
+                                  <span className="block text-[10px] uppercase">Base</span>
+                                  <span className="font-mono">{formatAmount(wallet.balanceByChain?.base || '0')}</span>
+                                </div>
+                                <div>
+                                  <span className="block text-[10px] uppercase">Celo</span>
+                                  <span className="font-mono">{formatAmount(wallet.balanceByChain?.celo || '0')}</span>
+                                </div>
+                                <div>
+                                  <span className="block text-[10px] uppercase">Gnosis</span>
+                                  <span className="font-mono">{formatAmount(wallet.balanceByChain?.gnosis || '0')}</span>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-4 gap-2 text-muted-foreground">
+                                <div>
+                                  <span className="block text-[10px] uppercase">Created</span>
+                                  <span>{new Date(wallet.createdAt).toLocaleDateString()}</span>
+                                </div>
+                                <div>
+                                  <span className="block text-[10px] uppercase">Volume</span>
+                                  <span className="font-mono">{formatAmount(wallet.totalVolume || '0')}</span>
+                                </div>
+                                <div>
+                                  <span className="block text-[10px] uppercase">MaxFlow Score</span>
+                                  <span className="font-mono">{wallet.maxFlowScore !== null ? wallet.maxFlowScore.toFixed(4) : 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="block text-[10px] uppercase">Pool Status</span>
+                                  <span>{wallet.poolApproved ? 'Approved' : 'Not Approved'}</span>
+                                </div>
+                              </div>
+                              <div className="pt-1">
+                                <span className="text-[10px] uppercase text-muted-foreground">Full Address</span>
+                                <div className="font-mono text-[11px] break-all">{wallet.address}</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+                <Button
+                  onClick={() => loadWalletList(authHeader)}
+                  disabled={isLoadingWallets}
+                  variant="outline"
+                  className="w-full"
+                  data-testid="button-load-wallets"
+                >
+                  {isLoadingWallets ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading...
+                    </>
+                  ) : walletList.length > 0 ? (
+                    'Refresh Wallet List'
+                  ) : (
+                    'Load Wallet List'
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Trash2 className="h-5 w-5" />
-                Clear Transactions & Balances
-              </CardTitle>
-              <CardDescription>
-                Clear cached transactions and balances (preserves MaxFlow scores)
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                onClick={handleClearTransactionsAndBalances}
-                disabled={isClearingTransactionsAndBalances}
-                variant="outline"
-                className="w-full"
-                data-testid="button-clear-transactions-balances"
-              >
-                {isClearingTransactionsAndBalances && <Loader2 className="h-4 w-4 animate-spin" />}
-                Clear Transactions & Balances
-              </Button>
-            </CardContent>
-          </Card>
+          {/* Tools Tab */}
+          <TabsContent value="tools" className="space-y-6">
+            {/* Data Backfill Section */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Database className="h-5 w-5" />
+                    Backfill Balance History
+                  </CardTitle>
+                  <CardDescription>
+                    Reconstruct historical balance snapshots from cached transactions
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="wallet-address">Wallet Address</Label>
+                    <Input
+                      id="wallet-address"
+                      placeholder="0x..."
+                      value={walletAddress}
+                      onChange={(e) => setWalletAddress(e.target.value)}
+                      data-testid="input-wallet-address"
+                    />
+                  </div>
+                  <Button
+                    onClick={handleBackfillBalances}
+                    disabled={isBackfillingBalances}
+                    className="w-full"
+                    data-testid="button-backfill-balances"
+                  >
+                    {isBackfillingBalances && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Reconstruct Balance History
+                  </Button>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Trash2 className="h-5 w-5" />
-                Prune Old Data
-              </CardTitle>
-              <CardDescription>
-                Remove balance snapshots older than 90 days
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                onClick={handlePruneOldData}
-                disabled={isPruning}
-                variant="outline"
-                className="w-full"
-                data-testid="button-prune-data"
-              >
-                {isPruning && <Loader2 className="h-4 w-4 animate-spin" />}
-                Prune Old Snapshots
-              </Button>
-            </CardContent>
-          </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Backfill Exchange Rates
+                  </CardTitle>
+                  <CardDescription>
+                    Fetch past 90 days of historical exchange rates from Frankfurter API
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    onClick={handleBackfillRates}
+                    disabled={isBackfillingRates}
+                    className="w-full"
+                    data-testid="button-backfill-rates"
+                  >
+                    {isBackfillingRates && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Backfill Exchange Rates
+                  </Button>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Trash2 className="h-5 w-5" />
-                Clear Cached Balances
-              </CardTitle>
-              <CardDescription>
-                Remove cached balances only (will refetch from blockchain)
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                onClick={handleClearCachedBalances}
-                disabled={isClearingBalances}
-                variant="outline"
-                className="w-full"
-                data-testid="button-clear-balances"
-              >
-                {isClearingBalances && <Loader2 className="h-4 w-4 animate-spin" />}
-                Clear Cached Balances
-              </Button>
-            </CardContent>
-          </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Database className="h-5 w-5" />
+                    Backfill All Wallets
+                  </CardTitle>
+                  <CardDescription>
+                    Reconstruct balance history for ALL wallets on both Base and Celo
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    onClick={handleBackfillAllWallets}
+                    disabled={isBackfillingAllWallets}
+                    className="w-full"
+                    data-testid="button-backfill-all-wallets"
+                  >
+                    {isBackfillingAllWallets && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Backfill All Wallets
+                  </Button>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Trash2 className="h-5 w-5" />
-                Clear Balance History
-              </CardTitle>
-              <CardDescription>
-                Remove all balance snapshots (can reconstruct from transactions)
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                onClick={handleClearBalanceHistory}
-                disabled={isClearingHistory}
-                variant="outline"
-                className="w-full"
-                data-testid="button-clear-history"
-              >
-                {isClearingHistory && <Loader2 className="h-4 w-4 animate-spin" />}
-                Clear Balance History
-              </Button>
-            </CardContent>
-          </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Network className="h-5 w-5" />
+                    Refetch MaxFlow Scores
+                  </CardTitle>
+                  <CardDescription>
+                    Fetch fresh MaxFlow scores from the API for all wallets
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    onClick={handleRefetchMaxFlowScores}
+                    disabled={isRefetchingMaxFlow}
+                    className="w-full"
+                    data-testid="button-refetch-maxflow"
+                  >
+                    {isRefetchingMaxFlow && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Refetch MaxFlow Scores
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                Migrate to Micro-USDC
-              </CardTitle>
-              <CardDescription>
-                Convert decimal amounts to micro-USDC integers (one-time migration)
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                onClick={handleMigrateToMicroUsdc}
-                disabled={isMigrating}
-                variant="outline"
-                className="w-full"
-                data-testid="button-migrate-usdc"
-              >
-                {isMigrating && <Loader2 className="h-4 w-4 animate-spin" />}
-                Migrate to Micro-USDC
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+            {/* Maintenance Section */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Trash2 className="h-5 w-5" />
+                    Clear All Caches
+                  </CardTitle>
+                  <CardDescription>
+                    Remove all cached balances, transactions, and MaxFlow scores
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    onClick={handleClearCaches}
+                    disabled={isClearingCaches}
+                    variant="destructive"
+                    className="w-full"
+                    data-testid="button-clear-caches"
+                  >
+                    {isClearingCaches && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Clear All Caches
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Trash2 className="h-5 w-5" />
+                    Clear Transactions & Balances
+                  </CardTitle>
+                  <CardDescription>
+                    Clear cached transactions and balances (preserves MaxFlow scores)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    onClick={handleClearTransactionsAndBalances}
+                    disabled={isClearingTransactionsAndBalances}
+                    variant="outline"
+                    className="w-full"
+                    data-testid="button-clear-transactions-balances"
+                  >
+                    {isClearingTransactionsAndBalances && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Clear Transactions & Balances
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Trash2 className="h-5 w-5" />
+                    Prune Old Data
+                  </CardTitle>
+                  <CardDescription>
+                    Remove balance snapshots older than 90 days
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    onClick={handlePruneOldData}
+                    disabled={isPruning}
+                    variant="outline"
+                    className="w-full"
+                    data-testid="button-prune-data"
+                  >
+                    {isPruning && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Prune Old Snapshots
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Trash2 className="h-5 w-5" />
+                    Clear Cached Balances
+                  </CardTitle>
+                  <CardDescription>
+                    Remove cached balances only (will refetch from blockchain)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    onClick={handleClearCachedBalances}
+                    disabled={isClearingBalances}
+                    variant="outline"
+                    className="w-full"
+                    data-testid="button-clear-balances"
+                  >
+                    {isClearingBalances && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Clear Cached Balances
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Trash2 className="h-5 w-5" />
+                    Clear Balance History
+                  </CardTitle>
+                  <CardDescription>
+                    Remove all balance snapshots (can reconstruct from transactions)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    onClick={handleClearBalanceHistory}
+                    disabled={isClearingHistory}
+                    variant="outline"
+                    className="w-full"
+                    data-testid="button-clear-history"
+                  >
+                    {isClearingHistory && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Clear Balance History
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Database className="h-5 w-5" />
+                    Migrate to Micro-USDC
+                  </CardTitle>
+                  <CardDescription>
+                    Convert decimal amounts to micro-USDC integers (one-time migration)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    onClick={handleMigrateToMicroUsdc}
+                    disabled={isMigrating}
+                    variant="outline"
+                    className="w-full"
+                    data-testid="button-migrate-usdc"
+                  >
+                    {isMigrating && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Migrate to Micro-USDC
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
