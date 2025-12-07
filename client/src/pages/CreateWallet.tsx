@@ -143,9 +143,9 @@ export default function CreateWallet() {
 
   const strength = getPasswordStrength();
   const strengthColors = {
-    weak: 'bg-red-500',
-    medium: 'bg-yellow-500',
-    strong: 'bg-green-500',
+    weak: 'bg-destructive',
+    medium: 'bg-foreground/50',
+    strong: 'bg-success',
   };
 
   const isPasswordValid = validatePassword() === null;
