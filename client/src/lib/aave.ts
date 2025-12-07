@@ -316,7 +316,6 @@ export async function withdrawFromAave(
     console.log('[Aave Withdraw] USDC address:', usdcAddress);
     console.log('[Aave Withdraw] aUSDC address:', aUsdcAddress);
     console.log('[Aave Withdraw] Withdraw amount:', withdrawAmount.toString());
-    console.log('[Aave Withdraw] User address:', accountAddress);
     
     // Use the actual aUSDC balance for withdrawals, NOT micro-USDC amount
     // Aave's withdraw function expects the aToken amount, which may differ from underlying due to interest
