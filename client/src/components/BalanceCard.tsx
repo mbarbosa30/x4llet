@@ -168,19 +168,15 @@ export default function BalanceCard({
     },
   });
 
-  // Calculate total balance (liquid + Aave) using BigInt for precision
-  const totalBalanceMicro = (() => {
-    const liquid = balanceMicro ? BigInt(balanceMicro) : 0n;
-    const aave = aaveBalance?.totalAUsdcBalance ? BigInt(aaveBalance.totalAUsdcBalance) : 0n;
-    return String(liquid + aave);
-  })();
+  // Use liquid USDC balance only (aUSDC is shown separately in Earn section)
+  const liquidBalanceMicro = balanceMicro || '0';
 
-  // Animate fiat value with inflation effect (using total balance including Aave)
+  // Animate fiat value with inflation effect (using liquid USDC only)
   const animation = useInflationAnimation({
-    usdcMicro: totalBalanceMicro,
+    usdcMicro: liquidBalanceMicro,
     exchangeRate: exchangeRate || 1,
     inflationRate: inflationData?.annualRate || 0,
-    enabled: totalBalanceMicro !== '0' && !!exchangeRate && !!inflationData,
+    enabled: liquidBalanceMicro !== '0' && !!exchangeRate && !!inflationData,
   });
 
   // Prepare chart data with enriched data for tooltip
