@@ -1069,16 +1069,16 @@ export default function Pool() {
                   status = 'none';
                 } else if (Math.abs(optInPercent - optimalOptIn) <= 10) {
                   status = 'optimal';
-                  statusColor = 'text-green-600 dark:text-green-400';
-                  statusBg = 'bg-green-100 dark:bg-green-900/30';
+                  statusColor = 'text-[#0055FF]';
+                  statusBg = 'bg-[#0055FF]/10';
                 } else if (optInPercent < optimalOptIn) {
                   status = 'under';
-                  statusColor = 'text-amber-600 dark:text-amber-400';
-                  statusBg = 'bg-amber-100 dark:bg-amber-900/30';
+                  statusColor = 'text-foreground/70';
+                  statusBg = 'bg-foreground/10';
                 } else {
                   status = 'over';
-                  statusColor = 'text-blue-600 dark:text-blue-400';
-                  statusBg = 'bg-blue-100 dark:bg-blue-900/30';
+                  statusColor = 'text-foreground/70';
+                  statusBg = 'bg-foreground/10';
                 }
                 
                 return (
@@ -1191,15 +1191,14 @@ export default function Pool() {
 
               {/* Facilitator Authorization Status - only show when NOT approved */}
               {optInPercent > 0 && !poolStatus.user.facilitatorApproved && (
-                <Card className="p-3 space-y-2 border-amber-500/30 bg-amber-500/5">
+                <Card className="p-3 space-y-2 border-foreground/30 bg-foreground/5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-amber-600" />
+                      <Shield className="h-4 w-4 text-foreground/70" />
                       <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">YIELD COLLECTION</span>
                     </div>
                     <Badge 
                       variant="secondary"
-                      className="bg-amber-600 text-white"
                     >
                       Not Authorized
                     </Badge>
@@ -1830,8 +1829,8 @@ export default function Pool() {
 
           {contributionSuccess ? (
             <div className="py-6 flex flex-col items-center gap-4">
-              <div className="w-14 h-14 bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <Check className="h-7 w-7 text-green-600 dark:text-green-400" />
+              <div className="w-14 h-14 bg-[#0055FF]/10 flex items-center justify-center">
+                <Check className="h-7 w-7 text-[#0055FF]" />
               </div>
               <div className="text-center space-y-1">
                 <p className="font-medium text-lg">Saved</p>
@@ -1924,11 +1923,11 @@ export default function Pool() {
               <div className="space-y-3">
                 <div className="bg-muted/50 rounded-none p-3 space-y-1.5 text-xs">
                   <div className="flex items-center gap-2">
-                    <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                    <Check className="h-3.5 w-3.5 text-[#0055FF] flex-shrink-0" />
                     <span>Only yield collected, savings are safe</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                    <Check className="h-3.5 w-3.5 text-[#0055FF] flex-shrink-0" />
                     <span>Revokable anytime</span>
                   </div>
                 </div>

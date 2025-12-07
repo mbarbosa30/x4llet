@@ -440,7 +440,7 @@ export default function Settings() {
                       {inflationData.monthlyRate > 0 ? (
                         <TrendingDown className="h-4 w-4 text-destructive" />
                       ) : (
-                        <TrendingUp className="h-4 w-4 text-green-600" />
+                        <TrendingUp className="h-4 w-4 text-[#0055FF]" />
                       )}
                       <div className="text-base font-medium tabular-nums">
                         {inflationData.monthlyRate > 0 ? '+' : ''}{(inflationData.monthlyRate * 100).toFixed(2)}% /month

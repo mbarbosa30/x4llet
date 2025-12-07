@@ -245,7 +245,7 @@ export default function Pay() {
         <Card className="w-full max-w-md">
           <CardHeader>
             <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-8 h-8 text-green-500" />
+              <CheckCircle2 className="w-8 h-8 text-[#0055FF]" />
               <CardTitle>Payment Successful!</CardTitle>
             </div>
             <CardDescription>
