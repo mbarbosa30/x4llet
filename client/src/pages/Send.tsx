@@ -114,11 +114,10 @@ export default function Send() {
     loadWallet();
   }, [setLocation, toast]);
 
-  // Fetch aggregated balance from all chains
+  // Fetch aggregated balance from all chains (no polling - fetched once on mount)
   const { data: balanceData } = useQuery<BalanceResponse & { chains?: any }>({
     queryKey: ['/api/balance', address],
     enabled: !!address,
-    refetchInterval: 10000,
     queryFn: async () => {
       const res = await fetch(`/api/balance/${address}`);
       if (!res.ok) throw new Error('Failed to fetch balance');
