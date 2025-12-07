@@ -244,7 +244,6 @@ export default function Home() {
             address={address!}
             chains={chains}
             aaveBalance={aaveBalance}
-            earnMode={earnMode}
             onRefresh={handleRefreshBalance}
             isRefreshing={isRefreshingBalance && !isLoading}
           />

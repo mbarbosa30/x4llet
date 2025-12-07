@@ -39,7 +39,6 @@ interface BalanceCardProps {
     gnosis?: ChainBalance;
   };
   aaveBalance?: AaveBalance;
-  earnMode?: boolean;
   onRefresh?: () => Promise<void>;
   isRefreshing?: boolean;
 }
@@ -129,7 +128,6 @@ export default function BalanceCard({
   chainId,
   chains,
   aaveBalance,
-  earnMode,
   onRefresh,
   isRefreshing,
 }: BalanceCardProps) {
@@ -184,33 +182,6 @@ export default function BalanceCard({
     inflationRate: inflationData?.annualRate || 0,
     enabled: totalBalanceMicro !== '0' && !!exchangeRate && !!inflationData,
   });
-
-  // Calculate balance-weighted APY across chains (including Gnosis)
-  const calculateWeightedApy = () => {
-    if (!aaveBalance) return 0;
-    
-    const baseBalance = parseFloat(aaveBalance.chains.base.aUsdcBalance);
-    const celoBalance = parseFloat(aaveBalance.chains.celo.aUsdcBalance);
-    const gnosisBalance = aaveBalance.chains.gnosis ? parseFloat(aaveBalance.chains.gnosis.aUsdcBalance) : 0;
-    const totalBalance = baseBalance + celoBalance + gnosisBalance;
-    
-    if (totalBalance === 0) return 0;
-    
-    // Weight APY by the actual balance distribution
-    const gnosisApy = aaveBalance.chains.gnosis?.apy || 0;
-    const weightedApy = (
-      (aaveBalance.chains.base.apy * baseBalance) + 
-      (aaveBalance.chains.celo.apy * celoBalance) +
-      (gnosisApy * gnosisBalance)
-    ) / totalBalance;
-    
-    return weightedApy;
-  };
-  
-  const weightedApy = calculateWeightedApy();
-
-  // Check if earning (for showing yield indicator)
-  const isEarning = earnMode && aaveBalance && BigInt(aaveBalance.totalAUsdcBalance) > 0n;
 
   // Prepare chart data with enriched data for tooltip
   const chartData = balanceHistory?.map((point) => ({
@@ -303,16 +274,6 @@ export default function BalanceCard({
           <span className={`transition-opacity duration-300 ${isRefreshing ? 'opacity-50 animate-pulse' : ''}`} data-testid="text-balance">{balance}</span>
         </button>
 
-        {/* Aave earning indicator - condensed */}
-        {earnMode && aaveBalance && BigInt(aaveBalance.totalAUsdcBalance) > 0n && (
-          <div 
-            className="text-xs text-[#0055FF] font-semibold uppercase tracking-wide mb-3"
-            data-testid="badge-earning"
-          >
-            Yielding {weightedApy.toFixed(1)}% APY
-          </div>
-        )}
-        
         {balanceMicro && exchangeRate && (
           <div className="text-base text-muted-foreground" data-testid="text-fiat-value">
             <div className="flex items-baseline justify-center">
