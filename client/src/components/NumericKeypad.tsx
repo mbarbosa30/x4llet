@@ -17,12 +17,11 @@ export default function NumericKeypad({
   const numbers = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del'];
 
   return (
-    <div className="grid grid-cols-3 gap-2 w-full max-w-sm mx-auto">
+    <div className="grid grid-cols-3 gap-1.5 w-full max-w-sm mx-auto">
       {numbers.map((num) => (
         <Button
           key={num}
-          variant="outline"
-          size="lg"
+          variant="ghost"
           disabled={disabled || (num === '.' && !onDecimal)}
           onClick={() => {
             if (num === 'del') {
@@ -33,10 +32,10 @@ export default function NumericKeypad({
               onNumberClick(num);
             }
           }}
-          className="h-16 text-lg font-medium"
+          className="text-lg font-medium rounded-none"
           data-testid={`keypad-${num}`}
         >
-          {num === 'del' ? <Delete className="h-5 w-5" /> : num}
+          {num === 'del' ? <Delete className="h-4 w-4" /> : num}
         </Button>
       ))}
     </div>

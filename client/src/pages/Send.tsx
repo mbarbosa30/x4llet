@@ -3,12 +3,17 @@ import { useLocation } from 'wouter';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { QrCode, Scan, Clipboard, MessageSquare, Repeat, Loader2 } from 'lucide-react';
+import { Scan, Clipboard, Repeat, Loader2, ChevronDown, MessageSquare } from 'lucide-react';
 import NumericKeypad from '@/components/NumericKeypad';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import QRScanner from '@/components/QRScanner';
 import { Card } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
 import { getWallet, getPrivateKey, getPreferences } from '@/lib/wallet';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getAddress } from 'viem';
@@ -29,7 +34,6 @@ export default function Send() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const [mode, setMode] = useState<'online' | 'offline'>('online');
   const [step, setStep] = useState<'input' | 'confirm' | 'qr'>('input');
   const [recipient, setRecipient] = useState('');
   const [inputValue, setInputValue] = useState(''); // User's editing buffer in current currency
@@ -45,9 +49,22 @@ export default function Send() {
   const [paymentLink, setPaymentLink] = useState<string | null>(null);
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
   const [earnMode, setEarnMode] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const isTogglingRef = useRef(false);
   const lastConvertedRef = useRef<{value: string; currency: 'USDC' | 'fiat'}>({value: '', currency: 'USDC'});
   const hasAutoSelectedRef = useRef(false); // Track if we've auto-selected network
+
+  // Track online/offline status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -78,7 +95,6 @@ export default function Send() {
             const usdcValue = (parseInt(request.amount) / 1000000).toFixed(6);
             setUsdcAmount(usdcValue);
             setInputValue(usdcValue);
-            setMode('online');
             setStep('input');
             sessionStorage.removeItem('payment_request');
           } catch (error) {
@@ -235,12 +251,42 @@ export default function Send() {
       queryClient.invalidateQueries({ queryKey: ['/api/balance-history', address, chainId] });
       setLocation('/home');
     },
-    onError: (error) => {
-      toast({
-        title: "Transaction Failed",
-        description: error instanceof Error ? error.message : "Failed to send transaction",
-        variant: "destructive",
-      });
+    onError: async (error) => {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorLower = errorMessage.toLowerCase();
+      const isServerError = /^5\d{2}:/.test(errorMessage);
+      const isNetworkUnreachable = /^0:/.test(errorMessage);
+      const isFetchError = error instanceof TypeError || 
+                           errorLower.includes('failed to fetch') ||
+                           errorLower.includes('fetch failed') ||
+                           errorLower.includes('networkerror') ||
+                           errorLower.includes('network request failed') ||
+                           errorLower.includes('load failed') ||
+                           !navigator.onLine ||
+                           isServerError ||
+                           isNetworkUnreachable;
+      
+      if (isFetchError) {
+        toast({
+          title: "Network unavailable",
+          description: "Creating offline payment link...",
+        });
+        try {
+          await handleCreateAuthorizationQR();
+        } catch (qrError) {
+          toast({
+            title: "Could not create offline payment",
+            description: "Please check your connection and try again.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Transaction Failed",
+          description: errorMessage.replace(/^\d+:\s*/, ''),
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -418,19 +464,23 @@ export default function Send() {
       });
     } catch (error) {
       console.error('Error creating authorization:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create authorization",
-        variant: "destructive",
-      });
+      throw error;
     }
   };
 
   const handleConfirm = async () => {
     if (!address) return;
     
-    if (mode === 'offline') {
-      await handleCreateAuthorizationQR();
+    if (!isOnline) {
+      try {
+        await handleCreateAuthorizationQR();
+      } catch (error) {
+        toast({
+          title: "Could not create offline payment",
+          description: error instanceof Error ? error.message : "Please try again.",
+          variant: "destructive",
+        });
+      }
       return;
     }
     
@@ -551,21 +601,6 @@ export default function Send() {
       <main className="max-w-md mx-auto p-4 space-y-6">
         {step === 'input' && (
           <>
-            <Tabs value={mode} onValueChange={(v) => setMode(v as 'online' | 'offline')} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="online" data-testid="tab-online">Online</TabsTrigger>
-                <TabsTrigger value="offline" data-testid="tab-offline">Offline</TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            {mode === 'offline' && (
-              <Card className="p-4 bg-muted/50">
-                <p className="text-sm text-muted-foreground">
-                  Offline mode creates a shareable payment link that anyone can execute. No internet required for signing - just share the link or QR code.
-                </p>
-              </Card>
-            )}
-
             <div className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="recipient" className="text-sm font-medium">
@@ -581,7 +616,7 @@ export default function Send() {
                     data-testid="input-recipient"
                   />
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="icon"
                     onClick={async () => {
                       try {
@@ -611,7 +646,7 @@ export default function Send() {
                     <Clipboard className="h-4 w-4" />
                   </Button>
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="icon"
                     onClick={() => setShowScanner(true)}
                     data-testid="button-scan-request"
@@ -651,23 +686,39 @@ export default function Send() {
                       ≈ {(parseFloat(usdcAmount) * rate).toFixed(2)} {currency}
                     </div>
                   )}
-                  <div className="flex items-center justify-center gap-2 mt-3 text-sm text-muted-foreground">
+                  <div className="flex items-center justify-center gap-1.5 mt-3 text-sm text-muted-foreground">
+                    <span 
+                      className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground/50'}`}
+                      title={isOnline ? 'Online' : 'Offline'}
+                      data-testid="status-connection"
+                    />
                     <span data-testid="text-balance">{balance} USDC on</span>
                     {chainsWithBalance.length > 1 ? (
-                      <div className="flex items-center gap-1" data-testid="network-selector">
-                        {chainsWithBalance.map((chain) => (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
                           <Button 
-                            key={chain.network}
-                            variant={network === chain.network ? "default" : "outline"}
+                            variant="ghost"
                             size="sm"
-                            onClick={() => handleNetworkChange(chain.network)}
-                            className="text-xs h-6 px-2"
-                            data-testid={`button-network-${chain.network}`}
+                            className="h-auto py-0 px-1 font-medium"
+                            data-testid="button-network-selector"
                           >
-                            {chain.network === 'base' ? 'Base' : chain.network === 'celo' ? 'Celo' : 'Gnosis'}
+                            {network === 'base' ? 'Base' : network === 'celo' ? 'Celo' : 'Gnosis'}
+                            <ChevronDown className="h-3 w-3" />
                           </Button>
-                        ))}
-                      </div>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="center">
+                          {chainsWithBalance.map((chain) => (
+                            <DropdownMenuItem 
+                              key={chain.network}
+                              onClick={() => handleNetworkChange(chain.network)}
+                              data-testid={`button-network-${chain.network}`}
+                            >
+                              {chain.network === 'base' ? 'Base' : chain.network === 'celo' ? 'Celo' : 'Gnosis'}
+                              <span className="ml-2 text-muted-foreground">{chain.balance}</span>
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     ) : (
                       <span className="font-medium">
                         {network === 'base' ? 'Base' : network === 'celo' ? 'Celo' : 'Gnosis'}
@@ -677,29 +728,13 @@ export default function Send() {
                 </div>
               </div>
 
-              {/* Insufficient balance warning */}
               {isInsufficientBalance && (
-                <Card className="p-3 bg-destructive/10 border-destructive/20">
-                  <div className="text-sm">
-                    <span className="text-destructive font-medium">Insufficient balance</span>
-                    <span className="text-muted-foreground ml-1">
-                      on {network === 'base' ? 'Base' : network === 'celo' ? 'Celo' : 'Gnosis'}
-                    </span>
-                  </div>
+                <p className="text-sm text-destructive text-center" data-testid="text-insufficient-balance">
+                  Insufficient balance
                   {earnMode && aaveCouldCover && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      You have ${aaveUsdcAmount.toFixed(2)} earning in Aave. Withdraw from Settings to use these funds.
-                    </p>
+                    <span className="text-muted-foreground"> — ${aaveUsdcAmount.toFixed(2)} available in Savings</span>
                   )}
-                  {!aaveCouldCover && balanceData?.chains && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Available: ${balanceNum.toFixed(2)} on {network === 'base' ? 'Base' : network === 'celo' ? 'Celo' : 'Gnosis'}
-                      {chainsWithBalance.filter(c => c.network !== network).map(c => 
-                        ` (${c.balance} on ${c.network === 'base' ? 'Base' : c.network === 'celo' ? 'Celo' : 'Gnosis'})`
-                      ).join('')}
-                    </p>
-                  )}
-                </Card>
+                </p>
               )}
 
               <NumericKeypad
@@ -741,7 +776,7 @@ export default function Send() {
                 </div>
               )}
 
-              {mode === 'offline' && (
+              {!isOnline && (
                 <div className="border-t pt-4">
                   <div className="text-sm text-muted-foreground mb-1">Mode</div>
                   <div className="text-sm">Offline Authorization (no network needed)</div>
@@ -756,7 +791,7 @@ export default function Send() {
               size="lg"
               data-testid="button-confirm"
             >
-              {mode === 'offline' ? 'Create Authorization QR' : (sendMutation.isPending ? 'Sending...' : 'Confirm & Send')}
+              {!isOnline ? 'Create Authorization QR' : (sendMutation.isPending ? 'Sending...' : 'Confirm & Send')}
             </Button>
 
             <Button 
