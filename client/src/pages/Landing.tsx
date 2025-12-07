@@ -209,7 +209,7 @@ export default function Landing() {
 
         </div>
       </div>
-      <Footer hideSignal />
+      <Footer />
     </div>
   );
 }
