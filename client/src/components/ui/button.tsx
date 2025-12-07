@@ -11,7 +11,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-cta text-white border border-cta",
+          "bg-cta text-white border border-foreground",
         destructive:
           "bg-destructive text-destructive-foreground border border-destructive-border",
         outline:
