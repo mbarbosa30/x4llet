@@ -48,6 +48,32 @@ import QRScanner from '@/components/QRScanner';
 // Cache key for tab state persistence
 const CLAIM_TAB_KEY = 'claim_active_tab';
 
+// Helper function to retry API calls with exponential backoff
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelayMs: number = 1000
+): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.log(`[Retry] Attempt ${attempt + 1}/${maxRetries} failed:`, lastError.message);
+      
+      if (attempt < maxRetries - 1) {
+        const delay = baseDelayMs * Math.pow(2, attempt);
+        console.log(`[Retry] Waiting ${delay}ms before next attempt...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError || new Error('All retry attempts failed');
+}
+
 function getCachedTab(): string {
   try {
     return localStorage.getItem(CLAIM_TAB_KEY) || 'gooddollar';
@@ -474,23 +500,32 @@ export default function Claim() {
         queryClient.invalidateQueries({ queryKey: ['/gooddollar/claim', address] });
         queryClient.invalidateQueries({ queryKey: ['/gooddollar/balance', address] });
         
-        // Record claim to backend for analytics
+        // Record claim to backend for analytics with retry logic
         if (result.txHash && result.amountClaimed && gdClaimStatus?.currentDay) {
           try {
-            await apiRequest('/api/gooddollar/record-claim', {
-              method: 'POST',
-              body: JSON.stringify({
-                walletAddress: address,
-                txHash: result.txHash,
-                amount: result.amountClaimed,
-                amountFormatted: result.amountClaimed,
-                claimedDay: gdClaimStatus.currentDay,
-                gasDripTxHash: result.gasDripTxHash,
+            await retryWithBackoff(
+              () => apiRequest('/api/gooddollar/record-claim', {
+                method: 'POST',
+                body: JSON.stringify({
+                  walletAddress: address,
+                  txHash: result.txHash,
+                  amount: result.amountClaimed,
+                  amountFormatted: result.amountClaimed,
+                  claimedDay: gdClaimStatus.currentDay,
+                  gasDripTxHash: result.gasDripTxHash,
+                }),
               }),
-            });
+              3,
+              1000
+            );
             console.log('[GoodDollar] Claim recorded to backend');
           } catch (recordError) {
-            console.error('[GoodDollar] Failed to record claim to backend:', recordError);
+            console.error('[GoodDollar] Failed to record claim to backend after retries:', recordError);
+            toast({
+              title: "Claim recorded on blockchain",
+              description: "Your G$ claim succeeded but couldn't be saved to our records. An admin can sync it later.",
+              variant: "default",
+            });
           }
         }
       } else {
