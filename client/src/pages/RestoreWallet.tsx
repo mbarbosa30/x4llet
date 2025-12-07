@@ -116,21 +116,21 @@ export default function RestoreWallet() {
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
           <Shield className="h-12 w-12 mx-auto mb-4 text-primary" />
-          <h1 className="text-2xl font-bold mb-2 font-heading tracking-tight">Recover Wallet</h1>
-          <p className="text-sm text-muted-foreground">
-            Use your private key to recover access and set a new password
+          <h1 className="text-2xl text-section mb-2">Recover Wallet</h1>
+          <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
+            Use your private key to recover access
           </p>
         </div>
 
-        <div className="p-4 bg-muted/50 border">
-          <p className="text-sm text-foreground">
-            <strong>Lost your password?</strong> Enter the private key you saved when creating your wallet to regain access.
+        <div className="p-4 bg-muted/50 border border-foreground/20">
+          <p className="text-xs font-mono uppercase tracking-wide text-foreground">
+            <span className="font-bold">Lost your password?</span> Enter the private key you saved when creating your wallet.
           </p>
         </div>
 
         <Card className="p-6 space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="private-key">Private Key</Label>
+            <Label htmlFor="private-key" className="font-label text-muted-foreground">Private Key</Label>
             <Textarea
               id="private-key"
               placeholder="0x..."
@@ -140,23 +140,23 @@ export default function RestoreWallet() {
               data-testid="input-private-key"
             />
             {privateKeyValidation.error && (
-              <p className="text-xs text-destructive">{privateKeyValidation.error}</p>
+              <p className="text-xs font-mono uppercase tracking-wide text-destructive">{privateKeyValidation.error}</p>
             )}
             {privateKeyValidation.hint && !privateKeyValidation.error && (
-              <p className="text-xs text-muted-foreground">{privateKeyValidation.hint}</p>
+              <p className="text-xs font-mono uppercase tracking-wide text-muted-foreground">{privateKeyValidation.hint}</p>
             )}
             {privateKeyValidation.valid && (
-              <p className="text-xs text-green-600">Valid private key format</p>
+              <p className="text-xs font-mono uppercase tracking-wide text-green-600">Valid private key format</p>
             )}
             {!privateKey && (
-              <p className="text-xs text-muted-foreground">
-                The private key you saved when creating your wallet (66 characters starting with 0x)
+              <p className="text-xs font-mono uppercase tracking-wide text-muted-foreground">
+                66 characters starting with 0x
               </p>
             )}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="new-password">New Password</Label>
+            <Label htmlFor="new-password" className="font-label text-muted-foreground">New Password</Label>
             <div className="relative">
               <Input
                 id="new-password"
@@ -176,10 +176,10 @@ export default function RestoreWallet() {
               </button>
             </div>
             {passwordError && (
-              <p className="text-xs text-destructive">{passwordError}</p>
+              <p className="text-xs font-mono uppercase tracking-wide text-destructive">{passwordError}</p>
             )}
-            <p className="text-xs text-muted-foreground">
-              Create a new password for this device (6+ characters)
+            <p className="text-xs font-mono uppercase tracking-wide text-muted-foreground">
+              6+ characters for this device
             </p>
           </div>
 
@@ -197,7 +197,7 @@ export default function RestoreWallet() {
         <div className="text-center">
           <button 
             onClick={() => setLocation('/')}
-            className="text-sm text-muted-foreground hover:text-foreground"
+            className="text-xs font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground"
             data-testid="link-back"
           >
             Back to Start
