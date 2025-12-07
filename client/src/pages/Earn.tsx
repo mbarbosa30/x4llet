@@ -284,7 +284,6 @@ export default function Earn() {
       if (!res.ok) throw new Error('Failed to fetch Aave balance');
       return res.json();
     },
-    refetchInterval: 30000,
   });
 
   const { data: aaveBalanceCelo, isLoading: isAaveBalanceCeloLoading, isFetching: isRefreshingCelo, refetch: refetchCelo } = useQuery<{ aUsdcBalance: string; apy: number }>({
@@ -295,7 +294,6 @@ export default function Earn() {
       if (!res.ok) throw new Error('Failed to fetch Aave balance');
       return res.json();
     },
-    refetchInterval: 30000,
   });
 
   const { data: aaveBalanceGnosis, isLoading: isAaveBalanceGnosisLoading, isFetching: isRefreshingGnosis, refetch: refetchGnosis } = useQuery<{ aUsdcBalance: string; apy: number }>({
@@ -306,7 +304,6 @@ export default function Earn() {
       if (!res.ok) throw new Error('Failed to fetch Aave balance');
       return res.json();
     },
-    refetchInterval: 30000,
   });
 
   const isRefreshingAave = (isRefreshingBase || isRefreshingCelo || isRefreshingGnosis) && !isAaveBalanceBaseLoading && !isAaveBalanceCeloLoading && !isAaveBalanceGnosisLoading;
@@ -332,7 +329,6 @@ export default function Earn() {
       if (!res.ok) throw new Error('Failed to fetch interest earned');
       return res.json();
     },
-    refetchInterval: 60000,
   });
 
   const { data: circlesAvatar } = useQuery<CirclesAvatar>({
@@ -640,7 +636,6 @@ export default function Earn() {
       if (!res.ok) throw new Error('Failed to fetch balance');
       return res.json();
     },
-    refetchInterval: 30000,
   });
 
   const { data: liquidBalanceCelo } = useQuery<{ balance: string; balanceMicro: string }>({
@@ -651,7 +646,6 @@ export default function Earn() {
       if (!res.ok) throw new Error('Failed to fetch balance');
       return res.json();
     },
-    refetchInterval: 30000,
   });
 
   const { data: liquidBalanceGnosis } = useQuery<{ balance: string; balanceMicro: string }>({
@@ -662,7 +656,6 @@ export default function Earn() {
       if (!res.ok) throw new Error('Failed to fetch balance');
       return res.json();
     },
-    refetchInterval: 30000,
   });
 
   // Auto-select first chain with USDC balance when deposit dialog opens
@@ -773,8 +766,16 @@ export default function Earn() {
         throw new Error(result.error || 'Deposit failed');
       }
       
+      // Immediate invalidation to clear stale data
       queryClient.invalidateQueries({ queryKey: ['/api/balance'] });
       queryClient.invalidateQueries({ queryKey: ['/api/aave/balance'] });
+      
+      // Delayed refetch after 5 seconds to capture confirmed transaction
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['/api/balance'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/aave/balance'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/aave/interest-earned', address] });
+      }, 5000);
       
       toast({
         title: "Deposit Complete",
@@ -874,8 +875,16 @@ export default function Earn() {
         throw new Error(result.error || 'Withdrawal failed');
       }
       
+      // Immediate invalidation to clear stale data
       queryClient.invalidateQueries({ queryKey: ['/api/balance'] });
       queryClient.invalidateQueries({ queryKey: ['/api/aave/balance'] });
+      
+      // Delayed refetch after 5 seconds to capture confirmed transaction
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['/api/balance'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/aave/balance'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/aave/interest-earned', address] });
+      }, 5000);
       
       toast({
         title: "Withdrawal Complete",
