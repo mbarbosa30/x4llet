@@ -158,7 +158,7 @@ export default function CreateWallet() {
             <div className="text-center">
               <Shield className="h-16 w-16 mx-auto mb-4 text-primary" />
               <h1 className="text-2xl text-section mb-2">Backup Your Wallet</h1>
-              <p className="text-sm text-muted-foreground">
+              <p className="font-mono text-xs text-muted-foreground uppercase tracking-wide">
                 Save your private key to recover your wallet if needed
               </p>
             </div>
@@ -168,9 +168,8 @@ export default function CreateWallet() {
                 <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <h3 className="font-label text-destructive">Critical: Save This Key</h3>
-                  <p className="text-sm text-muted-foreground">
-                    This is your master backup key. If you lose your password, you can use this private key to recover your wallet and set a new password. 
-                    Without it, lost passwords cannot be recovered.
+                  <p className="font-mono text-xs text-muted-foreground uppercase tracking-wide">
+                    This is your master backup key. If you lose your password, you can use this private key to recover your wallet and set a new password. Without it, lost passwords cannot be recovered.
                   </p>
                 </div>
               </div>
@@ -229,8 +228,8 @@ export default function CreateWallet() {
                   className="font-label cursor-pointer space-y-1"
                 >
                   <span className="block">I have saved my private key</span>
-                  <span className="block text-muted-foreground font-normal text-xs">
-                    Without it, lost passwords cannot be recovered
+                  <span className="block text-muted-foreground font-mono text-xs tracking-wide">
+                    WITHOUT IT, LOST PASSWORDS CANNOT BE RECOVERED
                   </span>
                 </label>
               </div>
@@ -259,7 +258,7 @@ export default function CreateWallet() {
           <div className="text-center">
             <Shield className="h-16 w-16 mx-auto mb-4 text-primary" />
             <h1 className="text-2xl text-section mb-2">Create Your Wallet</h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="font-mono text-xs text-muted-foreground uppercase tracking-wide">
               Choose a strong password to secure your wallet
             </p>
           </div>
@@ -292,8 +291,8 @@ export default function CreateWallet() {
                     <div className={`h-1 flex-1 ${strength === 'medium' || strength === 'strong' ? strengthColors.medium : 'bg-muted'}`} />
                     <div className={`h-1 flex-1 ${strength === 'strong' ? strengthColors.strong : 'bg-muted'}`} />
                   </div>
-                  <p className="text-xs text-muted-foreground uppercase">
-                    Password strength: <span className="uppercase">{strength}</span>
+                  <p className="font-mono text-xs text-muted-foreground uppercase tracking-wide">
+                    PASSWORD STRENGTH: {strength}
                   </p>
                 </div>
               )}
@@ -332,10 +331,10 @@ export default function CreateWallet() {
             </div>
           </Card>
 
-          <Card className="p-4 bg-muted/50 border-primary/20">
-            <p className="text-xs text-muted-foreground">
-              <strong className="font-label text-foreground">How Security Works</strong>
-              <span className="block mt-1">Your password encrypts your wallet locally on this device. You'll see your private key backup next - that's your master recovery key if you lose your password or switch devices.</span>
+          <Card className="p-4 border-foreground/20">
+            <p className="font-mono text-xs text-muted-foreground uppercase tracking-wide">
+              <strong className="font-label text-foreground block mb-1">How Security Works</strong>
+              Your password encrypts your wallet locally on this device. You'll see your private key backup next - that's your master recovery key if you lose your password or switch devices.
             </p>
           </Card>
 
