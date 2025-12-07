@@ -351,7 +351,7 @@ export default function MaxFlow() {
             >
               MaxFlow.one
             </a>{' '}
-            is neutral reputation infrastructure that converts public binary endorsements ("vouches") into verifiable graph signals using max-flow/min-cut algorithms and recursive trust weighting. It computes mathematical signals that applications interpret according to their own policies—for creditworthiness, governance weight, access control, or grant allocation.
+            is a neutral reputation infrastructure that converts public binary endorsements ("vouches") into verifiable graph signals using max-flow/min-cut algorithms and recursive trust weighting. It computes mathematical signals that applications interpret according to their own policies—for creditworthiness, governance weight, access control, or grant allocation.
           </p>
           <a 
             href="https://maxflow.one/whitepaper" 
