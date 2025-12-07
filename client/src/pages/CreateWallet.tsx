@@ -222,12 +222,16 @@ export default function CreateWallet() {
                   checked={backupConfirmed}
                   onCheckedChange={(checked) => setBackupConfirmed(checked === true)}
                   data-testid="checkbox-backup-confirmed"
+                  className="mt-0.5"
                 />
                 <label
                   htmlFor="backup-confirmed"
-                  className="font-mono text-xs cursor-pointer leading-relaxed"
+                  className="font-label cursor-pointer space-y-1"
                 >
-                  I understand this private key is my master backup. Without it, I cannot recover my wallet if I lose my password. I have saved it in a secure location.
+                  <span className="block">I have saved my private key</span>
+                  <span className="block text-muted-foreground font-normal normal-case text-xs">
+                    Without it, lost passwords cannot be recovered
+                  </span>
                 </label>
               </div>
             </Card>
