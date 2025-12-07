@@ -6,25 +6,25 @@ interface FooterProps {
 
 export default function Footer({ hideSignal = false }: FooterProps) {
   return (
-    <footer className="border-t py-4 text-center text-xs text-muted-foreground">
+    <footer className="border-t py-4 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
       <div className="flex items-center justify-center gap-4">
         {!hideSignal && (
           <>
-            <Link href="/signal" className="hover-elevate px-2 py-1 rounded" data-testid="link-signal">
+            <Link href="/signal" className="hover-elevate px-2 py-1" data-testid="link-signal">
               Signal
             </Link>
             <span className="text-border">•</span>
           </>
         )}
-        <Link href="/context" className="hover-elevate px-2 py-1 rounded" data-testid="link-context">
+        <Link href="/context" className="hover-elevate px-2 py-1" data-testid="link-context">
           Context
         </Link>
         <span className="text-border">•</span>
-        <Link href="/how-it-works" className="hover-elevate px-2 py-1 rounded" data-testid="link-how-it-works">
+        <Link href="/how-it-works" className="hover-elevate px-2 py-1" data-testid="link-how-it-works">
           How It Works
         </Link>
         <span className="text-border">•</span>
-        <Link href="/faqs" className="hover-elevate px-2 py-1 rounded" data-testid="link-faqs">
+        <Link href="/faqs" className="hover-elevate px-2 py-1" data-testid="link-faqs">
           FAQs
         </Link>
       </div>
