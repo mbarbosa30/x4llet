@@ -138,8 +138,8 @@ export default function Landing() {
                 <Gift className="h-4 w-4 text-[#0055FF] flex-shrink-0" />
                 <div className="w-px h-8 bg-[#0055FF]" />
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Free Tokens</div>
-                  <div className="text-xs text-muted-foreground">Daily claims/airdrops from partners.</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Claim Tokens</div>
+                  <div className="text-xs text-muted-foreground">Campaigns & airdrops from partners.</div>
                 </div>
               </div>
             </div>
