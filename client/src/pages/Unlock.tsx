@@ -126,7 +126,7 @@ export default function Unlock() {
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
         <div className="text-center">
           <Loader2 className="h-8 w-8 mx-auto mb-4 text-primary animate-spin" />
-          <p className="text-sm text-muted-foreground">Checking for passkey...</p>
+          <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Checking for passkey...</p>
         </div>
       </div>
     );
@@ -137,11 +137,11 @@ export default function Unlock() {
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
           <Shield className="h-12 w-12 mx-auto mb-4 text-primary" />
-          <h1 className="text-2xl font-bold mb-2 font-heading tracking-tight">Unlock Wallet</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-2xl text-section mb-2">Unlock Wallet</h1>
+          <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
             {passkeyAvailable 
-              ? "Use Face ID, fingerprint, or your password" 
-              : "Enter your password to unlock your wallet"}
+              ? "Use Face ID, fingerprint, or password" 
+              : "Enter your password to unlock"}
           </p>
         </div>
 
@@ -172,9 +172,9 @@ export default function Unlock() {
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
+            <div className="relative flex justify-center text-xs font-mono uppercase tracking-widest">
               <span className="bg-background px-2 text-muted-foreground">
-                or use password
+                Or Use Password
               </span>
             </div>
           </div>
@@ -182,7 +182,7 @@ export default function Unlock() {
 
         <Card className="p-6 space-y-4">
           <div className="space-y-2">
-            <label htmlFor="password" className="text-sm font-medium">
+            <label htmlFor="password" className="font-label text-muted-foreground">
               Password
             </label>
             <div className="relative">
@@ -221,16 +221,16 @@ export default function Unlock() {
         <div className="text-center space-y-3">
           <button 
             onClick={() => setLocation('/restore')}
-            className="text-sm text-muted-foreground hover:text-foreground"
+            className="text-xs font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground"
             data-testid="link-forgot-password"
           >
-            Forgot your password? <span className="text-foreground font-medium">Recover with private key</span>
+            Forgot Password? <span className="text-foreground font-semibold">Recover</span>
           </button>
           
           <div>
             <button 
               onClick={() => setLocation('/')}
-              className="text-sm text-muted-foreground hover:text-foreground"
+              className="text-xs font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground"
               data-testid="link-back"
             >
               Back to Start
