@@ -109,7 +109,7 @@ export default function Landing() {
                 <Lock className="h-4 w-4 text-[#0055FF] flex-shrink-0" />
                 <div className="w-px h-8 bg-[#0055FF]" />
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Your Keys, Your Control</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Your Keys, With You</div>
                   <div className="text-xs text-muted-foreground">Encrypted on your device. Nowhere else.</div>
                 </div>
               </div>
