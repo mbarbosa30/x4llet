@@ -321,7 +321,7 @@ export default function Settings() {
         <InstallPrompt />
 
         <div className="space-y-2">
-          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-2">
+          <h2 className="text-sm text-section text-muted-foreground px-2">
             Security
           </h2>
           <Card className="divide-y">
@@ -333,7 +333,7 @@ export default function Settings() {
               <div className="flex items-center gap-3">
                 <Fingerprint className={`h-5 w-5 ${passkeySupportStatus?.supported ? 'text-muted-foreground' : 'text-muted-foreground/50'}`} />
                 <div className="text-left">
-                  <div className={`text-xs font-medium text-foreground/80 ${!passkeySupportStatus?.supported ? 'text-muted-foreground' : ''}`}>
+                  <div className={`font-label text-foreground ${!passkeySupportStatus?.supported ? 'text-muted-foreground' : ''}`}>
                     Passkey Unlock
                   </div>
                   <div className="text-xs text-muted-foreground">
@@ -360,7 +360,7 @@ export default function Settings() {
             >
               <div className="flex items-center gap-3">
                 <Key className="h-5 w-5 text-muted-foreground" />
-                <span className="text-xs font-medium text-foreground/80">Export Private Key</span>
+                <span className="font-label text-foreground">Export Private Key</span>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
@@ -371,7 +371,7 @@ export default function Settings() {
             >
               <div className="flex items-center gap-3">
                 <Lock className="h-5 w-5 text-muted-foreground" />
-                <span className="text-xs font-medium text-foreground/80">Lock Wallet</span>
+                <span className="font-label text-foreground">Lock Wallet</span>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
@@ -379,7 +379,7 @@ export default function Settings() {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-2">
+          <h2 className="text-sm text-section text-muted-foreground px-2">
             Preferences
           </h2>
           <Card className="divide-y">
@@ -391,7 +391,7 @@ export default function Settings() {
               <div className="flex items-center gap-3">
                 <Palette className="h-5 w-5 text-muted-foreground" />
                 <div className="text-left">
-                  <div className="text-xs font-medium text-foreground/80">Theme</div>
+                  <div className="font-label text-foreground">Theme</div>
                   <div className="text-xs text-muted-foreground capitalize">{theme}</div>
                 </div>
               </div>
@@ -405,7 +405,7 @@ export default function Settings() {
               <div className="flex items-center gap-3">
                 <DollarSign className="h-5 w-5 text-muted-foreground" />
                 <div className="text-left">
-                  <div className="text-xs font-medium text-foreground/80">Display Currency</div>
+                  <div className="font-label text-foreground">Display Currency</div>
                   <div className="text-xs text-muted-foreground">{currency}</div>
                 </div>
               </div>
@@ -418,7 +418,7 @@ export default function Settings() {
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="text-xs font-medium text-foreground/80">{currency} vs USD</h3>
+                  <h3 className="font-label text-foreground">{currency} vs USD</h3>
                 </div>
                 
                 {exchangeRate && (
@@ -457,7 +457,7 @@ export default function Settings() {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-2">
+          <h2 className="text-sm text-section text-muted-foreground px-2">
             Help & Resources
           </h2>
           <Card className="divide-y">
@@ -468,7 +468,7 @@ export default function Settings() {
             >
               <div className="flex items-center gap-3">
                 <HelpCircle className="h-5 w-5 text-muted-foreground" />
-                <span className="text-xs font-medium text-foreground/80">Context</span>
+                <span className="font-label text-foreground">Context</span>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
@@ -479,7 +479,7 @@ export default function Settings() {
             >
               <div className="flex items-center gap-3">
                 <BookOpen className="h-5 w-5 text-muted-foreground" />
-                <span className="text-xs font-medium text-foreground/80">How It Works</span>
+                <span className="font-label text-foreground">How It Works</span>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
@@ -490,7 +490,7 @@ export default function Settings() {
             >
               <div className="flex items-center gap-3">
                 <MessageCircleQuestion className="h-5 w-5 text-muted-foreground" />
-                <span className="text-xs font-medium text-foreground/80">FAQs</span>
+                <span className="font-label text-foreground">FAQs</span>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
@@ -498,7 +498,7 @@ export default function Settings() {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-2">
+          <h2 className="text-sm text-section text-muted-foreground px-2">
             Troubleshooting
           </h2>
           <Card className="divide-y">
@@ -510,7 +510,7 @@ export default function Settings() {
               <div className="flex items-center gap-3">
                 <RotateCcw className="h-5 w-5 text-muted-foreground" />
                 <div className="text-left">
-                  <div className="text-xs font-medium text-foreground/80">Reset App Data</div>
+                  <div className="font-label text-foreground">Reset App Data</div>
                   <div className="text-xs text-muted-foreground">Clear cache if app isn't working</div>
                 </div>
               </div>
