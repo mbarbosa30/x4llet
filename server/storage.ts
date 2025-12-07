@@ -280,6 +280,7 @@ export interface IStorage {
   upsertGoodDollarIdentity(data: InsertGoodDollarIdentity): Promise<GoodDollarIdentity>;
   getGoodDollarIdentity(walletAddress: string): Promise<GoodDollarIdentity | null>;
   recordGoodDollarClaim(data: InsertGoodDollarClaim): Promise<GoodDollarClaim>;
+  syncGoodDollarClaims(claims: InsertGoodDollarClaim[]): Promise<{ inserted: number; skipped: number }>;
   getGoodDollarClaimHistory(walletAddress: string, limit?: number): Promise<GoodDollarClaim[]>;
   upsertGdBalance(address: string, balance: string, balanceFormatted: string, decimals?: number): Promise<CachedGdBalance>;
   getGdBalance(address: string): Promise<CachedGdBalance | null>;
@@ -733,6 +734,11 @@ export class MemStorage implements IStorage {
       gasDripTxHash: data.gasDripTxHash ?? null,
       createdAt: new Date(),
     };
+  }
+
+  async syncGoodDollarClaims(claims: InsertGoodDollarClaim[]): Promise<{ inserted: number; skipped: number }> {
+    // MemStorage doesn't persist, just return count
+    return { inserted: claims.length, skipped: 0 };
   }
 
   async getGoodDollarClaimHistory(walletAddress: string, limit?: number): Promise<GoodDollarClaim[]> {
@@ -3121,6 +3127,45 @@ export class DbStorage extends MemStorage {
     
     console.log(`[GoodDollar] Recorded claim for ${normalizedAddress}: ${data.amountFormatted} G$ (day ${data.claimedDay})`);
     return result[0];
+  }
+
+  async syncGoodDollarClaims(claims: InsertGoodDollarClaim[]): Promise<{ inserted: number; skipped: number }> {
+    if (claims.length === 0) {
+      return { inserted: 0, skipped: 0 };
+    }
+
+    let inserted = 0;
+    let skipped = 0;
+
+    // Insert each claim individually with ON CONFLICT DO NOTHING for deduplication by txHash
+    for (const claim of claims) {
+      const normalizedAddress = claim.walletAddress.toLowerCase();
+      try {
+        const result = await db.insert(gooddollarClaims).values({
+          walletAddress: normalizedAddress,
+          txHash: claim.txHash,
+          amount: claim.amount,
+          amountFormatted: claim.amountFormatted,
+          claimedDay: claim.claimedDay,
+          gasDripTxHash: claim.gasDripTxHash ?? null,
+        }).onConflictDoNothing({
+          target: gooddollarClaims.txHash,
+        }).returning();
+
+        if (result.length > 0) {
+          inserted++;
+          console.log(`[GoodDollar Sync] Inserted claim: ${claim.txHash.slice(0, 10)}... (day ${claim.claimedDay})`);
+        } else {
+          skipped++;
+        }
+      } catch (error) {
+        console.error(`[GoodDollar Sync] Error inserting claim ${claim.txHash}:`, error);
+        skipped++;
+      }
+    }
+
+    console.log(`[GoodDollar Sync] Complete: ${inserted} inserted, ${skipped} skipped`);
+    return { inserted, skipped };
   }
 
   async getGoodDollarClaimHistory(walletAddress: string, limit: number = 30): Promise<GoodDollarClaim[]> {
