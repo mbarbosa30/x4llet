@@ -155,12 +155,12 @@ export default function Unlock() {
           >
             {isUnlocking ? (
               <>
-                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                <Loader2 className="h-5 w-5 animate-spin" />
                 Unlocking...
               </>
             ) : (
               <>
-                <Fingerprint className="h-5 w-5 mr-2" />
+                <Fingerprint className="h-5 w-5" />
                 Unlock with Passkey
               </>
             )}

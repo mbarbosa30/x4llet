@@ -805,7 +805,7 @@ export default function Send() {
                 className="w-full"
                 data-testid="button-copy-link"
               >
-                <Clipboard className="w-4 h-4 mr-2" />
+                <Clipboard className="w-4 h-4" />
                 Copy Payment Link
               </Button>
 
@@ -822,7 +822,7 @@ export default function Send() {
                 className="w-full"
                 data-testid="button-share-sms"
               >
-                <MessageSquare className="w-4 h-4 mr-2" />
+                <MessageSquare className="w-4 h-4" />
                 Share via SMS
               </Button>
 

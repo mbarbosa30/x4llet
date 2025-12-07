@@ -516,7 +516,7 @@ export default function Admin() {
               >
                 {isAuthenticating ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                     Authenticating...
                   </>
                 ) : (
@@ -567,7 +567,7 @@ export default function Admin() {
                 className="w-full"
                 data-testid="button-backfill-balances"
               >
-                {isBackfillingBalances && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isBackfillingBalances && <Loader2 className="h-4 w-4 animate-spin" />}
                 Reconstruct Balance History
               </Button>
             </CardContent>
@@ -590,7 +590,7 @@ export default function Admin() {
                 className="w-full"
                 data-testid="button-backfill-rates"
               >
-                {isBackfillingRates && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isBackfillingRates && <Loader2 className="h-4 w-4 animate-spin" />}
                 Backfill Exchange Rates
               </Button>
             </CardContent>
@@ -613,7 +613,7 @@ export default function Admin() {
                 className="w-full"
                 data-testid="button-backfill-all-wallets"
               >
-                {isBackfillingAllWallets && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isBackfillingAllWallets && <Loader2 className="h-4 w-4 animate-spin" />}
                 Backfill All Wallets
               </Button>
             </CardContent>
@@ -852,7 +852,7 @@ export default function Admin() {
             >
               {isLoadingWallets ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Loading...
                 </>
               ) : walletList.length > 0 ? (
@@ -884,7 +884,7 @@ export default function Admin() {
                 className="w-full"
                 data-testid="button-clear-caches"
               >
-                {isClearingCaches && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isClearingCaches && <Loader2 className="h-4 w-4 animate-spin" />}
                 Clear All Caches
               </Button>
             </CardContent>
@@ -908,7 +908,7 @@ export default function Admin() {
                 className="w-full"
                 data-testid="button-clear-transactions-balances"
               >
-                {isClearingTransactionsAndBalances && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isClearingTransactionsAndBalances && <Loader2 className="h-4 w-4 animate-spin" />}
                 Clear Transactions & Balances
               </Button>
             </CardContent>
@@ -932,7 +932,7 @@ export default function Admin() {
                 className="w-full"
                 data-testid="button-prune-data"
               >
-                {isPruning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isPruning && <Loader2 className="h-4 w-4 animate-spin" />}
                 Prune Old Snapshots
               </Button>
             </CardContent>
@@ -956,7 +956,7 @@ export default function Admin() {
                 className="w-full"
                 data-testid="button-clear-balances"
               >
-                {isClearingBalances && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isClearingBalances && <Loader2 className="h-4 w-4 animate-spin" />}
                 Clear Cached Balances
               </Button>
             </CardContent>
@@ -980,7 +980,7 @@ export default function Admin() {
                 className="w-full"
                 data-testid="button-clear-history"
               >
-                {isClearingHistory && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isClearingHistory && <Loader2 className="h-4 w-4 animate-spin" />}
                 Clear Balance History
               </Button>
             </CardContent>
@@ -1004,7 +1004,7 @@ export default function Admin() {
                 className="w-full"
                 data-testid="button-migrate-usdc"
               >
-                {isMigrating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isMigrating && <Loader2 className="h-4 w-4 animate-spin" />}
                 Migrate to Micro-USDC
               </Button>
             </CardContent>

@@ -1099,7 +1099,7 @@ export default function Earn() {
                 }}
                 data-testid="button-earn-deposit"
               >
-                <ArrowUpToLine className="h-4 w-4 mr-2" />
+                <ArrowUpToLine className="h-4 w-4" />
                 Deposit
               </Button>
               <Button 
@@ -1113,7 +1113,7 @@ export default function Earn() {
                 disabled={!hasAaveBalance}
                 data-testid="button-earn-withdraw"
               >
-                <ArrowDownToLine className="h-4 w-4 mr-2" />
+                <ArrowDownToLine className="h-4 w-4" />
                 Withdraw
               </Button>
             </div>
@@ -1231,8 +1231,8 @@ export default function Earn() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="flex items-center justify-center p-4 bg-muted/30 rounded-none">
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <div className="flex items-center justify-center gap-2 p-4 bg-muted/30 rounded-none">
+                      <Loader2 className="h-4 w-4 animate-spin" />
                       <span className="text-sm text-muted-foreground">Loading rates...</span>
                     </div>
                   </div>
@@ -1247,7 +1247,7 @@ export default function Earn() {
                   disabled={weightedApy <= 0}
                   data-testid="button-start-earning"
                 >
-                  <Sparkles className="h-4 w-4 mr-2" />
+                  <Sparkles className="h-4 w-4" />
                   Start Earning Now
                 </Button>
               </Card>
@@ -1605,7 +1605,7 @@ export default function Earn() {
                 <div className="mt-4">
                   <Link href="/pool">
                     <Button className="w-full" data-testid="button-activate-pool">
-                      <Trophy className="h-4 w-4 mr-2" />
+                      <Trophy className="h-4 w-4" />
                       Activate Prize Pool
                     </Button>
                   </Link>

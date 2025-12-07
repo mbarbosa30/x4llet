@@ -783,7 +783,7 @@ export default function Pool() {
                     onClick={() => setLocation('/earn')}
                     data-testid="button-go-earn"
                   >
-                    <PiggyBank className="h-4 w-4 mr-2" />
+                    <PiggyBank className="h-4 w-4" />
                     Go to Earn
                   </Button>
                 </div>
@@ -795,7 +795,7 @@ export default function Pool() {
                   onClick={() => openContributionModal(optInPercent)}
                   data-testid="button-activate"
                 >
-                  <Sparkles className="h-4 w-4 mr-2" />
+                  <Sparkles className="h-4 w-4" />
                   {optInPercent === 0 ? "Choose contribution %" : "Join Pool"}
                 </Button>
               )}
@@ -1213,7 +1213,7 @@ export default function Pool() {
                     onClick={() => setShowApprovalDialog(true)}
                     data-testid="button-authorize-facilitator"
                   >
-                    <Shield className="h-4 w-4 mr-2" />
+                    <Shield className="h-4 w-4" />
                     Authorize Collection
                   </Button>
                 </Card>
@@ -1882,7 +1882,7 @@ export default function Pool() {
               >
                 {contributionMutation.isPending ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                     Saving...
                   </>
                 ) : (

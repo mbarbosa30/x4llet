@@ -552,9 +552,9 @@ export default function Claim() {
                           data-testid="button-mint-crc"
                         >
                           {mintMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
-                            <Coins className="h-4 w-4 mr-2" />
+                            <Coins className="h-4 w-4" />
                           )}
                           Claim
                         </Button>
@@ -565,7 +565,7 @@ export default function Claim() {
                           onClick={() => setShowSendInput(true)}
                           data-testid="button-send-crc"
                         >
-                          <Send className="h-4 w-4 mr-2" />
+                          <Send className="h-4 w-4" />
                           Send
                         </Button>
                       </div>
@@ -576,7 +576,7 @@ export default function Claim() {
                           onClick={() => setShowTrustInput(true)}
                           data-testid="button-trust"
                         >
-                          <Heart className="h-4 w-4 mr-2" />
+                          <Heart className="h-4 w-4" />
                           Trust
                         </Button>
                         <Button
@@ -585,7 +585,7 @@ export default function Claim() {
                           onClick={() => refetchBalance()}
                           data-testid="button-refresh-balance"
                         >
-                          <RefreshCw className="h-4 w-4 mr-2" />
+                          <RefreshCw className="h-4 w-4" />
                           Refresh
                         </Button>
                       </div>
@@ -635,9 +635,9 @@ export default function Claim() {
                           data-testid="button-submit-trust"
                         >
                           {trustMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
-                            <Heart className="h-4 w-4 mr-2" />
+                            <Heart className="h-4 w-4" />
                           )}
                           {trustMutation.isPending ? 'Trusting...' : 'Trust'}
                         </Button>
@@ -649,9 +649,9 @@ export default function Claim() {
                           data-testid="button-submit-untrust"
                         >
                           {untrustMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
-                            <HeartOff className="h-4 w-4 mr-2" />
+                            <HeartOff className="h-4 w-4" />
                           )}
                           {untrustMutation.isPending ? 'Untrusting...' : 'Untrust'}
                         </Button>
@@ -716,9 +716,9 @@ export default function Claim() {
                           data-testid="button-submit-send"
                         >
                           {sendCrcMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
-                            <Send className="h-4 w-4 mr-2" />
+                            <Send className="h-4 w-4" />
                           )}
                           {sendCrcMutation.isPending ? 'Sending...' : 'Send CRC'}
                         </Button>
@@ -746,7 +746,7 @@ export default function Claim() {
                     onClick={() => window.open(getCirclesExplorerUrl(address!), '_blank', 'noopener,noreferrer')}
                     data-testid="button-circles-profile"
                   >
-                    <ExternalLink className="h-4 w-4 mr-2" />
+                    <ExternalLink className="h-4 w-4" />
                     View on Circles Garden
                   </Button>
 
@@ -941,12 +941,12 @@ export default function Claim() {
                       >
                         {registerMutation.isPending ? (
                           <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            <Loader2 className="h-4 w-4 animate-spin" />
                             Registering...
                           </>
                         ) : inviterStatus?.isReady ? (
                           <>
-                            <UserPlus className="h-4 w-4 mr-2" />
+                            <UserPlus className="h-4 w-4" />
                             Register as Human
                           </>
                         ) : (
@@ -1037,12 +1037,12 @@ export default function Claim() {
                         >
                           {registerMutation.isPending ? (
                             <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              <Loader2 className="h-4 w-4 animate-spin" />
                               Registering...
                             </>
                           ) : (
                             <>
-                              <UserPlus className="h-4 w-4 mr-2" />
+                              <UserPlus className="h-4 w-4" />
                               Register
                             </>
                           )}
@@ -1110,12 +1110,12 @@ export default function Claim() {
                       >
                         {claimGdMutation.isPending ? (
                           <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            <Loader2 className="h-4 w-4 animate-spin" />
                             Claiming...
                           </>
                         ) : (
                           <>
-                            <Coins className="h-4 w-4 mr-2" />
+                            <Coins className="h-4 w-4" />
                             Claim G$
                           </>
                         )}
@@ -1227,7 +1227,7 @@ export default function Claim() {
                   >
                     {isVerifyingFace ? (
                       <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin" />
                         Signing...
                       </>
                     ) : 'Verify Face'}
@@ -1263,7 +1263,7 @@ export default function Claim() {
                     onClick={() => window.open('https://gooddollar.org', '_blank', 'noopener,noreferrer')}
                     data-testid="button-gd-learn-more"
                   >
-                    <ExternalLink className="h-3.5 w-3.5 mr-2" />
+                    <ExternalLink className="h-3.5 w-3.5" />
                     Learn more at gooddollar.org
                   </Button>
                 </div>

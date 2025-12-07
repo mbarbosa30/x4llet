@@ -116,12 +116,12 @@ export default function TransactionList({ transactions, onTransactionClick }: Tr
           >
             {showAll ? (
               <>
-                <ChevronUp className="h-4 w-4 mr-2" />
+                <ChevronUp className="h-4 w-4" />
                 Show Less
               </>
             ) : (
               <>
-                <ChevronDown className="h-4 w-4 mr-2" />
+                <ChevronDown className="h-4 w-4" />
                 Show All ({transactions.length} total)
               </>
             )}

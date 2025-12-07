@@ -331,7 +331,7 @@ export default function Pay() {
 
           {currentMutation.isPending ? (
             <Button disabled className="w-full" data-testid="button-processing">
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" />
               Processing Payment...
             </Button>
           ) : currentMutation.isError ? (

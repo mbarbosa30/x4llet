@@ -256,7 +256,7 @@ export default function Home() {
             onClick={() => setLocation('/send')}
             data-testid="button-send"
           >
-            <ArrowUpRight className="h-5 w-5 mr-2" />
+            <ArrowUpRight className="h-5 w-5" />
             Send
           </Button>
           <Button 
@@ -266,7 +266,7 @@ export default function Home() {
             onClick={() => setLocation('/receive')}
             data-testid="button-receive"
           >
-            <ArrowDownLeft className="h-5 w-5 mr-2" />
+            <ArrowDownLeft className="h-5 w-5" />
             Receive
           </Button>
         </div>
@@ -331,7 +331,7 @@ export default function Home() {
                   onClick={() => window.open(getExplorerUrl(selectedTransaction.txHash!, (selectedTransaction as any).chainId), '_blank', 'noopener,noreferrer')}
                   data-testid="button-view-explorer"
                 >
-                  <ExternalLink className="h-4 w-4 mr-2" />
+                  <ExternalLink className="h-4 w-4" />
                   View details
                 </Button>
               )}

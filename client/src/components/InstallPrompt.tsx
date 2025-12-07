@@ -153,7 +153,7 @@ export default function InstallPrompt() {
             className="w-full"
             data-testid="button-install-app"
           >
-            <Download className="mr-2 h-4 w-4" />
+            <Download className="h-4 w-4" />
             Install App
           </Button>
         </CardContent>

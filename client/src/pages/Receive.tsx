@@ -116,9 +116,9 @@ export default function Receive() {
             data-testid="button-copy"
           >
             {copied ? (
-              <Check className="h-4 w-4 mr-2" />
+              <Check className="h-4 w-4" />
             ) : (
-              <Copy className="h-4 w-4 mr-2" />
+              <Copy className="h-4 w-4" />
             )}
             {copied ? 'Copied' : 'Copy'}
           </Button>
@@ -127,7 +127,7 @@ export default function Receive() {
             onClick={handleShare}
             data-testid="button-share"
           >
-            <Share2 className="h-4 w-4 mr-2" />
+            <Share2 className="h-4 w-4" />
             Share
           </Button>
         </div>

@@ -303,12 +303,12 @@ export default function Dashboard() {
               <Button type="submit" className="w-full" disabled={isAuthenticating} data-testid="button-dashboard-login">
                 {isAuthenticating ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                     Authenticating...
                   </>
                 ) : (
                   <>
-                    <Lock className="h-4 w-4 mr-2" />
+                    <Lock className="h-4 w-4" />
                     Sign In
                   </>
                 )}
@@ -380,7 +380,7 @@ export default function Dashboard() {
             </p>
           </div>
           <Button onClick={() => loadAllData(authHeader)} disabled={isLoading} data-testid="button-refresh-analytics">
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>

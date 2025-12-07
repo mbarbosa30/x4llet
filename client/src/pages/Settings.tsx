@@ -600,12 +600,12 @@ export default function Settings() {
                   >
                     {copied ? (
                       <>
-                        <Check className="h-4 w-4 mr-2" />
+                        <Check className="h-4 w-4" />
                         Copied!
                       </>
                     ) : (
                       <>
-                        <Copy className="h-4 w-4 mr-2" />
+                        <Copy className="h-4 w-4" />
                         Copy Private Key
                       </>
                     )}
@@ -728,7 +728,7 @@ export default function Settings() {
             >
               {isResetting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Resetting...
                 </>
               ) : (
@@ -807,12 +807,12 @@ export default function Settings() {
                 >
                   {isRemovingPasskey ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                       Removing...
                     </>
                   ) : (
                     <>
-                      <Trash2 className="h-4 w-4 mr-2" />
+                      <Trash2 className="h-4 w-4" />
                       Remove Passkey
                     </>
                   )}
@@ -842,12 +842,12 @@ export default function Settings() {
                 >
                   {isEnrollingPasskey ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                       Setting up...
                     </>
                   ) : (
                     <>
-                      <Fingerprint className="h-4 w-4 mr-2" />
+                      <Fingerprint className="h-4 w-4" />
                       Enable Passkey
                     </>
                   )}

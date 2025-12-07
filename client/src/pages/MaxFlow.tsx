@@ -330,7 +330,7 @@ export default function MaxFlow() {
                 >
                   {vouchMutation.isPending ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                       Submitting...
                     </>
                   ) : 'Submit Vouch'}

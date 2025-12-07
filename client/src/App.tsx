@@ -131,12 +131,12 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
               >
                 {this.state.isResetting ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                     Resetting...
                   </>
                 ) : (
                   <>
-                    <RotateCcw className="h-4 w-4 mr-2" />
+                    <RotateCcw className="h-4 w-4" />
                     Reset App Data
                   </>
                 )}
