@@ -157,7 +157,7 @@ export default function CreateWallet() {
           <div className="w-full max-w-md space-y-8">
             <div className="text-center">
               <Shield className="h-16 w-16 mx-auto mb-4 text-primary" />
-              <h1 className="text-2xl font-bold mb-2 font-heading tracking-tight">Backup Your Wallet</h1>
+              <h1 className="text-2xl text-section mb-2">Backup Your Wallet</h1>
               <p className="text-sm text-muted-foreground">
                 Save your private key to recover your wallet if needed
               </p>
@@ -167,7 +167,7 @@ export default function CreateWallet() {
               <div className="flex gap-3">
                 <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <h3 className="font-semibold text-destructive">Critical: Save This Key</h3>
+                  <h3 className="font-label text-destructive">Critical: Save This Key</h3>
                   <p className="text-sm text-muted-foreground">
                     This is your master backup key. If you lose your password, you can use this private key to recover your wallet and set a new password. 
                     Without it, lost passwords cannot be recovered.
@@ -205,7 +205,7 @@ export default function CreateWallet() {
               </div>
 
               <div className="pt-2 space-y-2 text-xs text-muted-foreground">
-                <p className="font-medium">How to save your private key:</p>
+                <p className="font-label text-muted-foreground">How to Save Your Private Key</p>
                 <ul className="space-y-1 list-disc list-inside">
                   <li>Write it down on paper and store it securely</li>
                   <li>Save it in a password manager</li>
@@ -254,7 +254,7 @@ export default function CreateWallet() {
         <div className="w-full max-w-md space-y-8">
           <div className="text-center">
             <Shield className="h-16 w-16 mx-auto mb-4 text-primary" />
-            <h1 className="text-2xl font-bold mb-2 font-heading tracking-tight">Create Your Wallet</h1>
+            <h1 className="text-2xl text-section mb-2">Create Your Wallet</h1>
             <p className="text-sm text-muted-foreground">
               Choose a strong password to secure your wallet
             </p>
@@ -318,7 +318,7 @@ export default function CreateWallet() {
             </div>
 
             <div className="pt-2 space-y-2 text-xs text-muted-foreground">
-              <p className="font-medium">Password requirement:</p>
+              <p className="font-label text-muted-foreground">Password Requirement</p>
               <ul className="space-y-1 list-disc list-inside">
                 <li>At least 6 characters</li>
               </ul>
