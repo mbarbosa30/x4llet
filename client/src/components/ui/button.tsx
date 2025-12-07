@@ -11,7 +11,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-cta text-white border border-foreground shadow-[4px_4px_0px_0px_rgb(0,0,0)] active:shadow-none active:translate-x-[4px] active:translate-y-[4px]",
+          "bg-cta text-white border border-foreground",
         destructive:
           "bg-destructive text-destructive-foreground border border-destructive-border",
         outline:
@@ -27,6 +27,28 @@ const buttonVariants = cva(
         icon: "h-10 w-10",
       },
     },
+    compoundVariants: [
+      {
+        variant: "default",
+        size: "default",
+        className: "shadow-[4px_4px_0px_0px_rgb(0,0,0)] active:shadow-none active:translate-x-[4px] active:translate-y-[4px]",
+      },
+      {
+        variant: "default",
+        size: "lg",
+        className: "shadow-[4px_4px_0px_0px_rgb(0,0,0)] active:shadow-none active:translate-x-[4px] active:translate-y-[4px]",
+      },
+      {
+        variant: "outline",
+        size: "default",
+        className: "shadow-[4px_4px_0px_0px_rgb(0,0,0)] active:shadow-none active:translate-x-[4px] active:translate-y-[4px]",
+      },
+      {
+        variant: "outline",
+        size: "lg",
+        className: "shadow-[4px_4px_0px_0px_rgb(0,0,0)] active:shadow-none active:translate-x-[4px] active:translate-y-[4px]",
+      },
+    ],
     defaultVariants: {
       variant: "default",
       size: "default",
