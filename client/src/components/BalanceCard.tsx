@@ -258,6 +258,7 @@ export default function BalanceCard({
               BigInt(chains.base.balanceMicro) > 0n && `Base $${chains.base.balance}`,
               BigInt(chains.celo.balanceMicro) > 0n && `Celo $${chains.celo.balance}`,
               chains.gnosis && BigInt(chains.gnosis.balanceMicro) > 0n && `Gnosis $${chains.gnosis.balance}`,
+              chains.arbitrum && BigInt(chains.arbitrum.balanceMicro) > 0n && `Arbitrum $${chains.arbitrum.balance}`,
             ].filter(Boolean).join(' · ') || 'No balance'}
           </div>
         )}
