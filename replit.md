@@ -7,8 +7,12 @@ nanoPay is a minimalist Progressive Web App (PWA) designed for managing cryptocu
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
+- **2025-12-08**: Fixed service worker caching issue causing blank pages for returning users. Service worker now fetches version from `/api/version` endpoint to dynamically name caches, uses network-first strategy for JS/CSS assets, and prompts users to reload when updates are available.
 - **2025-12-08**: Added Arbitrum network support (chainId: 42161) with native USDC and Aave V3 integration. Includes balance fetching, transaction history, and gasless transfers via EIP-3009.
-- **2025-12-08**: Fixed GoodDollar claim recording bug - corrected apiRequest function calls to use proper (method, url, data) signature instead of (url, options). This fixes the "Method is not a valid HTTP token" error that prevented claims from being saved to the database.
+- **2025-12-08**: Fixed GoodDollar claim recording bug - corrected apiRequest function calls to use proper (method, url, data) signature instead of (url, options).
+
+## Deployment Requirements
+**Important**: Before each deployment, update `BUILD_VERSION` in `server/routes.ts` (line ~142) to a new timestamp. This triggers cache invalidation for returning users, ensuring they receive fresh assets instead of stale cached bundles.
 
 ## System Architecture
 
