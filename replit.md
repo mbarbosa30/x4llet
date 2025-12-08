@@ -11,6 +11,12 @@ Preferred communication style: Simple, everyday language.
 ### Frontend
 Built with React 18, TypeScript, Vite, Wouter, TanStack Query, Shadcn UI, and Tailwind CSS. It features a performance-first, mobile-optimized design with a fixed header/footer and content limited to 448px. State management uses IndexedDB for local key storage and TanStack Query for API data caching. It supports multi-chain balance aggregation and merged transaction history with chain badges.
 
+**Currency Auto-Detection**: On wallet creation or restore, the app automatically detects the user's local currency using:
+1. **Primary: IP geolocation** via ipapi.co API (returns currency directly, 3-second timeout)
+2. **Fallback: Browser locale** from `navigator.languages` array (maps country codes to currencies)
+3. **Default: USD** if both methods fail
+This ensures users see USDC values in their local currency from the start.
+
 ### Backend
 Developed using Express.js (TypeScript), Drizzle ORM, and PostgreSQL (via Neon serverless adapter). It provides APIs for multi-chain balance and transaction history. A production-ready EIP-3009 facilitator handles gasless USDC transfers on Base, Celo, and Gnosis. Transaction history is retrieved using the Etherscan v2 unified API with fallback to chain-specific APIs (BaseScan, CeloScan, GnosisScan). All USDC amounts are handled with BigInt for precision. An admin dashboard is available for backfill operations, cache management, database statistics, and API health checks. A `resolveChain()` helper function ensures consistent viem chain resolution.
 

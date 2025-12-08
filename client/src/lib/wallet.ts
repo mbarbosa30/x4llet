@@ -657,15 +657,42 @@ const COUNTRY_CURRENCY_MAP: Record<string, string> = {
   'MA': 'MAD', 'TN': 'TND', 'UG': 'UGX', 'TZ': 'TZS', 'ET': 'ETB',
 };
 
-export function detectCurrencyFromLocale(): string {
+async function detectCurrencyFromIP(): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    
+    const response = await fetch('https://ipapi.co/json/', {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    if (data.currency && typeof data.currency === 'string') {
+      console.log(`IP geolocation detected: ${data.country_name} → ${data.currency}`);
+      return data.currency;
+    }
+    return null;
+  } catch (error) {
+    console.log('IP geolocation unavailable, using locale fallback');
+    return null;
+  }
+}
+
+function detectCurrencyFromBrowserLocale(): string {
   if (typeof navigator === 'undefined') return 'USD';
   
   try {
-    const locale = navigator.language || 'en-US';
-    const countryCode = locale.split('-')[1]?.toUpperCase();
+    const locales = navigator.languages || [navigator.language || 'en-US'];
     
-    if (countryCode && COUNTRY_CURRENCY_MAP[countryCode]) {
-      return COUNTRY_CURRENCY_MAP[countryCode];
+    for (const locale of locales) {
+      const countryCode = locale.split('-')[1]?.toUpperCase();
+      if (countryCode && COUNTRY_CURRENCY_MAP[countryCode]) {
+        console.log(`Browser locale detected: ${locale} → ${COUNTRY_CURRENCY_MAP[countryCode]}`);
+        return COUNTRY_CURRENCY_MAP[countryCode];
+      }
     }
     
     return 'USD';
@@ -673,6 +700,13 @@ export function detectCurrencyFromLocale(): string {
     console.error('Failed to detect currency from locale:', error);
     return 'USD';
   }
+}
+
+export async function detectCurrencyFromLocale(): Promise<string> {
+  const ipCurrency = await detectCurrencyFromIP();
+  if (ipCurrency) return ipCurrency;
+  
+  return detectCurrencyFromBrowserLocale();
 }
 
 export async function getPreferences(): Promise<UserPreferences> {

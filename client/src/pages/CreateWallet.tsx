@@ -104,9 +104,9 @@ export default function CreateWallet() {
       return;
     }
     
-    // Auto-detect and save currency preference based on browser locale
+    // Auto-detect and save currency preference (IP geolocation with locale fallback)
     try {
-      const detectedCurrency = detectCurrencyFromLocale();
+      const detectedCurrency = await detectCurrencyFromLocale();
       const currentPrefs = await getPreferences();
       await savePreferences({ ...currentPrefs, currency: detectedCurrency });
       console.log(`Auto-detected currency: ${detectedCurrency}`);
