@@ -134,6 +134,16 @@ function resolveChain(chainId: number) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const BUILD_VERSION = '2025-12-08T09:30:00Z';
+  
+  app.get('/api/version', (req, res) => {
+    res.json({
+      version: BUILD_VERSION,
+      maxflowApiBase: 'https://maxflow.one/api/v1',
+      timestamp: new Date().toISOString()
+    });
+  });
+
   app.get('/api/balance/:address', async (req, res) => {
     try {
       const { address } = req.params;
