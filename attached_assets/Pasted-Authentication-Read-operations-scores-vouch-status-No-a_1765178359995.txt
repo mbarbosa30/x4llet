@@ -1,0 +1,347 @@
+Authentication
+Read operations (scores, vouch status): No authentication required
+Write operations (vouching, revoking): Requires EIP-712 wallet signatures
+Rate Limits
+200 requests per minute per IP address
+
+CORS
+CORS is enabled for all origins. External applications can call the API directly from the browser.
+
+Endpoints
+GET /api/v1/score/:address
+Get network quality score (0-100) for any wallet address. No authentication required.
+
+Example Request
+curl https://acd7837b-e201-4d66-b395-95bd84fb228b-00-g0rbq4l0jrbm.janeway.replit.dev/api/v1/score/0x216844eF94D95279c6d1631875F2dd93FbBdfB61
+Response
+{
+  "address": "0x216844ef94d95279c6d1631875f2dd93fbbdfb61",
+  "local_health": 72,
+  "cached": true,
+  "cached_at": "2025-01-15T12:30:45.123Z",
+  "vouch_counts": {
+    "incoming_total": 8,
+    "incoming_active": 7,
+    "outgoing_total": 5,
+    "unique_vouchers": 7
+  },
+  "activity": {
+    "last_vouch_given_at": "2025-01-10T08:15:00.000Z"
+  },
+  "algorithm_breakdown": {
+    "flow_component": 45.5,
+    "redundancy_component": 26.5,
+    "direct_flow": 7.0,
+    "effective_redundancy": 12.4,
+    "dilution_factor": 1.0,
+    "vertex_disjoint_paths": 4,
+    "ego_network_size": 15,
+    "edge_density": 0.12,
+    "baselines": {
+      "healthy_vouch_count": 8.0,
+      "healthy_redundancy": 36.0
+    }
+  }
+}
+Response Fields
+address: Normalized wallet address (lowercase)
+local_health: Signal score 0-100 (higher = more trusted). This is the authoritative trust signal computed by the max-flow algorithm.
+cached: Whether the score was retrieved from cache (true) or freshly computed (false)
+cached_at: Timestamp when the score was last computed (null if freshly calculated)
+vouch_counts.incoming_total: Total vouches ever received (exact count)
+vouch_counts.incoming_active: Non-expired/non-revoked vouches (from last 1,000 evaluated)
+vouch_counts.outgoing_total: Total vouches ever given (exact count)
+vouch_counts.unique_vouchers: Distinct active endorsers (from last 1,000 evaluated)
+activity.last_vouch_given_at: When this user last vouched for someone (null if never). Used for vouch expiration calculation.
+Algorithm Breakdown Fields
+flow_component: Points from incoming trust (0-60). Based on weighted sum of voucher strengths normalized by healthy baseline.
+redundancy_component: Points from network redundancy (0-40). Measures path diversity and Sybil resistance.
+direct_flow: Raw max-flow value from vouchers to target. Each voucher contributes capacity weighted by their own score.
+effective_redundancy: Combined redundancy metric = base vouches + depth bonus + connectivity bonus.
+dilution_factor: Penalty multiplier (0.4-1.0) applied for excessive outgoing vouches. 1.0 = no penalty.
+vertex_disjoint_paths: Count of truly independent trust paths (no shared intermediate nodes).
+ego_network_size: Number of nodes in the user's extended ego subgraph (within 3 hops).
+edge_density: Ratio of actual edges to potential edges in the ego subgraph. Higher = more interconnected network.
+baselines.healthy_vouch_count: Network 75th percentile vouch count (clamped 4-15). Scores scale relative to this.
+baselines.healthy_redundancy: Derived redundancy baseline (healthy_vouch_count × 4.5). Used for redundancy normalization.
+Ego Context (Scoring Model)
+The ego context represents a wallet's personal trust network state. Each wallet has an isolated scoring context that tracks their position in the trust graph. The local_health score (displayed as "Signal" in the UI) measures how much the network trusts this wallet, computed using:
+
+Flow Component (60%): Iterative PageRank-style algorithm where vouches are weighted by the voucher's own score (up to 10 iterations)
+Redundancy Component (40%): Measures path diversity via direct vouches, depth bonus, connectivity, and vertex-disjoint paths for Sybil resistance
+Dilution Penalty: Excessive outgoing vouches reduce the weight of each vouch given, ensuring accountability
+Adaptive Baseline: Network-wide 75th percentile vouch count (clamped 4-15) sets healthy participation thresholds
+Scores are cached and recalculated when a wallet gives or receives a vouch. The cached field indicates if the returned score is from cache; cached_at shows when it was last computed.
+
+GET /api/v1/vouch/nonce/:address
+Get the current epoch and next nonce for creating a vouch signature.
+
+Response
+{
+  "epoch": 0,
+  "nonce": 1
+}
+POST /api/v1/vouch
+Submit a vouch using EIP-712 wallet signature.
+
+Request Body
+{
+  "endorser": "0x742d35Cc...",
+  "endorsee": "0x1234567...",
+  "epoch": "0",
+  "nonce": "1",
+  "sig": "0xabcd...",
+  "chainId": 1
+}
+EIP-712 Message Types
+const domain = {
+  name: 'MaxFlow',
+  version: '1',
+  chainId: 1,
+};
+
+const types = {
+  Endorsement: [
+    { name: 'endorser', type: 'address' },
+    { name: 'endorsee', type: 'address' },
+    { name: 'epoch', type: 'uint64' },
+    { name: 'nonce', type: 'uint64' },
+  ],
+};
+
+const message = {
+  endorser: endorserAddress,
+  endorsee: endorseeAddress,
+  epoch: BigInt(epoch),
+  nonce: BigInt(nonce),
+};
+Success Response
+{ "ok": true }
+Error Responses
+// Invalid nonce (stale - refetch nonce and retry)
+{ "error": "Invalid nonce - expected 2, got 1..." }
+
+// Duplicate vouch
+{ "error": "Vouch already exists for this endorser->endorsee pair" }
+
+// Invalid signature
+{ "error": "Invalid signature - signature must be from endorser wallet" }
+
+// Race condition (409 status)
+{ "error": "Nonce already used - please get a new nonce" }
+GET /api/v1/vouch-status
+Check if a vouch exists and its current status.
+
+Query Parameters
+endorser: Endorser wallet address
+endorsee: Endorsee wallet address
+Response Examples
+// Active vouch
+{
+  "exists": true,
+  "status": "active",
+  "days_remaining": 67,
+  "created_at": "2025-11-15T12:00:00.000Z"
+}
+
+// Expiring soon (< 30 days remaining)
+{
+  "exists": true,
+  "status": "expiring_soon",
+  "days_remaining": 12,
+  "created_at": "2025-09-15T12:00:00.000Z"
+}
+
+// Expired
+{
+  "exists": true,
+  "status": "expired",
+  "days_remaining": 0,
+  "created_at": "2025-06-15T12:00:00.000Z"
+}
+
+// Revoked
+{
+  "exists": true,
+  "status": "revoked",
+  "days_remaining": null,
+  "created_at": "2025-11-15T12:00:00.000Z"
+}
+
+// No vouch exists
+{
+  "exists": false,
+  "status": null,
+  "days_remaining": null
+}
+Vouches are valid for 90 days from creation OR as long as the recipient remains active (vouches someone within 90 days).
+
+GET /api/v1/revoke/info
+Get endorsement ID needed for revocation.
+
+Query Parameters
+endorser: Endorser wallet address
+endorsee: Endorsee wallet address
+Response
+{
+  "exists": true,
+  "endorsement_id": 1234,
+  "already_revoked": false
+}
+POST /api/v1/revoke
+Revoke a vouch using EIP-712 wallet signature.
+
+Request Body
+{
+  "endorser": "0x742d35Cc...",
+  "endorsee": "0x1234567...",
+  "endorsementId": 1234,
+  "sig": "0xabcd...",
+  "chainId": 1
+}
+EIP-712 Revocation Types
+const types = {
+  Revocation: [
+    { name: 'endorser', type: 'address' },
+    { name: 'endorsee', type: 'address' },
+    { name: 'endorsementId', type: 'uint256' },
+  ],
+};
+
+const message = {
+  endorser: endorserAddress,
+  endorsee: endorseeAddress,
+  endorsementId: BigInt(endorsementId),
+};
+Success Response
+{ "ok": true, "revoked": true }
+Additional Context Endpoints
+These endpoints provide additional context about users and their endorsement history.
+
+GET /api/endorsements
+List endorsements (vouches) with optional filtering. Useful for displaying who vouched for someone.
+
+Query Parameters
+endorser (optional): Filter by endorser address
+endorsee (optional): Filter by endorsee address
+limit (optional): Max results to return (default: 100)
+offset (optional): Pagination offset
+Example Request
+curl "https://acd7837b-e201-4d66-b395-95bd84fb228b-00-g0rbq4l0jrbm.janeway.replit.dev/api/endorsements?endorsee=0x216844ef94d95279c6d1631875f2dd93fbbdfb61&limit=10"
+Response
+{
+  "endorsements": [
+    {
+      "id": 42,
+      "communityId": 0,
+      "scope": "community",
+      "endorser": "0x742d35cc6634c0532925a3b844bc9e7595f0beb",
+      "endorsee": "0x216844ef94d95279c6d1631875f2dd93fbbdfb61",
+      "epoch": 0,
+      "nonce": 5,
+      "sig": "0x...",
+      "leafHash": "0x...",
+      "promptHash": null,
+      "note": null,
+      "createdAt": "2025-10-15T14:30:00.000Z"
+    }
+  ],
+  "count": 1
+}
+Response Fields
+id: Unique endorsement identifier
+communityId: Community ID (0 = global graph)
+endorser: Address that gave the vouch
+endorsee: Address that received the vouch
+epoch: Epoch when vouch was created
+sig: EIP-712 signature
+leafHash: Merkle tree leaf hash for verification
+promptHash: Hash of community prompt (null for global vouches)
+note: Optional note from endorser
+createdAt: Timestamp when vouch was created
+GET /api/endorsements/with-status
+List endorsements with expiration status for each. Shows whether vouches are active, expiring soon, expired, or revoked.
+
+Query Parameters
+endorser (optional): Filter by endorser address
+endorsee (optional): Filter by endorsee address
+limit (optional): Max results to return
+Example Request
+curl "https://acd7837b-e201-4d66-b395-95bd84fb228b-00-g0rbq4l0jrbm.janeway.replit.dev/api/endorsements/with-status?endorsee=0x216844ef94d95279c6d1631875f2dd93fbbdfb61"
+Response
+{
+  "endorsements": [
+    {
+      "id": 42,
+      "communityId": 0,
+      "scope": "community",
+      "endorser": "0x742d35cc6634c0532925a3b844bc9e7595f0beb",
+      "endorsee": "0x216844ef94d95279c6d1631875f2dd93fbbdfb61",
+      "epoch": 0,
+      "nonce": 5,
+      "sig": "0x...",
+      "leafHash": "0x...",
+      "promptHash": null,
+      "note": null,
+      "createdAt": "2025-10-15T14:30:00.000Z",
+      "expirationStatus": {
+        "isValid": true,
+        "isRevoked": false,
+        "isExpired": false,
+        "expiresAt": "2026-01-13T14:30:00.000Z",
+        "daysUntilExpiration": 45
+      }
+    }
+  ],
+  "count": 1
+}
+Expiration Status Fields
+isValid: Whether the vouch counts toward the endorsee's score
+isRevoked: Whether the endorser manually revoked this vouch
+isExpired: Whether the vouch has expired (90+ days old and recipient inactive)
+expiresAt: When the vouch will expire (null if revoked)
+daysUntilExpiration: Days remaining until expiration (null if revoked/expired)
+GET /api/user/:address
+Get wallet profile information (display name) for an address.
+
+Example Request
+curl https://acd7837b-e201-4d66-b395-95bd84fb228b-00-g0rbq4l0jrbm.janeway.replit.dev/api/user/0x216844ef94d95279c6d1631875f2dd93fbbdfb61
+Response
+{
+  "address": "0x216844ef94d95279c6d1631875f2dd93fbbdfb61",
+  "name": "Alice",
+  "createdAt": "2025-09-01T10:00:00.000Z",
+  "updatedAt": "2025-10-15T14:30:00.000Z"
+}
+404 Response
+{ "error": "Profile not found" }
+Returns 404 if no profile exists for the address. Profiles are created when users set a display name.
+
+Endpoints Summary
+Method	Endpoint	Description
+GET	/api/v1/score/:address	Get Signal score
+GET	/api/v1/vouch/nonce/:address	Get epoch + nonce
+POST	/api/v1/vouch	Submit vouch
+GET	/api/v1/vouch-status	Check vouch status
+GET	/api/v1/revoke/info	Get endorsement ID
+POST	/api/v1/revoke	Revoke vouch
+GET	/api/endorsements	List endorsements
+GET	/api/endorsements/with-status	List with expiration
+GET	/api/user/:address	Get wallet profile
+Best Practices
+Caching
+Scores are cached server-side and update when vouches change. Client-side caching for 5-10 minutes is safe.
+
+Nonce Handling
+If you get "Invalid nonce" or 409 errors, fetch a fresh nonce and retry.
+
+Address Handling
+All addresses are normalized to lowercase server-side. Both checksummed and lowercase addresses are accepted.
+
+Epoch/Nonce Types
+Both strings and numbers are accepted for epoch and nonce values (e.g., "1" or 1).
+
+Security
+Store API keys in environment variables, never in code
+Make API calls from your backend, not client-side JavaScript
+Use HTTPS for all requests
