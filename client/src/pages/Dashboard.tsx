@@ -98,6 +98,61 @@ interface GoodDollarAnalytics {
   activeClaimers: number;
 }
 
+interface CumulativeGrowth {
+  date: string;
+  cumulative: number;
+  daily: number;
+}
+
+interface ActiveInactive {
+  active7d: number;
+  active30d: number;
+  inactive: number;
+  total: number;
+}
+
+interface TransactionTrend {
+  date: string;
+  count: number;
+  avgSize: string;
+}
+
+interface TVLData {
+  date: string;
+  tvl: string;
+}
+
+interface BalanceDistribution {
+  range: string;
+  count: number;
+  totalBalance: string;
+}
+
+interface ChainUsage {
+  date: string;
+  base: number;
+  celo: number;
+  gnosis: number;
+}
+
+interface DAUWAU {
+  date: string;
+  dau: number;
+  wau: number;
+}
+
+interface FeatureAdoption {
+  poolAdoption: { enrolled: number; total: number; rate: number };
+  maxflowAdoption: { scored: number; total: number; rate: number };
+  gooddollarAdoption: { verified: number; total: number; rate: number };
+}
+
+interface ConversionFunnels {
+  walletToFirstTx: { total: number; converted: number; rate: number };
+  oneTimeToRepeat: { oneTime: number; repeat: number; rate: number };
+  newToActive: { newLast30d: number; activeLast7d: number; rate: number };
+}
+
 const CHAIN_NAMES: Record<number, string> = {
   8453: 'Base',
   42220: 'Celo',
@@ -178,6 +233,16 @@ export default function Dashboard() {
   const [maxflowAnalytics, setMaxflowAnalytics] = useState<MaxFlowAnalytics | null>(null);
   const [gooddollarAnalytics, setGooddollarAnalytics] = useState<GoodDollarAnalytics | null>(null);
 
+  const [cumulativeGrowth, setCumulativeGrowth] = useState<CumulativeGrowth[]>([]);
+  const [activeInactive, setActiveInactive] = useState<ActiveInactive | null>(null);
+  const [transactionTrends, setTransactionTrends] = useState<TransactionTrend[]>([]);
+  const [tvlData, setTvlData] = useState<TVLData[]>([]);
+  const [balanceDistribution, setBalanceDistribution] = useState<BalanceDistribution[]>([]);
+  const [chainUsage, setChainUsage] = useState<ChainUsage[]>([]);
+  const [dauWau, setDauWau] = useState<DAUWAU[]>([]);
+  const [featureAdoption, setFeatureAdoption] = useState<FeatureAdoption | null>(null);
+  const [conversionFunnels, setConversionFunnels] = useState<ConversionFunnels | null>(null);
+
   const [donationAmount, setDonationAmount] = useState('');
   const [isDonating, setIsDonating] = useState(false);
   const [timePeriod, setTimePeriod] = useState<7 | 30 | 90>(30);
@@ -225,6 +290,15 @@ export default function Dashboard() {
         facilitatorRes,
         maxflowRes,
         gooddollarRes,
+        cumulativeGrowthRes,
+        activeInactiveRes,
+        transactionTrendsRes,
+        tvlRes,
+        balanceDistRes,
+        chainUsageRes,
+        dauWauRes,
+        featureAdoptionRes,
+        funnelsRes,
       ] = await Promise.all([
         authenticatedRequest('GET', '/api/admin/analytics/overview', auth),
         authenticatedRequest('GET', `/api/admin/analytics/wallet-growth?days=${days}`, auth),
@@ -235,6 +309,15 @@ export default function Dashboard() {
         authenticatedRequest('GET', '/api/admin/analytics/facilitator', auth),
         authenticatedRequest('GET', '/api/admin/analytics/maxflow', auth),
         authenticatedRequest('GET', '/api/admin/analytics/gooddollar', auth),
+        authenticatedRequest('GET', `/api/admin/analytics/cumulative-growth?days=${days}`, auth),
+        authenticatedRequest('GET', '/api/admin/analytics/active-inactive', auth),
+        authenticatedRequest('GET', `/api/admin/analytics/transaction-trends?days=${days}`, auth),
+        authenticatedRequest('GET', `/api/admin/analytics/tvl?days=${days}`, auth),
+        authenticatedRequest('GET', '/api/admin/analytics/balance-distribution', auth),
+        authenticatedRequest('GET', `/api/admin/analytics/chain-usage?days=${days}`, auth),
+        authenticatedRequest('GET', `/api/admin/analytics/dau-wau?days=${days}`, auth),
+        authenticatedRequest('GET', '/api/admin/analytics/feature-adoption', auth),
+        authenticatedRequest('GET', '/api/admin/analytics/funnels', auth),
       ]);
 
       setOverview(await overviewRes.json());
@@ -246,6 +329,15 @@ export default function Dashboard() {
       setFacilitatorAnalytics(await facilitatorRes.json());
       setMaxflowAnalytics(await maxflowRes.json());
       setGooddollarAnalytics(await gooddollarRes.json());
+      setCumulativeGrowth(await cumulativeGrowthRes.json());
+      setActiveInactive(await activeInactiveRes.json());
+      setTransactionTrends(await transactionTrendsRes.json());
+      setTvlData(await tvlRes.json());
+      setBalanceDistribution(await balanceDistRes.json());
+      setChainUsage(await chainUsageRes.json());
+      setDauWau(await dauWauRes.json());
+      setFeatureAdoption(await featureAdoptionRes.json());
+      setConversionFunnels(await funnelsRes.json());
       setLastRefresh(new Date());
     } catch (error) {
       console.error('Failed to load analytics:', error);
@@ -393,6 +485,60 @@ export default function Dashboard() {
 
   const maxflowDistData = maxflowAnalytics?.scoreDistribution || [];
 
+  const cumulativeChartData = cumulativeGrowth.map(c => ({
+    date: new Date(c.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    cumulative: c.cumulative,
+    daily: c.daily,
+  }));
+
+  const activeInactiveData = activeInactive ? [
+    { name: 'Active 7d', value: activeInactive.active7d, color: '#22c55e' },
+    { name: 'Active 30d', value: activeInactive.active30d - activeInactive.active7d, color: '#84cc16' },
+    { name: 'Inactive', value: activeInactive.inactive, color: '#94a3b8' },
+  ].filter(d => d.value > 0) : [];
+
+  const txTrendsChartData = transactionTrends.map(t => ({
+    date: new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    count: t.count,
+    avgSize: Number(t.avgSize) / 1_000_000,
+  }));
+
+  const tvlChartData = tvlData.map(t => ({
+    date: new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    tvl: Number(t.tvl) / 1_000_000,
+  }));
+
+  const balanceDistChartData = balanceDistribution.map(b => ({
+    range: b.range,
+    count: b.count,
+    total: Number(b.totalBalance) / 1_000_000,
+  }));
+
+  const chainUsageChartData = chainUsage.map(c => ({
+    date: new Date(c.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    Base: c.base,
+    Celo: c.celo,
+    Gnosis: c.gnosis,
+  }));
+
+  const dauWauChartData = dauWau.map(d => ({
+    date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    DAU: d.dau,
+    WAU: d.wau,
+  }));
+
+  const adoptionChartData = featureAdoption ? [
+    { name: 'Prize Pool', rate: featureAdoption.poolAdoption.rate, enrolled: featureAdoption.poolAdoption.enrolled },
+    { name: 'MaxFlow', rate: featureAdoption.maxflowAdoption.rate, enrolled: featureAdoption.maxflowAdoption.scored },
+    { name: 'GoodDollar', rate: featureAdoption.gooddollarAdoption.rate, enrolled: featureAdoption.gooddollarAdoption.verified },
+  ] : [];
+
+  const funnelChartData = conversionFunnels ? [
+    { name: 'Wallet → Tx', rate: conversionFunnels.walletToFirstTx.rate, total: conversionFunnels.walletToFirstTx.total, converted: conversionFunnels.walletToFirstTx.converted },
+    { name: 'Repeat Users', rate: conversionFunnels.oneTimeToRepeat.rate, total: conversionFunnels.oneTimeToRepeat.oneTime + conversionFunnels.oneTimeToRepeat.repeat, converted: conversionFunnels.oneTimeToRepeat.repeat },
+    { name: 'New → Active', rate: conversionFunnels.newToActive.rate, total: conversionFunnels.newToActive.newLast30d, converted: conversionFunnels.newToActive.activeLast7d },
+  ] : [];
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-[1600px] mx-auto p-6 space-y-6">
@@ -527,9 +673,12 @@ export default function Dashboard() {
             </div>
 
             <Tabs defaultValue="growth" className="space-y-4">
-              <TabsList className="grid grid-cols-7 w-full max-w-4xl">
+              <TabsList className="flex flex-wrap gap-1 w-full max-w-5xl h-auto">
                 <TabsTrigger value="growth" data-testid="tab-growth">Growth</TabsTrigger>
+                <TabsTrigger value="engagement" data-testid="tab-engagement">Engagement</TabsTrigger>
+                <TabsTrigger value="balances" data-testid="tab-balances">Balances</TabsTrigger>
                 <TabsTrigger value="chains" data-testid="tab-chains">Chains</TabsTrigger>
+                <TabsTrigger value="funnels" data-testid="tab-funnels">Funnels</TabsTrigger>
                 <TabsTrigger value="pool" data-testid="tab-pool">Pool</TabsTrigger>
                 <TabsTrigger value="yield" data-testid="tab-yield">Yield</TabsTrigger>
                 <TabsTrigger value="facilitator" data-testid="tab-facilitator">Facilitator</TabsTrigger>
@@ -543,14 +692,14 @@ export default function Dashboard() {
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <TrendingUp className="h-5 w-5" />
-                        Wallet Registrations
+                        Cumulative Wallet Growth
                       </CardTitle>
-                      <CardDescription>New wallets created over the last {timePeriod} days</CardDescription>
+                      <CardDescription>Total wallets over the last {timePeriod} days</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={walletChartData}>
+                          <AreaChart data={cumulativeChartData}>
                             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                             <XAxis dataKey="date" className="text-xs" />
                             <YAxis className="text-xs" />
@@ -560,14 +709,92 @@ export default function Dashboard() {
                             />
                             <Area 
                               type="monotone" 
-                              dataKey="count" 
+                              dataKey="cumulative" 
                               stroke="hsl(var(--primary))" 
                               fill="hsl(var(--primary)/0.2)" 
-                              name="New Wallets"
+                              name="Total Wallets"
                             />
                           </AreaChart>
                         </ResponsiveContainer>
                       </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Users className="h-5 w-5" />
+                        Daily Registrations
+                      </CardTitle>
+                      <CardDescription>New wallets created per day over the last {timePeriod} days</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={walletChartData}>
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                            <XAxis dataKey="date" className="text-xs" />
+                            <YAxis className="text-xs" />
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                              labelStyle={{ color: 'hsl(var(--foreground))' }}
+                            />
+                            <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="New Wallets" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Activity className="h-5 w-5" />
+                        Active vs Inactive
+                      </CardTitle>
+                      <CardDescription>Wallet activity breakdown</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RePieChart>
+                            <Pie
+                              data={activeInactiveData}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                              outerRadius={100}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {activeInactiveData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                            />
+                            <Legend />
+                          </RePieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      {activeInactive && (
+                        <div className="mt-4 grid grid-cols-3 gap-2 text-center text-sm">
+                          <div>
+                            <p className="text-green-600 font-bold">{activeInactive.active7d}</p>
+                            <p className="text-muted-foreground">Active 7d</p>
+                          </div>
+                          <div>
+                            <p className="text-lime-600 font-bold">{activeInactive.active30d}</p>
+                            <p className="text-muted-foreground">Active 30d</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500 font-bold">{activeInactive.inactive}</p>
+                            <p className="text-muted-foreground">Inactive</p>
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
 
@@ -591,6 +818,178 @@ export default function Dashboard() {
                               formatter={(value: number) => [`$${value.toFixed(2)}`, 'Volume']}
                             />
                             <Bar dataKey="volume" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Activity className="h-5 w-5" />
+                        Transaction Count
+                      </CardTitle>
+                      <CardDescription>Daily transactions over the last {timePeriod} days</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={txTrendsChartData}>
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                            <XAxis dataKey="date" className="text-xs" />
+                            <YAxis className="text-xs" />
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                            />
+                            <Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="Transactions" />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <DollarSign className="h-5 w-5" />
+                        Average Transaction Size
+                      </CardTitle>
+                      <CardDescription>Average USDC per transaction over the last {timePeriod} days</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={txTrendsChartData}>
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                            <XAxis dataKey="date" className="text-xs" />
+                            <YAxis className="text-xs" tickFormatter={(v) => `$${v}`} />
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                              formatter={(value: number) => [`$${value.toFixed(2)}`, 'Avg Size']}
+                            />
+                            <Line type="monotone" dataKey="avgSize" stroke="#10b981" strokeWidth={2} dot={false} name="Avg Size" />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="engagement" className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Users className="h-5 w-5" />
+                        Daily & Weekly Active Users
+                      </CardTitle>
+                      <CardDescription>DAU and WAU over the last {timePeriod} days</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={dauWauChartData}>
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                            <XAxis dataKey="date" className="text-xs" />
+                            <YAxis className="text-xs" />
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                            />
+                            <Legend />
+                            <Area type="monotone" dataKey="WAU" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.2} name="Weekly Active" />
+                            <Area type="monotone" dataKey="DAU" stroke="#22c55e" fill="#22c55e" fillOpacity={0.3} name="Daily Active" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Sparkles className="h-5 w-5" />
+                        Feature Adoption
+                      </CardTitle>
+                      <CardDescription>Percentage of users using each feature</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={adoptionChartData} layout="vertical">
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                            <XAxis type="number" className="text-xs" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                            <YAxis type="category" dataKey="name" className="text-xs" width={80} />
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                              formatter={(value: number, name: string, props: any) => [`${value}% (${props.payload.enrolled} users)`, 'Adoption']}
+                            />
+                            <Bar dataKey="rate" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      {featureAdoption && (
+                        <div className="mt-4 text-sm text-muted-foreground text-center">
+                          Total wallets: {featureAdoption.poolAdoption.total}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="balances" className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5" />
+                        Total Value Locked
+                      </CardTitle>
+                      <CardDescription>TVL over the last {timePeriod} days</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={tvlChartData}>
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                            <XAxis dataKey="date" className="text-xs" />
+                            <YAxis className="text-xs" tickFormatter={(v) => `$${v}`} />
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                              formatter={(value: number) => [`$${value.toFixed(2)}`, 'TVL']}
+                            />
+                            <Area type="monotone" dataKey="tvl" stroke="#10b981" fill="#10b981" fillOpacity={0.2} name="TVL" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Wallet className="h-5 w-5" />
+                        Balance Distribution
+                      </CardTitle>
+                      <CardDescription>Wallets by balance range</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={balanceDistChartData}>
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                            <XAxis dataKey="range" className="text-xs" />
+                            <YAxis className="text-xs" />
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                              formatter={(value: number, name: string) => [
+                                name === 'count' ? `${value} wallets` : `$${value.toFixed(2)}`,
+                                name === 'count' ? 'Wallets' : 'Total Balance'
+                              ]}
+                            />
+                            <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Wallets" />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
@@ -665,6 +1064,34 @@ export default function Dashboard() {
 
                   <Card className="lg:col-span-2">
                     <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Activity className="h-5 w-5" />
+                        Chain Usage Over Time
+                      </CardTitle>
+                      <CardDescription>Transaction count by chain over the last {timePeriod} days</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={chainUsageChartData}>
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                            <XAxis dataKey="date" className="text-xs" />
+                            <YAxis className="text-xs" />
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                            />
+                            <Legend />
+                            <Area type="monotone" dataKey="Base" stackId="1" stroke="#0052FF" fill="#0052FF" fillOpacity={0.6} />
+                            <Area type="monotone" dataKey="Celo" stackId="1" stroke="#FCFF52" fill="#FCFF52" fillOpacity={0.6} />
+                            <Area type="monotone" dataKey="Gnosis" stackId="1" stroke="#04795B" fill="#04795B" fillOpacity={0.6} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="lg:col-span-2">
+                    <CardHeader>
                       <CardTitle>Chain Details</CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -704,6 +1131,105 @@ export default function Dashboard() {
                           );
                         })}
                       </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="funnels" className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5" />
+                        Conversion Funnels
+                      </CardTitle>
+                      <CardDescription>User journey conversion rates</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={funnelChartData} layout="vertical">
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                            <XAxis type="number" className="text-xs" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                            <YAxis type="category" dataKey="name" className="text-xs" width={100} />
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                              formatter={(value: number, name: string, props: any) => [
+                                `${value}% (${props.payload.converted}/${props.payload.total})`,
+                                'Conversion'
+                              ]}
+                            />
+                            <Bar dataKey="rate" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Funnel Details</CardTitle>
+                      <CardDescription>Breakdown of user conversion metrics</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {conversionFunnels && (
+                        <>
+                          <div className="p-4 bg-muted/50 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-medium">Wallet → First Transaction</span>
+                              <Badge variant={conversionFunnels.walletToFirstTx.rate > 50 ? 'default' : 'secondary'}>
+                                {conversionFunnels.walletToFirstTx.rate}%
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {conversionFunnels.walletToFirstTx.converted} of {conversionFunnels.walletToFirstTx.total} wallets made a transaction
+                            </div>
+                            <div className="mt-2 bg-muted rounded-full h-2">
+                              <div 
+                                className="bg-primary h-2 rounded-full transition-all" 
+                                style={{ width: `${conversionFunnels.walletToFirstTx.rate}%` }} 
+                              />
+                            </div>
+                          </div>
+
+                          <div className="p-4 bg-muted/50 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-medium">Repeat Users</span>
+                              <Badge variant={conversionFunnels.oneTimeToRepeat.rate > 30 ? 'default' : 'secondary'}>
+                                {conversionFunnels.oneTimeToRepeat.rate}%
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {conversionFunnels.oneTimeToRepeat.repeat} repeat users vs {conversionFunnels.oneTimeToRepeat.oneTime} one-time users
+                            </div>
+                            <div className="mt-2 bg-muted rounded-full h-2">
+                              <div 
+                                className="bg-primary h-2 rounded-full transition-all" 
+                                style={{ width: `${conversionFunnels.oneTimeToRepeat.rate}%` }} 
+                              />
+                            </div>
+                          </div>
+
+                          <div className="p-4 bg-muted/50 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-medium">New → Active (7d)</span>
+                              <Badge variant={conversionFunnels.newToActive.rate > 20 ? 'default' : 'secondary'}>
+                                {conversionFunnels.newToActive.rate}%
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {conversionFunnels.newToActive.activeLast7d} of {conversionFunnels.newToActive.newLast30d} new users active in last 7 days
+                            </div>
+                            <div className="mt-2 bg-muted rounded-full h-2">
+                              <div 
+                                className="bg-primary h-2 rounded-full transition-all" 
+                                style={{ width: `${conversionFunnels.newToActive.rate}%` }} 
+                              />
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </CardContent>
                   </Card>
                 </div>

@@ -3153,6 +3153,371 @@ export class DbStorage extends MemStorage {
     }
   }
 
+  async getCumulativeWalletGrowth(days: number = 30): Promise<Array<{ date: string; cumulative: number; daily: number }>> {
+    try {
+      const results = await db.execute(sql`
+        WITH daily_counts AS (
+          SELECT DATE(created_at) as date, COUNT(*) as daily_count
+          FROM wallets
+          WHERE created_at >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+          GROUP BY DATE(created_at)
+        ),
+        all_dates AS (
+          SELECT generate_series(
+            (NOW() - INTERVAL '${sql.raw(days.toString())} days')::date,
+            CURRENT_DATE,
+            '1 day'::interval
+          )::date as date
+        ),
+        filled AS (
+          SELECT d.date, COALESCE(dc.daily_count, 0) as daily_count
+          FROM all_dates d
+          LEFT JOIN daily_counts dc ON d.date = dc.date
+        ),
+        base_count AS (
+          SELECT COUNT(*) as cnt FROM wallets WHERE created_at < NOW() - INTERVAL '${sql.raw(days.toString())} days'
+        )
+        SELECT 
+          f.date,
+          (SELECT cnt FROM base_count) + SUM(f.daily_count) OVER (ORDER BY f.date) as cumulative,
+          f.daily_count as daily
+        FROM filled f
+        ORDER BY f.date
+      `);
+      return (results.rows as any[]).map(row => ({
+        date: row.date?.toISOString?.()?.split('T')[0] || row.date,
+        cumulative: Number(row.cumulative),
+        daily: Number(row.daily),
+      }));
+    } catch (error) {
+      console.error('[Analytics] Error getting cumulative wallet growth:', error);
+      return [];
+    }
+  }
+
+  async getActiveVsInactiveWallets(): Promise<{ active7d: number; active30d: number; inactive: number; total: number }> {
+    try {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const [total] = await db.select({ count: sql<number>`count(*)` }).from(wallets);
+      const [active7d] = await db.select({ count: sql<number>`count(*)` })
+        .from(wallets)
+        .where(gte(wallets.lastSeen, sevenDaysAgo));
+      const [active30d] = await db.select({ count: sql<number>`count(*)` })
+        .from(wallets)
+        .where(gte(wallets.lastSeen, thirtyDaysAgo));
+
+      return {
+        active7d: Number(active7d.count),
+        active30d: Number(active30d.count),
+        inactive: Number(total.count) - Number(active30d.count),
+        total: Number(total.count),
+      };
+    } catch (error) {
+      console.error('[Analytics] Error getting active vs inactive wallets:', error);
+      return { active7d: 0, active30d: 0, inactive: 0, total: 0 };
+    }
+  }
+
+  async getTransactionTrends(days: number = 30): Promise<Array<{ date: string; count: number; avgSize: string }>> {
+    try {
+      const results = await db.execute(sql`
+        SELECT 
+          DATE(timestamp) as date,
+          COUNT(*) as count,
+          COALESCE(AVG(CAST(amount AS NUMERIC)), 0) as avg_size
+        FROM cached_transactions
+        WHERE timestamp >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+        GROUP BY DATE(timestamp)
+        ORDER BY DATE(timestamp)
+      `);
+      return (results.rows as any[]).map(row => ({
+        date: row.date?.toISOString?.()?.split('T')[0] || row.date,
+        count: Number(row.count),
+        avgSize: row.avg_size?.toString() || '0',
+      }));
+    } catch (error) {
+      console.error('[Analytics] Error getting transaction trends:', error);
+      return [];
+    }
+  }
+
+  async getTVLOverTime(days: number = 30): Promise<Array<{ date: string; tvl: string }>> {
+    try {
+      const results = await db.execute(sql`
+        SELECT 
+          DATE(updated_at) as date,
+          SUM(CAST(balance AS NUMERIC)) as tvl
+        FROM (
+          SELECT DISTINCT ON (address, chain_id, DATE(updated_at))
+            address, chain_id, balance, updated_at
+          FROM balance_history
+          WHERE updated_at >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+          ORDER BY address, chain_id, DATE(updated_at), updated_at DESC
+        ) daily_balances
+        GROUP BY DATE(updated_at)
+        ORDER BY DATE(updated_at)
+      `);
+      return (results.rows as any[]).map(row => ({
+        date: row.date?.toISOString?.()?.split('T')[0] || row.date,
+        tvl: row.tvl?.toString() || '0',
+      }));
+    } catch (error) {
+      console.error('[Analytics] Error getting TVL over time:', error);
+      return [];
+    }
+  }
+
+  async getBalanceDistribution(): Promise<Array<{ range: string; count: number; totalBalance: string }>> {
+    try {
+      const results = await db.execute(sql`
+        WITH wallet_totals AS (
+          SELECT 
+            address,
+            SUM(CAST(balance AS NUMERIC)) as total_balance
+          FROM cached_balances
+          GROUP BY address
+        )
+        SELECT 
+          CASE 
+            WHEN total_balance = 0 THEN '$0'
+            WHEN total_balance < 1000000 THEN '$0-$1'
+            WHEN total_balance < 10000000 THEN '$1-$10'
+            WHEN total_balance < 50000000 THEN '$10-$50'
+            WHEN total_balance < 100000000 THEN '$50-$100'
+            WHEN total_balance < 500000000 THEN '$100-$500'
+            ELSE '$500+'
+          END as range,
+          COUNT(*) as count,
+          COALESCE(SUM(total_balance), 0) as total_balance
+        FROM wallet_totals
+        GROUP BY 
+          CASE 
+            WHEN total_balance = 0 THEN '$0'
+            WHEN total_balance < 1000000 THEN '$0-$1'
+            WHEN total_balance < 10000000 THEN '$1-$10'
+            WHEN total_balance < 50000000 THEN '$10-$50'
+            WHEN total_balance < 100000000 THEN '$50-$100'
+            WHEN total_balance < 500000000 THEN '$100-$500'
+            ELSE '$500+'
+          END
+        ORDER BY 
+          CASE range
+            WHEN '$0' THEN 1
+            WHEN '$0-$1' THEN 2
+            WHEN '$1-$10' THEN 3
+            WHEN '$10-$50' THEN 4
+            WHEN '$50-$100' THEN 5
+            WHEN '$100-$500' THEN 6
+            ELSE 7
+          END
+      `);
+      return (results.rows as any[]).map(row => ({
+        range: row.range,
+        count: Number(row.count),
+        totalBalance: row.total_balance?.toString() || '0',
+      }));
+    } catch (error) {
+      console.error('[Analytics] Error getting balance distribution:', error);
+      return [];
+    }
+  }
+
+  async getChainUsageOverTime(days: number = 30): Promise<Array<{ date: string; base: number; celo: number; gnosis: number }>> {
+    try {
+      const results = await db.execute(sql`
+        WITH all_dates AS (
+          SELECT generate_series(
+            (NOW() - INTERVAL '${sql.raw(days.toString())} days')::date,
+            CURRENT_DATE,
+            '1 day'::interval
+          )::date as date
+        ),
+        chain_counts AS (
+          SELECT 
+            DATE(timestamp) as date,
+            chain_id,
+            COUNT(*) as count
+          FROM cached_transactions
+          WHERE timestamp >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+          GROUP BY DATE(timestamp), chain_id
+        )
+        SELECT 
+          d.date,
+          COALESCE(SUM(CASE WHEN cc.chain_id = 8453 THEN cc.count ELSE 0 END), 0) as base,
+          COALESCE(SUM(CASE WHEN cc.chain_id = 42220 THEN cc.count ELSE 0 END), 0) as celo,
+          COALESCE(SUM(CASE WHEN cc.chain_id = 100 THEN cc.count ELSE 0 END), 0) as gnosis
+        FROM all_dates d
+        LEFT JOIN chain_counts cc ON d.date = cc.date
+        GROUP BY d.date
+        ORDER BY d.date
+      `);
+      return (results.rows as any[]).map(row => ({
+        date: row.date?.toISOString?.()?.split('T')[0] || row.date,
+        base: Number(row.base),
+        celo: Number(row.celo),
+        gnosis: Number(row.gnosis),
+      }));
+    } catch (error) {
+      console.error('[Analytics] Error getting chain usage over time:', error);
+      return [];
+    }
+  }
+
+  async getDAUWAU(days: number = 30): Promise<Array<{ date: string; dau: number; wau: number }>> {
+    try {
+      const results = await db.execute(sql`
+        WITH all_dates AS (
+          SELECT generate_series(
+            (NOW() - INTERVAL '${sql.raw(days.toString())} days')::date,
+            CURRENT_DATE,
+            '1 day'::interval
+          )::date as date
+        ),
+        daily_active AS (
+          SELECT DATE(last_seen) as date, COUNT(DISTINCT address) as dau
+          FROM wallets
+          WHERE last_seen >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+          GROUP BY DATE(last_seen)
+        ),
+        weekly_active AS (
+          SELECT 
+            d.date,
+            COUNT(DISTINCT w.address) as wau
+          FROM all_dates d
+          LEFT JOIN wallets w ON w.last_seen >= d.date - INTERVAL '7 days' AND w.last_seen < d.date + INTERVAL '1 day'
+          GROUP BY d.date
+        )
+        SELECT 
+          d.date,
+          COALESCE(da.dau, 0) as dau,
+          COALESCE(wa.wau, 0) as wau
+        FROM all_dates d
+        LEFT JOIN daily_active da ON d.date = da.date
+        LEFT JOIN weekly_active wa ON d.date = wa.date
+        ORDER BY d.date
+      `);
+      return (results.rows as any[]).map(row => ({
+        date: row.date?.toISOString?.()?.split('T')[0] || row.date,
+        dau: Number(row.dau),
+        wau: Number(row.wau),
+      }));
+    } catch (error) {
+      console.error('[Analytics] Error getting DAU/WAU:', error);
+      return [];
+    }
+  }
+
+  async getFeatureAdoptionRates(): Promise<{
+    poolAdoption: { enrolled: number; total: number; rate: number };
+    maxflowAdoption: { scored: number; total: number; rate: number };
+    gooddollarAdoption: { verified: number; total: number; rate: number };
+  }> {
+    try {
+      const [totalWallets] = await db.select({ count: sql<number>`count(*)` }).from(wallets);
+      const [poolEnrolled] = await db.select({ count: sql<number>`count(*)` })
+        .from(poolSettings)
+        .where(gt(poolSettings.optInPercent, 0));
+      const [maxflowScored] = await db.select({ count: sql<number>`count(*)` }).from(cachedMaxflowScores);
+      const [gdVerified] = await db.select({ count: sql<number>`count(*)` })
+        .from(gooddollarIdentities)
+        .where(eq(gooddollarIdentities.isWhitelisted, true));
+
+      const total = Number(totalWallets.count) || 1;
+      const pool = Number(poolEnrolled.count);
+      const maxflow = Number(maxflowScored.count);
+      const gd = Number(gdVerified.count);
+
+      return {
+        poolAdoption: { enrolled: pool, total, rate: Math.round((pool / total) * 100) },
+        maxflowAdoption: { scored: maxflow, total, rate: Math.round((maxflow / total) * 100) },
+        gooddollarAdoption: { verified: gd, total, rate: Math.round((gd / total) * 100) },
+      };
+    } catch (error) {
+      console.error('[Analytics] Error getting feature adoption rates:', error);
+      return {
+        poolAdoption: { enrolled: 0, total: 0, rate: 0 },
+        maxflowAdoption: { scored: 0, total: 0, rate: 0 },
+        gooddollarAdoption: { verified: 0, total: 0, rate: 0 },
+      };
+    }
+  }
+
+  async getConversionFunnels(): Promise<{
+    walletToFirstTx: { total: number; converted: number; rate: number };
+    oneTimeToRepeat: { oneTime: number; repeat: number; rate: number };
+    newToActive: { newLast30d: number; activeLast7d: number; rate: number };
+  }> {
+    try {
+      const [totalWallets] = await db.select({ count: sql<number>`count(*)` }).from(wallets);
+
+      const walletsWithTx = await db.execute(sql`
+        SELECT COUNT(DISTINCT w.address) as count
+        FROM wallets w
+        INNER JOIN cached_transactions ct ON LOWER(ct."from") = LOWER(w.address) OR LOWER(ct."to") = LOWER(w.address)
+      `);
+
+      const repeatUsers = await db.execute(sql`
+        SELECT COUNT(*) as count FROM (
+          SELECT address FROM (
+            SELECT LOWER("from") as address FROM cached_transactions
+            UNION ALL
+            SELECT LOWER("to") as address FROM cached_transactions
+          ) all_addresses
+          GROUP BY address
+          HAVING COUNT(*) >= 3
+        ) repeat_users
+      `);
+
+      const oneTimeUsers = await db.execute(sql`
+        SELECT COUNT(*) as count FROM (
+          SELECT address FROM (
+            SELECT LOWER("from") as address FROM cached_transactions
+            UNION ALL
+            SELECT LOWER("to") as address FROM cached_transactions
+          ) all_addresses
+          GROUP BY address
+          HAVING COUNT(*) = 1 OR COUNT(*) = 2
+        ) one_time_users
+      `);
+
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const [newLast30d] = await db.select({ count: sql<number>`count(*)` })
+        .from(wallets)
+        .where(gte(wallets.createdAt, thirtyDaysAgo));
+      const [activeLast7d] = await db.select({ count: sql<number>`count(*)` })
+        .from(wallets)
+        .where(and(gte(wallets.createdAt, thirtyDaysAgo), gte(wallets.lastSeen, sevenDaysAgo)));
+
+      const total = Number(totalWallets.count) || 1;
+      const converted = Number((walletsWithTx.rows[0] as any)?.count) || 0;
+      const repeat = Number((repeatUsers.rows[0] as any)?.count) || 0;
+      const oneTime = Number((oneTimeUsers.rows[0] as any)?.count) || 0;
+      const newUsers = Number(newLast30d.count) || 1;
+      const activeNew = Number(activeLast7d.count) || 0;
+
+      return {
+        walletToFirstTx: { total, converted, rate: Math.round((converted / total) * 100) },
+        oneTimeToRepeat: { oneTime, repeat, rate: oneTime + repeat > 0 ? Math.round((repeat / (oneTime + repeat)) * 100) : 0 },
+        newToActive: { newLast30d: newUsers, activeLast7d: activeNew, rate: Math.round((activeNew / newUsers) * 100) },
+      };
+    } catch (error) {
+      console.error('[Analytics] Error getting conversion funnels:', error);
+      return {
+        walletToFirstTx: { total: 0, converted: 0, rate: 0 },
+        oneTimeToRepeat: { oneTime: 0, repeat: 0, rate: 0 },
+        newToActive: { newLast30d: 0, activeLast7d: 0, rate: 0 },
+      };
+    }
+  }
+
   async getWalletsWithScoreNoBalance(): Promise<Array<{
     address: string;
     maxFlowScore: number;

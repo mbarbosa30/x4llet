@@ -4627,6 +4627,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get cumulative wallet growth
+  app.get('/api/admin/analytics/cumulative-growth', adminAuthMiddleware, async (req, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 30;
+      const growth = await storage.getCumulativeWalletGrowth(days);
+      res.json(growth);
+    } catch (error) {
+      console.error('[Analytics] Error getting cumulative growth:', error);
+      res.status(500).json({ error: 'Failed to get cumulative growth' });
+    }
+  });
+
+  // Get active vs inactive wallets
+  app.get('/api/admin/analytics/active-inactive', adminAuthMiddleware, async (req, res) => {
+    try {
+      const data = await storage.getActiveVsInactiveWallets();
+      res.json(data);
+    } catch (error) {
+      console.error('[Analytics] Error getting active/inactive:', error);
+      res.status(500).json({ error: 'Failed to get active/inactive data' });
+    }
+  });
+
+  // Get transaction trends (count and avg size)
+  app.get('/api/admin/analytics/transaction-trends', adminAuthMiddleware, async (req, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 30;
+      const trends = await storage.getTransactionTrends(days);
+      res.json(trends);
+    } catch (error) {
+      console.error('[Analytics] Error getting transaction trends:', error);
+      res.status(500).json({ error: 'Failed to get transaction trends' });
+    }
+  });
+
+  // Get TVL over time
+  app.get('/api/admin/analytics/tvl', adminAuthMiddleware, async (req, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 30;
+      const tvl = await storage.getTVLOverTime(days);
+      res.json(tvl);
+    } catch (error) {
+      console.error('[Analytics] Error getting TVL:', error);
+      res.status(500).json({ error: 'Failed to get TVL data' });
+    }
+  });
+
+  // Get balance distribution
+  app.get('/api/admin/analytics/balance-distribution', adminAuthMiddleware, async (req, res) => {
+    try {
+      const distribution = await storage.getBalanceDistribution();
+      res.json(distribution);
+    } catch (error) {
+      console.error('[Analytics] Error getting balance distribution:', error);
+      res.status(500).json({ error: 'Failed to get balance distribution' });
+    }
+  });
+
+  // Get chain usage over time
+  app.get('/api/admin/analytics/chain-usage', adminAuthMiddleware, async (req, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 30;
+      const usage = await storage.getChainUsageOverTime(days);
+      res.json(usage);
+    } catch (error) {
+      console.error('[Analytics] Error getting chain usage:', error);
+      res.status(500).json({ error: 'Failed to get chain usage data' });
+    }
+  });
+
+  // Get DAU/WAU
+  app.get('/api/admin/analytics/dau-wau', adminAuthMiddleware, async (req, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 30;
+      const data = await storage.getDAUWAU(days);
+      res.json(data);
+    } catch (error) {
+      console.error('[Analytics] Error getting DAU/WAU:', error);
+      res.status(500).json({ error: 'Failed to get DAU/WAU data' });
+    }
+  });
+
+  // Get feature adoption rates
+  app.get('/api/admin/analytics/feature-adoption', adminAuthMiddleware, async (req, res) => {
+    try {
+      const rates = await storage.getFeatureAdoptionRates();
+      res.json(rates);
+    } catch (error) {
+      console.error('[Analytics] Error getting feature adoption:', error);
+      res.status(500).json({ error: 'Failed to get feature adoption data' });
+    }
+  });
+
+  // Get conversion funnels
+  app.get('/api/admin/analytics/funnels', adminAuthMiddleware, async (req, res) => {
+    try {
+      const funnels = await storage.getConversionFunnels();
+      res.json(funnels);
+    } catch (error) {
+      console.error('[Analytics] Error getting funnels:', error);
+      res.status(500).json({ error: 'Failed to get funnel data' });
+    }
+  });
+
   // Sync GoodDollar claims from blockchain
   // Fetches G$ token transfers from CeloScan where FROM = UBI contract (claim events)
   app.post('/api/admin/gooddollar/sync-claims', adminAuthMiddleware, async (req, res) => {
