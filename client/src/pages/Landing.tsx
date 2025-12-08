@@ -97,48 +97,48 @@ export default function Landing() {
 
             <div className="space-y-5 text-left max-w-sm mx-auto py-4">
               <div className="flex items-center gap-3">
-                <WifiOff className="h-4 w-4 text-[#0055FF] flex-shrink-0" />
-                <div className="w-px h-9 bg-[#0055FF]" />
+                <WifiOff className="h-5 w-5 text-[#0055FF] flex-shrink-0" />
+                <div className="w-px h-10 bg-[#0055FF]" />
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Works Anywhere</div>
+                  <div className="text-sm font-semibold uppercase tracking-wide text-foreground/80">Works Anywhere</div>
                   <div className="text-xs text-muted-foreground">Any browser. Offline-ready. No fees.</div>
                 </div>
               </div>
               
               <div className="flex items-center gap-3">
-                <Lock className="h-4 w-4 text-[#0055FF] flex-shrink-0" />
-                <div className="w-px h-9 bg-[#0055FF]" />
+                <Lock className="h-5 w-5 text-[#0055FF] flex-shrink-0" />
+                <div className="w-px h-10 bg-[#0055FF]" />
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Your Keys, With You</div>
+                  <div className="text-sm font-semibold uppercase tracking-wide text-foreground/80">Your Keys, With You</div>
                   <div className="text-xs text-muted-foreground">Encrypted on your device. Nowhere else.</div>
                 </div>
               </div>
               
               <div className="flex items-center gap-3">
-                <Sparkles className="h-4 w-4 text-[#0055FF] flex-shrink-0" />
-                <div className="w-px h-9 bg-[#0055FF]" />
+                <Sparkles className="h-5 w-5 text-[#0055FF] flex-shrink-0" />
+                <div className="w-px h-10 bg-[#0055FF]" />
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
-                    Auto Savings{apyDisplay && <span className="text-[#0055FF] text-[10px] ml-1"><span className="font-semibold">~{apyDisplay}</span> <span className="font-medium">APY</span></span>}
+                  <div className="text-sm font-semibold uppercase tracking-wide text-foreground/80">
+                    Auto Savings{apyDisplay && <span className="text-[#0055FF] text-xs ml-1"><span className="font-semibold">~{apyDisplay}</span> <span className="font-medium">APY</span></span>}
                   </div>
                   <div className="text-xs text-muted-foreground">One tap to start earning or withdraw.</div>
                 </div>
               </div>
               
               <div className="flex items-center gap-3">
-                <Sliders className="h-4 w-4 text-[#0055FF] flex-shrink-0" />
-                <div className="w-px h-9 bg-[#0055FF]" />
+                <Sliders className="h-5 w-5 text-[#0055FF] flex-shrink-0" />
+                <div className="w-px h-10 bg-[#0055FF]" />
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Yield Allocation</div>
+                  <div className="text-sm font-semibold uppercase tracking-wide text-foreground/80">Yield Allocation</div>
                   <div className="text-xs text-muted-foreground">Pool prizes, causes, AI credits, & more.</div>
                 </div>
               </div>
               
               <div className="flex items-center gap-3">
-                <Gift className="h-4 w-4 text-[#0055FF] flex-shrink-0" />
-                <div className="w-px h-9 bg-[#0055FF]" />
+                <Gift className="h-5 w-5 text-[#0055FF] flex-shrink-0" />
+                <div className="w-px h-10 bg-[#0055FF]" />
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Claim Tokens</div>
+                  <div className="text-sm font-semibold uppercase tracking-wide text-foreground/80">Claim Tokens</div>
                   <div className="text-xs text-muted-foreground">Campaigns & airdrops from partners.</div>
                 </div>
               </div>
