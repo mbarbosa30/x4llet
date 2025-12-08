@@ -2562,7 +2562,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       for (const wallet of wallets) {
         try {
-          const response = await fetch(`https://maxflow.one/api/ego/${wallet.address}/score`);
+          const response = await fetch(`${MAXFLOW_API_BASE}/score/${wallet.address}`);
           
           if (response.ok) {
             const data = await response.json();
