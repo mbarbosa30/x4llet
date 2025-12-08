@@ -243,6 +243,72 @@ export default function MaxFlow() {
       )}
 
       <main className="max-w-md mx-auto p-4 space-y-4">
+        <Card className="p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-amber-500" />
+              <span className="font-medium">XP Balance</span>
+            </div>
+            <div className="text-right">
+              {isLoadingXp ? (
+                <span className="text-2xl font-bold tabular-nums">--</span>
+              ) : (
+                <span className="text-2xl font-bold tabular-nums" data-testid="text-xp-balance">
+                  {xpData?.totalXp ?? 0}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <p className="text-xs text-muted-foreground text-center">
+            Claim Experience Points to access special features, opportunities and benefits.
+          </p>
+
+          {!isLoadingXp && xpData && (
+            <>
+              {score > 0 ? (
+                xpData.canClaim ? (
+                  <Button
+                    onClick={() => claimXpMutation.mutate()}
+                    disabled={claimXpMutation.isPending}
+                    className="w-full"
+                    data-testid="button-claim-xp"
+                  >
+                    {claimXpMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Claiming...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Claim {Math.round(score)} XP
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <div className="flex items-center justify-center gap-2 py-2 px-4 bg-muted rounded-md">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground" data-testid="text-xp-cooldown">
+                      Next claim in {timeRemaining !== null ? formatTimeRemaining(timeRemaining) : '--'}
+                    </span>
+                  </div>
+                )
+              ) : (
+                <p className="text-sm text-muted-foreground text-center" data-testid="text-xp-no-signal">
+                  Get vouched to earn XP from your signal
+                </p>
+              )}
+              
+              {xpData.claimCount > 0 && (
+                <p className="text-xs text-muted-foreground text-center" data-testid="text-xp-claim-count">
+                  {xpData.claimCount} claim{xpData.claimCount !== 1 ? 's' : ''} total
+                </p>
+              )}
+            </>
+          )}
+        </Card>
+
         <Card className="p-6 space-y-6 border-foreground">
           {!isLoadingMaxFlow && score === 0 ? (
             <div className="space-y-6">
@@ -393,68 +459,6 @@ export default function MaxFlow() {
                 </Button>
               </div>
             </div>
-          )}
-        </Card>
-
-        <Card className="p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-amber-500" />
-              <span className="font-medium">XP Balance</span>
-            </div>
-            <div className="text-right">
-              {isLoadingXp ? (
-                <span className="text-2xl font-bold tabular-nums">--</span>
-              ) : (
-                <span className="text-2xl font-bold tabular-nums" data-testid="text-xp-balance">
-                  {xpData?.totalXp ?? 0}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {!isLoadingXp && xpData && (
-            <>
-              {score > 0 ? (
-                xpData.canClaim ? (
-                  <Button
-                    onClick={() => claimXpMutation.mutate()}
-                    disabled={claimXpMutation.isPending}
-                    className="w-full"
-                    data-testid="button-claim-xp"
-                  >
-                    {claimXpMutation.isPending ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        Claiming...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Claim {Math.round(score)} XP
-                      </>
-                    )}
-                  </Button>
-                ) : (
-                  <div className="flex items-center justify-center gap-2 py-2 px-4 bg-muted rounded-md">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground" data-testid="text-xp-cooldown">
-                      Next claim in {timeRemaining !== null ? formatTimeRemaining(timeRemaining) : '--'}
-                    </span>
-                  </div>
-                )
-              ) : (
-                <p className="text-sm text-muted-foreground text-center" data-testid="text-xp-no-signal">
-                  Get vouched to earn XP from your signal
-                </p>
-              )}
-              
-              {xpData.claimCount > 0 && (
-                <p className="text-xs text-muted-foreground text-center" data-testid="text-xp-claim-count">
-                  {xpData.claimCount} claim{xpData.claimCount !== 1 ? 's' : ''} total
-                </p>
-              )}
-            </>
           )}
         </Card>
 
