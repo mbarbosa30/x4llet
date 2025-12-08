@@ -387,6 +387,14 @@ export default function MaxFlow() {
                             <span className="text-muted-foreground">Network Size</span>
                             <span className="font-mono font-medium">{scoreData.algorithm_breakdown.ego_network_size}</span>
                           </div>
+                          <div className="flex justify-between items-center" data-testid="metric-effective-redundancy">
+                            <span className="text-muted-foreground">Effective Redundancy</span>
+                            <span className="font-mono font-medium">{scoreData.algorithm_breakdown.effective_redundancy.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between items-center" data-testid="metric-edge-density">
+                            <span className="text-muted-foreground">Edge Density</span>
+                            <span className="font-mono font-medium">{scoreData.algorithm_breakdown.edge_density.toFixed(2)}</span>
+                          </div>
                         </div>
                       </div>
                     )}
