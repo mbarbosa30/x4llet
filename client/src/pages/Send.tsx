@@ -615,13 +615,11 @@ export default function Send() {
           <>
             <div className="space-y-4">
               <div className="space-y-2">
-                <label htmlFor="recipient" className="text-sm font-medium">
-                  Recipient Address
-                </label>
                 <div className="flex gap-2">
                   <Input 
                     id="recipient"
-                    placeholder="0x... or scan QR"
+                    placeholder="Enter or paste wallet address"
+                    aria-label="Recipient wallet address"
                     value={recipient}
                     onChange={(e) => setRecipient(e.target.value)}
                     className="flex-1"
