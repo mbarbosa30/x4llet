@@ -2841,7 +2841,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   async function checkMaxFlowHealth(): Promise<boolean> {
     try {
-      const response = await fetch('https://maxflow.one/api/epoch/current', {
+      const response = await fetch(`${MAXFLOW_API_BASE}/vouch/nonce/0x0000000000000000000000000000000000000000`, {
         signal: AbortSignal.timeout(5000),
       });
       return response.ok;
