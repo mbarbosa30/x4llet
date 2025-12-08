@@ -906,7 +906,7 @@ export class MemStorage implements IStorage {
 export class DbStorage extends MemStorage {
   private readonly CACHE_TTL_MS = 30000; // 30 seconds for balance cache
   private readonly TRANSACTION_CACHE_TTL_MS = 300000; // 5 minutes for transaction cache
-  private readonly RATE_TTL_MS = 300000; // 5 minutes for exchange rates
+  private readonly RATE_TTL_MS = 14400000; // 4 hours for exchange rates
 
   async registerWallet(address: string): Promise<void> {
     try {
