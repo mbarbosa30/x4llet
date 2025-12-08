@@ -885,29 +885,22 @@ export default function Claim() {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  <div className="text-center space-y-4">
-                    <CircleDot className="h-12 w-12 mx-auto text-[#0055FF]" />
+                  <div className="flex items-center gap-3">
+                    <CircleDot className="h-10 w-10 text-[#0055FF] shrink-0" />
                     <div>
-                      <h2 className="text-xl text-section">Join Circles</h2>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Circles is community-powered social money on Gnosis Chain.
-                      </p>
+                      <h2 className="text-xl text-section">Social Money</h2>
+                      <span className="font-label text-muted-foreground">// GNOSIS</span>
                     </div>
                   </div>
 
-                  <div className="space-y-4 text-left">
-                    <div className="space-y-2">
-                      <h3 className="font-label text-muted-foreground">What is Circles?</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Every human can claim the same amount of CRC over time. It's social money designed to support people and local communities.
-                      </p>
+                  <div className="grid grid-cols-2 gap-4 text-center py-2">
+                    <div>
+                      <p className="font-mono text-2xl font-bold">24</p>
+                      <span className="text-xs text-muted-foreground">CRC daily</span>
                     </div>
-
-                    <div className="space-y-2">
-                      <h3 className="font-label text-muted-foreground">How it Works</h3>
-                      <p className="text-sm text-muted-foreground">
-                        You earn 1 CRC per hour (up to 24/day). Trust others to let your CRC flow through their network. A ~7% yearly decay keeps CRC circulating fairly.
-                      </p>
+                    <div>
+                      <p className="font-mono text-2xl font-bold">96</p>
+                      <span className="text-xs text-muted-foreground">CRC to invite</span>
                     </div>
                   </div>
 
@@ -1308,44 +1301,22 @@ export default function Claim() {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  <div className="text-center space-y-4">
-                    <Gift className="h-12 w-12 mx-auto text-[#0055FF]" />
+                  <div className="flex items-center gap-3">
+                    <Gift className="h-10 w-10 text-[#0055FF] shrink-0" />
                     <div>
-                      <h2 className="text-xl text-section">Claim Daily UBI</h2>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        GoodDollar distributes free G$ tokens daily to verified humans.
-                      </p>
+                      <h2 className="text-xl text-section">Daily UBI</h2>
+                      <span className="font-label text-muted-foreground">// CELO</span>
                     </div>
                   </div>
 
-                  <div className="space-y-4 text-left">
-                    <div className="space-y-2">
-                      <h3 className="font-label text-muted-foreground">What is GoodDollar?</h3>
-                      <p className="text-sm text-muted-foreground">
-                        GoodDollar is a universal basic income protocol on Celo. Everyone who verifies their identity gets the same daily G$ distribution — no exceptions.
-                      </p>
+                  <div className="grid grid-cols-2 gap-4 text-center py-2">
+                    <div>
+                      <p className="font-mono text-2xl font-bold">{gdClaimStatus?.dailyUbiFormatted || '~0.5'}</p>
+                      <span className="text-xs text-muted-foreground">G$ daily</span>
                     </div>
-
-                    <div className="space-y-2">
-                      <h3 className="font-label text-muted-foreground">How it Works</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Verify your face once (it's privacy-preserving — only a hash is stored). Then claim your G$ every day. Re-verify every {gdIdentity?.authenticationPeriod || 180} days.
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <h3 className="font-label text-muted-foreground">Get Started</h3>
-                      <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                        <li>Verify your face (takes ~1 minute)</li>
-                        <li>Claim G$ daily right here in nanoPay</li>
-                        <li>Use G$ for payments or support others</li>
-                      </ol>
-                    </div>
-
-                    <div className="pt-2">
-                      <p className="text-xs text-muted-foreground">
-                        Your address: <span className="font-mono">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
-                      </p>
+                    <div>
+                      <p className="font-mono text-2xl font-bold">{gdIdentity?.authenticationPeriod || 180}</p>
+                      <span className="text-xs text-muted-foreground">day validity</span>
                     </div>
                   </div>
 
@@ -1361,14 +1332,8 @@ export default function Claim() {
                         <Loader2 className="h-4 w-4 animate-spin" />
                         Signing...
                       </>
-                    ) : 'Verify Face'}
+                    ) : 'Verify Face to Start'}
                   </Button>
-                  
-                  {gdClaimStatus?.dailyUbiFormatted && (
-                    <p className="text-sm text-center text-muted-foreground pt-2" data-testid="text-daily-ubi-incentive">
-                      <span className="font-semibold text-primary">~{gdClaimStatus.dailyUbiFormatted} G$</span> available to claim daily once verified
-                    </p>
-                  )}
                 </div>
               )}
             </Card>

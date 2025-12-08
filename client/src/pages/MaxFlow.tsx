@@ -181,46 +181,22 @@ export default function MaxFlow() {
         <Card className="p-6 space-y-6 border-foreground">
           {!isLoadingMaxFlow && score === 0 ? (
             <div className="space-y-6">
-              <div className="text-center space-y-4">
-                <Shield className="h-12 w-12 mx-auto text-[#0055FF]" />
+              <div className="flex items-center gap-3">
+                <Shield className="h-10 w-10 text-[#0055FF] shrink-0" />
                 <div>
-                  <h2 className="text-xl text-section">Build Your Network Signal</h2>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Your network signal is currently at zero. Here's how to get started.
-                  </p>
+                  <h2 className="text-xl text-section">Trust Graph</h2>
+                  <span className="font-label text-muted-foreground">// MAXFLOW</span>
                 </div>
               </div>
 
-              <div className="space-y-4 text-left">
-                <div className="space-y-2">
-                  <h3 className="font-label text-muted-foreground">What is Network Signal?</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Network signal measures your trust network health through max flow computation. It's not a reputation score — it's based on how well you're connected through authentic vouches.
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <h3 className="font-label text-muted-foreground">How Vouching Works</h3>
-                  <p className="text-sm text-muted-foreground">
-                    When someone vouches for you, they add you to their trust network. But here's the key: <strong>who you vouch for affects your own score</strong>. Vouching indiscriminately dilutes your network quality, so vouch thoughtfully.
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <h3 className="font-label text-muted-foreground">Get Started</h3>
-                  <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                    <li>Share your address with people you trust</li>
-                    <li>Ask them to vouch for you on nanoPay</li>
-                    <li>Vouch for others carefully — it impacts your score</li>
-                  </ol>
-                </div>
-
-                <div className="pt-2">
-                  <p className="text-xs text-muted-foreground">
-                    Your address: <span className="font-mono" data-testid="text-user-address">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
-                  </p>
-                </div>
+              <div className="text-center py-4">
+                <p className="font-mono text-5xl font-bold">0</p>
+                <span className="text-sm text-muted-foreground">network signal</span>
               </div>
+
+              <p className="text-sm text-muted-foreground text-center" data-testid="text-user-address">
+                Share <span className="font-mono">{address?.slice(0, 6)}...{address?.slice(-4)}</span> to get vouched
+              </p>
             </div>
           ) : (
             <div className="text-center space-y-4">
