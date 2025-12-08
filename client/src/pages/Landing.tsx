@@ -202,7 +202,7 @@ export default function Landing() {
                   <Layers className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
                   <span className="text-sm font-semibold uppercase tracking-wide">Multi-Chain</span>
                 </div>
-                <p className="text-sm text-muted-foreground pl-8">Seamless experience on Base, Celo, and Gnosis networks. More soon.</p>
+                <p className="text-sm text-muted-foreground pl-8">Seamless experience on Base, Celo, Gnosis, and Arbitrum networks.</p>
               </div>
             </div>
           </div>

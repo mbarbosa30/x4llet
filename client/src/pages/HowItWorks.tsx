@@ -70,6 +70,7 @@ export default function HowItWorks() {
             <li><span className="font-medium">Base</span> — Native USDC. Aave V3 savings.</li>
             <li><span className="font-medium">Celo</span> — Native USDC. Aave V3 savings. GoodDollar UBI.</li>
             <li><span className="font-medium">Gnosis</span> — Circle bridged USDC.e. Circles social money.</li>
+            <li><span className="font-medium">Arbitrum</span> — Native USDC. Aave V3 savings.</li>
           </ul>
           <p className="text-sm text-muted-foreground">
             Your wallet address is the same on all networks. Switch in Settings.

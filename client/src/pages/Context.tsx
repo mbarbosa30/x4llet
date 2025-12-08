@@ -95,6 +95,7 @@ export default function Context() {
                   <li><strong>Base:</strong> Native USDC. Aave V3 savings available.</li>
                   <li><strong>Celo:</strong> Native USDC. Aave V3 savings. GoodDollar UBI.</li>
                   <li><strong>Gnosis:</strong> Circle bridged USDC.e. Circles social money.</li>
+                  <li><strong>Arbitrum:</strong> Native USDC. Aave V3 savings available.</li>
                 </ul>
                 <p className="text-sm text-muted-foreground">
                   Your wallet address is the same on all networks. Switch in Settings.
