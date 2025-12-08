@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo, gnosis } from 'viem/chains';
@@ -302,6 +302,11 @@ export interface IStorage {
   // aUSDC balance caching (uses negative chainIds to distinguish from USDC)
   cacheAUsdcBalance(address: string, chainId: number, balance: string): Promise<void>;
   getCachedAUsdcBalance(address: string, chainId: number): Promise<string>;
+  
+  // XP System methods
+  getXpBalance(walletAddress: string): Promise<XpBalance | null>;
+  claimXp(walletAddress: string, xpAmount: number, maxFlowSignal: number): Promise<XpClaim>;
+  getXpClaimHistory(walletAddress: string, limit?: number): Promise<XpClaim[]>;
 }
 
 export interface GasDrip {
@@ -790,6 +795,18 @@ export class MemStorage implements IStorage {
 
   async getCachedAUsdcBalance(address: string, chainId: number): Promise<string> {
     return '0';
+  }
+
+  async getXpBalance(walletAddress: string): Promise<XpBalance | null> {
+    return null;
+  }
+
+  async claimXp(walletAddress: string, xpAmount: number, maxFlowSignal: number): Promise<XpClaim> {
+    throw new Error('XP claiming not available in MemStorage');
+  }
+
+  async getXpClaimHistory(walletAddress: string, limit?: number): Promise<XpClaim[]> {
+    return [];
   }
 }
 
@@ -3350,6 +3367,74 @@ export class DbStorage extends MemStorage {
     } catch (error) {
       console.error('[DB] Error getting cached aUSDC balance:', error);
       return '0';
+    }
+  }
+
+  async getXpBalance(walletAddress: string): Promise<XpBalance | null> {
+    try {
+      const normalized = walletAddress.toLowerCase();
+      const result = await db
+        .select()
+        .from(xpBalances)
+        .where(eq(xpBalances.walletAddress, normalized))
+        .limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error('[XP] Error getting XP balance:', error);
+      return null;
+    }
+  }
+
+  async claimXp(walletAddress: string, xpAmount: number, maxFlowSignal: number): Promise<XpClaim> {
+    const normalized = walletAddress.toLowerCase();
+    const now = new Date();
+    
+    const existingBalance = await this.getXpBalance(normalized);
+    
+    if (existingBalance) {
+      await db
+        .update(xpBalances)
+        .set({
+          totalXp: existingBalance.totalXp + xpAmount,
+          lastClaimTime: now,
+          claimCount: existingBalance.claimCount + 1,
+          updatedAt: now,
+        })
+        .where(eq(xpBalances.walletAddress, normalized));
+    } else {
+      await db.insert(xpBalances).values({
+        walletAddress: normalized,
+        totalXp: xpAmount,
+        lastClaimTime: now,
+        claimCount: 1,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    
+    const [claim] = await db.insert(xpClaims).values({
+      walletAddress: normalized,
+      xpAmount,
+      maxFlowSignal,
+      claimedAt: now,
+    }).returning();
+    
+    console.log(`[XP] Claimed ${xpAmount} XP for ${normalized} (signal: ${maxFlowSignal})`);
+    return claim;
+  }
+
+  async getXpClaimHistory(walletAddress: string, limit: number = 50): Promise<XpClaim[]> {
+    try {
+      const normalized = walletAddress.toLowerCase();
+      return await db
+        .select()
+        .from(xpClaims)
+        .where(eq(xpClaims.walletAddress, normalized))
+        .orderBy(desc(xpClaims.claimedAt))
+        .limit(limit);
+    } catch (error) {
+      console.error('[XP] Error getting claim history:', error);
+      return [];
     }
   }
 }

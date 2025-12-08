@@ -4594,6 +4594,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== XP SYSTEM ENDPOINTS =====
+
+  app.get('/api/xp/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+
+      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+
+      const xpBalance = await storage.getXpBalance(address);
+      
+      const CLAIM_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+      let canClaim = true;
+      let nextClaimTime: string | null = null;
+      let timeUntilNextClaim: number | null = null;
+
+      if (xpBalance?.lastClaimTime) {
+        const timeSinceLastClaim = Date.now() - xpBalance.lastClaimTime.getTime();
+        if (timeSinceLastClaim < CLAIM_COOLDOWN_MS) {
+          canClaim = false;
+          const nextTime = new Date(xpBalance.lastClaimTime.getTime() + CLAIM_COOLDOWN_MS);
+          nextClaimTime = nextTime.toISOString();
+          timeUntilNextClaim = CLAIM_COOLDOWN_MS - timeSinceLastClaim;
+        }
+      }
+
+      res.json({
+        totalXp: xpBalance?.totalXp || 0,
+        claimCount: xpBalance?.claimCount || 0,
+        lastClaimTime: xpBalance?.lastClaimTime?.toISOString() || null,
+        canClaim,
+        nextClaimTime,
+        timeUntilNextClaim,
+      });
+    } catch (error) {
+      console.error('[XP] Error fetching XP balance:', error);
+      res.status(500).json({ error: 'Failed to fetch XP balance' });
+    }
+  });
+
+  app.post('/api/xp/claim', async (req, res) => {
+    try {
+      const { address } = req.body;
+
+      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+
+      const xpBalance = await storage.getXpBalance(address);
+      const CLAIM_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+      if (xpBalance?.lastClaimTime) {
+        const timeSinceLastClaim = Date.now() - xpBalance.lastClaimTime.getTime();
+        if (timeSinceLastClaim < CLAIM_COOLDOWN_MS) {
+          const nextTime = new Date(xpBalance.lastClaimTime.getTime() + CLAIM_COOLDOWN_MS);
+          return res.status(429).json({ 
+            error: 'Claim cooldown active',
+            nextClaimTime: nextTime.toISOString(),
+            timeUntilNextClaim: CLAIM_COOLDOWN_MS - timeSinceLastClaim,
+          });
+        }
+      }
+
+      const scoreData = await storage.getMaxFlowScore(address);
+      const signal = Math.round(scoreData?.localHealth || 0);
+
+      if (signal === 0) {
+        return res.status(400).json({ 
+          error: 'Cannot claim XP with zero signal',
+          message: 'Build your trust network to earn XP',
+        });
+      }
+
+      const claim = await storage.claimXp(address, signal, signal);
+
+      res.json({
+        success: true,
+        xpEarned: signal,
+        claim: {
+          id: claim.id,
+          xpAmount: claim.xpAmount,
+          maxFlowSignal: claim.maxFlowSignal,
+          claimedAt: claim.claimedAt,
+        },
+      });
+    } catch (error) {
+      console.error('[XP] Error claiming XP:', error);
+      res.status(500).json({ error: 'Failed to claim XP' });
+    }
+  });
+
+  app.get('/api/xp/history/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      const limit = parseInt(req.query.limit as string) || 50;
+
+      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+
+      const claims = await storage.getXpClaimHistory(address, limit);
+
+      res.json({
+        claims: claims.map(c => ({
+          id: c.id,
+          xpAmount: c.xpAmount,
+          maxFlowSignal: c.maxFlowSignal,
+          claimedAt: c.claimedAt,
+        })),
+      });
+    } catch (error) {
+      console.error('[XP] Error fetching XP history:', error);
+      res.status(500).json({ error: 'Failed to fetch XP history' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -411,3 +411,26 @@ export const submitAuthorizationSchema = z.object({
 });
 
 export type SubmitAuthorization = z.infer<typeof submitAuthorizationSchema>;
+
+// XP System Tables
+
+export const xpBalances = pgTable("xp_balances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: text("wallet_address").notNull().unique(),
+  totalXp: integer("total_xp").notNull().default(0),
+  lastClaimTime: timestamp("last_claim_time"),
+  claimCount: integer("claim_count").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const xpClaims = pgTable("xp_claims", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: text("wallet_address").notNull(),
+  xpAmount: integer("xp_amount").notNull(),
+  maxFlowSignal: integer("maxflow_signal").notNull(),
+  claimedAt: timestamp("claimed_at").notNull().defaultNow(),
+});
+
+export type XpBalance = typeof xpBalances.$inferSelect;
+export type XpClaim = typeof xpClaims.$inferSelect;
