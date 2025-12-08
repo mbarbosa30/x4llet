@@ -1019,23 +1019,34 @@ export class DbStorage extends MemStorage {
 
   private async saveAggregatedBalanceSnapshot(address: string, updatedChainId: number, updatedBalance: string): Promise<void> {
     try {
-      // Fetch the balance from the OTHER chain to calculate total
-      const otherChainId = updatedChainId === 8453 ? 42220 : 8453;
+      // Fetch balances from ALL chains to calculate total
+      const allChainIds = [8453, 42220, 100, 42161]; // Base, Celo, Gnosis, Arbitrum
+      const otherChainIds = allChainIds.filter(id => id !== updatedChainId);
       
-      const otherChainCached = await db
+      const otherChainsCached = await db
         .select()
         .from(cachedBalances)
-        .where(and(eq(cachedBalances.address, address), eq(cachedBalances.chainId, otherChainId)))
-        .limit(1);
+        .where(
+          and(
+            eq(cachedBalances.address, address),
+            or(...otherChainIds.map(id => eq(cachedBalances.chainId, id)))
+          )
+        );
 
-      // Calculate total balance (current chain + other chain, or just current if other doesn't exist)
-      const otherChainBalance = otherChainCached[0]?.balance || '0';
-      const totalBalance = (BigInt(updatedBalance) + BigInt(otherChainBalance)).toString();
+      // Calculate total balance (current chain + all other chains)
+      let totalBalance = BigInt(updatedBalance);
+      const balanceBreakdown: string[] = [`${updatedChainId}: ${updatedBalance}`];
+      
+      for (const cached of otherChainsCached) {
+        const balance = cached.balance || '0';
+        totalBalance += BigInt(balance);
+        balanceBreakdown.push(`${cached.chainId}: ${balance}`);
+      }
 
       // Save aggregated snapshot with chainId=0 to indicate "all chains"
-      await this.saveBalanceSnapshot(address, 0, totalBalance);
+      await this.saveBalanceSnapshot(address, 0, totalBalance.toString());
       
-      console.log(`[DB] Saved aggregated snapshot: ${totalBalance} micro-USDC (${updatedChainId}: ${updatedBalance}, ${otherChainId}: ${otherChainBalance})`);
+      console.log(`[DB] Saved aggregated snapshot: ${totalBalance.toString()} micro-USDC (${balanceBreakdown.join(', ')})`);
     } catch (error) {
       console.error('[DB] Error saving aggregated balance snapshot:', error);
     }
