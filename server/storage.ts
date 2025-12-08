@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo, gnosis, arbitrum } from 'viem/chains';
 import { db } from "./db";
-import { eq, and, or, desc, sql, gte, gt } from "drizzle-orm";
+import { eq, and, or, desc, sql, gte, gt, count, sum } from "drizzle-orm";
 import { getNetworkByChainId } from "@shared/networks";
 
 function resolveChainForStorage(chainId: number) {
@@ -3943,6 +3943,28 @@ export class DbStorage extends MemStorage {
     } catch (error) {
       console.error('[XP] Error getting claim history:', error);
       return [];
+    }
+  }
+
+  async getGlobalStats(): Promise<{
+    totalUsers: number;
+    totalTransfers: number;
+    totalXp: number;
+  }> {
+    try {
+      const [walletsResult] = await db.select({ count: count() }).from(wallets);
+      const [transactionsResult] = await db.select({ count: count() }).from(cachedTransactions);
+      const [xpResult] = await db.select({ total: sum(xpBalances.totalXp) }).from(xpBalances);
+
+      const totalXpCenti = Number(xpResult?.total) || 0;
+      return {
+        totalUsers: walletsResult?.count || 0,
+        totalTransfers: transactionsResult?.count || 0,
+        totalXp: Math.round(totalXpCenti) / 100,
+      };
+    } catch (error) {
+      console.error('[Stats] Error getting global stats:', error);
+      return { totalUsers: 0, totalTransfers: 0, totalXp: 0 };
     }
   }
 }

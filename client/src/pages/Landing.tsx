@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { WifiOff, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap } from 'lucide-react';
+import { WifiOff, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap, Users, ArrowRightLeft } from 'lucide-react';
 import { hasWallet, isWalletUnlocked } from '@/lib/wallet';
 import Footer from '@/components/Footer';
 
@@ -10,6 +10,12 @@ interface AaveApyData {
   chainId: number;
   apy: number;
   apyFormatted: string;
+}
+
+interface GlobalStats {
+  totalUsers: number;
+  totalTransfers: number;
+  totalXp: number;
 }
 
 export default function Landing() {
@@ -38,6 +44,11 @@ export default function Landing() {
 
   const bestApy = Math.max(aaveApyBase?.apy || 0, aaveApyCelo?.apy || 0);
   const apyDisplay = bestApy > 0 ? `${bestApy.toFixed(1)}%` : null;
+
+  const { data: globalStats } = useQuery<GlobalStats>({
+    queryKey: ['/api/stats/global'],
+    staleTime: 60000,
+  });
 
   useEffect(() => {
     let isActive = true;
@@ -172,6 +183,40 @@ export default function Landing() {
               </Link>
             </div>
           </div>
+
+          {globalStats && (globalStats.totalUsers > 0 || globalStats.totalTransfers > 0 || globalStats.totalXp > 0) && (
+            <div className="pt-8 pb-4">
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <div className="flex items-center justify-center gap-1.5 mb-1">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <p className="text-2xl font-bold tabular-nums" data-testid="text-global-users">
+                    {globalStats.totalUsers.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Users</p>
+                </div>
+                <div>
+                  <div className="flex items-center justify-center gap-1.5 mb-1">
+                    <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <p className="text-2xl font-bold tabular-nums" data-testid="text-global-transfers">
+                    {globalStats.totalTransfers.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Transfers</p>
+                </div>
+                <div>
+                  <div className="flex items-center justify-center gap-1.5 mb-1">
+                    <Sparkles className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <p className="text-2xl font-bold tabular-nums" data-testid="text-global-xp">
+                    {globalStats.totalXp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">XP Earned</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="pt-10 pb-4 border-t border-foreground/10">
             <div className="text-sm font-mono uppercase tracking-widest text-muted-foreground pt-4 mb-8 text-center">Powered By</div>

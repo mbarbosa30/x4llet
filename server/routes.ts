@@ -5243,6 +5243,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== GLOBAL STATS ENDPOINT (PUBLIC) =====
+  app.get('/api/stats/global', async (req, res) => {
+    try {
+      const stats = await storage.getGlobalStats();
+      res.json(stats);
+    } catch (error) {
+      console.error('[Stats] Error fetching global stats:', error);
+      res.status(500).json({ error: 'Failed to fetch global stats' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
