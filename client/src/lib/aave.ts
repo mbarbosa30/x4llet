@@ -1,6 +1,6 @@
 import { createPublicClient, http, type Address, type Hex, parseAbi, type Chain, keccak256, toHex, getAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { base, celo, gnosis } from 'viem/chains';
+import { base, celo, gnosis, arbitrum } from 'viem/chains';
 import { getNetworkByChainId } from '@shared/networks';
 
 const AAVE_POOL_ABI = parseAbi([
@@ -18,6 +18,7 @@ const CHAIN_MAP: Record<number, Chain> = {
   8453: base,
   42220: celo,
   100: gnosis,
+  42161: arbitrum,
 };
 
 export interface AaveTransactionResult {

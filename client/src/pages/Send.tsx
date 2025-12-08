@@ -39,7 +39,7 @@ export default function Send() {
   const [inputValue, setInputValue] = useState(''); // User's editing buffer in current currency
   const [usdcAmount, setUsdcAmount] = useState(''); // Canonical USDC amount (always in USDC)
   const [address, setAddress] = useState<string | null>(null);
-  const [network, setNetwork] = useState<'base' | 'celo' | 'gnosis'>('celo');
+  const [network, setNetwork] = useState<'base' | 'celo' | 'gnosis' | 'arbitrum'>('celo');
   const [chainId, setChainId] = useState(42220);
   const [currency, setCurrency] = useState('USD');
   const [displayCurrency, setDisplayCurrency] = useState<'USDC' | 'fiat'>('USDC');
@@ -137,12 +137,14 @@ export default function Send() {
     const baseBalance = BigInt(balanceData.chains.base.balanceMicro);
     const celoBalance = BigInt(balanceData.chains.celo.balanceMicro);
     const gnosisBalance = BigInt(balanceData.chains.gnosis.balanceMicro);
+    const arbitrumBalance = BigInt(balanceData.chains.arbitrum?.balanceMicro || '0');
     
     // Select chain with most USDC
     const balances = [
       { network: 'base' as const, chainId: 8453, balance: baseBalance },
       { network: 'celo' as const, chainId: 42220, balance: celoBalance },
       { network: 'gnosis' as const, chainId: 100, balance: gnosisBalance },
+      { network: 'arbitrum' as const, chainId: 42161, balance: arbitrumBalance },
     ];
     const best = balances.reduce((a, b) => a.balance > b.balance ? a : b);
     
@@ -171,6 +173,7 @@ export default function Send() {
   const selectedChainBalance = balanceData?.chains 
     ? (network === 'base' ? balanceData.chains.base.balance 
        : network === 'gnosis' ? balanceData.chains.gnosis.balance 
+       : network === 'arbitrum' ? balanceData.chains.arbitrum?.balance || '0.00'
        : balanceData.chains.celo.balance)
     : '0.00';
   const balance = selectedChainBalance;
@@ -180,10 +183,11 @@ export default function Send() {
     { network: 'base' as const, chainId: 8453, balance: balanceData.chains.base.balance, balanceMicro: BigInt(balanceData.chains.base.balanceMicro) },
     { network: 'celo' as const, chainId: 42220, balance: balanceData.chains.celo.balance, balanceMicro: BigInt(balanceData.chains.celo.balanceMicro) },
     { network: 'gnosis' as const, chainId: 100, balance: balanceData.chains.gnosis.balance, balanceMicro: BigInt(balanceData.chains.gnosis.balanceMicro) },
+    { network: 'arbitrum' as const, chainId: 42161, balance: balanceData.chains.arbitrum?.balance || '0.00', balanceMicro: BigInt(balanceData.chains.arbitrum?.balanceMicro || '0') },
   ].filter(c => c.balanceMicro > 0n) : [];
   
-  const handleNetworkChange = (newNetwork: 'base' | 'celo' | 'gnosis') => {
-    const chainIds = { base: 8453, celo: 42220, gnosis: 100 };
+  const handleNetworkChange = (newNetwork: 'base' | 'celo' | 'gnosis' | 'arbitrum') => {
+    const chainIds = { base: 8453, celo: 42220, gnosis: 100, arbitrum: 42161 };
     setNetwork(newNetwork);
     setChainId(chainIds[newNetwork]);
   };

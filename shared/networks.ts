@@ -34,9 +34,17 @@ export const NETWORKS: Record<string, NetworkConfig> = {
     aavePoolAddress: getAddress('0xb50201558B00496A145fE76f7424749556E326D8'),
     aUsdcAddress: getAddress('0xC0333cb85B59a788d8C7CAe5e1Fd6E229A3E5a65'),
   },
+  arbitrum: {
+    chainId: 42161,
+    name: 'Arbitrum',
+    usdcAddress: getAddress('0xaf88d065e77c8cC2239327C5EDb3A432268e5831'),
+    rpcUrl: 'https://arb1.arbitrum.io/rpc',
+    aavePoolAddress: getAddress('0x794a61358D6845594F94dc1DB02A252b5b4814aD'),
+    aUsdcAddress: getAddress('0x625E7708f30cA75bfd92586e17077590C60eb4cD'),
+  },
 };
 
-export function getNetworkConfig(network: 'base' | 'celo' | 'gnosis'): NetworkConfig {
+export function getNetworkConfig(network: 'base' | 'celo' | 'gnosis' | 'arbitrum'): NetworkConfig {
   return NETWORKS[network];
 }
 

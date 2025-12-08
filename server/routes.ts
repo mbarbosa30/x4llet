@@ -9,7 +9,7 @@ import { getNetworkConfig, getNetworkByChainId } from "@shared/networks";
 import { AAVE_POOL_ABI, ATOKEN_ABI, ERC20_ABI, rayToPercent } from "@shared/aave";
 import { createPublicClient, createWalletClient, http, type Address, type Hex, hexToSignature, recoverAddress, hashTypedData, getAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { base, celo, gnosis } from 'viem/chains';
+import { base, celo, gnosis, arbitrum } from 'viem/chains';
 import { getSchedulerStatus } from './poolScheduler';
 import { executePoolDraw } from './drawExecutor';
 
@@ -128,6 +128,8 @@ function resolveChain(chainId: number) {
       return { viemChain: celo, networkKey: 'celo' as const, name: 'Celo' };
     case 100:
       return { viemChain: gnosis, networkKey: 'gnosis' as const, name: 'Gnosis' };
+    case 42161:
+      return { viemChain: arbitrum, networkKey: 'arbitrum' as const, name: 'Arbitrum' };
     default:
       return null;
   }
@@ -156,14 +158,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Otherwise, fetch balances from all chains in parallel
-      const [baseBalance, celoBalance, gnosisBalance] = await Promise.all([
+      const [baseBalance, celoBalance, gnosisBalance, arbitrumBalance] = await Promise.all([
         storage.getBalance(address, 8453),
         storage.getBalance(address, 42220),
         storage.getBalance(address, 100),
+        storage.getBalance(address, 42161),
       ]);
       
       // Calculate total balance (sum of micro-USDC) - keep as BigInt for precision
-      const totalMicroUsdc = BigInt(baseBalance.balanceMicro) + BigInt(celoBalance.balanceMicro) + BigInt(gnosisBalance.balanceMicro);
+      const totalMicroUsdc = BigInt(baseBalance.balanceMicro) + BigInt(celoBalance.balanceMicro) + BigInt(gnosisBalance.balanceMicro) + BigInt(arbitrumBalance.balanceMicro);
       
       // Format total for display using BigInt division to preserve precision
       // Add 5000 for rounding to nearest cent (0.005 USDC = 5000 micro-USDC)
@@ -194,6 +197,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             balance: gnosisBalance.balance,
             balanceMicro: gnosisBalance.balanceMicro,
           },
+          arbitrum: {
+            chainId: 42161,
+            balance: arbitrumBalance.balance,
+            balanceMicro: arbitrumBalance.balanceMicro,
+          },
         },
       });
     } catch (error) {
@@ -214,19 +222,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Otherwise, fetch transactions from all chains in parallel
-      const [baseTransactions, celoTransactions, gnosisTransactions] = await Promise.all([
+      const [baseTransactions, celoTransactions, gnosisTransactions, arbitrumTransactions] = await Promise.all([
         storage.getTransactions(address, 8453),
         storage.getTransactions(address, 42220),
         storage.getTransactions(address, 100),
+        storage.getTransactions(address, 42161),
       ]);
       
       // Add chainId to each transaction and merge
       const baseTxsWithChain = baseTransactions.map(tx => ({ ...tx, chainId: 8453 }));
       const celoTxsWithChain = celoTransactions.map(tx => ({ ...tx, chainId: 42220 }));
       const gnosisTxsWithChain = gnosisTransactions.map(tx => ({ ...tx, chainId: 100 }));
+      const arbitrumTxsWithChain = arbitrumTransactions.map(tx => ({ ...tx, chainId: 42161 }));
       
       // Merge and sort by timestamp (most recent first), with txHash as tiebreaker for deterministic ordering
-      const allTransactions = [...baseTxsWithChain, ...celoTxsWithChain, ...gnosisTxsWithChain]
+      const allTransactions = [...baseTxsWithChain, ...celoTxsWithChain, ...gnosisTxsWithChain, ...arbitrumTxsWithChain]
         .sort((a, b) => {
           const timeDiff = new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
           if (timeDiff !== 0) return timeDiff;
@@ -1115,7 +1125,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/aave/interest-earned/:address', async (req, res) => {
     try {
       const { address } = req.params;
-      const chainIds = [8453, 42220, 100]; // Base, Celo, Gnosis
+      const chainIds = [8453, 42220, 100, 42161]; // Base, Celo, Gnosis, Arbitrum
       
       // Get net principal from tracked operations (always returns all 3 chains)
       const netPrincipals = await storage.getAaveNetPrincipal(address);
@@ -1151,16 +1161,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
 
-      const [baseBalance, celoBalance, gnosisBalance] = await Promise.all([
+      const [baseBalance, celoBalance, gnosisBalance, arbitrumBalance] = await Promise.all([
         fetchAaveBalance(8453),
         fetchAaveBalance(42220),
         fetchAaveBalance(100),
+        fetchAaveBalance(42161),
       ]);
 
       const balances: Record<number, { chainId: number; aUsdcBalance: string }> = { 
         8453: baseBalance, 
         42220: celoBalance, 
-        100: gnosisBalance 
+        100: gnosisBalance,
+        42161: arbitrumBalance 
       };
       
       // Build net principal map for quick lookup
@@ -1208,6 +1220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           { chainId: 8453, currentBalanceMicro: '0', netPrincipalMicro: '0', interestEarnedMicro: '0', trackingStarted: null, hasTrackingData: false },
           { chainId: 42220, currentBalanceMicro: '0', netPrincipalMicro: '0', interestEarnedMicro: '0', trackingStarted: null, hasTrackingData: false },
           { chainId: 100, currentBalanceMicro: '0', netPrincipalMicro: '0', interestEarnedMicro: '0', trackingStarted: null, hasTrackingData: false },
+          { chainId: 42161, currentBalanceMicro: '0', netPrincipalMicro: '0', interestEarnedMicro: '0', trackingStarted: null, hasTrackingData: false },
         ],
         totalInterestEarnedMicro: '0',
       });

@@ -7,6 +7,7 @@ nanoPay is a minimalist Progressive Web App (PWA) designed for managing cryptocu
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
+- **2025-12-08**: Added Arbitrum network support (chainId: 42161) with native USDC and Aave V3 integration. Includes balance fetching, transaction history, and gasless transfers via EIP-3009.
 - **2025-12-08**: Fixed GoodDollar claim recording bug - corrected apiRequest function calls to use proper (method, url, data) signature instead of (url, options). This fixes the "Method is not a valid HTTP token" error that prevented claims from being saved to the database.
 
 ## System Architecture
@@ -24,7 +25,7 @@ Wallet generation uses `viem` for secp256k1 private keys, encrypted with WebCryp
 A PostgreSQL database with Drizzle ORM is used for intelligent caching of user data, wallets, authorizations, and blockchain data (balances, transactions, MaxFlow scores, exchange rates). USDC amounts are standardized to micro-USDC integers.
 
 ### Network Configuration
-The application supports Base (chainId: 8453), Celo (chainId: 42220), and Gnosis (chainId: 100), with full gasless support for native USDC and USDC.e where applicable.
+The application supports Base (chainId: 8453), Celo (chainId: 42220), Gnosis (chainId: 100), and Arbitrum (chainId: 42161), with full gasless support for native USDC and USDC.e where applicable via EIP-3009.
 
 ### PWA Features
 Designed as an offline-first PWA with a service worker for asset caching, IndexedDB for local data, and a manifest file. Includes mobile optimizations like viewport configuration and Apple mobile web app meta tags.
@@ -39,7 +40,7 @@ The UI features a unified fixed header and bottom navigation with sections for S
 
 ### Blockchain Infrastructure
 - **Viem**: Ethereum library for wallet operations.
-- **Network RPC Providers**: `https://mainnet.base.org`, `https://forno.celo.org`, `https://rpc.gnosischain.com`.
+- **Network RPC Providers**: `https://mainnet.base.org`, `https://forno.celo.org`, `https://rpc.gnosischain.com`, `https://arb1.arbitrum.io/rpc`.
 - **USDC Smart Contracts**: Native USDC (Base, Celo) and USDC.e (Gnosis) implementations.
 
 ### External APIs

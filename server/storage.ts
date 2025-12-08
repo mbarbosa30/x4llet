@@ -1,7 +1,7 @@
 import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
-import { base, celo, gnosis } from 'viem/chains';
+import { base, celo, gnosis, arbitrum } from 'viem/chains';
 import { db } from "./db";
 import { eq, and, or, desc, sql, gte, gt } from "drizzle-orm";
 import { getNetworkByChainId } from "@shared/networks";
@@ -14,6 +14,8 @@ function resolveChainForStorage(chainId: number) {
       return { viemChain: celo, name: 'Celo' };
     case 100:
       return { viemChain: gnosis, name: 'Gnosis' };
+    case 42161:
+      return { viemChain: arbitrum, name: 'Arbitrum' };
     default:
       return null;
   }
