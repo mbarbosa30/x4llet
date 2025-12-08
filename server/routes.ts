@@ -134,7 +134,7 @@ function resolveChain(chainId: number) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  const BUILD_VERSION = '2025-12-08T10:15:00Z';
+  const BUILD_VERSION = '2025-12-08T10:25:00Z';
   
   app.get('/api/version', (req, res) => {
     res.json({
@@ -2244,6 +2244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     // Retry loop with exponential backoff for DNS failures
+    let lastError: any = null;
     for (let attempt = 0; attempt < retries; attempt++) {
       try {
         const fetchResponse = await fetch(url, {
@@ -2256,16 +2257,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         return fetchResponse;
       } catch (error: any) {
+        lastError = error;
+        
         // Check if this is a DNS resolution failure
         const isDnsError = error?.cause?.code === 'EAI_AGAIN' || 
                           error?.code === 'EAI_AGAIN' ||
                           error?.cause?.code === 'ENOTFOUND' ||
                           error?.code === 'ENOTFOUND';
         
-        // If it's the last attempt or not a DNS error, throw
+        // If it's the last attempt or not a DNS error, break and throw below
         if (attempt === retries - 1 || !isDnsError) {
-          clearTimeout(timeoutId);
-          throw error;
+          break;
         }
         
         // Exponential backoff: 500ms, 1000ms, 2000ms
@@ -2275,8 +2277,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
     
+    // All retries exhausted - log and throw with preserved error context
     clearTimeout(timeoutId);
-    throw new Error('Unexpected: retry loop completed without return');
+    const errorCode = lastError?.cause?.code || lastError?.code;
+    if (errorCode === 'EAI_AGAIN' || errorCode === 'ENOTFOUND') {
+      console.error(`[MaxFlow] DNS resolution failed after ${retries} retries (code: ${errorCode})`);
+    }
+    throw lastError;
   }
 
   // Helper: Check if MaxFlow API cached_at is stale (older than 1 hour)
@@ -2364,7 +2371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { address } = req.params;
       
-      // Check cache first
+      // Check cache first (returns fresh data only, not stale)
       const cachedScore = await storage.getMaxFlowScore(address);
       if (cachedScore) {
         return res.json(cachedScore);
@@ -2400,10 +2407,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.saveMaxFlowScore(address, data);
       
       res.json(data);
-    } catch (error) {
+    } catch (error: any) {
+      // Check if this is a DNS error
+      const isDnsError = error?.cause?.code === 'EAI_AGAIN' || 
+                        error?.code === 'EAI_AGAIN' ||
+                        error?.cause?.code === 'ENOTFOUND' ||
+                        error?.code === 'ENOTFOUND';
+      
+      if (isDnsError) {
+        console.error('[MaxFlow API] DNS resolution failed, attempting to return stale cache');
+        
+        // Try to get ANY cached data, even if stale
+        const staleCache = await storage.getMaxFlowScore(req.params.address);
+        if (staleCache) {
+          console.log('[MaxFlow API] Returning stale cached data (200 OK) due to DNS failure');
+          res.setHeader('X-Cache-Status', 'stale-dns-fallback');
+          res.setHeader('Warning', '110 - "Response is Stale"'); // RFC 7234
+          // Return 200 OK so clients use the data, with metadata indicating staleness
+          return res.status(200).json({
+            ...staleCache,
+            _stale: true,
+            _reason: 'Temporary network issue - using cached data',
+          });
+        }
+      }
+      
       console.error('[MaxFlow API] Exception fetching MaxFlow score:', error);
       console.error('[MaxFlow API] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-      res.status(500).json({ error: 'Failed to fetch MaxFlow score' });
+      
+      // Return structured error with retry guidance
+      res.setHeader('Retry-After', '60');
+      res.status(503).json({ 
+        error: 'MaxFlow service temporarily unavailable',
+        retryAfter: 60,
+        isDnsError,
+      });
     }
   });
 
