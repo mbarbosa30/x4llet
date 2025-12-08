@@ -188,7 +188,7 @@ export default function Landing() {
                   <Sliders className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
                   <span className="text-sm font-semibold uppercase tracking-wide">Yield Allocation</span>
                 </div>
-                <p className="text-sm text-muted-foreground pl-8">Access prize-linked savings, vulnerable communities, AI tools & models, Buy Now Pay Later.</p>
+                <p className="text-sm text-muted-foreground pl-8">Access prize-linked savings, vulnerable communities, AI tools, & Buy Now Pay Later.</p>
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-3">
