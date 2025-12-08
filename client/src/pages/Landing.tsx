@@ -252,7 +252,7 @@ export default function Landing() {
             </div>
           </div>
 
-          <div className="text-center pt-4 pb-1">
+          <div className="text-center pt-3">
             <span className="text-xs font-mono font-light text-muted-foreground">built by </span>
             <a 
               href="https://x.com/mbarrbosa" 
