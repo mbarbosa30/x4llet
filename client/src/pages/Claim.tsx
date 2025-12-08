@@ -636,7 +636,7 @@ export default function Claim() {
           </TabsList>
 
           <TabsContent value="circles" className="mt-4">
-            <Card className="p-6 space-y-6">
+            <Card className="p-6 space-y-6 border-foreground">
               {isLoadingCircles ? (
                 <div className="text-center space-y-4">
                   <CircleDot className="h-12 w-12 mx-auto text-muted-foreground" />
@@ -886,10 +886,10 @@ export default function Claim() {
               ) : (
                 <div className="space-y-6">
                   <div className="text-center space-y-4">
-                    <CircleDot className="h-12 w-12 mx-auto text-muted-foreground" />
+                    <CircleDot className="h-12 w-12 mx-auto text-[#0055FF]" />
                     <div>
-                      <h2 className="text-lg font-semibold mb-2">Join Circles</h2>
-                      <p className="text-sm text-muted-foreground">
+                      <h2 className="text-xl text-section">Join Circles</h2>
+                      <p className="text-sm text-muted-foreground mt-2">
                         Circles is community-powered social money on Gnosis Chain.
                       </p>
                     </div>
@@ -897,14 +897,14 @@ export default function Claim() {
 
                   <div className="space-y-4 text-left">
                     <div className="space-y-2">
-                      <h3 className="text-xs font-semibold text-foreground/80">What is Circles?</h3>
+                      <h3 className="font-label text-muted-foreground">What is Circles?</h3>
                       <p className="text-sm text-muted-foreground">
                         Every human can claim the same amount of CRC over time. It's social money designed to support people and local communities.
                       </p>
                     </div>
 
                     <div className="space-y-2">
-                      <h3 className="text-xs font-semibold text-foreground/80">How it Works</h3>
+                      <h3 className="font-label text-muted-foreground">How it Works</h3>
                       <p className="text-sm text-muted-foreground">
                         You earn 1 CRC per hour (up to 24/day). Trust others to let your CRC flow through their network. A ~7% yearly decay keeps CRC circulating fairly.
                       </p>
@@ -940,9 +940,9 @@ export default function Claim() {
                               <span>Progress</span>
                               <span>{inviterStatus.crcBalanceFormatted} / 96 CRC</span>
                             </div>
-                            <div className="w-full bg-muted rounded-full h-2">
+                            <div className="w-full bg-muted h-2">
                               <div 
-                                className={`h-2 rounded-full transition-all ${inviterStatus.isReady ? 'bg-green-500' : 'bg-amber-500'}`}
+                                className={`h-2 transition-all ${inviterStatus.isReady ? 'bg-green-500' : 'bg-amber-500'}`}
                                 style={{ width: `${Math.min(100, (parseFloat(inviterStatus.crcBalanceFormatted) / 96) * 100)}%` }}
                               />
                             </div>
@@ -1189,7 +1189,7 @@ export default function Claim() {
           </TabsContent>
 
           <TabsContent value="gooddollar" className="mt-4">
-            <Card className="p-6 space-y-6">
+            <Card className="p-6 space-y-6 border-foreground">
               {isLoadingGdIdentity || isRefreshingIdentity ? (
                 <div className="text-center space-y-4">
                   <Gift className="h-12 w-12 mx-auto text-muted-foreground" />
@@ -1309,10 +1309,10 @@ export default function Claim() {
               ) : (
                 <div className="space-y-6">
                   <div className="text-center space-y-4">
-                    <Gift className="h-12 w-12 mx-auto text-muted-foreground" />
+                    <Gift className="h-12 w-12 mx-auto text-[#0055FF]" />
                     <div>
-                      <h2 className="text-lg font-semibold mb-2">Claim Daily UBI</h2>
-                      <p className="text-sm text-muted-foreground">
+                      <h2 className="text-xl text-section">Claim Daily UBI</h2>
+                      <p className="text-sm text-muted-foreground mt-2">
                         GoodDollar distributes free G$ tokens daily to verified humans.
                       </p>
                     </div>
@@ -1320,21 +1320,21 @@ export default function Claim() {
 
                   <div className="space-y-4 text-left">
                     <div className="space-y-2">
-                      <h3 className="text-xs font-semibold text-foreground/80">What is GoodDollar?</h3>
+                      <h3 className="font-label text-muted-foreground">What is GoodDollar?</h3>
                       <p className="text-sm text-muted-foreground">
                         GoodDollar is a universal basic income protocol on Celo. Everyone who verifies their identity gets the same daily G$ distribution — no exceptions.
                       </p>
                     </div>
 
                     <div className="space-y-2">
-                      <h3 className="text-xs font-semibold text-foreground/80">How it Works</h3>
+                      <h3 className="font-label text-muted-foreground">How it Works</h3>
                       <p className="text-sm text-muted-foreground">
                         Verify your face once (it's privacy-preserving — only a hash is stored). Then claim your G$ every day. Re-verify every {gdIdentity?.authenticationPeriod || 180} days.
                       </p>
                     </div>
 
                     <div className="space-y-2">
-                      <h3 className="text-xs font-semibold text-foreground/80">Get Started</h3>
+                      <h3 className="font-label text-muted-foreground">Get Started</h3>
                       <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
                         <li>Verify your face (takes ~1 minute)</li>
                         <li>Claim G$ daily right here in nanoPay</li>

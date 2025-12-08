@@ -178,14 +178,14 @@ export default function MaxFlow() {
       )}
 
       <main className="max-w-md mx-auto p-4 space-y-4">
-        <Card className="p-6 space-y-6">
+        <Card className="p-6 space-y-6 border-foreground">
           {!isLoadingMaxFlow && score === 0 ? (
             <div className="space-y-6">
               <div className="text-center space-y-4">
-                <Shield className="h-12 w-12 mx-auto text-muted-foreground" />
+                <Shield className="h-12 w-12 mx-auto text-[#0055FF]" />
                 <div>
-                  <h2 className="text-lg font-bold font-heading mb-2">Build Your Network Signal</h2>
-                  <p className="text-sm text-muted-foreground">
+                  <h2 className="text-xl text-section">Build Your Network Signal</h2>
+                  <p className="text-sm text-muted-foreground mt-2">
                     Your network signal is currently at zero. Here's how to get started.
                   </p>
                 </div>
@@ -193,21 +193,21 @@ export default function MaxFlow() {
 
               <div className="space-y-4 text-left">
                 <div className="space-y-2">
-                  <h3 className="text-xs font-semibold text-foreground/80">What is Network Signal?</h3>
+                  <h3 className="font-label text-muted-foreground">What is Network Signal?</h3>
                   <p className="text-sm text-muted-foreground">
                     Network signal measures your trust network health through max flow computation. It's not a reputation score — it's based on how well you're connected through authentic vouches.
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <h3 className="text-xs font-semibold text-foreground/80">How Vouching Works</h3>
+                  <h3 className="font-label text-muted-foreground">How Vouching Works</h3>
                   <p className="text-sm text-muted-foreground">
                     When someone vouches for you, they add you to their trust network. But here's the key: <strong>who you vouch for affects your own score</strong>. Vouching indiscriminately dilutes your network quality, so vouch thoughtfully.
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <h3 className="text-xs font-semibold text-foreground/80">Get Started</h3>
+                  <h3 className="font-label text-muted-foreground">Get Started</h3>
                   <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
                     <li>Share your address with people you trust</li>
                     <li>Ask them to vouch for you on nanoPay</li>
