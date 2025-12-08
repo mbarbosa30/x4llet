@@ -231,18 +231,15 @@ export default function Claim() {
           const freshIdentity = await getIdentityStatus(address as `0x${string}`);
           if (freshIdentity) {
             try {
-              await apiRequest('/api/gooddollar/sync-identity', {
-                method: 'POST',
-                body: JSON.stringify({
-                  walletAddress: address,
-                  isWhitelisted: freshIdentity.isWhitelisted,
-                  whitelistedRoot: freshIdentity.whitelistedRoot,
-                  lastAuthenticated: freshIdentity.lastAuthenticated?.toISOString(),
-                  authenticationPeriod: freshIdentity.authenticationPeriod,
-                  expiresAt: freshIdentity.expiresAt?.toISOString(),
-                  isExpired: freshIdentity.isExpired,
-                  daysUntilExpiry: freshIdentity.daysUntilExpiry,
-                }),
+              await apiRequest('POST', '/api/gooddollar/sync-identity', {
+                walletAddress: address,
+                isWhitelisted: freshIdentity.isWhitelisted,
+                whitelistedRoot: freshIdentity.whitelistedRoot,
+                lastAuthenticated: freshIdentity.lastAuthenticated?.toISOString(),
+                authenticationPeriod: freshIdentity.authenticationPeriod,
+                expiresAt: freshIdentity.expiresAt?.toISOString(),
+                isExpired: freshIdentity.isExpired,
+                daysUntilExpiry: freshIdentity.daysUntilExpiry,
               });
               console.log('[GoodDollar] Identity synced to backend');
             } catch (syncError) {
@@ -516,16 +513,13 @@ export default function Claim() {
         if (result.txHash && result.amountClaimed && gdClaimStatus?.currentDay) {
           try {
             await retryWithBackoff(
-              () => apiRequest('/api/gooddollar/record-claim', {
-                method: 'POST',
-                body: JSON.stringify({
-                  walletAddress: address,
-                  txHash: result.txHash,
-                  amount: result.amountClaimed,
-                  amountFormatted: result.amountClaimed,
-                  claimedDay: gdClaimStatus.currentDay,
-                  gasDripTxHash: result.gasDripTxHash,
-                }),
+              () => apiRequest('POST', '/api/gooddollar/record-claim', {
+                walletAddress: address,
+                txHash: result.txHash,
+                amount: result.amountClaimed,
+                amountFormatted: result.amountClaimed,
+                claimedDay: gdClaimStatus.currentDay,
+                gasDripTxHash: result.gasDripTxHash,
               }),
               3,
               1000

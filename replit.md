@@ -6,6 +6,9 @@ nanoPay is a minimalist Progressive Web App (PWA) designed for managing cryptocu
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+- **2025-12-08**: Fixed GoodDollar claim recording bug - corrected apiRequest function calls to use proper (method, url, data) signature instead of (url, options). This fixes the "Method is not a valid HTTP token" error that prevented claims from being saved to the database.
+
 ## System Architecture
 
 ### Frontend
