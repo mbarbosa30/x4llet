@@ -373,11 +373,11 @@ export default function MaxFlow() {
                         <div className="grid grid-cols-1 gap-2 text-sm">
                           <div className="flex justify-between items-center" data-testid="metric-flow">
                             <span className="text-muted-foreground">Flow Component</span>
-                            <span className="font-mono font-medium">{scoreData.algorithm_breakdown.flow_component.toFixed(1)}</span>
+                            <span className="font-mono font-medium">{(scoreData.algorithm_breakdown.flow_component ?? 0).toFixed(1)}</span>
                           </div>
                           <div className="flex justify-between items-center" data-testid="metric-redundancy">
                             <span className="text-muted-foreground">Redundancy Component</span>
-                            <span className="font-mono font-medium">{scoreData.algorithm_breakdown.redundancy_component.toFixed(1)}</span>
+                            <span className="font-mono font-medium">{(scoreData.algorithm_breakdown.redundancy_component ?? 0).toFixed(1)}</span>
                           </div>
                           <div className="flex justify-between items-center" data-testid="metric-paths">
                             <span className="text-muted-foreground">Disjoint Paths</span>
@@ -389,11 +389,11 @@ export default function MaxFlow() {
                           </div>
                           <div className="flex justify-between items-center" data-testid="metric-effective-redundancy">
                             <span className="text-muted-foreground">Effective Redundancy</span>
-                            <span className="font-mono font-medium">{scoreData.algorithm_breakdown.effective_redundancy.toFixed(2)}</span>
+                            <span className="font-mono font-medium">{(scoreData.algorithm_breakdown.effective_redundancy ?? 0).toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between items-center" data-testid="metric-edge-density">
                             <span className="text-muted-foreground">Edge Density</span>
-                            <span className="font-mono font-medium">{scoreData.algorithm_breakdown.edge_density.toFixed(2)}</span>
+                            <span className="font-mono font-medium">{(scoreData.algorithm_breakdown.edge_density ?? 0).toFixed(2)}</span>
                           </div>
                         </div>
                       </div>
