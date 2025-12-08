@@ -474,6 +474,7 @@ export default function Send() {
       
       toast({
         title: "Payment link created",
+        description: `${usdcAmount} USDC authorization ready to share`,
       });
     } catch (error) {
       console.error('Error creating authorization:', error);
@@ -633,9 +634,11 @@ export default function Send() {
                       try {
                         const text = await navigator.clipboard.readText();
                         if (/^0x[a-fA-F0-9]{40}$/.test(text.trim())) {
-                          setRecipient(text.trim());
+                          const addr = text.trim();
+                          setRecipient(addr);
                           toast({
                             title: "Address pasted",
+                            description: `${addr.slice(0, 6)}...${addr.slice(-4)} set as recipient`,
                           });
                         } else {
                           toast({
