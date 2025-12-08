@@ -134,7 +134,7 @@ function resolveChain(chainId: number) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  const BUILD_VERSION = '2025-12-08T10:25:00Z';
+  const BUILD_VERSION = '2025-12-08T10:30:00Z';
   
   app.get('/api/version', (req, res) => {
     res.json({
@@ -2213,7 +2213,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // MaxFlow API Proxy Routes (v1 API - https://maxflow.one/api/v1)
+  // Primary domain with fallback to Replit internal domain for DNS reliability
   const MAXFLOW_API_BASE = 'https://maxflow.one/api/v1';
+  const MAXFLOW_API_FALLBACK = 'https://TrustFlow.replit.app/api/v1'; // Fallback for DNS issues
   const MAXFLOW_REQUEST_TIMEOUT_MS = 15000; // 15 second timeout
 
   // Helper: Standard headers for MaxFlow API requests
@@ -2222,9 +2224,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     'User-Agent': 'nanoPay/1.0 (https://nanopay.live)',
   };
 
-  // Helper: Fetch with timeout and retry for MaxFlow API
+  // Helper: Check if error is a DNS resolution failure
+  function isDnsError(error: any): boolean {
+    return error?.cause?.code === 'EAI_AGAIN' || 
+           error?.code === 'EAI_AGAIN' ||
+           error?.cause?.code === 'ENOTFOUND' ||
+           error?.code === 'ENOTFOUND';
+  }
+
+  // Helper: Single fetch attempt with timeout
+  async function singleFetch(
+    url: string, 
+    options: RequestInit, 
+    headers: Record<string, string>,
+    signal: AbortSignal
+  ): Promise<globalThis.Response> {
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...headers,
+        ...options.headers as Record<string, string>,
+      },
+      signal,
+    });
+  }
+
+  // Helper: Fetch with timeout, retry, and fallback for MaxFlow API
   // Note: Returns globalThis.Response (fetch API), not Express Response
   // Implements retry logic for DNS failures (EAI_AGAIN) with exponential backoff
+  // Falls back to TrustFlow.replit.app if primary domain DNS fails
   async function fetchMaxFlow(url: string, options: RequestInit = {}, retries = 3): Promise<globalThis.Response> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), MAXFLOW_REQUEST_TIMEOUT_MS);
@@ -2247,26 +2275,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let lastError: any = null;
     for (let attempt = 0; attempt < retries; attempt++) {
       try {
-        const fetchResponse = await fetch(url, {
-          ...options,
-          headers: {
-            ...headers,
-            ...options.headers as Record<string, string>,
-          },
-          signal: composedSignal,
-        });
-        return fetchResponse;
+        return await singleFetch(url, options, headers, composedSignal);
       } catch (error: any) {
         lastError = error;
         
-        // Check if this is a DNS resolution failure
-        const isDnsError = error?.cause?.code === 'EAI_AGAIN' || 
-                          error?.code === 'EAI_AGAIN' ||
-                          error?.cause?.code === 'ENOTFOUND' ||
-                          error?.code === 'ENOTFOUND';
-        
-        // If it's the last attempt or not a DNS error, break and throw below
-        if (attempt === retries - 1 || !isDnsError) {
+        // If it's the last attempt or not a DNS error, break and try fallback below
+        if (attempt === retries - 1 || !isDnsError(error)) {
           break;
         }
         
@@ -2277,11 +2291,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
     
-    // All retries exhausted - log and throw with preserved error context
+    // If DNS error and URL uses primary domain, try fallback
+    if (isDnsError(lastError) && url.includes(MAXFLOW_API_BASE)) {
+      const fallbackUrl = url.replace(MAXFLOW_API_BASE, MAXFLOW_API_FALLBACK);
+      console.log(`[MaxFlow] Primary domain DNS failed, trying fallback: ${fallbackUrl}`);
+      
+      try {
+        const fallbackResponse = await singleFetch(fallbackUrl, options, headers, composedSignal);
+        console.log(`[MaxFlow] Fallback succeeded (status: ${fallbackResponse.status})`);
+        clearTimeout(timeoutId);
+        return fallbackResponse;
+      } catch (fallbackError: any) {
+        console.error(`[MaxFlow] Fallback also failed: ${fallbackError.cause?.code || fallbackError.code || fallbackError.message}`);
+        // Preserve original error for consistency
+      }
+    }
+    
+    // All retries and fallback exhausted
     clearTimeout(timeoutId);
     const errorCode = lastError?.cause?.code || lastError?.code;
     if (errorCode === 'EAI_AGAIN' || errorCode === 'ENOTFOUND') {
-      console.error(`[MaxFlow] DNS resolution failed after ${retries} retries (code: ${errorCode})`);
+      console.error(`[MaxFlow] DNS resolution failed after ${retries} retries and fallback (code: ${errorCode})`);
     }
     throw lastError;
   }
@@ -2408,14 +2438,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(data);
     } catch (error: any) {
-      // Check if this is a DNS error
-      const isDnsError = error?.cause?.code === 'EAI_AGAIN' || 
-                        error?.code === 'EAI_AGAIN' ||
-                        error?.cause?.code === 'ENOTFOUND' ||
-                        error?.code === 'ENOTFOUND';
+      // Check if this is a DNS error (all retries and fallback exhausted)
+      const dnsFailure = isDnsError(error);
       
-      if (isDnsError) {
-        console.error('[MaxFlow API] DNS resolution failed, attempting to return stale cache');
+      if (dnsFailure) {
+        console.error('[MaxFlow API] All endpoints failed (DNS), attempting to return stale cache');
         
         // Try to get ANY cached data, even if stale
         const staleCache = await storage.getMaxFlowScore(req.params.address);
@@ -2440,7 +2467,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(503).json({ 
         error: 'MaxFlow service temporarily unavailable',
         retryAfter: 60,
-        isDnsError,
+        isDnsError: dnsFailure,
       });
     }
   });
