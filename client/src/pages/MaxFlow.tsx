@@ -267,7 +267,7 @@ export default function MaxFlow() {
             </div>
 
             <p className="text-xs text-muted-foreground text-center">
-              Claim Experience Points to access special features, opportunities and benefits.
+              Claim Experience Points to access new features and benefit from special opportunities.
             </p>
 
             {!isLoadingXp && xpData && (
@@ -508,7 +508,7 @@ export default function MaxFlow() {
             </div>
 
             <p className="text-xs text-muted-foreground text-center">
-              Claim Experience Points to access special features, opportunities and benefits.
+              Claim Experience Points to access new features and benefit from special opportunities.
             </p>
 
             {!isLoadingXp && xpData && (
