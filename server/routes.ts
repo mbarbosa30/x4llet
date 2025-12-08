@@ -5141,8 +5141,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const scoreData = await storage.getMaxFlowScore(address);
-      const rawSignal = scoreData?.local_health || 0;
+      // First check cached score
+      let scoreData = await storage.getMaxFlowScore(address);
+      let rawSignal = scoreData?.local_health || 0;
+
+      // If no cached score or zero signal, try fetching fresh from MaxFlow API
+      if (rawSignal === 0) {
+        console.log(`[XP Claim] No cached score for ${address}, fetching fresh from MaxFlow API`);
+        try {
+          const response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/score/${address}`);
+          if (response.ok) {
+            const freshData = await response.json();
+            rawSignal = freshData?.local_health || 0;
+            if (rawSignal > 0) {
+              // Save the fresh score to cache
+              await storage.saveMaxFlowScore(address, freshData);
+              console.log(`[XP Claim] Fresh MaxFlow score for ${address}: ${rawSignal}`);
+            }
+          }
+        } catch (fetchError) {
+          console.error(`[XP Claim] Failed to fetch fresh MaxFlow score:`, fetchError);
+          // Continue with zero signal - user truly has no score
+        }
+      }
+
       const xpAmount = Math.round(Math.sqrt(rawSignal));
 
       if (xpAmount === 0) {
