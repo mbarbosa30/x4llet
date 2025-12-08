@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Scan, Shield, Loader2, Sparkles, ChevronDown } from 'lucide-react';
+import { Scan, Shield, Loader2, Sparkles, Clock, ChevronDown } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { getWallet, getPrivateKey } from '@/lib/wallet';
 import { getMaxFlowScore, getVouchNonce, submitVouch, type MaxFlowScore } from '@/lib/maxflow';
@@ -20,6 +20,15 @@ interface XpData {
   claimCount: number;
   lastClaimTime: string | null;
   canClaim: boolean;
+  nextClaimTime: string | null;
+  timeUntilNextClaim: number | null;
+}
+
+function formatTimeRemaining(ms: number): string {
+  const hours = Math.floor(ms / (1000 * 60 * 60));
+  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((ms % (1000 * 60)) / 1000);
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
 
 export default function MaxFlow() {
@@ -31,6 +40,7 @@ export default function MaxFlow() {
   const [showVouchInput, setShowVouchInput] = useState(false);
   const [vouchAddress, setVouchAddress] = useState('');
   const [showScanner, setShowScanner] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -63,6 +73,25 @@ export default function MaxFlow() {
     queryKey: ['/api/xp', address],
     enabled: !!address,
   });
+
+  useEffect(() => {
+    if (xpData?.timeUntilNextClaim && xpData.timeUntilNextClaim > 0) {
+      setTimeRemaining(xpData.timeUntilNextClaim);
+      const interval = setInterval(() => {
+        setTimeRemaining((prev) => {
+          if (prev === null || prev <= 1000) {
+            clearInterval(interval);
+            queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
+            return 0;
+          }
+          return prev - 1000;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setTimeRemaining(null);
+    }
+  }, [xpData?.timeUntilNextClaim, address, queryClient]);
 
   const claimXpMutation = useMutation({
     mutationFn: async () => {
@@ -234,28 +263,39 @@ export default function MaxFlow() {
             </div>
 
             <p className="text-sm text-muted-foreground text-center">
-              Claim XP based on your trust signal. More signal = exponentially more XP.
+              Claim daily XP based on your trust signal. More signal = exponentially more XP.
             </p>
 
-            {!isLoadingXp && (
-              <Button
-                onClick={() => claimXpMutation.mutate()}
-                disabled={claimXpMutation.isPending || score === 0}
-                className="w-full"
-                data-testid="button-claim-xp"
-              >
-                {claimXpMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    CLAIMING...
-                  </>
+            {!isLoadingXp && xpData && (
+              <div className="space-y-3">
+                {xpData.canClaim ? (
+                  <Button
+                    onClick={() => claimXpMutation.mutate()}
+                    disabled={claimXpMutation.isPending}
+                    className="w-full"
+                    data-testid="button-claim-xp"
+                  >
+                    {claimXpMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        CLAIMING...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        CLAIM {((score * score) / 100).toFixed(2)} XP
+                      </>
+                    )}
+                  </Button>
                 ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    CLAIM {((score * score) / 100).toFixed(2)} XP
-                  </>
+                  <div className="flex items-center justify-center gap-2 py-3 px-4 bg-muted border border-foreground/10">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-mono text-sm text-muted-foreground" data-testid="text-xp-cooldown">
+                      {timeRemaining !== null ? formatTimeRemaining(timeRemaining) : '--'}
+                    </span>
+                  </div>
                 )}
-              </Button>
+              </div>
             )}
           </Card>
         )}
