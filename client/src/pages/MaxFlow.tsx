@@ -249,29 +249,32 @@ export default function MaxFlow() {
 
       <main className="max-w-md mx-auto p-4 space-y-4">
         {!isLoadingMaxFlow && score > 0 && (
-          <Card className="p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-amber-500" />
-                <span className="font-medium">XP Balance</span>
-              </div>
-              <div className="text-right">
-                {isLoadingXp ? (
-                  <span className="text-2xl font-bold tabular-nums">--</span>
-                ) : (
-                  <span className="text-2xl font-bold tabular-nums" data-testid="text-xp-balance">
-                    {xpData?.totalXp ?? 0}
-                  </span>
-                )}
+          <Card className="p-6 space-y-6 border-foreground">
+            <div className="flex items-center gap-3">
+              <Sparkles className="h-10 w-10 text-amber-500 shrink-0" />
+              <div>
+                <h2 className="text-xl text-section">Experience</h2>
+                <span className="font-label text-muted-foreground">// XP_REWARDS</span>
               </div>
             </div>
 
-            <p className="text-xs text-muted-foreground text-center">
-              Claim Experience Points to access new features and benefit from special opportunities.
+            <div className="text-center py-2">
+              {isLoadingXp ? (
+                <p className="font-mono text-5xl font-bold">--</p>
+              ) : (
+                <p className="font-mono text-5xl font-bold tabular-nums" data-testid="text-xp-balance">
+                  {(xpData?.totalXp ?? 0).toFixed(2)}
+                </p>
+              )}
+              <span className="text-sm text-muted-foreground">total XP earned</span>
+            </div>
+
+            <p className="text-sm text-muted-foreground text-center">
+              Claim daily XP based on your trust signal. More signal = more XP.
             </p>
 
             {!isLoadingXp && xpData && (
-              <>
+              <div className="space-y-3">
                 {xpData.canClaim ? (
                   <Button
                     onClick={() => claimXpMutation.mutate()}
@@ -282,30 +285,30 @@ export default function MaxFlow() {
                     {claimXpMutation.isPending ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        Claiming...
+                        CLAIMING...
                       </>
                     ) : (
                       <>
                         <Sparkles className="h-4 w-4 mr-2" />
-                        Claim {Math.round(Math.sqrt(score))} XP
+                        CLAIM {Math.sqrt(score).toFixed(2)} XP
                       </>
                     )}
                   </Button>
                 ) : (
-                  <div className="flex items-center justify-center gap-2 py-2 px-4 bg-muted rounded-md">
+                  <div className="flex items-center justify-center gap-2 py-3 px-4 bg-muted border border-foreground/10">
                     <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground" data-testid="text-xp-cooldown">
-                      Next claim in {timeRemaining !== null ? formatTimeRemaining(timeRemaining) : '--'}
+                    <span className="font-mono text-sm text-muted-foreground" data-testid="text-xp-cooldown">
+                      {timeRemaining !== null ? formatTimeRemaining(timeRemaining) : '--'}
                     </span>
                   </div>
                 )}
                 
                 {xpData.claimCount > 0 && (
-                  <p className="text-xs text-muted-foreground text-center" data-testid="text-xp-claim-count">
-                    {xpData.claimCount} claim{xpData.claimCount !== 1 ? 's' : ''} total
+                  <p className="font-label text-muted-foreground text-center" data-testid="text-xp-claim-count">
+                    {xpData.claimCount} CLAIM{xpData.claimCount !== 1 ? 'S' : ''} TOTAL
                   </p>
                 )}
-              </>
+              </div>
             )}
           </Card>
         )}
