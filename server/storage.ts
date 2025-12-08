@@ -3262,11 +3262,11 @@ export class DbStorage extends MemStorage {
         .from(gooddollarIdentities)
         .where(eq(gooddollarIdentities.isWhitelisted, true));
 
-      // Get total claims and sum
+      // Get total claims and sum (amount is raw BigInt with 18 decimals, so divide by 10^18)
       const claimStats = await db.execute(sql`
         SELECT 
           COUNT(*) as "totalClaims",
-          COALESCE(SUM(CAST(amount AS NUMERIC)), 0) as "totalAmount"
+          COALESCE(SUM(CAST(amount AS NUMERIC) / 1000000000000000000), 0) as "totalAmount"
         FROM gooddollar_claims
       `);
 
