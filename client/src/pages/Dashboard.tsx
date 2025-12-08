@@ -1153,11 +1153,12 @@ export default function Dashboard() {
                       <div className="text-sm text-muted-foreground">
                         <p>Score ranges:</p>
                         <ul className="list-disc list-inside mt-1 space-y-1">
-                          <li><strong>0-1:</strong> New or isolated accounts</li>
-                          <li><strong>1-3:</strong> Some network connections</li>
-                          <li><strong>3-5:</strong> Well-connected users</li>
-                          <li><strong>5-10:</strong> Highly trusted accounts</li>
-                          <li><strong>10+:</strong> Core network participants</li>
+                          <li><strong>0-5:</strong> New or isolated accounts</li>
+                          <li><strong>5-15:</strong> Some network connections</li>
+                          <li><strong>15-30:</strong> Well-connected users</li>
+                          <li><strong>30-50:</strong> Highly trusted accounts</li>
+                          <li><strong>50-100:</strong> Core network participants</li>
+                          <li><strong>100+:</strong> Network hubs</li>
                         </ul>
                       </div>
                     </CardContent>
