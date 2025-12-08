@@ -9,7 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import { 
   Loader2, Lock, Wallet, Users, TrendingUp, Activity, 
   DollarSign, Gift, Zap, Network, PiggyBank, Trophy,
-  BarChart3, PieChart, RefreshCw, Plus
+  BarChart3, PieChart, RefreshCw, Plus, Heart, Sparkles,
+  CheckCircle2, Clock, Coins, TrendingDown, Percent
 } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar, PieChart as RePieChart, Pie, Cell,
@@ -83,6 +84,20 @@ interface MaxFlowAnalytics {
   averageScore: number;
 }
 
+interface GoodDollarAnalytics {
+  totalVerifiedUsers: number;
+  totalClaims: number;
+  totalGdClaimed: string;
+  totalGdClaimedFormatted: string;
+  recentClaims: Array<{
+    walletAddress: string;
+    amountFormatted: string;
+    claimedDay: number;
+    createdAt: string;
+  }>;
+  activeClaimers: number;
+}
+
 const CHAIN_NAMES: Record<number, string> = {
   8453: 'Base',
   42220: 'Celo',
@@ -109,6 +124,15 @@ function formatNumber(num: number): string {
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
   if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
   return num.toString();
+}
+
+function safeBigInt(value: string | number | undefined | null): bigint {
+  if (value === undefined || value === null || value === '') return BigInt(0);
+  try {
+    return BigInt(typeof value === 'string' ? value : Math.floor(value));
+  } catch {
+    return BigInt(0);
+  }
 }
 
 function createAuthHeader(username: string, password: string): string {
@@ -152,9 +176,11 @@ export default function Dashboard() {
   const [aaveAnalytics, setAaveAnalytics] = useState<AaveAnalytics | null>(null);
   const [facilitatorAnalytics, setFacilitatorAnalytics] = useState<FacilitatorAnalytics | null>(null);
   const [maxflowAnalytics, setMaxflowAnalytics] = useState<MaxFlowAnalytics | null>(null);
+  const [gooddollarAnalytics, setGooddollarAnalytics] = useState<GoodDollarAnalytics | null>(null);
 
   const [donationAmount, setDonationAmount] = useState('');
   const [isDonating, setIsDonating] = useState(false);
+  const [timePeriod, setTimePeriod] = useState<7 | 30 | 90>(30);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -186,7 +212,7 @@ export default function Dashboard() {
     }
   };
 
-  const loadAllData = async (auth: string) => {
+  const loadAllData = async (auth: string, days: number = timePeriod) => {
     setIsLoading(true);
     try {
       const [
@@ -198,15 +224,17 @@ export default function Dashboard() {
         aaveRes,
         facilitatorRes,
         maxflowRes,
+        gooddollarRes,
       ] = await Promise.all([
         authenticatedRequest('GET', '/api/admin/analytics/overview', auth),
-        authenticatedRequest('GET', '/api/admin/analytics/wallet-growth?days=30', auth),
-        authenticatedRequest('GET', '/api/admin/analytics/transaction-volume?days=30', auth),
+        authenticatedRequest('GET', `/api/admin/analytics/wallet-growth?days=${days}`, auth),
+        authenticatedRequest('GET', `/api/admin/analytics/transaction-volume?days=${days}`, auth),
         authenticatedRequest('GET', '/api/admin/analytics/chain-breakdown', auth),
         authenticatedRequest('GET', '/api/admin/analytics/pool', auth),
         authenticatedRequest('GET', '/api/admin/analytics/aave', auth),
         authenticatedRequest('GET', '/api/admin/analytics/facilitator', auth),
         authenticatedRequest('GET', '/api/admin/analytics/maxflow', auth),
+        authenticatedRequest('GET', '/api/admin/analytics/gooddollar', auth),
       ]);
 
       setOverview(await overviewRes.json());
@@ -217,6 +245,7 @@ export default function Dashboard() {
       setAaveAnalytics(await aaveRes.json());
       setFacilitatorAnalytics(await facilitatorRes.json());
       setMaxflowAnalytics(await maxflowRes.json());
+      setGooddollarAnalytics(await gooddollarRes.json());
       setLastRefresh(new Date());
     } catch (error) {
       console.error('Failed to load analytics:', error);
@@ -367,7 +396,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-[1600px] mx-auto p-6 space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold font-heading tracking-tight">Analytics Dashboard</h1>
             <p className="text-muted-foreground">
@@ -379,10 +408,30 @@ export default function Dashboard() {
               )}
             </p>
           </div>
-          <Button onClick={() => loadAllData(authHeader)} disabled={isLoading} data-testid="button-refresh-analytics">
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center border rounded-md overflow-hidden">
+              {([7, 30, 90] as const).map((days) => (
+                <Button
+                  key={days}
+                  variant={timePeriod === days ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => {
+                    setTimePeriod(days);
+                    loadAllData(authHeader, days);
+                  }}
+                  disabled={isLoading}
+                  className="rounded-none border-0"
+                  data-testid={`button-period-${days}d`}
+                >
+                  {days}d
+                </Button>
+              ))}
+            </div>
+            <Button onClick={() => loadAllData(authHeader)} disabled={isLoading} data-testid="button-refresh-analytics">
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {isLoading && !overview ? (
@@ -478,13 +527,14 @@ export default function Dashboard() {
             </div>
 
             <Tabs defaultValue="growth" className="space-y-4">
-              <TabsList className="grid grid-cols-6 w-full max-w-3xl">
+              <TabsList className="grid grid-cols-7 w-full max-w-4xl">
                 <TabsTrigger value="growth" data-testid="tab-growth">Growth</TabsTrigger>
                 <TabsTrigger value="chains" data-testid="tab-chains">Chains</TabsTrigger>
                 <TabsTrigger value="pool" data-testid="tab-pool">Pool</TabsTrigger>
                 <TabsTrigger value="yield" data-testid="tab-yield">Yield</TabsTrigger>
                 <TabsTrigger value="facilitator" data-testid="tab-facilitator">Facilitator</TabsTrigger>
                 <TabsTrigger value="trust" data-testid="tab-trust">Trust</TabsTrigger>
+                <TabsTrigger value="ubi" data-testid="tab-ubi">UBI</TabsTrigger>
               </TabsList>
 
               <TabsContent value="growth" className="space-y-4">
@@ -495,7 +545,7 @@ export default function Dashboard() {
                         <TrendingUp className="h-5 w-5" />
                         Wallet Registrations
                       </CardTitle>
-                      <CardDescription>New wallets created over the last 30 days</CardDescription>
+                      <CardDescription>New wallets created over the last {timePeriod} days</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="h-[300px]">
@@ -527,7 +577,7 @@ export default function Dashboard() {
                         <BarChart3 className="h-5 w-5" />
                         Transaction Volume
                       </CardTitle>
-                      <CardDescription>Daily USDC volume over the last 30 days</CardDescription>
+                      <CardDescription>Daily USDC volume over the last {timePeriod} days</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="h-[300px]">
@@ -782,14 +832,77 @@ export default function Dashboard() {
               </TabsContent>
 
               <TabsContent value="yield" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Card data-testid="card-tvl">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 dark:bg-blue-900">
+                          <PiggyBank className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">TVL in Aave</p>
+                          <p className="text-2xl font-bold" data-testid="metric-tvl">
+                            {formatMicroUsdc(
+                              (safeBigInt(aaveAnalytics?.totalDeposits) - safeBigInt(aaveAnalytics?.totalWithdrawals)).toString()
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card data-testid="card-apy">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-100 dark:bg-green-900">
+                          <Percent className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Current APY</p>
+                          <p className="text-2xl font-bold text-green-600" data-testid="metric-apy">~4.5%</p>
+                          <p className="text-xs text-muted-foreground">Aave USDC on Celo</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card data-testid="card-savers">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-purple-100 dark:bg-purple-900">
+                          <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Active Savers</p>
+                          <p className="text-2xl font-bold" data-testid="metric-savers">{overview?.poolParticipants || 0}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card data-testid="card-pending">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-orange-100 dark:bg-orange-900">
+                          <Activity className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Pending Ops</p>
+                          <p className="text-2xl font-bold" data-testid="metric-pending-ops">{aaveAnalytics?.activeOperations || 0}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <PiggyBank className="h-5 w-5" />
-                        Aave Operations
+                        Aave Operations by Chain
                       </CardTitle>
-                      <CardDescription>Deposits and withdrawals by chain</CardDescription>
+                      <CardDescription>Deposits and withdrawals comparison</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="h-[300px]">
@@ -813,35 +926,101 @@ export default function Dashboard() {
 
                   <Card>
                     <CardHeader>
-                      <CardTitle>Yield Summary</CardTitle>
+                      <CardTitle className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5" />
+                        Savings Flow Summary
+                      </CardTitle>
+                      <CardDescription>Total deposit and withdrawal activity</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 bg-green-50 dark:bg-green-950 ">
+                        <div className="p-4 bg-gradient-to-br from-green-500/10 to-green-500/5 text-center">
+                          <TrendingUp className="h-6 w-6 mx-auto mb-2 text-green-500" />
                           <p className="text-3xl font-bold text-green-600">{formatMicroUsdc(aaveAnalytics?.totalDeposits || '0')}</p>
                           <p className="text-sm text-muted-foreground">Total Deposits</p>
                         </div>
-                        <div className="p-4 bg-red-50 dark:bg-red-950 ">
+                        <div className="p-4 bg-gradient-to-br from-red-500/10 to-red-500/5 text-center">
+                          <TrendingDown className="h-6 w-6 mx-auto mb-2 text-red-500" />
                           <p className="text-3xl font-bold text-red-600">{formatMicroUsdc(aaveAnalytics?.totalWithdrawals || '0')}</p>
                           <p className="text-sm text-muted-foreground">Total Withdrawals</p>
                         </div>
                       </div>
-                      <div className="p-4 bg-blue-50 dark:bg-blue-950 ">
-                        <p className="text-3xl font-bold text-blue-600">
+
+                      <div className="p-4 bg-gradient-to-br from-primary/10 to-primary/5">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">Net Flow</span>
+                          <Coins className="h-4 w-4 text-primary" />
+                        </div>
+                        <p className="text-3xl font-bold text-primary">
                           {formatMicroUsdc(
-                            (BigInt(aaveAnalytics?.totalDeposits || '0') - BigInt(aaveAnalytics?.totalWithdrawals || '0')).toString()
+                            (safeBigInt(aaveAnalytics?.totalDeposits) - safeBigInt(aaveAnalytics?.totalWithdrawals)).toString()
                           )}
                         </p>
-                        <p className="text-sm text-muted-foreground">Net Position (TVL in Aave)</p>
+                        <p className="text-xs text-muted-foreground mt-1">Currently held in Aave lending pools</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={aaveAnalytics?.activeOperations ? 'default' : 'secondary'}>
-                          {aaveAnalytics?.activeOperations || 0} pending operations
-                        </Badge>
+
+                      <div className="p-3 bg-muted/50">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Est. Annual Yield</span>
+                          <span className="font-medium text-green-600">
+                            {formatMicroUsdc(
+                              Math.round(
+                                (Number(safeBigInt(aaveAnalytics?.totalDeposits) - safeBigInt(aaveAnalytics?.totalWithdrawals)) * 0.045)
+                              ).toString()
+                            )}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">Based on ~4.5% APY</p>
                       </div>
                     </CardContent>
                   </Card>
                 </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Chain Details</CardTitle>
+                    <CardDescription>Detailed breakdown of savings activity per chain</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {aaveAnalytics?.operationsByChain.map(chain => {
+                        const netFlow = safeBigInt(chain.deposits) - safeBigInt(chain.withdrawals);
+                        return (
+                          <Card key={chain.chainId} className="bg-muted/50">
+                            <CardContent className="pt-4">
+                              <div className="flex items-center gap-2 mb-3">
+                                <div 
+                                  className="w-3 h-3 rounded-full" 
+                                  style={{ backgroundColor: CHAIN_COLORS[chain.chainId] }} 
+                                />
+                                <span className="font-semibold">{CHAIN_NAMES[chain.chainId]}</span>
+                              </div>
+                              <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Deposits</span>
+                                  <span className="font-medium text-green-600">{formatMicroUsdc(chain.deposits)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Withdrawals</span>
+                                  <span className="font-medium text-red-600">{formatMicroUsdc(chain.withdrawals)}</span>
+                                </div>
+                                <div className="flex justify-between border-t pt-2">
+                                  <span className="text-muted-foreground">Net TVL</span>
+                                  <span className={`font-bold ${netFlow >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                                    {formatMicroUsdc(netFlow.toString())}
+                                  </span>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                      {!aaveAnalytics?.operationsByChain.length && (
+                        <p className="text-center text-muted-foreground py-8 col-span-3">No Aave operations recorded yet</p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               </TabsContent>
 
               <TabsContent value="facilitator" className="space-y-4">
@@ -980,6 +1159,125 @@ export default function Dashboard() {
                           <li><strong>5-10:</strong> Highly trusted accounts</li>
                           <li><strong>10+:</strong> Core network participants</li>
                         </ul>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="ubi" className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Heart className="h-5 w-5 text-green-500" />
+                        GoodDollar UBI Overview
+                      </CardTitle>
+                      <CardDescription>Universal Basic Income claiming statistics</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 bg-gradient-to-br from-green-500/10 to-green-500/5 text-center">
+                          <CheckCircle2 className="h-6 w-6 mx-auto mb-2 text-green-500" />
+                          <p className="text-3xl font-bold">{gooddollarAnalytics?.totalVerifiedUsers || 0}</p>
+                          <p className="text-sm text-muted-foreground">Verified Users</p>
+                        </div>
+                        <div className="p-4 bg-gradient-to-br from-blue-500/10 to-blue-500/5 text-center">
+                          <Sparkles className="h-6 w-6 mx-auto mb-2 text-blue-500" />
+                          <p className="text-3xl font-bold">{gooddollarAnalytics?.activeClaimers || 0}</p>
+                          <p className="text-sm text-muted-foreground">Active Claimers</p>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-gradient-to-br from-primary/10 to-primary/5">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm text-muted-foreground">Total G$ Distributed</span>
+                          <Coins className="h-4 w-4 text-primary" />
+                        </div>
+                        <p className="text-3xl font-bold text-primary">
+                          {gooddollarAnalytics?.totalGdClaimedFormatted || '0 G$'}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Across {gooddollarAnalytics?.totalClaims || 0} total claims
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Clock className="h-5 w-5" />
+                        Recent Claims
+                      </CardTitle>
+                      <CardDescription>Latest GoodDollar UBI claim activity</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {gooddollarAnalytics?.recentClaims.length ? (
+                          gooddollarAnalytics.recentClaims.slice(0, 5).map((claim, index) => (
+                            <div 
+                              key={index} 
+                              className="flex items-center justify-between p-3 bg-muted/50"
+                              data-testid={`claim-item-${index}`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-green-500/20 flex items-center justify-center">
+                                  <Heart className="h-4 w-4 text-green-500" />
+                                </div>
+                                <div>
+                                  <p className="font-mono text-sm">
+                                    {claim.walletAddress.slice(0, 6)}...{claim.walletAddress.slice(-4)}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Day {claim.claimedDay}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <Badge variant="secondary">{claim.amountFormatted}</Badge>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {new Date(claim.createdAt).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-center text-muted-foreground py-8">No claims recorded yet</p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="lg:col-span-2">
+                    <CardHeader>
+                      <CardTitle>About GoodDollar UBI</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="p-4 bg-gradient-to-br from-green-500/10 to-green-500/5">
+                        <p className="text-sm text-muted-foreground">
+                          GoodDollar is a decentralized Universal Basic Income protocol that allows verified users 
+                          to claim G$ tokens daily. Users must complete face verification to prove they are unique 
+                          humans and prevent sybil attacks. Claims are processed on the Celo blockchain.
+                        </p>
+                        <div className="grid grid-cols-3 gap-4 mt-4">
+                          <div className="text-center">
+                            <p className="text-lg font-bold">{gooddollarAnalytics?.totalVerifiedUsers || 0}</p>
+                            <p className="text-xs text-muted-foreground">Verified Identities</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-lg font-bold">{gooddollarAnalytics?.totalClaims || 0}</p>
+                            <p className="text-xs text-muted-foreground">Total Claims</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-lg font-bold">
+                              {gooddollarAnalytics?.totalVerifiedUsers 
+                                ? ((gooddollarAnalytics.activeClaimers / gooddollarAnalytics.totalVerifiedUsers) * 100).toFixed(1)
+                                : 0}%
+                            </p>
+                            <p className="text-xs text-muted-foreground">Active Rate</p>
+                          </div>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
