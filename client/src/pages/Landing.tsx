@@ -252,6 +252,19 @@ export default function Landing() {
             </div>
           </div>
 
+          <div className="text-center py-6">
+            <span className="text-sm text-muted-foreground">built by </span>
+            <a 
+              href="https://x.com/mbarrbosa" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-2"
+              data-testid="link-builder"
+            >
+              Marco
+            </a>
+          </div>
+
         </div>
       </div>
       <Footer />
