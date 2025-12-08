@@ -184,6 +184,7 @@ async function fetchTransactionsFromEtherscan(address: string, chainId: number):
     8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',  // Base mainnet
     42220: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C',  // Celo mainnet
     100: '0x2a22f9c3b484c3629090FeED35F17Ff8F88f76F0',  // Gnosis USDC.e (Circle standard)
+    42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',  // Arbitrum native USDC
   };
 
   const usdcAddress = usdcAddresses[chainId];
@@ -192,7 +193,7 @@ async function fetchTransactionsFromEtherscan(address: string, chainId: number):
     return [];
   }
 
-  const chainName = chainId === 8453 ? 'Base' : chainId === 42220 ? 'Celo' : chainId === 100 ? 'Gnosis' : `Chain ${chainId}`;
+  const chainName = chainId === 8453 ? 'Base' : chainId === 42220 ? 'Celo' : chainId === 100 ? 'Gnosis' : chainId === 42161 ? 'Arbitrum' : `Chain ${chainId}`;
 
   // Try unified Etherscan v2 API first (if API key available)
   if (etherscanApiKey) {
@@ -231,6 +232,11 @@ async function fetchTransactionsFromEtherscan(address: string, chainId: number):
       url: 'https://api.gnosisscan.io/api',
       keyEnv: 'GNOSISSCAN_API_KEY',
       name: 'GnosisScan',
+    },
+    42161: {
+      url: 'https://api.arbiscan.io/api',
+      keyEnv: 'ARBISCAN_API_KEY',
+      name: 'Arbiscan',
     },
   };
 
