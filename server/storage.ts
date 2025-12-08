@@ -3143,11 +3143,16 @@ export class DbStorage extends MemStorage {
       }).filter(s => s > 0);
 
       const ranges = [
-        { range: '0-5', min: 0, max: 5 },
-        { range: '5-15', min: 5, max: 15 },
-        { range: '15-30', min: 15, max: 30 },
-        { range: '30-50', min: 30, max: 50 },
-        { range: '50-100', min: 50, max: 101 },
+        { range: '0-10', min: 0, max: 10 },
+        { range: '10-20', min: 10, max: 20 },
+        { range: '20-30', min: 20, max: 30 },
+        { range: '30-40', min: 30, max: 40 },
+        { range: '40-50', min: 40, max: 50 },
+        { range: '50-60', min: 50, max: 60 },
+        { range: '60-70', min: 60, max: 70 },
+        { range: '70-80', min: 70, max: 80 },
+        { range: '80-90', min: 80, max: 90 },
+        { range: '90-100', min: 90, max: 101 },
       ];
 
       const distribution = ranges.map(r => ({
