@@ -1323,13 +1323,23 @@ export class DbStorage extends MemStorage {
       const rawData = JSON.parse(cached[0].scoreData);
       
       // Check if MaxFlow's own cached data is stale (>1 hour old)
-      if (rawData.cached && rawData.cached_at) {
-        const cachedAtTime = new Date(rawData.cached_at).getTime();
-        const dataAge = Date.now() - cachedAtTime;
-        if (dataAge > MAXFLOW_DATA_STALE_MS) {
-          console.log(`[DB Cache] MaxFlow data stale (cached_at: ${rawData.cached_at}, age: ${Math.round(dataAge / 1000 / 60)}min), forcing refresh for ${address}`);
-          return null; // This will trigger a fresh fetch with force_refresh=true
-        }
+      // Also treat missing/unparsable cached_at as stale to force refresh
+      const cachedAt = rawData.cached_at;
+      if (!cachedAt || typeof cachedAt !== 'string') {
+        console.log(`[DB Cache] MaxFlow data missing cached_at, treating as stale for ${address}`);
+        return null;
+      }
+      
+      const cachedAtTime = new Date(cachedAt).getTime();
+      if (isNaN(cachedAtTime)) {
+        console.log(`[DB Cache] MaxFlow data has unparsable cached_at (${cachedAt}), treating as stale for ${address}`);
+        return null;
+      }
+      
+      const dataAge = Date.now() - cachedAtTime;
+      if (dataAge > MAXFLOW_DATA_STALE_MS) {
+        console.log(`[DB Cache] MaxFlow data stale (cached_at: ${cachedAt}, age: ${Math.round(dataAge / 1000 / 60)}min), forcing refresh for ${address}`);
+        return null; // This will trigger a fresh fetch with force_refresh=true
       }
 
       console.log(`[DB Cache] Returning cached MaxFlow score for ${address} (age: ${Math.round(cacheAge / 1000)}s)`);
