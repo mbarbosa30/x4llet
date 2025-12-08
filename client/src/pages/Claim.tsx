@@ -904,6 +904,10 @@ export default function Claim() {
                     </div>
                   </div>
 
+                  <p className="text-sm text-muted-foreground text-center">
+                    Circles is a community-driven basic income on Gnosis Chain. Register to mint your own personal currency and build a web of trust with others.
+                  </p>
+
                   {!showCustomInviter ? (
                     <div className="space-y-4">
                       {isLoadingInviter ? (
@@ -1319,6 +1323,10 @@ export default function Claim() {
                       <span className="text-xs text-muted-foreground">day validity</span>
                     </div>
                   </div>
+
+                  <p className="text-sm text-muted-foreground text-center">
+                    GoodDollar is a free universal basic income token on Celo. Verify your identity once with a quick face scan to claim G$ tokens daily.
+                  </p>
 
                   <Button
                     className="w-full"

@@ -259,6 +259,18 @@ export default function MaxFlow() {
                 <span className="text-sm text-muted-foreground">network signal</span>
               </div>
 
+              <div className="space-y-2 text-center">
+                <p className="text-sm text-muted-foreground">
+                  MaxFlow measures your trust network health through a sybil-resistant graph signal.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Build your signal by getting vouched to unlock XP claiming based on your score.
+                </p>
+                <p className="text-xs text-muted-foreground/70 italic">
+                  More details on XP utility and benefits coming soon.
+                </p>
+              </div>
+
               <p className="text-sm text-muted-foreground text-center" data-testid="text-user-address">
                 Share <span className="font-mono">{address?.slice(0, 6)}...{address?.slice(-4)}</span> to get vouched
               </p>
