@@ -134,7 +134,7 @@ function resolveChain(chainId: number) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  const BUILD_VERSION = '2025-12-08T10:05:00Z';
+  const BUILD_VERSION = '2025-12-08T10:10:00Z';
   
   app.get('/api/version', (req, res) => {
     res.json({
@@ -2312,13 +2312,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      res.json({
+      // Capture detailed error information including underlying cause
+      const errorDetails: any = {
         debug: true,
         error: error instanceof Error ? error.message : String(error),
         errorType: error instanceof Error ? error.name : 'Unknown',
         stack: error instanceof Error ? error.stack : undefined,
         timestamp: new Date().toISOString(),
-      });
+      };
+      
+      // Check for underlying cause (common in fetch failures)
+      if (error && typeof error === 'object' && 'cause' in error) {
+        const cause = (error as any).cause;
+        errorDetails.cause = {
+          message: cause?.message,
+          code: cause?.code,
+          errno: cause?.errno,
+          syscall: cause?.syscall,
+          address: cause?.address,
+          port: cause?.port,
+        };
+      }
+      
+      res.json(errorDetails);
     }
   });
 
