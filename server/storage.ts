@@ -3147,8 +3147,7 @@ export class DbStorage extends MemStorage {
         { range: '5-15', min: 5, max: 15 },
         { range: '15-30', min: 15, max: 30 },
         { range: '30-50', min: 30, max: 50 },
-        { range: '50-100', min: 50, max: 100 },
-        { range: '100+', min: 100, max: Infinity },
+        { range: '50-100', min: 50, max: 101 },
       ];
 
       const distribution = ranges.map(r => ({

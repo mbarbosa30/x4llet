@@ -1684,7 +1684,6 @@ export default function Dashboard() {
                           <li><strong>15-30:</strong> Well-connected users</li>
                           <li><strong>30-50:</strong> Highly trusted accounts</li>
                           <li><strong>50-100:</strong> Core network participants</li>
-                          <li><strong>100+:</strong> Network hubs</li>
                         </ul>
                       </div>
                     </CardContent>
