@@ -5107,31 +5107,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const xpBalance = await storage.getXpBalance(address);
-      
-      const CLAIM_COOLDOWN_MS = 24 * 60 * 60 * 1000;
-      let canClaim = true;
-      let nextClaimTime: string | null = null;
-      let timeUntilNextClaim: number | null = null;
 
-      if (xpBalance?.lastClaimTime) {
-        const timeSinceLastClaim = Date.now() - xpBalance.lastClaimTime.getTime();
-        if (timeSinceLastClaim < CLAIM_COOLDOWN_MS) {
-          canClaim = false;
-          const nextTime = new Date(xpBalance.lastClaimTime.getTime() + CLAIM_COOLDOWN_MS);
-          nextClaimTime = nextTime.toISOString();
-          timeUntilNextClaim = CLAIM_COOLDOWN_MS - timeSinceLastClaim;
-        }
-      }
+      // Check cached MaxFlow score to determine if user can claim
+      const scoreData = await storage.getMaxFlowScore(address);
+      const hasScore = (scoreData?.local_health || 0) > 0;
 
       // Convert centi-XP to decimal for display (divide by 100)
       const totalXpCenti = xpBalance?.totalXp || 0;
+      
+      // No cooldown - users can claim anytime if they have signal > 0
       res.json({
         totalXp: totalXpCenti / 100,
         claimCount: xpBalance?.claimCount || 0,
         lastClaimTime: xpBalance?.lastClaimTime?.toISOString() || null,
-        canClaim,
-        nextClaimTime,
-        timeUntilNextClaim,
+        canClaim: hasScore, // True if user has MaxFlow score > 0
       });
     } catch (error) {
       console.error('[XP] Error fetching XP balance:', error);
@@ -5147,20 +5136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid wallet address' });
       }
 
-      const xpBalance = await storage.getXpBalance(address);
-      const CLAIM_COOLDOWN_MS = 24 * 60 * 60 * 1000;
-
-      if (xpBalance?.lastClaimTime) {
-        const timeSinceLastClaim = Date.now() - xpBalance.lastClaimTime.getTime();
-        if (timeSinceLastClaim < CLAIM_COOLDOWN_MS) {
-          const nextTime = new Date(xpBalance.lastClaimTime.getTime() + CLAIM_COOLDOWN_MS);
-          return res.status(429).json({ 
-            error: 'Claim cooldown active',
-            nextClaimTime: nextTime.toISOString(),
-            timeUntilNextClaim: CLAIM_COOLDOWN_MS - timeSinceLastClaim,
-          });
-        }
-      }
+      // No cooldown - users can claim anytime
 
       // First check cached score
       let scoreData = await storage.getMaxFlowScore(address);
@@ -5186,9 +5162,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Calculate XP with 2 decimal precision: √signal, stored as centi-XP (×100)
-      const xpDecimal = Math.sqrt(rawSignal);
-      const xpCenti = Math.round(xpDecimal * 100); // e.g., 2.45 → 245
+      // Calculate XP: (signal² / 100), stored as centi-XP (×100)
+      const xpDecimal = (rawSignal * rawSignal) / 100;
+      const xpCenti = Math.round(xpDecimal * 100); // e.g., 25.00 → 2500
 
       if (xpCenti === 0) {
         return res.status(400).json({ 
