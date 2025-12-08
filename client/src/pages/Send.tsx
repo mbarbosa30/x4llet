@@ -776,11 +776,38 @@ export default function Send() {
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Sending</div>
                 <div className="text-2xl font-semibold">{usdcAmount} USDC</div>
+                {currency !== 'USD' && rate > 0 && parseFloat(usdcAmount) > 0 && (
+                  <div className="text-sm text-muted-foreground mt-1" data-testid="text-fiat-equivalent">
+                    ≈ {(parseFloat(usdcAmount) * rate).toLocaleString(undefined, { maximumFractionDigits: rate >= 100 ? 0 : 2 })} {currency}
+                  </div>
+                )}
               </div>
 
               <div className="border-t pt-4">
                 <div className="text-sm text-muted-foreground mb-1">To</div>
                 <div className="font-mono text-sm break-all">{recipient}</div>
+              </div>
+
+              <div className="border-t pt-4">
+                <div className="text-sm text-muted-foreground mb-1">Network</div>
+                <div className="flex items-center gap-2" data-testid="text-network">
+                  <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold text-white ${
+                    network === 'base' ? 'bg-blue-500' : 
+                    network === 'celo' ? 'bg-yellow-500' : 
+                    'bg-green-600'
+                  }`}>
+                    {network === 'base' ? 'B' : network === 'celo' ? 'C' : 'G'}
+                  </span>
+                  <span className="text-sm font-medium capitalize">{network}</span>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <div className="text-sm text-muted-foreground mb-1">Fee</div>
+                <div className="flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400" data-testid="text-no-fees">
+                  <span>No fees</span>
+                  <span className="text-xs text-muted-foreground font-normal">(Gasless transfer)</span>
+                </div>
               </div>
 
               {paymentRequest?.description && (
