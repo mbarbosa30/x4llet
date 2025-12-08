@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Scan, Shield, Loader2, Sparkles, Clock } from 'lucide-react';
+import { Scan, Shield, Loader2, Sparkles, Clock, ChevronDown } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { getWallet, getPrivateKey } from '@/lib/wallet';
 import { getMaxFlowScore, getVouchNonce, submitVouch, type MaxFlowScore } from '@/lib/maxflow';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -360,55 +361,53 @@ export default function MaxFlow() {
                 ))}
               </div>
 
-              {!isLoadingMaxFlow && (
-                <p className="text-sm text-muted-foreground" data-testid="text-vouch-count">
-                  Vouched by {vouchCount} {vouchCount === 1 ? 'person' : 'people'}
-                </p>
+              {!isLoadingMaxFlow && (scoreData?.algorithm_breakdown || scoreData?.vouch_counts) && (
+                <Collapsible className="pt-4 border-t">
+                  <CollapsibleTrigger className="flex items-center justify-center gap-2 w-full text-xs font-medium text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors" data-testid="button-toggle-metrics">
+                    <span>Network Details</span>
+                    <ChevronDown className="h-3 w-3" />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-4 pt-3">
+                    {scoreData?.algorithm_breakdown && (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-1 gap-2 text-sm">
+                          <div className="flex justify-between items-center" data-testid="metric-flow">
+                            <span className="text-muted-foreground">Flow Component</span>
+                            <span className="font-mono font-medium">{scoreData.algorithm_breakdown.flow_component.toFixed(1)}</span>
+                          </div>
+                          <div className="flex justify-between items-center" data-testid="metric-redundancy">
+                            <span className="text-muted-foreground">Redundancy Component</span>
+                            <span className="font-mono font-medium">{scoreData.algorithm_breakdown.redundancy_component.toFixed(1)}</span>
+                          </div>
+                          <div className="flex justify-between items-center" data-testid="metric-paths">
+                            <span className="text-muted-foreground">Disjoint Paths</span>
+                            <span className="font-mono font-medium">{scoreData.algorithm_breakdown.vertex_disjoint_paths}</span>
+                          </div>
+                          <div className="flex justify-between items-center" data-testid="metric-network-size">
+                            <span className="text-muted-foreground">Network Size</span>
+                            <span className="font-mono font-medium">{scoreData.algorithm_breakdown.ego_network_size}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {scoreData?.vouch_counts && (
+                      <div className="space-y-2 pt-2 border-t">
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="text-center">
+                            <div className="font-mono font-medium" data-testid="text-vouches-received">{scoreData.vouch_counts.incoming_active}</div>
+                            <div className="text-xs text-muted-foreground">Active Vouches</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-mono font-medium" data-testid="text-vouches-given">{scoreData.vouch_counts.outgoing_total}</div>
+                            <div className="text-xs text-muted-foreground">Vouches Given</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
               )}
-
-              {!isLoadingMaxFlow && scoreData?.algorithm_breakdown && (
-                <div className="pt-4 border-t space-y-2">
-                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Your Network Metrics</h3>
-                  <div className="grid grid-cols-1 gap-2 text-sm">
-                    <div className="flex justify-between items-center" data-testid="metric-flow">
-                      <span className="text-muted-foreground">Flow Component</span>
-                      <span className="font-mono font-medium">{scoreData.algorithm_breakdown.flow_component.toFixed(1)}</span>
-                    </div>
-                    <div className="flex justify-between items-center" data-testid="metric-redundancy">
-                      <span className="text-muted-foreground">Redundancy Component</span>
-                      <span className="font-mono font-medium">{scoreData.algorithm_breakdown.redundancy_component.toFixed(1)}</span>
-                    </div>
-                    <div className="flex justify-between items-center" data-testid="metric-paths">
-                      <span className="text-muted-foreground">Disjoint Paths</span>
-                      <span className="font-mono font-medium">{scoreData.algorithm_breakdown.vertex_disjoint_paths}</span>
-                    </div>
-                    <div className="flex justify-between items-center" data-testid="metric-network-size">
-                      <span className="text-muted-foreground">Network Size</span>
-                      <span className="font-mono font-medium">{scoreData.algorithm_breakdown.ego_network_size}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {!isLoadingMaxFlow && scoreData?.vouch_counts && (
-                <div className="pt-4 border-t space-y-2">
-                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Vouch Activity</h3>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="text-center">
-                      <div className="font-mono font-medium" data-testid="text-vouches-received">{scoreData.vouch_counts.incoming_active}</div>
-                      <div className="text-xs text-muted-foreground">Active Vouches</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-mono font-medium" data-testid="text-vouches-given">{scoreData.vouch_counts.outgoing_total}</div>
-                      <div className="text-xs text-muted-foreground">Vouches Given</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <p className="text-xs text-muted-foreground">
-                A sybil-resistant graph signal of your trust-network health.
-              </p>
             </div>
           )}
 
