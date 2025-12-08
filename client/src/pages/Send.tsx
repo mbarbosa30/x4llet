@@ -66,6 +66,11 @@ export default function Send() {
     };
   }, []);
 
+  // Scroll to top on page load and step changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [step]);
+
   useEffect(() => {
     const loadWallet = async () => {
       try {
@@ -683,14 +688,14 @@ export default function Send() {
                   <div className="text-4xl font-semibold tabular-nums tracking-tight">
                     {inputValue || '0.00'}
                   </div>
-                  {usdcAmount && displayCurrency === 'fiat' && (
+                  {displayCurrency === 'fiat' && (
                     <div className="text-sm text-muted-foreground mt-2">
-                      ≈ {parseFloat(usdcAmount).toFixed(2)} USDC
+                      ≈ {(parseFloat(usdcAmount) || 0).toFixed(2)} USDC
                     </div>
                   )}
-                  {usdcAmount && displayCurrency === 'USDC' && currency !== 'USD' && (
+                  {displayCurrency === 'USDC' && currency !== 'USD' && (
                     <div className="text-sm text-muted-foreground mt-2">
-                      ≈ {(parseFloat(usdcAmount) * rate).toFixed(2)} {currency}
+                      ≈ {((parseFloat(usdcAmount) || 0) * rate).toFixed(2)} {currency}
                     </div>
                   )}
                   <div className="flex items-center justify-center gap-1.5 mt-3 text-sm text-muted-foreground">
