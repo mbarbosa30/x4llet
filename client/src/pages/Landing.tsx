@@ -218,7 +218,7 @@ export default function Landing() {
             </div>
           )}
 
-          <div className="pt-10 pb-4 border-t border-foreground/10">
+          <div className="pt-10 border-t border-foreground/10">
             <div className="text-sm font-mono uppercase tracking-widest text-muted-foreground pt-4 mb-10 text-center">Powered By</div>
             <div className="space-y-5 text-left max-w-sm mx-auto">
               <div className="space-y-1">
@@ -252,7 +252,7 @@ export default function Landing() {
             </div>
           </div>
 
-          <div className="text-center py-1">
+          <div className="text-center pt-4 pb-1">
             <span className="text-xs font-mono font-light text-muted-foreground">built by </span>
             <a 
               href="https://x.com/mbarrbosa" 
