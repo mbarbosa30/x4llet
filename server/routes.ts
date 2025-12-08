@@ -5078,6 +5078,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== XP SYSTEM ENDPOINTS =====
+  // XP is stored as "centi-XP" (multiplied by 100) for 2 decimal precision
+  // e.g., 2.45 XP is stored as 245 in the database
+  // API responses convert back to decimal format for display
 
   app.get('/api/xp/:address', async (req, res) => {
     try {
@@ -5104,8 +5107,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Convert centi-XP to decimal for display (divide by 100)
+      const totalXpCenti = xpBalance?.totalXp || 0;
       res.json({
-        totalXp: xpBalance?.totalXp || 0,
+        totalXp: totalXpCenti / 100,
         claimCount: xpBalance?.claimCount || 0,
         lastClaimTime: xpBalance?.lastClaimTime?.toISOString() || null,
         canClaim,
@@ -5165,23 +5170,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const xpAmount = Math.round(Math.sqrt(rawSignal));
+      // Calculate XP with 2 decimal precision: √signal, stored as centi-XP (×100)
+      const xpDecimal = Math.sqrt(rawSignal);
+      const xpCenti = Math.round(xpDecimal * 100); // e.g., 2.45 → 245
 
-      if (xpAmount === 0) {
+      if (xpCenti === 0) {
         return res.status(400).json({ 
           error: 'Cannot claim XP with zero signal',
           message: 'Build your trust network to earn XP',
         });
       }
 
-      const claim = await storage.claimXp(address, xpAmount, Math.round(rawSignal));
+      const claim = await storage.claimXp(address, xpCenti, Math.round(rawSignal));
 
+      // Return XP as decimal for display
       res.json({
         success: true,
-        xpEarned: xpAmount,
+        xpEarned: xpCenti / 100,
         claim: {
           id: claim.id,
-          xpAmount: claim.xpAmount,
+          xpAmount: claim.xpAmount / 100,
           maxFlowSignal: claim.maxFlowSignal,
           claimedAt: claim.claimedAt,
         },
@@ -5203,10 +5211,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const claims = await storage.getXpClaimHistory(address, limit);
 
+      // Convert centi-XP to decimal for display
       res.json({
         claims: claims.map(c => ({
           id: c.id,
-          xpAmount: c.xpAmount,
+          xpAmount: c.xpAmount / 100,
           maxFlowSignal: c.maxFlowSignal,
           claimedAt: c.claimedAt,
         })),
