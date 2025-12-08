@@ -276,6 +276,15 @@ export default function Earn() {
     },
   });
 
+  const { data: aaveApyArbitrum, isLoading: isApyArbitrumLoading } = useQuery<AaveApyData>({
+    queryKey: ['/api/aave/apy', 42161],
+    queryFn: async () => {
+      const res = await fetch('/api/aave/apy/42161');
+      if (!res.ok) throw new Error('Failed to fetch APY');
+      return res.json();
+    },
+  });
+
   const { data: aaveBalanceBase, isLoading: isAaveBalanceBaseLoading, isFetching: isRefreshingBase, refetch: refetchBase } = useQuery<{ aUsdcBalance: string; apy: number }>({
     queryKey: ['/api/aave/balance', address, 8453],
     enabled: !!address,
@@ -306,10 +315,20 @@ export default function Earn() {
     },
   });
 
-  const isRefreshingAave = (isRefreshingBase || isRefreshingCelo || isRefreshingGnosis) && !isAaveBalanceBaseLoading && !isAaveBalanceCeloLoading && !isAaveBalanceGnosisLoading;
+  const { data: aaveBalanceArbitrum, isLoading: isAaveBalanceArbitrumLoading, isFetching: isRefreshingArbitrum, refetch: refetchArbitrum } = useQuery<{ aUsdcBalance: string; apy: number }>({
+    queryKey: ['/api/aave/balance', address, 42161],
+    enabled: !!address,
+    queryFn: async () => {
+      const res = await fetch(`/api/aave/balance/${address}?chainId=42161`);
+      if (!res.ok) throw new Error('Failed to fetch Aave balance');
+      return res.json();
+    },
+  });
+
+  const isRefreshingAave = (isRefreshingBase || isRefreshingCelo || isRefreshingGnosis || isRefreshingArbitrum) && !isAaveBalanceBaseLoading && !isAaveBalanceCeloLoading && !isAaveBalanceGnosisLoading && !isAaveBalanceArbitrumLoading;
 
   const handleRefreshAaveBalance = async () => {
-    await Promise.all([refetchBase(), refetchCelo(), refetchGnosis()]);
+    await Promise.all([refetchBase(), refetchCelo(), refetchGnosis(), refetchArbitrum()]);
   };
 
   interface InterestChainData {
@@ -468,23 +487,27 @@ export default function Earn() {
   const baseAaveBalanceMicro = aaveBalanceBase?.aUsdcBalance ? BigInt(aaveBalanceBase.aUsdcBalance) : 0n;
   const celoAaveBalanceMicro = aaveBalanceCelo?.aUsdcBalance ? BigInt(aaveBalanceCelo.aUsdcBalance) : 0n;
   const gnosisAaveBalanceMicro = aaveBalanceGnosis?.aUsdcBalance ? BigInt(aaveBalanceGnosis.aUsdcBalance) : 0n;
-  const totalAaveBalanceMicro = String(baseAaveBalanceMicro + celoAaveBalanceMicro + gnosisAaveBalanceMicro);
+  const arbitrumAaveBalanceMicro = aaveBalanceArbitrum?.aUsdcBalance ? BigInt(aaveBalanceArbitrum.aUsdcBalance) : 0n;
+  const totalAaveBalanceMicro = String(baseAaveBalanceMicro + celoAaveBalanceMicro + gnosisAaveBalanceMicro + arbitrumAaveBalanceMicro);
 
   const calculateWeightedApy = () => {
     const baseBalance = aaveBalanceBase?.aUsdcBalance ? parseFloat(aaveBalanceBase.aUsdcBalance) : 0;
     const celoBalance = aaveBalanceCelo?.aUsdcBalance ? parseFloat(aaveBalanceCelo.aUsdcBalance) : 0;
     const gnosisBalance = aaveBalanceGnosis?.aUsdcBalance ? parseFloat(aaveBalanceGnosis.aUsdcBalance) : 0;
-    const totalBalance = baseBalance + celoBalance + gnosisBalance;
+    const arbitrumBalance = aaveBalanceArbitrum?.aUsdcBalance ? parseFloat(aaveBalanceArbitrum.aUsdcBalance) : 0;
+    const totalBalance = baseBalance + celoBalance + gnosisBalance + arbitrumBalance;
     if (totalBalance === 0) {
       const baseApy = aaveApyBase?.apy || 0;
       const celoApy = aaveApyCelo?.apy || 0;
       const gnosisApy = aaveApyGnosis?.apy || 0;
-      return Math.max(baseApy, celoApy, gnosisApy);
+      const arbitrumApy = aaveApyArbitrum?.apy || 0;
+      return Math.max(baseApy, celoApy, gnosisApy, arbitrumApy);
     }
     const baseApy = aaveBalanceBase?.apy || 0;
     const celoApy = aaveBalanceCelo?.apy || 0;
     const gnosisApy = aaveBalanceGnosis?.apy || 0;
-    return ((baseApy * baseBalance) + (celoApy * celoBalance) + (gnosisApy * gnosisBalance)) / totalBalance;
+    const arbitrumApy = aaveBalanceArbitrum?.apy || 0;
+    return ((baseApy * baseBalance) + (celoApy * celoBalance) + (gnosisApy * gnosisBalance) + (arbitrumApy * arbitrumBalance)) / totalBalance;
   };
 
   const weightedApy = calculateWeightedApy();
@@ -521,6 +544,14 @@ export default function Earn() {
     minPrecision: 5,
   });
 
+  const arbitrumEarningAnimation = useEarningAnimation({
+    usdcMicro: '0',
+    aaveBalanceMicro: aaveBalanceArbitrum?.aUsdcBalance || '0',
+    apyRate: (aaveBalanceArbitrum?.apy || 0) / 100,
+    enabled: parseFloat(aaveBalanceArbitrum?.aUsdcBalance || '0') > 0,
+    minPrecision: 5,
+  });
+
   // Chart data: Projection-only view showing interest growth per chain
   // Principal = current balance (stays flat at 0 on chart), Interest = projected growth per chain
   const combinedChartData = useMemo(() => {
@@ -530,9 +561,11 @@ export default function Earn() {
     const baseBalance = Number(baseAaveBalanceMicro) / 1_000_000;
     const celoBalance = Number(celoAaveBalanceMicro) / 1_000_000;
     const gnosisBalance = Number(gnosisAaveBalanceMicro) / 1_000_000;
+    const arbitrumBalance = Number(arbitrumAaveBalanceMicro) / 1_000_000;
     const baseApy = aaveBalanceBase?.apy || aaveApyBase?.apy || 0;
     const celoApy = aaveBalanceCelo?.apy || aaveApyCelo?.apy || 0;
     const gnosisApy = aaveBalanceGnosis?.apy || aaveApyGnosis?.apy || 0;
+    const arbitrumApy = aaveBalanceArbitrum?.apy || aaveApyArbitrum?.apy || 0;
     
     const data: Array<{
       label: string;
@@ -540,12 +573,14 @@ export default function Earn() {
       baseInterest: number;
       celoInterest: number;
       gnosisInterest: number;
+      arbitrumInterest: number;
       principal: number;
       interest: number;
       total: number;
       baseInterestPercent?: number;
       celoInterestPercent?: number;
       gnosisInterestPercent?: number;
+      arbitrumInterestPercent?: number;
     }> = [];
     
     // Add projected points - interest grows per chain (starting from +1m, no "Now" point)
@@ -553,6 +588,7 @@ export default function Earn() {
       const monthlyRateBase = baseApy / 100 / 12;
       const monthlyRateCelo = celoApy / 100 / 12;
       const monthlyRateGnosis = gnosisApy / 100 / 12;
+      const monthlyRateArbitrum = arbitrumApy / 100 / 12;
       
       // Key milestones: +1m, +3m, +6m, +1y, +18m, +2y, +3y (3-year projection for dramatic curve)
       const projectionPoints = [
@@ -569,7 +605,8 @@ export default function Earn() {
         const baseInterestEarned = baseBalance * (Math.pow(1 + monthlyRateBase, point.months) - 1);
         const celoInterestEarned = celoBalance * (Math.pow(1 + monthlyRateCelo, point.months) - 1);
         const gnosisInterestEarned = gnosisBalance * (Math.pow(1 + monthlyRateGnosis, point.months) - 1);
-        const totalInterest = baseInterestEarned + celoInterestEarned + gnosisInterestEarned;
+        const arbitrumInterestEarned = arbitrumBalance * (Math.pow(1 + monthlyRateArbitrum, point.months) - 1);
+        const totalInterest = baseInterestEarned + celoInterestEarned + gnosisInterestEarned + arbitrumInterestEarned;
         
         data.push({
           label: point.label,
@@ -577,18 +614,20 @@ export default function Earn() {
           baseInterest: baseInterestEarned,
           celoInterest: celoInterestEarned,
           gnosisInterest: gnosisInterestEarned,
+          arbitrumInterest: arbitrumInterestEarned,
           principal: currentBalance,
           interest: totalInterest,
           total: currentBalance + totalInterest,
           baseInterestPercent: baseBalance > 0 ? (baseInterestEarned / baseBalance) * 100 : 0,
           celoInterestPercent: celoBalance > 0 ? (celoInterestEarned / celoBalance) * 100 : 0,
           gnosisInterestPercent: gnosisBalance > 0 ? (gnosisInterestEarned / gnosisBalance) * 100 : 0,
+          arbitrumInterestPercent: arbitrumBalance > 0 ? (arbitrumInterestEarned / arbitrumBalance) * 100 : 0,
         });
       }
     }
     
     return data;
-  }, [totalAaveBalanceMicro, baseAaveBalanceMicro, celoAaveBalanceMicro, gnosisAaveBalanceMicro, weightedApy, aaveBalanceBase?.apy, aaveBalanceCelo?.apy, aaveBalanceGnosis?.apy, aaveApyBase?.apy, aaveApyCelo?.apy, aaveApyGnosis?.apy]);
+  }, [totalAaveBalanceMicro, baseAaveBalanceMicro, celoAaveBalanceMicro, gnosisAaveBalanceMicro, arbitrumAaveBalanceMicro, weightedApy, aaveBalanceBase?.apy, aaveBalanceCelo?.apy, aaveBalanceGnosis?.apy, aaveBalanceArbitrum?.apy, aaveApyBase?.apy, aaveApyCelo?.apy, aaveApyGnosis?.apy, aaveApyArbitrum?.apy]);
 
   const projectedEarningsData = useMemo(() => {
     const microBalance = BigInt(totalAaveBalanceMicro || '0');
@@ -625,6 +664,7 @@ export default function Earn() {
       baseInterest: point.baseInterest,
       celoInterest: point.celoInterest,
       gnosisInterest: point.gnosisInterest,
+      arbitrumInterest: point.arbitrumInterest,
       totalInterestPercent: principal > 0 ? (point.interest / principal) * 100 : 0,
     }));
   }, [combinedChartData]);
@@ -664,26 +704,39 @@ export default function Earn() {
     },
   });
 
+  const { data: liquidBalanceArbitrum } = useQuery<{ balance: string; balanceMicro: string }>({
+    queryKey: ['/api/balance', address, 42161],
+    enabled: !!address,
+    queryFn: async () => {
+      const res = await fetch(`/api/balance/${address}?chainId=42161`);
+      if (!res.ok) throw new Error('Failed to fetch balance');
+      return res.json();
+    },
+  });
+
   // Auto-select first chain with USDC balance when deposit dialog opens
   useEffect(() => {
     if (showAaveDeposit) {
       const hasBase = parseFloat(liquidBalanceBase?.balanceMicro || '0') > 0;
       const hasCelo = parseFloat(liquidBalanceCelo?.balanceMicro || '0') > 0;
       const hasGnosis = parseFloat(liquidBalanceGnosis?.balanceMicro || '0') > 0;
+      const hasArbitrum = parseFloat(liquidBalanceArbitrum?.balanceMicro || '0') > 0;
       
       // Check if current selection is still valid
       const currentValid = (selectedChain === 8453 && hasBase) ||
                           (selectedChain === 42220 && hasCelo) ||
-                          (selectedChain === 100 && hasGnosis);
+                          (selectedChain === 100 && hasGnosis) ||
+                          (selectedChain === 42161 && hasArbitrum);
       
       if (!currentValid) {
         // Select first available chain
         if (hasBase) setSelectedChain(8453);
         else if (hasCelo) setSelectedChain(42220);
         else if (hasGnosis) setSelectedChain(100);
+        else if (hasArbitrum) setSelectedChain(42161);
       }
     }
-  }, [showAaveDeposit, liquidBalanceBase?.balanceMicro, liquidBalanceCelo?.balanceMicro, liquidBalanceGnosis?.balanceMicro, selectedChain]);
+  }, [showAaveDeposit, liquidBalanceBase?.balanceMicro, liquidBalanceCelo?.balanceMicro, liquidBalanceGnosis?.balanceMicro, liquidBalanceArbitrum?.balanceMicro, selectedChain]);
 
   // Auto-select first chain with Aave balance when withdraw dialog opens  
   useEffect(() => {
@@ -691,20 +744,23 @@ export default function Earn() {
       const hasBase = (aaveBalanceBase?.aUsdcBalance && parseFloat(aaveBalanceBase.aUsdcBalance) > 0) || false;
       const hasCelo = (aaveBalanceCelo?.aUsdcBalance && parseFloat(aaveBalanceCelo.aUsdcBalance) > 0) || false;
       const hasGnosis = (aaveBalanceGnosis?.aUsdcBalance && parseFloat(aaveBalanceGnosis.aUsdcBalance) > 0) || false;
+      const hasArbitrum = (aaveBalanceArbitrum?.aUsdcBalance && parseFloat(aaveBalanceArbitrum.aUsdcBalance) > 0) || false;
       
       // Check if current selection is still valid
       const currentValid = (selectedChain === 8453 && hasBase) ||
                           (selectedChain === 42220 && hasCelo) ||
-                          (selectedChain === 100 && hasGnosis);
+                          (selectedChain === 100 && hasGnosis) ||
+                          (selectedChain === 42161 && hasArbitrum);
       
       if (!currentValid) {
         // Select first available chain
         if (hasBase) setSelectedChain(8453);
         else if (hasCelo) setSelectedChain(42220);
         else if (hasGnosis) setSelectedChain(100);
+        else if (hasArbitrum) setSelectedChain(42161);
       }
     }
-  }, [showAaveWithdraw, aaveBalanceBase?.aUsdcBalance, aaveBalanceCelo?.aUsdcBalance, aaveBalanceGnosis?.aUsdcBalance, selectedChain]);
+  }, [showAaveWithdraw, aaveBalanceBase?.aUsdcBalance, aaveBalanceCelo?.aUsdcBalance, aaveBalanceGnosis?.aUsdcBalance, aaveBalanceArbitrum?.aUsdcBalance, selectedChain]);
 
   const checkGasBalance = async (chainId: number): Promise<{ hasEnoughGas: boolean; balance: string; required: string }> => {
     if (!address) throw new Error('No wallet address');
@@ -939,7 +995,9 @@ export default function Earn() {
       ? liquidBalanceBase 
       : selectedChain === 42220 
         ? liquidBalanceCelo 
-        : liquidBalanceGnosis;
+        : selectedChain === 42161
+          ? liquidBalanceArbitrum
+          : liquidBalanceGnosis;
     if (!balance?.balanceMicro) return '0.00';
     const balanceNum = parseFloat(balance.balanceMicro) / 1000000;
     return balanceNum.toFixed(2);
@@ -950,7 +1008,9 @@ export default function Earn() {
       ? aaveBalanceBase 
       : selectedChain === 42220 
         ? aaveBalanceCelo 
-        : aaveBalanceGnosis;
+        : selectedChain === 42161
+          ? aaveBalanceArbitrum
+          : aaveBalanceGnosis;
     if (!balance?.aUsdcBalance) return '0.00';
     const { full } = formatPrecisionBalance(balance.aUsdcBalance);
     return full;
@@ -960,7 +1020,8 @@ export default function Earn() {
     const baseBalance = aaveBalanceBase?.aUsdcBalance ? parseFloat(aaveBalanceBase.aUsdcBalance) : 0;
     const celoBalance = aaveBalanceCelo?.aUsdcBalance ? parseFloat(aaveBalanceCelo.aUsdcBalance) : 0;
     const gnosisBalance = aaveBalanceGnosis?.aUsdcBalance ? parseFloat(aaveBalanceGnosis.aUsdcBalance) : 0;
-    return (baseBalance + celoBalance + gnosisBalance) / 1000000;
+    const arbitrumBalance = aaveBalanceArbitrum?.aUsdcBalance ? parseFloat(aaveBalanceArbitrum.aUsdcBalance) : 0;
+    return (baseBalance + celoBalance + gnosisBalance + arbitrumBalance) / 1000000;
   };
 
   const resetAaveDialog = () => {
@@ -971,23 +1032,24 @@ export default function Earn() {
     setIsOperating(false);
   };
 
-  const hasAaveBalance = baseAaveBalanceMicro > 0n || celoAaveBalanceMicro > 0n || gnosisAaveBalanceMicro > 0n;
+  const hasAaveBalance = baseAaveBalanceMicro > 0n || celoAaveBalanceMicro > 0n || gnosisAaveBalanceMicro > 0n || arbitrumAaveBalanceMicro > 0n;
   // Convert BigInt micro-USDC to number for display (safe for amounts up to ~9 trillion USDC)
   const baseBalanceNum = Number(baseAaveBalanceMicro) / 1e6;
   const celoBalanceNum = Number(celoAaveBalanceMicro) / 1e6;
   const gnosisBalanceNum = Number(gnosisAaveBalanceMicro) / 1e6;
+  const arbitrumBalanceNum = Number(arbitrumAaveBalanceMicro) / 1e6;
   
   // Cache view state when balance data loads to prevent flash on navigation
   useEffect(() => {
-    if (aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && aaveBalanceGnosis !== undefined) {
+    if (aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && aaveBalanceGnosis !== undefined && aaveBalanceArbitrum !== undefined) {
       const newHasBalance = hasAaveBalance;
       setCachedHasAaveBalance(newHasBalance);
       setCachedEarnViewState(newHasBalance);
     }
-  }, [aaveBalanceBase, aaveBalanceCelo, aaveBalanceGnosis, hasAaveBalance]);
+  }, [aaveBalanceBase, aaveBalanceCelo, aaveBalanceGnosis, aaveBalanceArbitrum, hasAaveBalance]);
   
   // Use cached state during loading to prevent view flash
-  const isBalanceLoading = isAaveBalanceBaseLoading || isAaveBalanceCeloLoading || isAaveBalanceGnosisLoading;
+  const isBalanceLoading = isAaveBalanceBaseLoading || isAaveBalanceCeloLoading || isAaveBalanceGnosisLoading || isAaveBalanceArbitrumLoading;
   const effectiveHasAaveBalance = isBalanceLoading ? (cachedHasAaveBalance ?? false) : hasAaveBalance;
 
   return (
@@ -1270,7 +1332,7 @@ export default function Earn() {
               </Card>
             )}
 
-            {effectiveHasAaveBalance && (baseBalanceNum > 0 || celoBalanceNum > 0 || gnosisBalanceNum > 0) && [baseBalanceNum, celoBalanceNum, gnosisBalanceNum].filter(b => b > 0).length > 1 && (
+            {effectiveHasAaveBalance && (baseBalanceNum > 0 || celoBalanceNum > 0 || gnosisBalanceNum > 0 || arbitrumBalanceNum > 0) && [baseBalanceNum, celoBalanceNum, gnosisBalanceNum, arbitrumBalanceNum].filter(b => b > 0).length > 1 && (
               <Card className="p-4 space-y-3" data-testid="card-chain-breakdown">
                 <div className="text-xs font-semibold uppercase tracking-wide flex items-center gap-2 text-foreground/80">
                   <Layers className="h-4 w-4 text-[#0055FF]" />
@@ -1354,6 +1416,31 @@ export default function Earn() {
                     </div>
                   </div>
                 )}
+                {arbitrumBalanceNum > 0 && (
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-none">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-cyan-500/10 flex items-center justify-center">
+                        <span className="text-xs font-bold text-cyan-600">A</span>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium">Arbitrum</div>
+                        <div className="text-xs text-muted-foreground">{aaveApyArbitrum?.apyFormatted || '—'} APY</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-medium tabular-nums inline-flex items-baseline justify-end">
+                        <span className="text-sm opacity-50 mr-0.5">$</span>
+                        <span>{Math.floor(arbitrumEarningAnimation.animatedValue)}</span>
+                        <span className="opacity-90">.{arbitrumEarningAnimation.mainDecimals}</span>
+                        {arbitrumEarningAnimation.extraDecimals && (
+                          <span className="text-[0.45em] font-light text-success opacity-70 relative ml-0.5" style={{ top: '-0.5em' }}>
+                            {arbitrumEarningAnimation.extraDecimals}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </Card>
             )}
 
@@ -1382,6 +1469,10 @@ export default function Earn() {
                         <linearGradient id="gnosisInterestGradient" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="hsl(270, 70%, 60%)" stopOpacity={0.7}/>
                           <stop offset="100%" stopColor="hsl(270, 70%, 50%)" stopOpacity={0.3}/>
+                        </linearGradient>
+                        <linearGradient id="arbitrumInterestGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="hsl(187, 71%, 45%)" stopOpacity={0.7}/>
+                          <stop offset="100%" stopColor="hsl(187, 71%, 35%)" stopOpacity={0.3}/>
                         </linearGradient>
                         <linearGradient id="earningsPercentGradient" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.5}/>
@@ -1420,7 +1511,7 @@ export default function Earn() {
                         content={({ active, payload }) => {
                           if (active && payload && payload.length) {
                             const data = payload[0].payload;
-                            const totalInterest = (data.baseInterest || 0) + (data.celoInterest || 0) + (data.gnosisInterest || 0);
+                            const totalInterest = (data.baseInterest || 0) + (data.celoInterest || 0) + (data.gnosisInterest || 0) + (data.arbitrumInterest || 0);
                             
                             if (data.isNow) {
                               return (
@@ -1452,10 +1543,18 @@ export default function Earn() {
                                   </div>
                                 )}
                                 {data.gnosisInterest > 0 && (
-                                  <div className="flex items-center justify-between gap-3 text-xs mb-1">
+                                  <div className="flex items-center justify-between gap-3 text-xs mb-0.5">
                                     <span className="text-purple-400">Gnosis:</span>
                                     <span className="text-success">
                                       +{formatSmartPrecision(data.gnosisInterest, '$')}
+                                    </span>
+                                  </div>
+                                )}
+                                {data.arbitrumInterest > 0 && (
+                                  <div className="flex items-center justify-between gap-3 text-xs mb-1">
+                                    <span className="text-cyan-400">Arbitrum:</span>
+                                    <span className="text-success">
+                                      +{formatSmartPrecision(data.arbitrumInterest, '$')}
                                     </span>
                                   </div>
                                 )}
@@ -1510,6 +1609,18 @@ export default function Earn() {
                           isAnimationActive={false}
                         />
                       )}
+                      {arbitrumBalanceNum > 0 && (
+                        <Area 
+                          type="monotone" 
+                          dataKey="arbitrumInterest"
+                          yAxisId="balance"
+                          stackId="earnings"
+                          stroke="hsl(187, 71%, 45%)"
+                          strokeWidth={1.5}
+                          fill="url(#arbitrumInterestGradient)"
+                          isAnimationActive={false}
+                        />
+                      )}
                       <Line 
                         type="monotone" 
                         dataKey="totalInterestPercent"
@@ -1542,6 +1653,12 @@ export default function Earn() {
                     <div className="flex items-center gap-1.5">
                       <div className="w-3 h-2 " style={{ background: 'hsl(270, 70%, 55%)' }}></div>
                       <span className="text-purple-400">Gnosis</span>
+                    </div>
+                  )}
+                  {arbitrumBalanceNum > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-2 " style={{ background: 'hsl(187, 71%, 45%)' }}></div>
+                      <span className="text-cyan-400">Arbitrum</span>
                     </div>
                   )}
                   <div className="flex items-center gap-1.5">
@@ -1761,6 +1878,9 @@ export default function Earn() {
                     {parseFloat(liquidBalanceGnosis?.balanceMicro || '0') > 0 && (
                       <SelectItem value="100">Gnosis ({aaveApyGnosis?.apyFormatted || '—'} APY)</SelectItem>
                     )}
+                    {parseFloat(liquidBalanceArbitrum?.balanceMicro || '0') > 0 && (
+                      <SelectItem value="42161">Arbitrum ({aaveApyArbitrum?.apyFormatted || '—'} APY)</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1884,6 +2004,11 @@ export default function Earn() {
                     {gnosisBalanceNum > 0 && (
                       <SelectItem value="100">
                         Gnosis (${gnosisBalanceNum.toFixed(2)} available)
+                      </SelectItem>
+                    )}
+                    {arbitrumBalanceNum > 0 && (
+                      <SelectItem value="42161">
+                        Arbitrum (${arbitrumBalanceNum.toFixed(2)} available)
                       </SelectItem>
                     )}
                   </SelectContent>

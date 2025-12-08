@@ -720,7 +720,7 @@ export default function Send() {
                             className="h-auto py-0 px-1 font-medium"
                             data-testid="button-network-selector"
                           >
-                            {network === 'base' ? 'Base' : network === 'celo' ? 'Celo' : 'Gnosis'}
+                            {network === 'base' ? 'Base' : network === 'celo' ? 'Celo' : network === 'arbitrum' ? 'Arbitrum' : 'Gnosis'}
                             <ChevronDown className="h-3 w-3" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -731,7 +731,7 @@ export default function Send() {
                               onClick={() => handleNetworkChange(chain.network)}
                               data-testid={`button-network-${chain.network}`}
                             >
-                              {chain.network === 'base' ? 'Base' : chain.network === 'celo' ? 'Celo' : 'Gnosis'}
+                              {chain.network === 'base' ? 'Base' : chain.network === 'celo' ? 'Celo' : chain.network === 'arbitrum' ? 'Arbitrum' : 'Gnosis'}
                               <span className="ml-2 text-muted-foreground">{chain.balance}</span>
                             </DropdownMenuItem>
                           ))}
@@ -739,7 +739,7 @@ export default function Send() {
                       </DropdownMenu>
                     ) : (
                       <span className="font-medium">
-                        {network === 'base' ? 'Base' : network === 'celo' ? 'Celo' : 'Gnosis'}
+                        {network === 'base' ? 'Base' : network === 'celo' ? 'Celo' : network === 'arbitrum' ? 'Arbitrum' : 'Gnosis'}
                       </span>
                     )}
                   </div>
@@ -797,9 +797,10 @@ export default function Send() {
                   <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold text-white ${
                     network === 'base' ? 'bg-blue-500' : 
                     network === 'celo' ? 'bg-yellow-500' : 
+                    network === 'arbitrum' ? 'bg-cyan-500' :
                     'bg-green-600'
                   }`}>
-                    {network === 'base' ? 'B' : network === 'celo' ? 'C' : 'G'}
+                    {network === 'base' ? 'B' : network === 'celo' ? 'C' : network === 'arbitrum' ? 'A' : 'G'}
                   </span>
                   <span className="text-xs text-muted-foreground capitalize">{network}</span>
                 </div>

@@ -22,6 +22,7 @@ interface AaveBalance {
     base: AaveChainBalance;
     celo: AaveChainBalance;
     gnosis?: AaveChainBalance;
+    arbitrum?: AaveChainBalance;
   };
 }
 
@@ -37,6 +38,7 @@ interface BalanceCardProps {
     base: ChainBalance;
     celo: ChainBalance;
     gnosis?: ChainBalance;
+    arbitrum?: ChainBalance;
   };
   aaveBalance?: AaveBalance;
   onRefresh?: () => Promise<void>;

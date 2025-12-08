@@ -26,6 +26,7 @@ interface AaveBalanceResponse {
     base: { chainId: number; aUsdcBalance: string; apy: number };
     celo: { chainId: number; aUsdcBalance: string; apy: number };
     gnosis: { chainId: number; aUsdcBalance: string; apy: number };
+    arbitrum: { chainId: number; aUsdcBalance: string; apy: number };
   };
 }
 

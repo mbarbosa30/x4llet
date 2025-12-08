@@ -38,9 +38,9 @@ interface WalletDetails {
   createdAt: string;
   lastSeen: string;
   totalBalance: string;
-  balanceByChain: { base: string; celo: string; gnosis: string };
+  balanceByChain: { base: string; celo: string; gnosis: string; arbitrum: string };
   aUsdcBalance: string;
-  aUsdcByChain: { base: string; celo: string; gnosis: string };
+  aUsdcByChain: { base: string; celo: string; gnosis: string; arbitrum: string };
   transferCount: number;
   totalVolume: string;
   savingsBalance: string;
