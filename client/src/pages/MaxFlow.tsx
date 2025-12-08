@@ -302,12 +302,6 @@ export default function MaxFlow() {
                     </span>
                   </div>
                 )}
-                
-                {xpData.claimCount > 0 && (
-                  <p className="font-label text-muted-foreground text-center" data-testid="text-xp-claim-count">
-                    {xpData.claimCount} CLAIM{xpData.claimCount !== 1 ? 'S' : ''} TOTAL
-                  </p>
-                )}
               </div>
             )}
           </Card>
