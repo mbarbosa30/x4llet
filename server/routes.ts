@@ -134,7 +134,7 @@ function resolveChain(chainId: number) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  const BUILD_VERSION = '2025-12-08T09:45:00Z';
+  const BUILD_VERSION = '2025-12-08T10:00:00Z';
   
   app.get('/api/version', (req, res) => {
     res.json({
@@ -2214,6 +2214,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // MaxFlow API Proxy Routes (v1 API - https://maxflow.one/api/v1)
   const MAXFLOW_API_BASE = 'https://maxflow.one/api/v1';
+  const MAXFLOW_REQUEST_TIMEOUT_MS = 15000; // 15 second timeout
+
+  // Helper: Standard headers for MaxFlow API requests
+  const MAXFLOW_HEADERS_BASE = {
+    'Accept': 'application/json',
+    'User-Agent': 'nanoPay/1.0 (https://nanopay.live)',
+  };
+
+  // Helper: Fetch with timeout for MaxFlow API
+  // Note: Returns globalThis.Response (fetch API), not Express Response
+  async function fetchMaxFlow(url: string, options: RequestInit = {}): Promise<globalThis.Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), MAXFLOW_REQUEST_TIMEOUT_MS);
+    
+    // Compose signals: both the helper's timeout and any caller-supplied signal can abort
+    const signals: AbortSignal[] = [controller.signal];
+    if (options.signal) {
+      signals.push(options.signal);
+    }
+    const composedSignal = signals.length > 1 ? AbortSignal.any(signals) : controller.signal;
+    
+    // Build headers - only add Content-Type for POST/PUT/PATCH with body
+    const headers: Record<string, string> = { ...MAXFLOW_HEADERS_BASE };
+    const method = (options.method || 'GET').toUpperCase();
+    if ((method === 'POST' || method === 'PUT' || method === 'PATCH') && options.body) {
+      headers['Content-Type'] = 'application/json';
+    }
+    
+    try {
+      const fetchResponse = await fetch(url, {
+        ...options,
+        headers: {
+          ...headers,
+          ...options.headers as Record<string, string>,
+        },
+        signal: composedSignal,
+      });
+      return fetchResponse;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
 
   // Helper: Check if MaxFlow API cached_at is stale (older than 1 hour)
   const MAXFLOW_API_STALE_THRESHOLD_MS = 60 * 60 * 1000; // 1 hour
@@ -2238,7 +2280,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Cache miss - fetch from MaxFlow API v1
       console.log(`[MaxFlow API] Cache miss, fetching score for ${address}`);
       console.log(`[MaxFlow API] Fetching from URL: ${MAXFLOW_API_BASE}/score/${address}`);
-      let response = await fetch(`${MAXFLOW_API_BASE}/score/${address}`);
+      let response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/score/${address}`);
       
       console.log(`[MaxFlow API] Response status: ${response.status} ${response.statusText}`);
       
@@ -2253,7 +2295,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If API returns stale cached data (>1 hour old), force refresh
       if (isMaxFlowResponseStale(data)) {
         console.log(`[MaxFlow API] Response stale (cached_at: ${data.cached_at}), forcing refresh for ${address}`);
-        response = await fetch(`${MAXFLOW_API_BASE}/score/${address}?force_refresh=true`);
+        response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/score/${address}?force_refresh=true`);
         if (response.ok) {
           data = await response.json();
         }
@@ -2276,7 +2318,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/maxflow/nonce/:address', async (req, res) => {
     try {
       const { address } = req.params;
-      const response = await fetch(`${MAXFLOW_API_BASE}/vouch/nonce/${address}`);
+      const response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/vouch/nonce/${address}`);
       
       if (!response.ok) {
         return res.status(response.status).json({ error: 'Failed to fetch nonce' });
@@ -2299,7 +2341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Missing endorser or endorsee parameter' });
       }
       
-      const response = await fetch(`${MAXFLOW_API_BASE}/vouch-status?endorser=${endorser}&endorsee=${endorsee}`);
+      const response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/vouch-status?endorser=${endorser}&endorsee=${endorsee}`);
       
       if (!response.ok) {
         return res.status(response.status).json({ error: 'Failed to fetch vouch status' });
@@ -2318,11 +2360,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('[MaxFlow API] Vouch request:', JSON.stringify(req.body, null, 2));
       
-      const response = await fetch(`${MAXFLOW_API_BASE}/vouch`, {
+      const response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/vouch`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(req.body),
       });
       
@@ -2357,7 +2396,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Missing endorser or endorsee parameter' });
       }
       
-      const response = await fetch(`${MAXFLOW_API_BASE}/revoke/info?endorser=${endorser}&endorsee=${endorsee}`);
+      const response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/revoke/info?endorser=${endorser}&endorsee=${endorsee}`);
       
       if (!response.ok) {
         return res.status(response.status).json({ error: 'Failed to fetch revoke info' });
@@ -2376,11 +2415,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('[MaxFlow API] Revoke request:', JSON.stringify(req.body, null, 2));
       
-      const response = await fetch(`${MAXFLOW_API_BASE}/revoke`, {
+      const response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/revoke`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(req.body),
       });
       
@@ -2416,7 +2452,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (limit) params.append('limit', limit as string);
       if (offset) params.append('offset', offset as string);
       
-      const response = await fetch(`${MAXFLOW_API_BASE}/endorsements?${params.toString()}`);
+      const response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/endorsements?${params.toString()}`);
       
       if (!response.ok) {
         return res.status(response.status).json({ error: 'Failed to fetch endorsements' });
@@ -2439,7 +2475,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (endorsee) params.append('endorsee', endorsee as string);
       if (limit) params.append('limit', limit as string);
       
-      const response = await fetch(`${MAXFLOW_API_BASE}/endorsements/with-status?${params.toString()}`);
+      const response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/endorsements/with-status?${params.toString()}`);
       
       if (!response.ok) {
         return res.status(response.status).json({ error: 'Failed to fetch endorsements with status' });
@@ -2457,7 +2493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/maxflow/user/:address', async (req, res) => {
     try {
       const { address } = req.params;
-      const response = await fetch(`${MAXFLOW_API_BASE}/user/${address}`);
+      const response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/user/${address}`);
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -2599,7 +2635,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const wallet of wallets) {
         try {
           // Always force refresh from MaxFlow API to get truly fresh scores
-          const response = await fetch(`${MAXFLOW_API_BASE}/score/${wallet.address}?force_refresh=true`);
+          const response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/score/${wallet.address}?force_refresh=true`);
           
           if (response.ok) {
             const data = await response.json();
@@ -2882,9 +2918,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log(`[MaxFlow Health] MAXFLOW_API_BASE resolved to: ${MAXFLOW_API_BASE}`);
     
     try {
-      const response = await fetch(healthCheckUrl, {
-        signal: AbortSignal.timeout(5000),
-      });
+      // Use fetchMaxFlow for consistent headers
+      const response = await fetchMaxFlow(healthCheckUrl);
       console.log(`[MaxFlow Health] Response status: ${response.status} ${response.statusText}`);
       
       if (!response.ok) {
