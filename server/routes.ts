@@ -1091,13 +1091,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Fetch from all chains
-      const [baseResult, celoResult, gnosisResult] = await Promise.all([
+      const [baseResult, celoResult, gnosisResult, arbitrumResult] = await Promise.all([
         fetchAaveBalance(8453).catch(() => ({ chainId: 8453, aUsdcBalance: '0', apy: 0 })),
         fetchAaveBalance(42220).catch(() => ({ chainId: 42220, aUsdcBalance: '0', apy: 0 })),
         fetchAaveBalance(100).catch(() => ({ chainId: 100, aUsdcBalance: '0', apy: 0 })),
+        fetchAaveBalance(42161).catch(() => ({ chainId: 42161, aUsdcBalance: '0', apy: 0 })),
       ]);
 
-      const totalAUsdcMicro = BigInt(baseResult.aUsdcBalance) + BigInt(celoResult.aUsdcBalance) + BigInt(gnosisResult.aUsdcBalance);
+      const totalAUsdcMicro = BigInt(baseResult.aUsdcBalance) + BigInt(celoResult.aUsdcBalance) + BigInt(gnosisResult.aUsdcBalance) + BigInt(arbitrumResult.aUsdcBalance);
 
       // Cache aUSDC balances using negative chainIds to distinguish from regular USDC
       // Convention: -chainId = aUSDC balance for that chain
@@ -1105,6 +1106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.cacheAUsdcBalance(address, 8453, baseResult.aUsdcBalance),
         storage.cacheAUsdcBalance(address, 42220, celoResult.aUsdcBalance),
         storage.cacheAUsdcBalance(address, 100, gnosisResult.aUsdcBalance),
+        storage.cacheAUsdcBalance(address, 42161, arbitrumResult.aUsdcBalance),
       ]).catch(err => console.error('Error caching aUSDC balances:', err));
 
       res.json({
@@ -1113,6 +1115,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           base: baseResult,
           celo: celoResult,
           gnosis: gnosisResult,
+          arbitrum: arbitrumResult,
         },
       });
     } catch (error) {
