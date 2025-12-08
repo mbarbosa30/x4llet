@@ -40,7 +40,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
     usdcAddress: getAddress('0xaf88d065e77c8cC2239327C5EDb3A432268e5831'),
     rpcUrl: 'https://arb1.arbitrum.io/rpc',
     aavePoolAddress: getAddress('0x794a61358D6845594F94dc1DB02A252b5b4814aD'),
-    aUsdcAddress: getAddress('0x625E7708f30cA75bfd92586e17077590C60eb4cD'),
+    aUsdcAddress: getAddress('0x724dc807b04555b71ed48a6896b6F41593b8C637'),
   },
 };
 
