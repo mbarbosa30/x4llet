@@ -134,7 +134,7 @@ function resolveChain(chainId: number) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  const BUILD_VERSION = '2025-12-08T09:30:00Z';
+  const BUILD_VERSION = '2025-12-08T09:45:00Z';
   
   app.get('/api/version', (req, res) => {
     res.json({
@@ -2237,9 +2237,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Cache miss - fetch from MaxFlow API v1
       console.log(`[MaxFlow API] Cache miss, fetching score for ${address}`);
+      console.log(`[MaxFlow API] Fetching from URL: ${MAXFLOW_API_BASE}/score/${address}`);
       let response = await fetch(`${MAXFLOW_API_BASE}/score/${address}`);
       
+      console.log(`[MaxFlow API] Response status: ${response.status} ${response.statusText}`);
+      
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[MaxFlow API] Error response (${response.status}): ${errorText}`);
         return res.status(response.status).json({ error: 'Failed to fetch MaxFlow score' });
       }
       
@@ -2261,7 +2266,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(data);
     } catch (error) {
-      console.error('Error fetching MaxFlow score:', error);
+      console.error('[MaxFlow API] Exception fetching MaxFlow score:', error);
+      console.error('[MaxFlow API] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       res.status(500).json({ error: 'Failed to fetch MaxFlow score' });
     }
   });
