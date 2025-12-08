@@ -201,7 +201,7 @@ export default function MaxFlow() {
           ) : (
             <div className="text-center space-y-4">
               <div>
-                <h2 className="text-sm text-muted-foreground mb-2">Your MaxFlow Score</h2>
+                <h2 className="text-sm text-muted-foreground mb-2">Your MaxFlow Signal</h2>
                 {isLoadingMaxFlow ? (
                   <div className="text-4xl font-bold text-foreground tracking-tight">--</div>
                 ) : (
@@ -249,7 +249,7 @@ export default function MaxFlow() {
               )}
 
               <p className="text-xs text-muted-foreground">
-                This score is a sybil-resistant neutral graph signal of your trust-network health.
+                A sybil-resistant graph signal of your trust-network health.
               </p>
             </div>
           )}
