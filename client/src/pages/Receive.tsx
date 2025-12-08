@@ -13,6 +13,11 @@ export default function Receive() {
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
   const [copied, setCopied] = useState(false);
 
+  // Scroll to top on page load
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, []);
+
   useEffect(() => {
     const loadWallet = async () => {
       try {
