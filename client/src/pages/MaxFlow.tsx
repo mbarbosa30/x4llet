@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Scan, Shield, Loader2, Sparkles, Clock } from 'lucide-react';
 import { getWallet, getPrivateKey } from '@/lib/wallet';
-import { getMaxFlowScore, getCurrentEpoch, getNextNonce, submitVouch } from '@/lib/maxflow';
+import { getMaxFlowScore, getVouchNonce, submitVouch, type MaxFlowScore } from '@/lib/maxflow';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getAddress } from 'viem';
 import { useToast } from '@/hooks/use-toast';
@@ -127,8 +127,8 @@ export default function MaxFlow() {
       const validatedEndorser = getAddress(address);
       const validatedEndorsed = getAddress(endorsedAddress);
       
-      const epoch = await getCurrentEpoch();
-      const nonce = await getNextNonce(validatedEndorser.toLowerCase(), epoch.epochId);
+      // Get epoch and nonce (combined endpoint in v1 API)
+      const { epoch, nonce } = await getVouchNonce(validatedEndorser.toLowerCase());
       
       const chainId = 42220;
       
@@ -150,7 +150,7 @@ export default function MaxFlow() {
       const message = {
         endorser: validatedEndorser.toLowerCase(),
         endorsee: validatedEndorsed.toLowerCase(),
-        epoch: BigInt(epoch.epochId),
+        epoch: BigInt(epoch),
         nonce: BigInt(nonce),
       };
 
@@ -161,15 +161,14 @@ export default function MaxFlow() {
         message,
       });
 
+      // Submit vouch with flat structure (v1 API)
       return submitVouch({
-        endorsement: {
-          endorser: message.endorser,
-          endorsee: message.endorsee,
-          epoch: message.epoch.toString(),
-          nonce: message.nonce.toString(),
-          sig: signature,
-          chainId: chainId,
-        },
+        endorser: message.endorser,
+        endorsee: message.endorsee,
+        epoch: epoch.toString(),
+        nonce: nonce.toString(),
+        sig: signature,
+        chainId: chainId,
       });
     },
     onSuccess: () => {
@@ -210,8 +209,8 @@ export default function MaxFlow() {
     }
   };
 
-  const score = scoreData?.localHealth ?? 0;
-  const vouchCount = scoreData?.metrics?.acceptedUsers ?? 0;
+  const score = scoreData?.local_health ?? 0;
+  const vouchCount = scoreData?.vouch_counts?.incoming_active ?? 0;
 
   if (!address) {
     return (
@@ -367,21 +366,41 @@ export default function MaxFlow() {
                 </p>
               )}
 
-              {!isLoadingMaxFlow && scoreData?.metrics && (
+              {!isLoadingMaxFlow && scoreData?.algorithm_breakdown && (
                 <div className="pt-4 border-t space-y-2">
                   <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Your Network Metrics</h3>
                   <div className="grid grid-cols-1 gap-2 text-sm">
+                    <div className="flex justify-between items-center" data-testid="metric-flow">
+                      <span className="text-muted-foreground">Flow Component</span>
+                      <span className="font-mono font-medium">{scoreData.algorithm_breakdown.flow_component.toFixed(1)}</span>
+                    </div>
                     <div className="flex justify-between items-center" data-testid="metric-redundancy">
-                      <span className="text-muted-foreground">Path Redundancy</span>
-                      <span className="font-mono font-medium">{scoreData.metrics.medianMinCut.toFixed(1)}</span>
+                      <span className="text-muted-foreground">Redundancy Component</span>
+                      <span className="font-mono font-medium">{scoreData.algorithm_breakdown.redundancy_component.toFixed(1)}</span>
                     </div>
-                    <div className="flex justify-between items-center" data-testid="metric-maxflow">
-                      <span className="text-muted-foreground">Maximum Flow</span>
-                      <span className="font-mono font-medium">{scoreData.metrics.maxPossibleFlow.toFixed(1)}</span>
+                    <div className="flex justify-between items-center" data-testid="metric-paths">
+                      <span className="text-muted-foreground">Disjoint Paths</span>
+                      <span className="font-mono font-medium">{scoreData.algorithm_breakdown.vertex_disjoint_paths}</span>
                     </div>
-                    <div className="flex justify-between items-center" data-testid="metric-residual">
-                      <span className="text-muted-foreground">Average Residual</span>
-                      <span className="font-mono font-medium">{scoreData.metrics.avgResidualFlow.toFixed(1)}</span>
+                    <div className="flex justify-between items-center" data-testid="metric-network-size">
+                      <span className="text-muted-foreground">Network Size</span>
+                      <span className="font-mono font-medium">{scoreData.algorithm_breakdown.ego_network_size}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {!isLoadingMaxFlow && scoreData?.vouch_counts && (
+                <div className="pt-4 border-t space-y-2">
+                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Vouch Activity</h3>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="text-center">
+                      <div className="font-mono font-medium" data-testid="text-vouches-received">{scoreData.vouch_counts.incoming_active}</div>
+                      <div className="text-xs text-muted-foreground">Active Vouches</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-mono font-medium" data-testid="text-vouches-given">{scoreData.vouch_counts.outgoing_total}</div>
+                      <div className="text-xs text-muted-foreground">Vouches Given</div>
                     </div>
                   </div>
                 </div>

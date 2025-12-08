@@ -46,7 +46,7 @@ export default function AppHeader() {
     staleTime: 60 * 1000,
   });
 
-  const score = scoreData?.localHealth ?? 0;
+  const score = scoreData?.local_health ?? 0;
   const referralCode = poolStatus?.referral?.code;
 
 

@@ -188,17 +188,33 @@ async function fetchTransactionsFromEtherscan(address: string, chainId: number):
 }
 
 export interface MaxFlowScore {
-  ownerAddress: string;
-  localHealth: number;
-  seedAddresses: string[];
-  metrics: {
-    totalNodes: number;
-    acceptedUsers: number;
-    avgResidualFlow: number;
-    medianMinCut: number;
-    maxPossibleFlow: number;
+  address: string;
+  local_health: number;
+  cached: boolean;
+  cached_at: string | null;
+  vouch_counts: {
+    incoming_total: number;
+    incoming_active: number;
+    outgoing_total: number;
+    unique_vouchers: number;
   };
-  nodeDetails: any[];
+  activity: {
+    last_vouch_given_at: string | null;
+  };
+  algorithm_breakdown?: {
+    flow_component: number;
+    redundancy_component: number;
+    direct_flow: number;
+    effective_redundancy: number;
+    dilution_factor: number;
+    vertex_disjoint_paths: number;
+    ego_network_size: number;
+    edge_density: number;
+    baselines: {
+      healthy_vouch_count: number;
+      healthy_redundancy: number;
+    };
+  };
 }
 
 export interface BalanceHistoryPoint {
@@ -1949,7 +1965,7 @@ export class DbStorage extends MemStorage {
         if (maxflowData.length > 0) {
           try {
             const scoreData = JSON.parse(maxflowData[0].scoreData);
-            maxFlowScore = scoreData.localHealth || null;
+            maxFlowScore = scoreData.local_health || null;
           } catch {
             maxFlowScore = null;
           }
@@ -2995,7 +3011,7 @@ export class DbStorage extends MemStorage {
       const scoreValues = scores.map(s => {
         try {
           const data = JSON.parse(s.scoreData);
-          return data.localHealth || 0;
+          return data.local_health || 0;
         } catch {
           return 0;
         }
@@ -3079,7 +3095,7 @@ export class DbStorage extends MemStorage {
       for (const score of scores) {
         try {
           const scoreData = JSON.parse(score.scoreData);
-          const maxFlowScore = scoreData.localHealth || 0;
+          const maxFlowScore = scoreData.local_health || 0;
           
           // Skip if score is 0 or less
           if (maxFlowScore <= 0) continue;

@@ -2202,7 +2202,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // MaxFlow API Proxy Routes (to avoid CORS issues)
+  // MaxFlow API Proxy Routes (v1 API - https://maxflow.one/api/v1)
+  const MAXFLOW_API_BASE = 'https://maxflow.one/api/v1';
+
   app.get('/api/maxflow/score/:address', async (req, res) => {
     try {
       const { address } = req.params;
@@ -2213,9 +2215,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(cachedScore);
       }
       
-      // Cache miss - fetch from MaxFlow API
+      // Cache miss - fetch from MaxFlow API v1
       console.log(`[MaxFlow API] Cache miss, fetching score for ${address}`);
-      const response = await fetch(`https://maxflow.one/api/ego/${address}/score`);
+      const response = await fetch(`${MAXFLOW_API_BASE}/score/${address}`);
       
       if (!response.ok) {
         return res.status(response.status).json({ error: 'Failed to fetch MaxFlow score' });
@@ -2234,26 +2236,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/maxflow/epoch/current', async (req, res) => {
+  // Combined epoch + nonce endpoint (new v1 API)
+  app.get('/api/maxflow/nonce/:address', async (req, res) => {
     try {
-      const response = await fetch('https://maxflow.one/api/epoch/current');
-      
-      if (!response.ok) {
-        return res.status(response.status).json({ error: 'Failed to fetch current epoch' });
-      }
-      
-      const data = await response.json();
-      res.json(data);
-    } catch (error) {
-      console.error('Error fetching current epoch:', error);
-      res.status(500).json({ error: 'Failed to fetch current epoch' });
-    }
-  });
-
-  app.get('/api/maxflow/nonce/:address/:epoch', async (req, res) => {
-    try {
-      const { address, epoch } = req.params;
-      const response = await fetch(`https://maxflow.one/api/nonce/${address}/${epoch}`);
+      const { address } = req.params;
+      const response = await fetch(`${MAXFLOW_API_BASE}/vouch/nonce/${address}`);
       
       if (!response.ok) {
         return res.status(response.status).json({ error: 'Failed to fetch nonce' });
@@ -2267,11 +2254,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Vouch status check
+  app.get('/api/maxflow/vouch-status', async (req, res) => {
+    try {
+      const { endorser, endorsee } = req.query;
+      
+      if (!endorser || !endorsee) {
+        return res.status(400).json({ error: 'Missing endorser or endorsee parameter' });
+      }
+      
+      const response = await fetch(`${MAXFLOW_API_BASE}/vouch-status?endorser=${endorser}&endorsee=${endorsee}`);
+      
+      if (!response.ok) {
+        return res.status(response.status).json({ error: 'Failed to fetch vouch status' });
+      }
+      
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error('Error fetching vouch status:', error);
+      res.status(500).json({ error: 'Failed to fetch vouch status' });
+    }
+  });
+
+  // Submit vouch (flat request body format for v1 API)
   app.post('/api/maxflow/vouch', async (req, res) => {
     try {
       console.log('[MaxFlow API] Vouch request:', JSON.stringify(req.body, null, 2));
       
-      const response = await fetch('https://maxflow.one/api/vouch', {
+      const response = await fetch(`${MAXFLOW_API_BASE}/vouch`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2298,6 +2309,132 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error submitting vouch:', error);
       res.status(500).json({ error: 'Failed to submit vouch' });
+    }
+  });
+
+  // Get revocation info (endorsement ID needed for revoke)
+  app.get('/api/maxflow/revoke/info', async (req, res) => {
+    try {
+      const { endorser, endorsee } = req.query;
+      
+      if (!endorser || !endorsee) {
+        return res.status(400).json({ error: 'Missing endorser or endorsee parameter' });
+      }
+      
+      const response = await fetch(`${MAXFLOW_API_BASE}/revoke/info?endorser=${endorser}&endorsee=${endorsee}`);
+      
+      if (!response.ok) {
+        return res.status(response.status).json({ error: 'Failed to fetch revoke info' });
+      }
+      
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error('Error fetching revoke info:', error);
+      res.status(500).json({ error: 'Failed to fetch revoke info' });
+    }
+  });
+
+  // Submit revocation
+  app.post('/api/maxflow/revoke', async (req, res) => {
+    try {
+      console.log('[MaxFlow API] Revoke request:', JSON.stringify(req.body, null, 2));
+      
+      const response = await fetch(`${MAXFLOW_API_BASE}/revoke`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(req.body),
+      });
+      
+      console.log('[MaxFlow API] Revoke response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[MaxFlow API] Revoke error response:', errorText);
+        try {
+          const errorData = JSON.parse(errorText);
+          return res.status(response.status).json(errorData);
+        } catch {
+          return res.status(response.status).json({ message: errorText || 'Failed to revoke vouch' });
+        }
+      }
+      
+      const data = await response.json();
+      console.log('[MaxFlow API] Revoke success:', JSON.stringify(data, null, 2));
+      res.json(data);
+    } catch (error) {
+      console.error('Error revoking vouch:', error);
+      res.status(500).json({ error: 'Failed to revoke vouch' });
+    }
+  });
+
+  // List endorsements (with optional filtering)
+  app.get('/api/maxflow/endorsements', async (req, res) => {
+    try {
+      const { endorser, endorsee, limit, offset } = req.query;
+      const params = new URLSearchParams();
+      if (endorser) params.append('endorser', endorser as string);
+      if (endorsee) params.append('endorsee', endorsee as string);
+      if (limit) params.append('limit', limit as string);
+      if (offset) params.append('offset', offset as string);
+      
+      const response = await fetch(`${MAXFLOW_API_BASE}/endorsements?${params.toString()}`);
+      
+      if (!response.ok) {
+        return res.status(response.status).json({ error: 'Failed to fetch endorsements' });
+      }
+      
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error('Error fetching endorsements:', error);
+      res.status(500).json({ error: 'Failed to fetch endorsements' });
+    }
+  });
+
+  // List endorsements with expiration status
+  app.get('/api/maxflow/endorsements/with-status', async (req, res) => {
+    try {
+      const { endorser, endorsee, limit } = req.query;
+      const params = new URLSearchParams();
+      if (endorser) params.append('endorser', endorser as string);
+      if (endorsee) params.append('endorsee', endorsee as string);
+      if (limit) params.append('limit', limit as string);
+      
+      const response = await fetch(`${MAXFLOW_API_BASE}/endorsements/with-status?${params.toString()}`);
+      
+      if (!response.ok) {
+        return res.status(response.status).json({ error: 'Failed to fetch endorsements with status' });
+      }
+      
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error('Error fetching endorsements with status:', error);
+      res.status(500).json({ error: 'Failed to fetch endorsements with status' });
+    }
+  });
+
+  // Get user profile (display name)
+  app.get('/api/maxflow/user/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      const response = await fetch(`${MAXFLOW_API_BASE}/user/${address}`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          return res.status(404).json({ error: 'Profile not found' });
+        }
+        return res.status(response.status).json({ error: 'Failed to fetch user profile' });
+      }
+      
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      res.status(500).json({ error: 'Failed to fetch user profile' });
     }
   });
 
@@ -4659,7 +4796,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const scoreData = await storage.getMaxFlowScore(address);
-      const signal = Math.round(scoreData?.localHealth || 0);
+      const signal = Math.round(scoreData?.local_health || 0);
 
       if (signal === 0) {
         return res.status(400).json({ 
