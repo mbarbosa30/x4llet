@@ -36,7 +36,7 @@ export default function AppHeader() {
     queryKey: ['/maxflow/score', address],
     queryFn: () => getMaxFlowScore(address!),
     enabled: !!address,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 4 * 60 * 60 * 1000, // 4 hours - score rarely changes
   });
 
   // Fetch pool referral code if user has one
