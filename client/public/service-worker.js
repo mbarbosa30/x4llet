@@ -1,8 +1,7 @@
-const CACHE_NAME = 'nanopay-v1';
+const CACHE_PREFIX = 'nanopay-';
+let CACHE_NAME = `${CACHE_PREFIX}initial`;
 const APP_SHELL = '/index.html';
-const ASSETS_TO_CACHE = [
-  '/',
-  APP_SHELL,
+const STATIC_ASSETS = [
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',
@@ -10,54 +9,57 @@ const ASSETS_TO_CACHE = [
   '/favicon.png',
 ];
 
+async function getServerVersion() {
+  try {
+    const response = await fetch('/api/version');
+    if (response.ok) {
+      const data = await response.json();
+      return data.version || 'unknown';
+    }
+  } catch (e) {
+    console.log('[Service Worker] Could not fetch version');
+  }
+  return null;
+}
+
+async function updateCacheVersion() {
+  const version = await getServerVersion();
+  if (version) {
+    CACHE_NAME = `${CACHE_PREFIX}${version}`;
+    console.log('[Service Worker] Cache version:', CACHE_NAME);
+  }
+}
+
 self.addEventListener('install', (event) => {
   console.log('[Service Worker] Install');
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Caching app shell and assets');
-      return cache.addAll(ASSETS_TO_CACHE).catch((err) => {
+    (async () => {
+      await updateCacheVersion();
+      const cache = await caches.open(CACHE_NAME);
+      console.log('[Service Worker] Caching static assets');
+      await cache.addAll(STATIC_ASSETS).catch((err) => {
         console.error('[Service Worker] Failed to cache assets:', err);
-        throw err;
       });
-    })
+    })()
   );
   self.skipWaiting();
 });
 
-async function ensureAppShellCached() {
-  const cache = await caches.open(CACHE_NAME);
-  const cachedShell = await cache.match(APP_SHELL);
-  
-  if (!cachedShell) {
-    console.log('[Service Worker] App shell missing from cache, attempting to restore...');
-    try {
-      const response = await fetch(APP_SHELL);
-      if (response.ok) {
-        await cache.put(APP_SHELL, response);
-        console.log('[Service Worker] App shell restored to cache');
-      }
-    } catch (err) {
-      console.error('[Service Worker] Failed to restore app shell:', err);
-    }
-  }
-}
-
 self.addEventListener('activate', (event) => {
   console.log('[Service Worker] Activate');
   event.waitUntil(
-    Promise.all([
-      caches.keys().then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((cacheName) => {
-            if (cacheName !== CACHE_NAME) {
-              console.log('[Service Worker] Deleting old cache:', cacheName);
-              return caches.delete(cacheName);
-            }
-          })
-        );
-      }),
-      ensureAppShellCached()
-    ])
+    (async () => {
+      await updateCacheVersion();
+      const cacheNames = await caches.keys();
+      await Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName.startsWith(CACHE_PREFIX) && cacheName !== CACHE_NAME) {
+            console.log('[Service Worker] Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })()
   );
   self.clients.claim();
 });
@@ -88,7 +90,7 @@ self.addEventListener('fetch', (event) => {
               return cachedResponse;
             }
             return new Response(
-              JSON.stringify({ error: 'Offline - cached data not available' }),
+              JSON.stringify({ error: 'Offline - please check your connection' }),
               {
                 status: 503,
                 headers: { 'Content-Type': 'application/json' },
@@ -97,52 +99,80 @@ self.addEventListener('fetch', (event) => {
           });
         })
     );
-  } else {
+    return;
+  }
+
+  const isAsset = url.pathname.match(/\.(js|css|woff2?|ttf|eot)$/) || 
+                  url.pathname.startsWith('/assets/');
+  
+  if (isAsset) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          return caches.match(request).then((cachedResponse) => {
+            if (cachedResponse) {
+              return cachedResponse;
+            }
+            return new Response('Asset not available offline', {
+              status: 503,
+              headers: { 'Content-Type': 'text/plain' },
+            });
+          });
+        })
+    );
+    return;
+  }
+
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(APP_SHELL, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          return caches.match(APP_SHELL).then((cachedResponse) => {
+            if (cachedResponse) {
+              return cachedResponse;
+            }
+            return new Response('Please connect to the internet and reload', {
+              status: 503,
+              headers: { 'Content-Type': 'text/html' },
+            });
+          });
+        })
+    );
+    return;
+  }
+
+  const isStaticAsset = STATIC_ASSETS.some(asset => url.pathname === asset);
+  if (isStaticAsset) {
     event.respondWith(
       caches.match(request).then((cachedResponse) => {
         if (cachedResponse) {
           return cachedResponse;
         }
-        
-        const fetchPromise = fetch(request)
-          .then((response) => {
-            if (response.ok && url.origin === location.origin) {
-              const responseClone = response.clone();
-              caches.open(CACHE_NAME).then((cache) => {
-                cache.put(request, responseClone);
-              });
-              
-              if (request.mode === 'navigate') {
-                ensureAppShellCached().catch((err) => {
-                  console.error('[Service Worker] Background shell check failed:', err);
-                });
-              }
-            }
-            return response;
-          })
-          .catch(() => {
-            if (request.mode === 'navigate') {
-              return caches.match(APP_SHELL).then((appShell) => {
-                if (appShell) {
-                  return appShell;
-                }
-                console.error('[Service Worker] App shell not in cache - user may be offline before first load');
-                return new Response('App offline - please connect to internet and reload once', {
-                  status: 503,
-                  headers: { 'Content-Type': 'text/html' },
-                });
-              });
-            }
-            return new Response('Offline - resource not cached', {
-              status: 503,
-              headers: { 'Content-Type': 'text/plain' },
-            });
-          });
-        
-        return fetchPromise;
+        return fetch(request);
       })
     );
+    return;
   }
+
+  event.respondWith(fetch(request));
 });
 
 self.addEventListener('message', (event) => {
