@@ -95,7 +95,11 @@ export default function Pay() {
       }
 
       const account = privateKeyToAccount(privateKey as `0x${string}`);
-      const networkConfig = getNetworkConfig(paymentRequest.chainId === 8453 ? 'base' : 'celo');
+      const networkConfig = getNetworkConfig(
+        paymentRequest.chainId === 8453 ? 'base' : 
+        paymentRequest.chainId === 42161 ? 'arbitrum' : 
+        paymentRequest.chainId === 100 ? 'gnosis' : 'celo'
+      );
       
       const value = paymentRequest.amount;
       

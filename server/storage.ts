@@ -1993,9 +1993,9 @@ export class DbStorage extends MemStorage {
     createdAt: string;
     lastSeen: string;
     totalBalance: string;
-    balanceByChain: { base: string; celo: string; gnosis: string };
+    balanceByChain: { base: string; celo: string; gnosis: string; arbitrum: string };
     aUsdcBalance: string;
-    aUsdcByChain: { base: string; celo: string; gnosis: string };
+    aUsdcByChain: { base: string; celo: string; gnosis: string; arbitrum: string };
     transferCount: number;
     totalVolume: string;
     savingsBalance: string;
@@ -2015,8 +2015,8 @@ export class DbStorage extends MemStorage {
           .from(cachedBalances)
           .where(sql`LOWER(${cachedBalances.address}) = ${normalizedAddress}`);
         
-        const balanceByChain = { base: '0', celo: '0', gnosis: '0' };
-        const aUsdcByChain = { base: '0', celo: '0', gnosis: '0' };
+        const balanceByChain = { base: '0', celo: '0', gnosis: '0', arbitrum: '0' };
+        const aUsdcByChain = { base: '0', celo: '0', gnosis: '0', arbitrum: '0' };
         let totalBalance = BigInt(0);
         let totalAUsdcBalance = BigInt(0);
         
@@ -2029,11 +2029,13 @@ export class DbStorage extends MemStorage {
             if (b.chainId === 8453) balanceByChain.base = balanceStr;
             else if (b.chainId === 42220) balanceByChain.celo = balanceStr;
             else if (b.chainId === 100) balanceByChain.gnosis = balanceStr;
+            else if (b.chainId === 42161) balanceByChain.arbitrum = balanceStr;
           } else {
             totalAUsdcBalance += amount;
             if (b.chainId === -8453) aUsdcByChain.base = balanceStr;
             else if (b.chainId === -42220) aUsdcByChain.celo = balanceStr;
             else if (b.chainId === -100) aUsdcByChain.gnosis = balanceStr;
+            else if (b.chainId === -42161) aUsdcByChain.arbitrum = balanceStr;
           }
         }
         
@@ -2315,7 +2317,7 @@ export class DbStorage extends MemStorage {
   }
 
   async getAaveNetPrincipal(userAddress: string): Promise<{ chainId: number; netPrincipalMicro: string; trackingStarted: string | null }[]> {
-    const chainIds = [8453, 42220, 100]; // Base, Celo, Gnosis
+    const chainIds = [8453, 42220, 100, 42161]; // Base, Celo, Gnosis, Arbitrum
     const results: { chainId: number; netPrincipalMicro: string; trackingStarted: string | null }[] = [];
     const normalizedAddress = userAddress.toLowerCase();
 

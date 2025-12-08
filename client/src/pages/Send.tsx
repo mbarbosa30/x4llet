@@ -89,7 +89,7 @@ export default function Send() {
         if (storedRequest) {
           try {
             const request: PaymentRequest = JSON.parse(storedRequest);
-            const requestNetwork = request.chainId === 42220 ? 'celo' : request.chainId === 100 ? 'gnosis' : 'base';
+            const requestNetwork = request.chainId === 42220 ? 'celo' : request.chainId === 100 ? 'gnosis' : request.chainId === 42161 ? 'arbitrum' : 'base';
             const requestChainId = request.chainId;
             
             // Set network to match payment request
