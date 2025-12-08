@@ -788,25 +788,19 @@ export default function Send() {
                 <div className="font-mono text-sm break-all">{recipient}</div>
               </div>
 
-              <div className="border-t pt-4">
-                <div className="text-sm text-muted-foreground mb-1">Network</div>
-                <div className="flex items-center gap-2" data-testid="text-network">
-                  <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold text-white ${
+              <div className="border-t pt-4 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5" data-testid="text-network">
+                  <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold text-white ${
                     network === 'base' ? 'bg-blue-500' : 
                     network === 'celo' ? 'bg-yellow-500' : 
                     'bg-green-600'
                   }`}>
                     {network === 'base' ? 'B' : network === 'celo' ? 'C' : 'G'}
                   </span>
-                  <span className="text-sm font-medium capitalize">{network}</span>
+                  <span className="text-xs text-muted-foreground capitalize">{network}</span>
                 </div>
-              </div>
-
-              <div className="border-t pt-4">
-                <div className="text-sm text-muted-foreground mb-1">Fee</div>
-                <div className="flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400" data-testid="text-no-fees">
+                <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400" data-testid="text-no-fees">
                   <span>No fees</span>
-                  <span className="text-xs text-muted-foreground font-normal">(Gasless transfer)</span>
                 </div>
               </div>
 
