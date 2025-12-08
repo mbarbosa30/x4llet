@@ -355,7 +355,7 @@ export default function MaxFlow() {
                   <div
                     key={i}
                     className={`h-2 w-2 rounded-full ${
-                      i < Math.round(score / 10) ? 'bg-primary' : 'bg-muted'
+                      i < Math.round(score / 10) ? 'bg-[#0055FF]' : 'bg-muted'
                     }`}
                   />
                 ))}
