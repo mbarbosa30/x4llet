@@ -29,6 +29,60 @@ const USDC_ABI = [
   },
 ] as const;
 
+// Normalize MaxFlow score data to ensure consistent snake_case property names
+// This handles both old camelCase API responses and new snake_case v1 responses
+function normalizeMaxFlowScore(data: any): any {
+  if (!data || typeof data !== 'object') return data;
+  
+  const normalized: any = { ...data };
+  
+  // Map camelCase to snake_case for top-level properties
+  if ('localHealth' in normalized && !('local_health' in normalized)) {
+    normalized.local_health = normalized.localHealth;
+    delete normalized.localHealth;
+  }
+  if ('vouchCounts' in normalized && !('vouch_counts' in normalized)) {
+    normalized.vouch_counts = normalized.vouchCounts;
+    delete normalized.vouchCounts;
+  }
+  if ('algorithmBreakdown' in normalized && !('algorithm_breakdown' in normalized)) {
+    const breakdown = normalized.algorithmBreakdown;
+    normalized.algorithm_breakdown = {
+      flow_component: breakdown.flowComponent ?? breakdown.flow_component,
+      redundancy_component: breakdown.redundancyComponent ?? breakdown.redundancy_component,
+      direct_flow: breakdown.directFlow ?? breakdown.direct_flow,
+      effective_redundancy: breakdown.effectiveRedundancy ?? breakdown.effective_redundancy,
+      dilution_factor: breakdown.dilutionFactor ?? breakdown.dilution_factor,
+      vertex_disjoint_paths: breakdown.vertexDisjointPaths ?? breakdown.vertex_disjoint_paths,
+      ego_network_size: breakdown.egoNetworkSize ?? breakdown.ego_network_size,
+      edge_density: breakdown.edgeDensity ?? breakdown.edge_density,
+      baselines: breakdown.baselines,
+    };
+    delete normalized.algorithmBreakdown;
+  }
+  
+  // Normalize vouch_counts if it exists with camelCase
+  if (normalized.vouch_counts) {
+    const vc = normalized.vouch_counts;
+    normalized.vouch_counts = {
+      incoming_total: vc.incomingTotal ?? vc.incoming_total,
+      incoming_active: vc.incomingActive ?? vc.incoming_active,
+      outgoing_total: vc.outgoingTotal ?? vc.outgoing_total,
+      unique_vouchers: vc.uniqueVouchers ?? vc.unique_vouchers,
+    };
+  }
+  
+  // Normalize activity if it exists with camelCase
+  if (normalized.activity) {
+    const act = normalized.activity;
+    normalized.activity = {
+      last_vouch_given_at: act.lastVouchGivenAt ?? act.last_vouch_given_at,
+    };
+  }
+  
+  return normalized;
+}
+
 // Helper function to convert USDC raw value (6 decimals) to human-readable string with 2 decimal places
 // Uses BigInt to preserve precision for large amounts and rounds to nearest cent
 function formatUsdcAmount(rawValue: string | bigint): string {
