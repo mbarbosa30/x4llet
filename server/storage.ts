@@ -1297,7 +1297,8 @@ export class DbStorage extends MemStorage {
       }
 
       console.log(`[DB Cache] Returning cached MaxFlow score for ${address} (age: ${Math.round(cacheAge / 1000)}s)`);
-      return JSON.parse(cached[0].scoreData) as MaxFlowScore;
+      const rawData = JSON.parse(cached[0].scoreData);
+      return normalizeMaxFlowScore(rawData) as MaxFlowScore;
     } catch (error) {
       console.error('[DB] Error fetching cached MaxFlow score:', error);
       return null;
@@ -1306,17 +1307,20 @@ export class DbStorage extends MemStorage {
 
   async saveMaxFlowScore(address: string, scoreData: MaxFlowScore): Promise<void> {
     try {
+      // Normalize to snake_case before saving to ensure consistent format
+      const normalizedData = normalizeMaxFlowScore(scoreData);
+      
       await db
         .insert(cachedMaxflowScores)
         .values({
           address: address.toLowerCase(),
-          scoreData: JSON.stringify(scoreData),
+          scoreData: JSON.stringify(normalizedData),
           updatedAt: new Date(),
         })
         .onConflictDoUpdate({
           target: cachedMaxflowScores.address,
           set: {
-            scoreData: JSON.stringify(scoreData),
+            scoreData: JSON.stringify(normalizedData),
             updatedAt: new Date(),
           },
         });
