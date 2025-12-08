@@ -1195,7 +1195,7 @@ export default function Dashboard() {
                           <Coins className="h-4 w-4 text-primary" />
                         </div>
                         <p className="text-3xl font-bold text-primary">
-                          {gooddollarAnalytics?.totalGdClaimedFormatted || '0 G$'}
+                          {gooddollarAnalytics?.totalGdClaimedFormatted || '0'} G$
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
                           Across {gooddollarAnalytics?.totalClaims || 0} total claims

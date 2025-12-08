@@ -1535,7 +1535,7 @@ export default function Admin() {
                       <CardTitle className="text-sm font-medium text-muted-foreground">Total G$ Claimed</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold" data-testid="text-gd-total-claimed">{goodDollarAnalytics.totalGdClaimedFormatted}</div>
+                      <div className="text-2xl font-bold" data-testid="text-gd-total-claimed">{goodDollarAnalytics.totalGdClaimedFormatted} G$</div>
                     </CardContent>
                   </Card>
                   <Card>

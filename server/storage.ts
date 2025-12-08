@@ -3293,7 +3293,7 @@ export class DbStorage extends MemStorage {
       `);
 
       const totalAmount = Number(claimStats.rows[0]?.totalAmount || 0);
-      const totalAmountFormatted = totalAmount.toFixed(2);
+      const totalAmountFormatted = totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
       return {
         totalVerifiedUsers: Number(verifiedCount?.count || 0),
