@@ -71,7 +71,8 @@ export default function AppHeader() {
       } else {
         await navigator.clipboard.writeText(referralLink);
         toast({
-          title: "Link copied",
+          title: "Referral link copied",
+          description: "Share this link to invite friends to nanoPay",
         });
       }
     } catch (error) {

@@ -103,6 +103,7 @@ export default function Settings() {
     await savePreferences({ currency: newCurrency, language });
     toast({
       title: "Currency updated",
+      description: `Display currency set to ${newCurrency}`,
     });
     setShowCurrency(false);
   };
@@ -204,7 +205,8 @@ export default function Settings() {
       await navigator.clipboard.writeText(privateKey);
       setCopied(true);
       toast({
-        title: "Copied",
+        title: "Private key copied",
+        description: "Your private key has been copied to clipboard",
       });
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -225,6 +227,7 @@ export default function Settings() {
     lockWallet();
     toast({
       title: "Wallet locked",
+      description: "Your wallet has been securely locked",
     });
     setLocation('/unlock');
   };
@@ -241,6 +244,7 @@ export default function Settings() {
     
     toast({
       title: "Theme updated",
+      description: `Switched to ${newTheme} mode`,
     });
     setShowTheme(false);
   };

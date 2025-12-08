@@ -21,7 +21,8 @@ export default function AddressDisplay({ address, truncate = true }: AddressDisp
       await navigator.clipboard.writeText(address);
       setCopied(true);
       toast({
-        title: "Copied",
+        title: "Address copied",
+        description: `${address.slice(0, 6)}...${address.slice(-4)} copied to clipboard`,
       });
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {

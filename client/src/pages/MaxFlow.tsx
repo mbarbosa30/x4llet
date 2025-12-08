@@ -108,7 +108,10 @@ export default function MaxFlow() {
       });
     },
     onSuccess: () => {
-      toast({ title: "Vouch submitted" });
+      toast({ 
+        title: "Vouch submitted",
+        description: `You vouched for ${vouchAddress.slice(0, 6)}...${vouchAddress.slice(-4)}`,
+      });
       setVouchAddress('');
       setShowVouchInput(false);
       queryClient.invalidateQueries({ queryKey: ['/maxflow/score', address] });

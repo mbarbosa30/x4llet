@@ -403,7 +403,10 @@ export default function Earn() {
       return mintPersonalCRC(address);
     },
     onSuccess: () => {
-      toast({ title: "CRC claimed" });
+      toast({ 
+        title: "CRC claimed",
+        description: "Your daily CRC tokens have been claimed",
+      });
       localQueryClient.invalidateQueries({ queryKey: ['/circles/balance', address] });
     },
     onError: (error) => {
@@ -424,8 +427,11 @@ export default function Earn() {
       });
       return res;
     },
-    onSuccess: () => {
-      toast({ title: "Allocation updated" });
+    onSuccess: (_data, percent) => {
+      toast({ 
+        title: "Pool allocation updated",
+        description: `Contributing ${percent}% of your yield to the prize pool`,
+      });
       localQueryClient.invalidateQueries({ queryKey: ['/api/pool/status', address] });
     },
     onError: (error) => {

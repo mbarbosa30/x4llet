@@ -249,6 +249,7 @@ export default function Send() {
       
       toast({
         title: "Transaction sent",
+        description: `${usdcAmount} USDC sent to ${recipient.slice(0, 6)}...${recipient.slice(-4)}`,
       });
       // Immediate invalidation to clear stale data
       queryClient.invalidateQueries({ queryKey: ['/api/balance', address] });
@@ -844,7 +845,8 @@ export default function Send() {
                 onClick={() => {
                   navigator.clipboard.writeText(paymentLink);
                   toast({
-                    title: "Link copied",
+                    title: "Payment link copied",
+                    description: `${usdcAmount} USDC payment link copied to clipboard`,
                   });
                 }}
                 className="w-full"
@@ -862,6 +864,7 @@ export default function Send() {
                   window.location.href = smsUrl;
                   toast({
                     title: "Opening SMS",
+                    description: "Sharing payment link via text message",
                   });
                 }}
                 className="w-full"

@@ -407,7 +407,10 @@ export default function Claim() {
       return mintPersonalCRC(address);
     },
     onSuccess: () => {
-      toast({ title: "CRC claimed" });
+      toast({ 
+        title: "CRC claimed",
+        description: "Your daily CRC tokens have been claimed",
+      });
       queryClient.invalidateQueries({ queryKey: ['/circles/balance', address] });
     },
     onError: (error) => {
@@ -424,8 +427,11 @@ export default function Claim() {
       if (!address) throw new Error('No wallet found');
       return trustAddress(address, trustee);
     },
-    onSuccess: () => {
-      toast({ title: "Trust established" });
+    onSuccess: (_data, trustee) => {
+      toast({ 
+        title: "Trust established",
+        description: `Now trusting ${trustee.slice(0, 6)}...${trustee.slice(-4)}`,
+      });
       setTrusteeAddress('');
       setShowTrustInput(false);
       queryClient.invalidateQueries({ queryKey: ['/circles/avatar', address] });
@@ -445,8 +451,11 @@ export default function Claim() {
       if (!address) throw new Error('No wallet found');
       return untrustAddress(address, trustee);
     },
-    onSuccess: () => {
-      toast({ title: "Trust removed" });
+    onSuccess: (_data, trustee) => {
+      toast({ 
+        title: "Trust removed",
+        description: `Stopped trusting ${trustee.slice(0, 6)}...${trustee.slice(-4)}`,
+      });
       setTrusteeAddress('');
       setShowTrustInput(false);
       queryClient.invalidateQueries({ queryKey: ['/circles/avatar', address] });
@@ -466,8 +475,11 @@ export default function Claim() {
       if (!address) throw new Error('No wallet found');
       return sendCRC(address, recipient, amount);
     },
-    onSuccess: () => {
-      toast({ title: "CRC sent" });
+    onSuccess: (_data, variables) => {
+      toast({ 
+        title: "CRC sent",
+        description: `${variables.amount} CRC sent to ${variables.recipient.slice(0, 6)}...${variables.recipient.slice(-4)}`,
+      });
       setSendRecipient('');
       setSendAmount('');
       setShowSendInput(false);
