@@ -134,7 +134,7 @@ function resolveChain(chainId: number) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  const BUILD_VERSION = '2025-12-08T10:00:00Z';
+  const BUILD_VERSION = '2025-12-08T10:05:00Z';
   
   app.get('/api/version', (req, res) => {
     res.json({
@@ -2266,6 +2266,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const age = Date.now() - cachedAt;
     return age > MAXFLOW_API_STALE_THRESHOLD_MS;
   }
+
+  // Debug endpoint to see raw MaxFlow API response (for troubleshooting production issues)
+  app.get('/api/debug/maxflow/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      const url = `${MAXFLOW_API_BASE}/score/${address}`;
+      
+      console.log(`[MaxFlow Debug] Testing URL: ${url}`);
+      
+      const startTime = Date.now();
+      const response = await fetchMaxFlow(url);
+      const elapsed = Date.now() - startTime;
+      
+      // Extract rate limit headers
+      const rateLimitHeaders: Record<string, string | null> = {
+        'x-ratelimit-limit': response.headers.get('x-ratelimit-limit'),
+        'x-ratelimit-remaining': response.headers.get('x-ratelimit-remaining'),
+        'x-ratelimit-reset': response.headers.get('x-ratelimit-reset'),
+        'retry-after': response.headers.get('retry-after'),
+      };
+      
+      const responseText = await response.text();
+      let responseBody: any;
+      try {
+        responseBody = JSON.parse(responseText);
+      } catch {
+        responseBody = responseText;
+      }
+      
+      res.json({
+        debug: true,
+        request: {
+          url,
+          headers: MAXFLOW_HEADERS_BASE,
+        },
+        response: {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok,
+          elapsedMs: elapsed,
+          rateLimitHeaders,
+          body: responseBody,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      res.json({
+        debug: true,
+        error: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof Error ? error.name : 'Unknown',
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
 
   app.get('/api/maxflow/score/:address', async (req, res) => {
     try {
