@@ -47,18 +47,40 @@ function normalizeMaxFlowScore(data: any): any {
   }
   if ('algorithmBreakdown' in normalized && !('algorithm_breakdown' in normalized)) {
     const breakdown = normalized.algorithmBreakdown;
-    normalized.algorithm_breakdown = {
-      flow_component: breakdown.flowComponent ?? breakdown.flow_component,
-      redundancy_component: breakdown.redundancyComponent ?? breakdown.redundancy_component,
-      direct_flow: breakdown.directFlow ?? breakdown.direct_flow,
-      effective_redundancy: breakdown.effectiveRedundancy ?? breakdown.effective_redundancy,
-      dilution_factor: breakdown.dilutionFactor ?? breakdown.dilution_factor,
-      vertex_disjoint_paths: breakdown.vertexDisjointPaths ?? breakdown.vertex_disjoint_paths,
-      ego_network_size: breakdown.egoNetworkSize ?? breakdown.ego_network_size,
-      edge_density: breakdown.edgeDensity ?? breakdown.edge_density,
-      baselines: breakdown.baselines,
-    };
+    if (breakdown && typeof breakdown === 'object') {
+      // Normalize baselines if present
+      let normalizedBaselines = breakdown.baselines;
+      if (normalizedBaselines && typeof normalizedBaselines === 'object') {
+        normalizedBaselines = {
+          healthy_vouch_count: normalizedBaselines.healthyVouchCount ?? normalizedBaselines.healthy_vouch_count,
+          healthy_redundancy: normalizedBaselines.healthyRedundancy ?? normalizedBaselines.healthy_redundancy,
+        };
+      }
+      
+      normalized.algorithm_breakdown = {
+        flow_component: breakdown.flowComponent ?? breakdown.flow_component,
+        redundancy_component: breakdown.redundancyComponent ?? breakdown.redundancy_component,
+        direct_flow: breakdown.directFlow ?? breakdown.direct_flow,
+        effective_redundancy: breakdown.effectiveRedundancy ?? breakdown.effective_redundancy,
+        dilution_factor: breakdown.dilutionFactor ?? breakdown.dilution_factor,
+        vertex_disjoint_paths: breakdown.vertexDisjointPaths ?? breakdown.vertex_disjoint_paths,
+        ego_network_size: breakdown.egoNetworkSize ?? breakdown.ego_network_size,
+        edge_density: breakdown.edgeDensity ?? breakdown.edge_density,
+        baselines: normalizedBaselines,
+      };
+    }
     delete normalized.algorithmBreakdown;
+  }
+  
+  // Also normalize algorithm_breakdown.baselines if it already exists with camelCase
+  if (normalized.algorithm_breakdown?.baselines) {
+    const baselines = normalized.algorithm_breakdown.baselines;
+    if ('healthyVouchCount' in baselines || 'healthyRedundancy' in baselines) {
+      normalized.algorithm_breakdown.baselines = {
+        healthy_vouch_count: baselines.healthyVouchCount ?? baselines.healthy_vouch_count,
+        healthy_redundancy: baselines.healthyRedundancy ?? baselines.healthy_redundancy,
+      };
+    }
   }
   
   // Normalize vouch_counts if it exists with camelCase
