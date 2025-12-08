@@ -5,13 +5,32 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Scan, Shield, Loader2 } from 'lucide-react';
+import { Scan, Shield, Loader2, Sparkles, Clock } from 'lucide-react';
 import { getWallet, getPrivateKey } from '@/lib/wallet';
 import { getMaxFlowScore, getCurrentEpoch, getNextNonce, submitVouch } from '@/lib/maxflow';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getAddress } from 'viem';
 import { useToast } from '@/hooks/use-toast';
 import QRScanner from '@/components/QRScanner';
+import { apiRequest } from '@/lib/queryClient';
+
+interface XpData {
+  totalXp: number;
+  claimCount: number;
+  lastClaimTime: string | null;
+  canClaim: boolean;
+  nextClaimTime: string | null;
+  timeUntilNextClaim: number | null;
+}
+
+function formatTimeRemaining(ms: number): string {
+  const hours = Math.floor(ms / (1000 * 60 * 60));
+  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
+}
 
 export default function MaxFlow() {
   const [, setLocation] = useLocation();
@@ -22,6 +41,7 @@ export default function MaxFlow() {
   const [showVouchInput, setShowVouchInput] = useState(false);
   const [vouchAddress, setVouchAddress] = useState('');
   const [showScanner, setShowScanner] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -48,6 +68,51 @@ export default function MaxFlow() {
     queryFn: () => getMaxFlowScore(address!),
     enabled: !!address,
     staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: xpData, isLoading: isLoadingXp } = useQuery<XpData>({
+    queryKey: ['/api/xp', address],
+    enabled: !!address,
+  });
+
+  useEffect(() => {
+    if (xpData?.timeUntilNextClaim && xpData.timeUntilNextClaim > 0) {
+      setTimeRemaining(xpData.timeUntilNextClaim);
+      const interval = setInterval(() => {
+        setTimeRemaining((prev) => {
+          if (prev === null || prev <= 1000) {
+            clearInterval(interval);
+            queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
+            return 0;
+          }
+          return prev - 1000;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setTimeRemaining(null);
+    }
+  }, [xpData?.timeUntilNextClaim, address, queryClient]);
+
+  const claimXpMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/xp/claim', { address });
+    },
+    onSuccess: async (response) => {
+      const data = await response.json();
+      toast({
+        title: "XP Claimed!",
+        description: `You earned ${data.xpEarned} XP from your MaxFlow signal`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Claim Failed",
+        description: error instanceof Error ? error.message : "Failed to claim XP",
+        variant: "destructive",
+      });
+    },
   });
 
   const vouchMutation = useMutation({
@@ -316,6 +381,68 @@ export default function MaxFlow() {
                 </Button>
               </div>
             </div>
+          )}
+        </Card>
+
+        <Card className="p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-amber-500" />
+              <span className="font-medium">XP Balance</span>
+            </div>
+            <div className="text-right">
+              {isLoadingXp ? (
+                <span className="text-2xl font-bold tabular-nums">--</span>
+              ) : (
+                <span className="text-2xl font-bold tabular-nums" data-testid="text-xp-balance">
+                  {xpData?.totalXp ?? 0}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {!isLoadingXp && xpData && (
+            <>
+              {score > 0 ? (
+                xpData.canClaim ? (
+                  <Button
+                    onClick={() => claimXpMutation.mutate()}
+                    disabled={claimXpMutation.isPending}
+                    className="w-full"
+                    data-testid="button-claim-xp"
+                  >
+                    {claimXpMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Claiming...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Claim {Math.round(score)} XP
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <div className="flex items-center justify-center gap-2 py-2 px-4 bg-muted rounded-md">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground" data-testid="text-xp-cooldown">
+                      Next claim in {timeRemaining !== null ? formatTimeRemaining(timeRemaining) : '--'}
+                    </span>
+                  </div>
+                )
+              ) : (
+                <p className="text-sm text-muted-foreground text-center" data-testid="text-xp-no-signal">
+                  Get vouched to earn XP from your signal
+                </p>
+              )}
+              
+              {xpData.claimCount > 0 && (
+                <p className="text-xs text-muted-foreground text-center" data-testid="text-xp-claim-count">
+                  {xpData.claimCount} claim{xpData.claimCount !== 1 ? 's' : ''} total
+                </p>
+              )}
+            </>
           )}
         </Card>
 
