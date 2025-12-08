@@ -243,31 +243,31 @@ export default function MaxFlow() {
       )}
 
       <main className="max-w-md mx-auto p-4 space-y-4">
-        <Card className="p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-amber-500" />
-              <span className="font-medium">XP Balance</span>
+        {!isLoadingMaxFlow && score > 0 && (
+          <Card className="p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-amber-500" />
+                <span className="font-medium">XP Balance</span>
+              </div>
+              <div className="text-right">
+                {isLoadingXp ? (
+                  <span className="text-2xl font-bold tabular-nums">--</span>
+                ) : (
+                  <span className="text-2xl font-bold tabular-nums" data-testid="text-xp-balance">
+                    {xpData?.totalXp ?? 0}
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="text-right">
-              {isLoadingXp ? (
-                <span className="text-2xl font-bold tabular-nums">--</span>
-              ) : (
-                <span className="text-2xl font-bold tabular-nums" data-testid="text-xp-balance">
-                  {xpData?.totalXp ?? 0}
-                </span>
-              )}
-            </div>
-          </div>
 
-          <p className="text-xs text-muted-foreground text-center">
-            Claim Experience Points to access special features, opportunities and benefits.
-          </p>
+            <p className="text-xs text-muted-foreground text-center">
+              Claim Experience Points to access special features, opportunities and benefits.
+            </p>
 
-          {!isLoadingXp && xpData && (
-            <>
-              {score > 0 ? (
-                xpData.canClaim ? (
+            {!isLoadingXp && xpData && (
+              <>
+                {xpData.canClaim ? (
                   <Button
                     onClick={() => claimXpMutation.mutate()}
                     disabled={claimXpMutation.isPending}
@@ -293,21 +293,17 @@ export default function MaxFlow() {
                       Next claim in {timeRemaining !== null ? formatTimeRemaining(timeRemaining) : '--'}
                     </span>
                   </div>
-                )
-              ) : (
-                <p className="text-sm text-muted-foreground text-center" data-testid="text-xp-no-signal">
-                  Get vouched to earn XP from your signal
-                </p>
-              )}
-              
-              {xpData.claimCount > 0 && (
-                <p className="text-xs text-muted-foreground text-center" data-testid="text-xp-claim-count">
-                  {xpData.claimCount} claim{xpData.claimCount !== 1 ? 's' : ''} total
-                </p>
-              )}
-            </>
-          )}
-        </Card>
+                )}
+                
+                {xpData.claimCount > 0 && (
+                  <p className="text-xs text-muted-foreground text-center" data-testid="text-xp-claim-count">
+                    {xpData.claimCount} claim{xpData.claimCount !== 1 ? 's' : ''} total
+                  </p>
+                )}
+              </>
+            )}
+          </Card>
+        )}
 
         <Card className="p-6 space-y-6 border-foreground">
           {!isLoadingMaxFlow && score === 0 ? (
@@ -461,6 +457,44 @@ export default function MaxFlow() {
             </div>
           )}
         </Card>
+
+        {!isLoadingMaxFlow && score === 0 && (
+          <Card className="p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-amber-500" />
+                <span className="font-medium">XP Balance</span>
+              </div>
+              <div className="text-right">
+                {isLoadingXp ? (
+                  <span className="text-2xl font-bold tabular-nums">--</span>
+                ) : (
+                  <span className="text-2xl font-bold tabular-nums" data-testid="text-xp-balance">
+                    {xpData?.totalXp ?? 0}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground text-center">
+              Claim Experience Points to access special features, opportunities and benefits.
+            </p>
+
+            {!isLoadingXp && xpData && (
+              <>
+                <p className="text-sm text-muted-foreground text-center" data-testid="text-xp-no-signal">
+                  Get vouched to earn XP from your signal
+                </p>
+                
+                {xpData.claimCount > 0 && (
+                  <p className="text-xs text-muted-foreground text-center" data-testid="text-xp-claim-count">
+                    {xpData.claimCount} claim{xpData.claimCount !== 1 ? 's' : ''} total
+                  </p>
+                )}
+              </>
+            )}
+          </Card>
+        )}
 
         <div className="pt-6 space-y-3">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">About</h3>
