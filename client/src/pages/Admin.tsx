@@ -39,6 +39,8 @@ interface WalletDetails {
   lastSeen: string;
   totalBalance: string;
   balanceByChain: { base: string; celo: string; gnosis: string };
+  aUsdcBalance: string;
+  aUsdcByChain: { base: string; celo: string; gnosis: string };
   transferCount: number;
   totalVolume: string;
   savingsBalance: string;
@@ -1660,9 +1662,10 @@ export default function Admin() {
               <CardContent className="space-y-3">
                 {walletList.length > 0 ? (
                   <>
-                    <div className="grid grid-cols-7 gap-2 px-2 py-1 border-b text-xs">
+                    <div className="grid grid-cols-8 gap-2 px-2 py-1 border-b text-xs">
                       <div className="col-span-2">Address</div>
-                      <SortButton field="balance" label="Balance" />
+                      <SortButton field="balance" label="USDC" />
+                      <div className="text-xs font-medium text-muted-foreground">Earn</div>
                       <SortButton field="transfers" label="Txns" />
                       <SortButton field="maxflow" label="Score" />
                       <SortButton field="lastSeen" label="Last Seen" />
@@ -1672,13 +1675,14 @@ export default function Admin() {
                       {sortedWallets.map((wallet) => (
                         <div key={wallet.address} className="text-xs">
                           <div
-                            className="grid grid-cols-7 gap-2 p-2 bg-muted cursor-pointer hover:bg-muted/80"
+                            className="grid grid-cols-8 gap-2 p-2 bg-muted cursor-pointer hover:bg-muted/80"
                             onClick={() => setExpandedWallet(expandedWallet === wallet.address ? null : wallet.address)}
                           >
                             <div className="col-span-2 font-mono truncate">
                               {wallet.address.slice(0, 8)}...{wallet.address.slice(-6)}
                             </div>
                             <div className="font-mono">{formatAmount(wallet.totalBalance || '0')}</div>
+                            <div className="font-mono text-emerald-600">{formatAmount(wallet.aUsdcBalance || '0')}</div>
                             <div>{wallet.transferCount || 0}</div>
                             <div className="font-mono text-muted-foreground">
                               {wallet.maxFlowScore !== null ? wallet.maxFlowScore.toFixed(2) : '—'}
@@ -1697,16 +1701,30 @@ export default function Admin() {
                             <div className="p-2 bg-background border border-t-0 space-y-2">
                               <div className="grid grid-cols-3 gap-2 text-muted-foreground">
                                 <div>
-                                  <span className="block text-[10px] uppercase">Base</span>
+                                  <span className="block text-[10px] uppercase">Base USDC</span>
                                   <span className="font-mono">{formatAmount(wallet.balanceByChain?.base || '0')}</span>
                                 </div>
                                 <div>
-                                  <span className="block text-[10px] uppercase">Celo</span>
+                                  <span className="block text-[10px] uppercase">Celo USDC</span>
                                   <span className="font-mono">{formatAmount(wallet.balanceByChain?.celo || '0')}</span>
                                 </div>
                                 <div>
-                                  <span className="block text-[10px] uppercase">Gnosis</span>
+                                  <span className="block text-[10px] uppercase">Gnosis USDC</span>
                                   <span className="font-mono">{formatAmount(wallet.balanceByChain?.gnosis || '0')}</span>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-3 gap-2 text-muted-foreground">
+                                <div>
+                                  <span className="block text-[10px] uppercase text-emerald-600">Base Earn</span>
+                                  <span className="font-mono text-emerald-600">{formatAmount(wallet.aUsdcByChain?.base || '0')}</span>
+                                </div>
+                                <div>
+                                  <span className="block text-[10px] uppercase text-emerald-600">Celo Earn</span>
+                                  <span className="font-mono text-emerald-600">{formatAmount(wallet.aUsdcByChain?.celo || '0')}</span>
+                                </div>
+                                <div>
+                                  <span className="block text-[10px] uppercase text-emerald-600">Gnosis Earn</span>
+                                  <span className="font-mono text-emerald-600">{formatAmount(wallet.aUsdcByChain?.gnosis || '0')}</span>
                                 </div>
                               </div>
                               <div className="grid grid-cols-4 gap-2 text-muted-foreground">

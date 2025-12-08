@@ -1076,6 +1076,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const totalAUsdcMicro = BigInt(baseResult.aUsdcBalance) + BigInt(celoResult.aUsdcBalance) + BigInt(gnosisResult.aUsdcBalance);
 
+      // Cache aUSDC balances using negative chainIds to distinguish from regular USDC
+      // Convention: -chainId = aUSDC balance for that chain
+      await Promise.all([
+        storage.cacheAUsdcBalance(address, 8453, baseResult.aUsdcBalance),
+        storage.cacheAUsdcBalance(address, 42220, celoResult.aUsdcBalance),
+        storage.cacheAUsdcBalance(address, 100, gnosisResult.aUsdcBalance),
+      ]).catch(err => console.error('Error caching aUSDC balances:', err));
+
       res.json({
         totalAUsdcBalance: totalAUsdcMicro.toString(),
         chains: {

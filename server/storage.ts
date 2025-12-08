@@ -298,6 +298,10 @@ export interface IStorage {
     }>;
     activeClaimers: number;
   }>;
+  
+  // aUSDC balance caching (uses negative chainIds to distinguish from USDC)
+  cacheAUsdcBalance(address: string, chainId: number, balance: string): Promise<void>;
+  getCachedAUsdcBalance(address: string, chainId: number): Promise<string>;
 }
 
 export interface GasDrip {
@@ -778,6 +782,14 @@ export class MemStorage implements IStorage {
       recentClaims: [],
       activeClaimers: 0,
     };
+  }
+
+  async cacheAUsdcBalance(address: string, chainId: number, balance: string): Promise<void> {
+    // MemStorage stub - no-op
+  }
+
+  async getCachedAUsdcBalance(address: string, chainId: number): Promise<string> {
+    return '0';
   }
 }
 
@@ -1837,6 +1849,8 @@ export class DbStorage extends MemStorage {
     lastSeen: string;
     totalBalance: string;
     balanceByChain: { base: string; celo: string; gnosis: string };
+    aUsdcBalance: string;
+    aUsdcByChain: { base: string; celo: string; gnosis: string };
     transferCount: number;
     totalVolume: string;
     savingsBalance: string;
@@ -1857,15 +1871,25 @@ export class DbStorage extends MemStorage {
           .where(sql`LOWER(${cachedBalances.address}) = ${normalizedAddress}`);
         
         const balanceByChain = { base: '0', celo: '0', gnosis: '0' };
+        const aUsdcByChain = { base: '0', celo: '0', gnosis: '0' };
         let totalBalance = BigInt(0);
+        let totalAUsdcBalance = BigInt(0);
         
         for (const b of balanceData) {
           const balanceStr = b.balance || '0';
           const amount = BigInt(balanceStr);
-          totalBalance += amount;
-          if (b.chainId === 8453) balanceByChain.base = balanceStr;
-          else if (b.chainId === 42220) balanceByChain.celo = balanceStr;
-          else if (b.chainId === 100) balanceByChain.gnosis = balanceStr;
+          
+          if (b.chainId > 0) {
+            totalBalance += amount;
+            if (b.chainId === 8453) balanceByChain.base = balanceStr;
+            else if (b.chainId === 42220) balanceByChain.celo = balanceStr;
+            else if (b.chainId === 100) balanceByChain.gnosis = balanceStr;
+          } else {
+            totalAUsdcBalance += amount;
+            if (b.chainId === -8453) aUsdcByChain.base = balanceStr;
+            else if (b.chainId === -42220) aUsdcByChain.celo = balanceStr;
+            else if (b.chainId === -100) aUsdcByChain.gnosis = balanceStr;
+          }
         }
         
         // Use case-insensitive matching for transactions
@@ -1920,6 +1944,8 @@ export class DbStorage extends MemStorage {
           lastSeen: wallet.lastSeen.toISOString(),
           totalBalance: totalBalance.toString(),
           balanceByChain,
+          aUsdcBalance: totalAUsdcBalance.toString(),
+          aUsdcByChain,
           transferCount,
           totalVolume,
           savingsBalance,
@@ -3287,6 +3313,43 @@ export class DbStorage extends MemStorage {
         recentClaims: [],
         activeClaimers: 0,
       };
+    }
+  }
+
+  async cacheAUsdcBalance(address: string, chainId: number, balance: string): Promise<void> {
+    try {
+      const aUsdcChainId = -chainId;
+      await db.insert(cachedBalances).values({
+        address,
+        chainId: aUsdcChainId,
+        balance,
+        decimals: 6,
+        nonce: '0',
+        updatedAt: new Date(),
+      }).onConflictDoUpdate({
+        target: [cachedBalances.address, cachedBalances.chainId],
+        set: {
+          balance,
+          updatedAt: new Date(),
+        },
+      });
+    } catch (error) {
+      console.error('[DB] Error caching aUSDC balance:', error);
+    }
+  }
+
+  async getCachedAUsdcBalance(address: string, chainId: number): Promise<string> {
+    try {
+      const aUsdcChainId = -chainId;
+      const cached = await db
+        .select()
+        .from(cachedBalances)
+        .where(and(eq(cachedBalances.address, address), eq(cachedBalances.chainId, aUsdcChainId)))
+        .limit(1);
+      return cached[0]?.balance || '0';
+    } catch (error) {
+      console.error('[DB] Error getting cached aUSDC balance:', error);
+      return '0';
     }
   }
 }
