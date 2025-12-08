@@ -1658,6 +1658,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Record a client-side withdrawal (for tracking purposes when withdrawal happens directly on-chain)
+  app.post('/api/aave/record-withdraw', async (req, res) => {
+    try {
+      const { chainId, userAddress, amount, txHash } = req.body;
+
+      console.log('[Aave Record Withdraw] Request received:', { chainId, userAddress, amount: amount?.slice(0, 10) + '...', txHash });
+
+      if (!chainId || !userAddress || !amount || !txHash) {
+        return res.status(400).json({ error: 'Missing required fields: chainId, userAddress, amount, txHash' });
+      }
+
+      if (!userAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+        return res.status(400).json({ error: 'Invalid userAddress format' });
+      }
+
+      if (!txHash.match(/^0x[a-fA-F0-9]{64}$/)) {
+        return res.status(400).json({ error: 'Invalid txHash format' });
+      }
+
+      // Validate amount is a valid non-negative integer string (micro-USDC)
+      const amountStr = String(amount).trim();
+      if (!/^\d+$/.test(amountStr)) {
+        return res.status(400).json({ error: 'Invalid amount format: must be a non-negative integer string (micro-USDC)' });
+      }
+
+      let amountBigInt: bigint;
+      try {
+        amountBigInt = BigInt(amountStr);
+        if (amountBigInt < 0n) {
+          return res.status(400).json({ error: 'Invalid amount: must be non-negative' });
+        }
+      } catch {
+        return res.status(400).json({ error: 'Invalid amount format: could not parse as integer' });
+      }
+
+      const network = getNetworkByChainId(chainId);
+      if (!network || !network.aavePoolAddress) {
+        return res.status(400).json({ error: 'Aave not supported on this network' });
+      }
+
+      // Create operation record for tracking/analytics - already completed since it happened client-side
+      const operation = await storage.createAaveOperation({
+        userAddress,
+        chainId,
+        operationType: 'withdraw',
+        amount,
+        status: 'completed',
+        step: 'completed',
+      });
+      
+      // Update with txHash and completion time
+      await storage.updateAaveOperation(operation.id, {
+        withdrawTxHash: txHash,
+        resolvedAt: new Date(),
+      });
+      
+      console.log('[Aave Record Withdraw] Created operation record:', operation.id);
+
+      // Update net deposits for Pool interest tracking (Celo only)
+      if (chainId === 42220) {
+        const normalizedAddr = userAddress.toLowerCase();
+        const existingSnapshot = await storage.getYieldSnapshot(normalizedAddr);
+        const currentNetDeposits = BigInt(existingSnapshot?.netDeposits || '0');
+        // Reduce netDeposits, but don't go below 0 (use pre-validated amountBigInt)
+        const newNetDeposits = currentNetDeposits > amountBigInt 
+          ? currentNetDeposits - amountBigInt 
+          : 0n;
+        
+        await storage.upsertYieldSnapshot(normalizedAddr, {
+          netDeposits: newNetDeposits.toString(),
+        });
+        console.log(`[Aave Record Withdraw] Updated netDeposits for ${normalizedAddr}: ${newNetDeposits.toString()}`);
+      }
+
+      console.log('[Aave Record Withdraw] Operation recorded successfully:', operation.id);
+
+      res.json({
+        success: true,
+        operationId: operation.id,
+        message: 'Withdrawal recorded successfully',
+      });
+    } catch (error) {
+      console.error('[Aave Record Withdraw] Error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({ error: 'Failed to record withdrawal', details: errorMessage });
+    }
+  });
+
   // GAS DRIP ENDPOINTS
   // Minimum gas thresholds for transactions (should cover Aave operations)
   const GAS_THRESHOLDS: Record<number, bigint> = {

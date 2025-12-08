@@ -875,6 +875,22 @@ export default function Earn() {
         throw new Error(result.error || 'Withdrawal failed');
       }
       
+      // Record the withdrawal to the database for tracking
+      if (result.txHash) {
+        try {
+          console.log('[Earn] Recording withdrawal to database...');
+          await apiRequest('POST', '/api/aave/record-withdraw', {
+            chainId: selectedChain,
+            userAddress: address,
+            amount: amountInMicroUsdc.toString(),
+            txHash: result.txHash,
+          });
+          console.log('[Earn] Withdrawal recorded successfully');
+        } catch (recordError) {
+          console.error('[Earn] Failed to record withdrawal (non-blocking):', recordError);
+        }
+      }
+      
       // Immediate invalidation to clear stale data
       queryClient.invalidateQueries({ queryKey: ['/api/balance'] });
       queryClient.invalidateQueries({ queryKey: ['/api/aave/balance'] });
