@@ -764,6 +764,7 @@ export class MemStorage implements IStorage {
       transferTxHash: null,
       approveTxHash: null,
       supplyTxHash: null,
+      withdrawTxHash: null,
       refundTxHash: null,
       errorMessage: null,
       retryCount: 0,
