@@ -2425,13 +2425,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let data = await response.json();
       
-      // If API returns stale cached data (>1 hour old), force refresh
+      // Note: We no longer force refresh for stale data - MaxFlow API handles its own caching
+      // Force refresh was causing timeouts and 503 errors. Stale data is better than no data.
       if (isMaxFlowResponseStale(data)) {
-        console.log(`[MaxFlow API] Response stale (cached_at: ${data.cached_at}), forcing refresh for ${address}`);
-        response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/score/${address}?force_refresh=true`);
-        if (response.ok) {
-          data = await response.json();
-        }
+        console.log(`[MaxFlow API] Response is stale (cached_at: ${data.cached_at}), but returning it anyway for ${address}`);
       }
       
       console.log(`[MaxFlow API] Score response for ${address}:`, JSON.stringify(data, null, 2));
