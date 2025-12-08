@@ -69,11 +69,6 @@ export default function MaxFlow() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Debug logging
-  console.log('[MaxFlow] scoreData:', scoreData);
-  console.log('[MaxFlow] local_health:', scoreData?.local_health);
-  console.log('[MaxFlow] algorithm_breakdown:', scoreData?.algorithm_breakdown);
-
   const { data: xpData, isLoading: isLoadingXp } = useQuery<XpData>({
     queryKey: ['/api/xp', address],
     enabled: !!address,
