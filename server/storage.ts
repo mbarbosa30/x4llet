@@ -2853,7 +2853,7 @@ export class DbStorage extends MemStorage {
       const results = await db.execute(sql`
         SELECT DATE(created_at) as date, COUNT(*) as count
         FROM wallets
-        WHERE created_at >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+        WHERE created_at >= NOW() - ${sql.raw(`INTERVAL '${days} days'`)}
         GROUP BY DATE(created_at)
         ORDER BY DATE(created_at)
       `);
@@ -2874,7 +2874,7 @@ export class DbStorage extends MemStorage {
                COALESCE(SUM(CAST(amount AS NUMERIC)), 0) as volume,
                COUNT(*) as count
         FROM cached_transactions
-        WHERE timestamp >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+        WHERE timestamp >= NOW() - ${sql.raw(`INTERVAL '${days} days'`)}
         GROUP BY DATE(timestamp)
         ORDER BY DATE(timestamp)
       `);
@@ -3159,12 +3159,12 @@ export class DbStorage extends MemStorage {
         WITH daily_counts AS (
           SELECT DATE(created_at) as date, COUNT(*) as daily_count
           FROM wallets
-          WHERE created_at >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+          WHERE created_at >= NOW() - ${sql.raw(`INTERVAL '${days} days'`)}
           GROUP BY DATE(created_at)
         ),
         all_dates AS (
           SELECT generate_series(
-            (NOW() - INTERVAL '${sql.raw(days.toString())} days')::date,
+            (NOW() - ${sql.raw(`INTERVAL '${days} days'`)})::date,
             CURRENT_DATE,
             '1 day'::interval
           )::date as date
@@ -3175,7 +3175,7 @@ export class DbStorage extends MemStorage {
           LEFT JOIN daily_counts dc ON d.date = dc.date
         ),
         base_count AS (
-          SELECT COUNT(*) as cnt FROM wallets WHERE created_at < NOW() - INTERVAL '${sql.raw(days.toString())} days'
+          SELECT COUNT(*) as cnt FROM wallets WHERE created_at < NOW() - ${sql.raw(`INTERVAL '${days} days'`)}
         )
         SELECT 
           f.date,
@@ -3230,7 +3230,7 @@ export class DbStorage extends MemStorage {
           COUNT(*) as count,
           COALESCE(AVG(CAST(amount AS NUMERIC)), 0) as avg_size
         FROM cached_transactions
-        WHERE timestamp >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+        WHERE timestamp >= NOW() - ${sql.raw(`INTERVAL '${days} days'`)}
         GROUP BY DATE(timestamp)
         ORDER BY DATE(timestamp)
       `);
@@ -3249,17 +3249,17 @@ export class DbStorage extends MemStorage {
     try {
       const results = await db.execute(sql`
         SELECT 
-          DATE(updated_at) as date,
+          DATE(timestamp) as date,
           SUM(CAST(balance AS NUMERIC)) as tvl
         FROM (
-          SELECT DISTINCT ON (address, chain_id, DATE(updated_at))
-            address, chain_id, balance, updated_at
+          SELECT DISTINCT ON (address, chain_id, DATE(timestamp))
+            address, chain_id, balance, timestamp
           FROM balance_history
-          WHERE updated_at >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
-          ORDER BY address, chain_id, DATE(updated_at), updated_at DESC
+          WHERE timestamp >= NOW() - ${sql.raw(`INTERVAL '${days} days'`)}
+          ORDER BY address, chain_id, DATE(timestamp), timestamp DESC
         ) daily_balances
-        GROUP BY DATE(updated_at)
-        ORDER BY DATE(updated_at)
+        GROUP BY DATE(timestamp)
+        ORDER BY DATE(timestamp)
       `);
       return (results.rows as any[]).map(row => ({
         date: row.date?.toISOString?.()?.split('T')[0] || row.date,
@@ -3280,40 +3280,37 @@ export class DbStorage extends MemStorage {
             SUM(CAST(balance AS NUMERIC)) as total_balance
           FROM cached_balances
           GROUP BY address
+        ),
+        bucketed AS (
+          SELECT 
+            CASE 
+              WHEN total_balance = 0 THEN '$0'
+              WHEN total_balance < 1000000 THEN '$0-$1'
+              WHEN total_balance < 10000000 THEN '$1-$10'
+              WHEN total_balance < 50000000 THEN '$10-$50'
+              WHEN total_balance < 100000000 THEN '$50-$100'
+              WHEN total_balance < 500000000 THEN '$100-$500'
+              ELSE '$500+'
+            END as range,
+            CASE 
+              WHEN total_balance = 0 THEN 1
+              WHEN total_balance < 1000000 THEN 2
+              WHEN total_balance < 10000000 THEN 3
+              WHEN total_balance < 50000000 THEN 4
+              WHEN total_balance < 100000000 THEN 5
+              WHEN total_balance < 500000000 THEN 6
+              ELSE 7
+            END as sort_order,
+            total_balance
+          FROM wallet_totals
         )
         SELECT 
-          CASE 
-            WHEN total_balance = 0 THEN '$0'
-            WHEN total_balance < 1000000 THEN '$0-$1'
-            WHEN total_balance < 10000000 THEN '$1-$10'
-            WHEN total_balance < 50000000 THEN '$10-$50'
-            WHEN total_balance < 100000000 THEN '$50-$100'
-            WHEN total_balance < 500000000 THEN '$100-$500'
-            ELSE '$500+'
-          END as range,
+          range,
           COUNT(*) as count,
           COALESCE(SUM(total_balance), 0) as total_balance
-        FROM wallet_totals
-        GROUP BY 
-          CASE 
-            WHEN total_balance = 0 THEN '$0'
-            WHEN total_balance < 1000000 THEN '$0-$1'
-            WHEN total_balance < 10000000 THEN '$1-$10'
-            WHEN total_balance < 50000000 THEN '$10-$50'
-            WHEN total_balance < 100000000 THEN '$50-$100'
-            WHEN total_balance < 500000000 THEN '$100-$500'
-            ELSE '$500+'
-          END
-        ORDER BY 
-          CASE range
-            WHEN '$0' THEN 1
-            WHEN '$0-$1' THEN 2
-            WHEN '$1-$10' THEN 3
-            WHEN '$10-$50' THEN 4
-            WHEN '$50-$100' THEN 5
-            WHEN '$100-$500' THEN 6
-            ELSE 7
-          END
+        FROM bucketed
+        GROUP BY range, sort_order
+        ORDER BY sort_order
       `);
       return (results.rows as any[]).map(row => ({
         range: row.range,
@@ -3331,7 +3328,7 @@ export class DbStorage extends MemStorage {
       const results = await db.execute(sql`
         WITH all_dates AS (
           SELECT generate_series(
-            (NOW() - INTERVAL '${sql.raw(days.toString())} days')::date,
+            (NOW() - ${sql.raw(`INTERVAL '${days} days'`)})::date,
             CURRENT_DATE,
             '1 day'::interval
           )::date as date
@@ -3342,7 +3339,7 @@ export class DbStorage extends MemStorage {
             chain_id,
             COUNT(*) as count
           FROM cached_transactions
-          WHERE timestamp >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+          WHERE timestamp >= NOW() - ${sql.raw(`INTERVAL '${days} days'`)}
           GROUP BY DATE(timestamp), chain_id
         )
         SELECT 
@@ -3372,7 +3369,7 @@ export class DbStorage extends MemStorage {
       const results = await db.execute(sql`
         WITH all_dates AS (
           SELECT generate_series(
-            (NOW() - INTERVAL '${sql.raw(days.toString())} days')::date,
+            (NOW() - ${sql.raw(`INTERVAL '${days} days'`)})::date,
             CURRENT_DATE,
             '1 day'::interval
           )::date as date
@@ -3380,7 +3377,7 @@ export class DbStorage extends MemStorage {
         daily_active AS (
           SELECT DATE(last_seen) as date, COUNT(DISTINCT address) as dau
           FROM wallets
-          WHERE last_seen >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+          WHERE last_seen >= NOW() - ${sql.raw(`INTERVAL '${days} days'`)}
           GROUP BY DATE(last_seen)
         ),
         weekly_active AS (
