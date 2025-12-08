@@ -2861,12 +2861,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   async function checkMaxFlowHealth(): Promise<boolean> {
+    const healthCheckUrl = `${MAXFLOW_API_BASE}/vouch/nonce/0x0000000000000000000000000000000000000000`;
+    console.log(`[MaxFlow Health] Checking URL: ${healthCheckUrl}`);
+    console.log(`[MaxFlow Health] MAXFLOW_API_BASE resolved to: ${MAXFLOW_API_BASE}`);
+    
     try {
-      const response = await fetch(`${MAXFLOW_API_BASE}/vouch/nonce/0x0000000000000000000000000000000000000000`, {
+      const response = await fetch(healthCheckUrl, {
         signal: AbortSignal.timeout(5000),
       });
+      console.log(`[MaxFlow Health] Response status: ${response.status} ${response.statusText}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unable to read response body');
+        console.log(`[MaxFlow Health] Response body: ${errorText.substring(0, 200)}`);
+      }
+      
       return response.ok;
-    } catch {
+    } catch (error) {
+      console.error(`[MaxFlow Health] Error:`, error instanceof Error ? error.message : error);
       return false;
     }
   }
