@@ -664,6 +664,9 @@ export default function Settings() {
                 <SelectItem value="MXN">MXN - Mexican Peso</SelectItem>
                 <SelectItem value="NGN">NGN - Nigerian Naira</SelectItem>
                 <SelectItem value="KES">KES - Kenyan Shilling</SelectItem>
+                <SelectItem value="UGX">UGX - Ugandan Shilling</SelectItem>
+                <SelectItem value="TZS">TZS - Tanzanian Shilling</SelectItem>
+                <SelectItem value="ETB">ETB - Ethiopian Birr</SelectItem>
                 <SelectItem value="INR">INR - Indian Rupee</SelectItem>
                 <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
                 <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
