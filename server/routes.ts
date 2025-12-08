@@ -2205,6 +2205,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // MaxFlow API Proxy Routes (v1 API - https://maxflow.one/api/v1)
   const MAXFLOW_API_BASE = 'https://maxflow.one/api/v1';
 
+  // Helper: Check if MaxFlow API cached_at is stale (older than 1 hour)
+  const MAXFLOW_API_STALE_THRESHOLD_MS = 60 * 60 * 1000; // 1 hour
+  
+  function isMaxFlowResponseStale(data: any): boolean {
+    if (!data?.cached || !data?.cached_at) return false;
+    const cachedAt = new Date(data.cached_at).getTime();
+    const age = Date.now() - cachedAt;
+    return age > MAXFLOW_API_STALE_THRESHOLD_MS;
+  }
+
   app.get('/api/maxflow/score/:address', async (req, res) => {
     try {
       const { address } = req.params;
@@ -2217,13 +2227,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Cache miss - fetch from MaxFlow API v1
       console.log(`[MaxFlow API] Cache miss, fetching score for ${address}`);
-      const response = await fetch(`${MAXFLOW_API_BASE}/score/${address}`);
+      let response = await fetch(`${MAXFLOW_API_BASE}/score/${address}`);
       
       if (!response.ok) {
         return res.status(response.status).json({ error: 'Failed to fetch MaxFlow score' });
       }
       
-      const data = await response.json();
+      let data = await response.json();
+      
+      // If API returns stale cached data (>1 hour old), force refresh
+      if (isMaxFlowResponseStale(data)) {
+        console.log(`[MaxFlow API] Response stale (cached_at: ${data.cached_at}), forcing refresh for ${address}`);
+        response = await fetch(`${MAXFLOW_API_BASE}/score/${address}?force_refresh=true`);
+        if (response.ok) {
+          data = await response.json();
+        }
+      }
+      
       console.log(`[MaxFlow API] Score response for ${address}:`, JSON.stringify(data, null, 2));
       
       // Save to cache
@@ -2562,7 +2582,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       for (const wallet of wallets) {
         try {
-          const response = await fetch(`${MAXFLOW_API_BASE}/score/${wallet.address}`);
+          // Always force refresh from MaxFlow API to get truly fresh scores
+          const response = await fetch(`${MAXFLOW_API_BASE}/score/${wallet.address}?force_refresh=true`);
           
           if (response.ok) {
             const data = await response.json();
