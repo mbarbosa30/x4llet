@@ -1014,16 +1014,6 @@ export default function Earn() {
           <TabsContent value="savings" className="mt-4 space-y-6">
             {!effectiveHasAaveBalance && aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && (
               <div className="space-y-4">
-                <div className="text-center space-y-2">
-                  <div className="flex items-center justify-center gap-2">
-                    <Sparkles className="h-6 w-6 text-primary" />
-                    <h1 className="text-2xl font-bold font-heading tracking-tight" data-testid="text-earn-title">Earn</h1>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Put your USDC to work and earn interest automatically
-                  </p>
-                </div>
-
                 <Card className="p-4 space-y-3" data-testid="card-how-it-works">
                   <div className="text-xs font-medium flex items-center gap-2 text-foreground/80">
                     <Info className="h-4 w-4 text-[#0055FF]" />
@@ -1052,10 +1042,6 @@ export default function Earn() {
                     <span className="flex items-center gap-1">
                       <Shield className="h-3 w-3 text-success" />
                       Secured by Aave
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Trophy className="h-3 w-3 text-yellow-500" />
-                      Prize pool available on Celo only
                     </span>
                     <span className="flex items-center gap-1">
                       <Zap className="h-3 w-3" />
