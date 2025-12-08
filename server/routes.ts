@@ -1533,8 +1533,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post('/api/aave/withdraw', async (req, res) => {
+    let operationId: string | null = null;
+    
     try {
       const { chainId, userAddress, amount } = req.body;
+
+      console.log('[Aave Withdraw] Request received:', { chainId, userAddress, amount: amount?.slice(0, 10) + '...' });
 
       if (!chainId || !userAddress || !amount) {
         return res.status(400).json({ error: 'Missing required fields: chainId, userAddress, amount' });
@@ -1550,6 +1554,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: `Unsupported chain: ${chainId}` });
       }
 
+      // Create operation record for tracking/analytics
+      const operation = await storage.createAaveOperation({
+        userAddress,
+        chainId,
+        operationType: 'withdraw',
+        amount,
+        status: 'pending',
+        step: 'withdraw',
+      });
+      operationId = operation.id;
+      console.log('[Aave Withdraw] Created operation record:', operationId);
+
       const chain = chainInfo.viemChain;
       const facilitatorAccount = getFacilitatorAccount();
 
@@ -1563,6 +1579,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         chain,
         transport: http(network.rpcUrl),
       });
+
+      // Update status to withdrawing
+      await storage.updateAaveOperation(operationId, { status: 'withdrawing', step: 'withdraw' });
 
       // Note: Withdrawing requires the user to have aTokens
       // The facilitator cannot withdraw on behalf of users without delegation
@@ -1578,7 +1597,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ],
       });
 
+      console.log('[Aave Withdraw] Withdraw tx hash:', hash);
+      await storage.updateAaveOperation(operationId, { withdrawTxHash: hash });
+
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
+
+      if (receipt.status !== 'success') {
+        await storage.updateAaveOperation(operationId, {
+          status: 'failed',
+          errorMessage: 'Withdraw transaction failed',
+        });
+        return res.status(400).json({ error: 'Withdraw transaction failed', operationId });
+      }
 
       // Update net deposits for Pool interest tracking (Celo only)
       if (chainId === 42220) {
@@ -1597,16 +1627,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[Aave Withdraw] Updated netDeposits for ${normalizedAddr}: ${newNetDeposits.toString()}`);
       }
 
+      // Mark operation as completed
+      await storage.updateAaveOperation(operationId, {
+        status: 'completed',
+        resolvedAt: new Date(),
+      });
+      console.log('[Aave Withdraw] Operation completed successfully:', operationId);
+
       res.json({
         success: true,
         txHash: hash,
         blockNumber: receipt.blockNumber.toString(),
         amount,
         chainId,
+        operationId,
       });
     } catch (error) {
-      console.error('Error withdrawing from Aave:', error);
-      res.status(500).json({ error: 'Failed to withdraw from Aave' });
+      console.error('[Aave Withdraw] Error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Update operation with error if we have an ID
+      if (operationId) {
+        await storage.updateAaveOperation(operationId, { 
+          status: 'failed', 
+          errorMessage 
+        });
+      }
+      
+      res.status(500).json({ error: 'Failed to withdraw from Aave', details: errorMessage, operationId });
     }
   });
 

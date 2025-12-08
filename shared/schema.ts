@@ -106,6 +106,7 @@ export const aaveOperations = pgTable("aave_operations", {
   transferTxHash: text("transfer_tx_hash"), // User's transfer to facilitator
   approveTxHash: text("approve_tx_hash"), // Facilitator's approve tx
   supplyTxHash: text("supply_tx_hash"), // Facilitator's supply tx
+  withdrawTxHash: text("withdraw_tx_hash"), // Facilitator's withdraw tx
   refundTxHash: text("refund_tx_hash"), // Refund tx if failed
   errorMessage: text("error_message"),
   retryCount: integer("retry_count").notNull().default(0),

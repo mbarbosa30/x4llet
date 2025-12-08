@@ -265,6 +265,7 @@ export interface IStorage {
     transferTxHash: string;
     approveTxHash: string;
     supplyTxHash: string;
+    withdrawTxHash: string;
     refundTxHash: string;
     errorMessage: string;
     retryCount: number;
@@ -678,6 +679,7 @@ export class MemStorage implements IStorage {
     transferTxHash: string;
     approveTxHash: string;
     supplyTxHash: string;
+    withdrawTxHash: string;
     refundTxHash: string;
     errorMessage: string;
     retryCount: number;
@@ -2068,6 +2070,7 @@ export class DbStorage extends MemStorage {
     transferTxHash: string;
     approveTxHash: string;
     supplyTxHash: string;
+    withdrawTxHash: string;
     refundTxHash: string;
     errorMessage: string;
     retryCount: number;
