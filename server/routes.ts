@@ -134,7 +134,7 @@ function resolveChain(chainId: number) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  const BUILD_VERSION = '2025-12-08T10:10:00Z';
+  const BUILD_VERSION = '2025-12-08T10:15:00Z';
   
   app.get('/api/version', (req, res) => {
     res.json({
@@ -2222,9 +2222,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     'User-Agent': 'nanoPay/1.0 (https://nanopay.live)',
   };
 
-  // Helper: Fetch with timeout for MaxFlow API
+  // Helper: Fetch with timeout and retry for MaxFlow API
   // Note: Returns globalThis.Response (fetch API), not Express Response
-  async function fetchMaxFlow(url: string, options: RequestInit = {}): Promise<globalThis.Response> {
+  // Implements retry logic for DNS failures (EAI_AGAIN) with exponential backoff
+  async function fetchMaxFlow(url: string, options: RequestInit = {}, retries = 3): Promise<globalThis.Response> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), MAXFLOW_REQUEST_TIMEOUT_MS);
     
@@ -2242,19 +2243,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       headers['Content-Type'] = 'application/json';
     }
     
-    try {
-      const fetchResponse = await fetch(url, {
-        ...options,
-        headers: {
-          ...headers,
-          ...options.headers as Record<string, string>,
-        },
-        signal: composedSignal,
-      });
-      return fetchResponse;
-    } finally {
-      clearTimeout(timeoutId);
+    // Retry loop with exponential backoff for DNS failures
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        const fetchResponse = await fetch(url, {
+          ...options,
+          headers: {
+            ...headers,
+            ...options.headers as Record<string, string>,
+          },
+          signal: composedSignal,
+        });
+        return fetchResponse;
+      } catch (error: any) {
+        // Check if this is a DNS resolution failure
+        const isDnsError = error?.cause?.code === 'EAI_AGAIN' || 
+                          error?.code === 'EAI_AGAIN' ||
+                          error?.cause?.code === 'ENOTFOUND' ||
+                          error?.code === 'ENOTFOUND';
+        
+        // If it's the last attempt or not a DNS error, throw
+        if (attempt === retries - 1 || !isDnsError) {
+          clearTimeout(timeoutId);
+          throw error;
+        }
+        
+        // Exponential backoff: 500ms, 1000ms, 2000ms
+        const delay = 500 * Math.pow(2, attempt);
+        console.log(`[MaxFlow] DNS error (${error.cause?.code || error.code}), retrying in ${delay}ms (attempt ${attempt + 1}/${retries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
     }
+    
+    clearTimeout(timeoutId);
+    throw new Error('Unexpected: retry loop completed without return');
   }
 
   // Helper: Check if MaxFlow API cached_at is stale (older than 1 hour)

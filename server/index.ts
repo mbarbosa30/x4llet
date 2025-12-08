@@ -3,6 +3,12 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startPoolScheduler } from "./poolScheduler";
 
+// Increase DNS threadpool size for better DNS resolution performance
+// Must be set before any async I/O operations
+if (!process.env.UV_THREADPOOL_SIZE) {
+  process.env.UV_THREADPOOL_SIZE = '128';
+}
+
 const app = express();
 
 app.get('/health', (_req, res) => {
