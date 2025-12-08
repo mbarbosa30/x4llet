@@ -1049,7 +1049,7 @@ export default function Admin() {
                           <div className="flex items-center gap-2">
                             <span className="font-mono">{formatAmount(tx.amount)}</span>
                             <span className="px-1.5 py-0.5 rounded text-[10px] bg-background border">
-                              {tx.chainId === 8453 ? 'Base' : tx.chainId === 42220 ? 'Celo' : 'Gnosis'}
+                              {tx.chainId === 8453 ? 'Base' : tx.chainId === 42220 ? 'Celo' : tx.chainId === 42161 ? 'Arbitrum' : 'Gnosis'}
                             </span>
                           </div>
                           <span className="text-muted-foreground">
@@ -1291,7 +1291,7 @@ export default function Admin() {
                         {aaveAnalytics.operationsByChain.map((chain) => (
                           <div key={chain.chainId} className="flex justify-between items-center p-2 bg-muted rounded">
                             <span className="font-medium">
-                              {chain.chainId === 8453 ? 'Base' : chain.chainId === 42220 ? 'Celo' : 'Gnosis'}
+                              {chain.chainId === 8453 ? 'Base' : chain.chainId === 42220 ? 'Celo' : chain.chainId === 42161 ? 'Arbitrum' : 'Gnosis'}
                             </span>
                             <div className="flex gap-4 text-sm">
                               <span className="text-green-600">+{formatAmount(chain.deposits)}</span>
@@ -1403,7 +1403,7 @@ export default function Admin() {
                             {facilitatorAnalytics.gasDripsByChain.map((chain) => (
                               <div key={chain.chainId} className="flex justify-between items-center p-2 bg-muted rounded">
                                 <span className="font-medium">
-                                  {chain.chainId === 8453 ? 'Base' : chain.chainId === 42220 ? 'Celo' : 'Gnosis'}
+                                  {chain.chainId === 8453 ? 'Base' : chain.chainId === 42220 ? 'Celo' : chain.chainId === 42161 ? 'Arbitrum' : 'Gnosis'}
                                 </span>
                                 <div className="text-sm">
                                   <span>{chain.count} drips</span>

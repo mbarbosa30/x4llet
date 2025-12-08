@@ -132,6 +132,8 @@ export default function Home() {
       return `https://celoscan.io/tx/${txHash}`;
     } else if (effectiveChainId === 100) {
       return `https://gnosisscan.io/tx/${txHash}`;
+    } else if (effectiveChainId === 42161) {
+      return `https://arbiscan.io/tx/${txHash}`;
     } else {
       return `https://basescan.org/tx/${txHash}`;
     }
