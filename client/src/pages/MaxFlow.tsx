@@ -287,7 +287,7 @@ export default function MaxFlow() {
                     ) : (
                       <>
                         <Sparkles className="h-4 w-4 mr-2" />
-                        Claim {Math.round(score)} XP
+                        Claim {Math.round(Math.sqrt(score))} XP
                       </>
                     )}
                   </Button>

@@ -5038,20 +5038,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const scoreData = await storage.getMaxFlowScore(address);
-      const signal = Math.round(scoreData?.local_health || 0);
+      const rawSignal = scoreData?.local_health || 0;
+      const xpAmount = Math.round(Math.sqrt(rawSignal));
 
-      if (signal === 0) {
+      if (xpAmount === 0) {
         return res.status(400).json({ 
           error: 'Cannot claim XP with zero signal',
           message: 'Build your trust network to earn XP',
         });
       }
 
-      const claim = await storage.claimXp(address, signal, signal);
+      const claim = await storage.claimXp(address, xpAmount, Math.round(rawSignal));
 
       res.json({
         success: true,
-        xpEarned: signal,
+        xpEarned: xpAmount,
         claim: {
           id: claim.id,
           xpAmount: claim.xpAmount,
