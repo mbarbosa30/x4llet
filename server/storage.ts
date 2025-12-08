@@ -1299,7 +1299,8 @@ export class DbStorage extends MemStorage {
 
   async getMaxFlowScore(address: string): Promise<MaxFlowScore | null> {
     try {
-      const MAXFLOW_CACHE_TTL_MS = 300000; // 5 minutes
+      const MAXFLOW_CACHE_TTL_MS = 300000; // 5 minutes for our local cache
+      const MAXFLOW_DATA_STALE_MS = 60 * 60 * 1000; // 1 hour - if MaxFlow's cached_at is older, treat as stale
       
       const cached = await db
         .select()
@@ -1318,8 +1319,20 @@ export class DbStorage extends MemStorage {
         return null;
       }
 
-      console.log(`[DB Cache] Returning cached MaxFlow score for ${address} (age: ${Math.round(cacheAge / 1000)}s)`);
+      // Parse the cached data to check MaxFlow's cached_at timestamp
       const rawData = JSON.parse(cached[0].scoreData);
+      
+      // Check if MaxFlow's own cached data is stale (>1 hour old)
+      if (rawData.cached && rawData.cached_at) {
+        const cachedAtTime = new Date(rawData.cached_at).getTime();
+        const dataAge = Date.now() - cachedAtTime;
+        if (dataAge > MAXFLOW_DATA_STALE_MS) {
+          console.log(`[DB Cache] MaxFlow data stale (cached_at: ${rawData.cached_at}, age: ${Math.round(dataAge / 1000 / 60)}min), forcing refresh for ${address}`);
+          return null; // This will trigger a fresh fetch with force_refresh=true
+        }
+      }
+
+      console.log(`[DB Cache] Returning cached MaxFlow score for ${address} (age: ${Math.round(cacheAge / 1000)}s)`);
       return normalizeMaxFlowScore(rawData) as MaxFlowScore;
     } catch (error) {
       console.error('[DB] Error fetching cached MaxFlow score:', error);
