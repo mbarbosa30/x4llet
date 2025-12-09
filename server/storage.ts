@@ -2014,6 +2014,8 @@ export class DbStorage extends MemStorage {
     poolApproved: boolean;
     maxFlowScore: number | null;
     isGoodDollarVerified: boolean;
+    gdBalance: string;
+    gdBalanceFormatted: string;
   }>> {
     try {
       const allWallets = await db.select().from(wallets).orderBy(desc(wallets.lastSeen));
@@ -2106,6 +2108,16 @@ export class DbStorage extends MemStorage {
         
         const isGoodDollarVerified = gdIdentity.length > 0 && gdIdentity[0].isWhitelisted && !gdIdentity[0].isExpired;
         
+        // Fetch G$ balance from cache
+        const gdBalanceData = await db
+          .select()
+          .from(cachedGdBalances)
+          .where(sql`LOWER(${cachedGdBalances.address}) = ${normalizedAddress}`)
+          .limit(1);
+        
+        const gdBalance = gdBalanceData[0]?.balance || '0';
+        const gdBalanceFormatted = gdBalanceData[0]?.balanceFormatted || '0.00';
+        
         return {
           address: wallet.address,
           createdAt: wallet.createdAt.toISOString(),
@@ -2121,6 +2133,8 @@ export class DbStorage extends MemStorage {
           poolApproved,
           maxFlowScore,
           isGoodDollarVerified,
+          gdBalance,
+          gdBalanceFormatted,
         };
       }));
       

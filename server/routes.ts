@@ -5329,6 +5329,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transport: http('https://forno.celo.org'),
       });
       
+      // GoodDollar token on Celo (2 decimals)
+      const GD_TOKEN_ADDRESS = '0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A' as Address;
+      const ERC20_BALANCE_ABI = [{
+        name: 'balanceOf',
+        type: 'function',
+        stateMutability: 'view',
+        inputs: [{ name: 'account', type: 'address' }],
+        outputs: [{ type: 'uint256' }],
+      }] as const;
+      
       const walletsData = await storage.getAllWalletsWithDetails();
       const addresses = walletsData.map(w => w.address);
       
@@ -5354,6 +5364,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let synced = 0;
       let updated = 0;
+      let balancesSynced = 0;
       let errors = 0;
       const zeroAddress = '0x0000000000000000000000000000000000000000';
       
@@ -5363,7 +5374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         const results = await Promise.all(batch.map(async (address) => {
           try {
-            const [isWhitelisted, whitelistedRoot, lastAuthenticatedBigInt] = await Promise.all([
+            const [isWhitelisted, whitelistedRoot, lastAuthenticatedBigInt, gdBalanceBigInt] = await Promise.all([
               celoClient.readContract({
                 address: GOODDOLLAR_IDENTITY_ADDRESS,
                 abi: GOODDOLLAR_IDENTITY_ABI,
@@ -5382,7 +5393,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 functionName: 'lastAuthenticated',
                 args: [address as Address],
               }),
+              celoClient.readContract({
+                address: GD_TOKEN_ADDRESS,
+                abi: ERC20_BALANCE_ABI,
+                functionName: 'balanceOf',
+                args: [address as Address],
+              }),
             ]);
+            
+            // G$ has 2 decimals - use BigInt-safe formatting
+            const gdBalance = gdBalanceBigInt.toString();
+            const wholePart = gdBalanceBigInt / 100n;
+            const fractionalPart = gdBalanceBigInt % 100n;
+            const gdBalanceFormatted = `${wholePart.toString()}.${fractionalPart.toString().padStart(2, '0')}`;
             
             const lastAuthSeconds = Number(lastAuthenticatedBigInt);
             const lastAuthenticated = lastAuthSeconds > 0 ? new Date(lastAuthSeconds * 1000) : null;
@@ -5410,10 +5433,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 isExpired,
                 daysUntilExpiry,
               },
+              gdBalance,
+              gdBalanceFormatted,
             };
           } catch (error) {
             console.error(`[Traction] Error fetching GoodDollar for ${address}:`, error);
-            return { address, data: null };
+            return { address, data: null, gdBalance: null, gdBalanceFormatted: null };
           }
         }));
         
@@ -5427,15 +5452,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } else {
             errors++;
           }
+          
+          // Save G$ balance
+          if (result.gdBalance !== null) {
+            await storage.upsertGdBalance(result.address, result.gdBalance, result.gdBalanceFormatted!, 2);
+            balancesSynced++;
+          }
         }
       }
       
-      console.log(`[Traction] GoodDollar sync complete: ${synced} synced, ${updated} verified, ${errors} errors`);
+      console.log(`[Traction] GoodDollar sync complete: ${synced} synced, ${updated} verified, ${balancesSynced} balances, ${errors} errors`);
       
       res.json({
         success: true,
         synced,
         verified: updated,
+        balancesSynced,
         errors,
         totalAddresses: addresses.length,
       });
