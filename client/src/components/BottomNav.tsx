@@ -8,7 +8,7 @@ export default function BottomNav() {
 
   return (
     <nav 
-      className="fixed bottom-0 left-0 right-0 bg-background border-t border-foreground/10"
+      className="fixed bottom-0 left-0 right-0 bg-background border-t-2 border-foreground"
       style={{ 
         paddingBottom: 'env(safe-area-inset-bottom)',
         position: 'fixed',
@@ -19,49 +19,49 @@ export default function BottomNav() {
       <div className="max-w-md mx-auto h-16 flex items-center">
         <button
           onClick={() => setLocation('/claim')}
-          className={`relative flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-[10px] font-mono font-semibold tracking-wide transition-colors ${
+          className={`relative flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-[10px] font-mono font-semibold uppercase tracking-widest transition-colors ${
             isActive('/claim') ? 'text-[#0055FF]' : 'text-foreground/60'
           }`}
           data-testid="nav-claim"
         >
           <Coins className="h-5 w-5" strokeWidth={2} />
-          <span>Claim</span>
+          <span>CLAIM</span>
           {isActive('/claim') && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#0055FF]" />}
         </button>
 
         <button
           onClick={() => setLocation('/home')}
-          className={`relative flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-[10px] font-mono font-semibold tracking-wide transition-colors ${
+          className={`relative flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-[10px] font-mono font-semibold uppercase tracking-widest transition-colors ${
             isActive('/home') ? 'text-[#0055FF]' : 'text-foreground/60'
           }`}
           data-testid="nav-wallet"
         >
           <Wallet className="h-5 w-5" strokeWidth={2} />
-          <span>Wallet</span>
+          <span>WALLET</span>
           {isActive('/home') && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#0055FF]" />}
         </button>
 
         <button
           onClick={() => setLocation('/earn')}
-          className={`relative flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-[10px] font-mono font-semibold tracking-wide transition-colors ${
+          className={`relative flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-[10px] font-mono font-semibold uppercase tracking-widest transition-colors ${
             isActive('/earn') ? 'text-[#0055FF]' : 'text-foreground/60'
           }`}
           data-testid="nav-earn"
         >
           <TrendingUp className="h-5 w-5" strokeWidth={2} />
-          <span>Earn</span>
+          <span>EARN</span>
           {isActive('/earn') && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#0055FF]" />}
         </button>
 
         <button
           onClick={() => setLocation('/pool')}
-          className={`relative flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-[10px] font-mono font-semibold tracking-wide transition-colors ${
+          className={`relative flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-[10px] font-mono font-semibold uppercase tracking-widest transition-colors ${
             isActive('/pool') ? 'text-[#0055FF]' : 'text-foreground/60'
           }`}
           data-testid="nav-pool"
         >
           <Sparkles className="h-5 w-5" strokeWidth={2} />
-          <span>Pool</span>
+          <span>POOL</span>
           {isActive('/pool') && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#0055FF]" />}
         </button>
       </div>

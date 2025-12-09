@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 
 interface ExchangeRateData {
   currency: string;
@@ -387,7 +388,7 @@ export default function Settings() {
         <InstallPrompt />
 
         <div className="space-y-2">
-          <h2 className="text-sm text-section text-muted-foreground px-2">
+          <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-muted-foreground px-2">
             Security
           </h2>
           <Card className="divide-y">
@@ -442,7 +443,7 @@ export default function Settings() {
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
             <button
-              onClick={handleSessionPersistenceToggle}
+              onClick={() => handleSessionPersistenceToggle()}
               className="w-full flex items-center justify-between p-4 hover-elevate"
               data-testid="button-session-persistence"
             >
@@ -455,9 +456,11 @@ export default function Settings() {
                   </div>
                 </div>
               </div>
-              <div className={`w-10 h-6 rounded-full transition-colors ${sessionPersistence ? 'bg-primary' : 'bg-muted'} relative`}>
-                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${sessionPersistence ? 'right-1' : 'left-1'}`} />
-              </div>
+              <Switch 
+                checked={sessionPersistence} 
+                onClick={(e) => e.stopPropagation()}
+                data-testid="switch-session-persistence"
+              />
             </button>
             {sessionPersistence && (
               <button
@@ -479,7 +482,7 @@ export default function Settings() {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-sm text-section text-muted-foreground px-2">
+          <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-muted-foreground px-2">
             Preferences
           </h2>
           <Card className="divide-y">
@@ -557,7 +560,7 @@ export default function Settings() {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-sm text-section text-muted-foreground px-2">
+          <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-muted-foreground px-2">
             Help & Resources
           </h2>
           <Card className="divide-y">
@@ -598,7 +601,7 @@ export default function Settings() {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-sm text-section text-muted-foreground px-2">
+          <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-muted-foreground px-2">
             Troubleshooting
           </h2>
           <Card className="divide-y">
