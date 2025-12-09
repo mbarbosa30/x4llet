@@ -5254,6 +5254,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== GAS SCAN ENDPOINT (ADMIN) =====
+  app.post('/api/admin/gas-scan', async (req, res) => {
+    try {
+      const { runGasScanAndUpdate } = await import('./gasScanner');
+      const newTotal = await runGasScanAndUpdate(storage);
+      const lastRun = await storage.getGlobalSetting('gas_scan_last_run');
+      res.json({ 
+        success: true, 
+        totalGasSponsoredUsd: newTotal,
+        lastRun,
+      });
+    } catch (error) {
+      console.error('[GasScan] Error running gas scan:', error);
+      res.status(500).json({ error: 'Failed to run gas scan' });
+    }
+  });
+
   // ===== TRACTION DASHBOARD ENDPOINT (PUBLIC) =====
   app.get('/api/traction/users', async (_req, res) => {
     try {

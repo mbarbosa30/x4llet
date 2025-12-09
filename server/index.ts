@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startPoolScheduler } from "./poolScheduler";
+import { startGasScanScheduler } from "./gasScanScheduler";
 
 // Increase DNS threadpool size for better DNS resolution performance
 // Must be set before any async I/O operations
@@ -92,6 +93,9 @@ app.use((req, res, next) => {
       
       // Start the pool draw scheduler after server is ready
       startPoolScheduler();
+      
+      // Start the gas scan scheduler to track facilitator gas costs
+      startGasScanScheduler();
     });
   } catch (error) {
     console.error('[STARTUP ERROR]', error);

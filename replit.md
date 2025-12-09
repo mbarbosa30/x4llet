@@ -7,6 +7,7 @@ nanoPay is a minimalist Progressive Web App (PWA) designed for managing cryptocu
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
+- **2025-12-09**: Gas scanner implementation - tracks facilitator gas costs across all chains (Base, Celo, Gnosis, Arbitrum) using Etherscan v2 API. Fetches native token prices from CoinGecko, converts to USD, and displays "Gas Sponsored" metric on landing page. Runs hourly via scheduler with incremental block tracking per chain.
 - **2025-12-09**: Brutalist UI design refresh - cream background (#F4F4F1), 0px border radius, hard offset shadows (4px 4px black), IBM Plex Mono for labels. Created responsive desktop landing page with hero section, phone mockup, feature highlights. Simplified BalanceCard with cleaner styling and chain breakdown. Increased touch targets in BottomNav (icons to h-5).
 - **2025-12-09**: Performance optimizations via code splitting - lazy-loaded Admin, Dashboard, HowItWorks, Faqs, Context pages using React.lazy(). QRScanner component also lazy-loaded in Send, MaxFlow, and Claim pages to reduce initial bundle size for regular wallet users.
 - **2025-12-09**: Added session persistence - wallet stays unlocked across page refreshes. DEK stored in sessionStorage with configurable auto-lock timer (5/15/30/60 min or tab close). UX/security trade-off documented: sessionStorage cleared on tab close, idle timeout limits exposure, device lock is primary security layer.
