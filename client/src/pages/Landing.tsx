@@ -327,9 +327,9 @@ function DesktopLanding({
                 The Digital Public Utility
               </div>
               <h1 className="text-6xl font-black uppercase tracking-tighter leading-none mb-6">
-                Money That<br />
-                <span className="text-[#0055FF]">Works</span><br />
-                Offline.
+                Money, Simplified.<br />
+                <span className="text-[#0055FF]">DeFi For Everyone.</span><br />
+                It Just Works.
               </h1>
               <p className="text-lg text-muted-foreground max-w-md">
                 Reliable as a hammer. Fast as cash. Built for communities, not casinos.
