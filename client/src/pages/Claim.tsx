@@ -1194,9 +1194,17 @@ export default function Claim() {
                   </div>
                 </div>
               ) : gdIdentity?.isWhitelisted ? (
-                <div className="text-center space-y-4">
-                  <div>
-                    <h2 className="text-sm text-muted-foreground mb-2">Your G$ Balance</h2>
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3">
+                    <Gift className="h-10 w-10 text-green-600 dark:text-green-400 shrink-0" />
+                    <div>
+                      <h2 className="text-xl text-section">Daily UBI</h2>
+                      <span className="font-label text-muted-foreground">// CELO</span>
+                    </div>
+                  </div>
+
+                  <div className="text-center py-2">
+                    <h3 className="text-sm text-muted-foreground mb-2">Your G$ Balance</h3>
                     <div className="text-5xl font-bold tabular-nums text-foreground tracking-tight" data-testid="text-gd-balance">
                       {gdBalance?.balanceFormatted || '0.00'}
                     </div>

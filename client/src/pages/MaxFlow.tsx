@@ -277,6 +277,7 @@ export default function MaxFlow() {
                     onClick={() => claimXpMutation.mutate()}
                     disabled={claimXpMutation.isPending}
                     className="w-full"
+                    size="lg"
                     data-testid="button-claim-xp"
                   >
                     {claimXpMutation.isPending ? (

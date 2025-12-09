@@ -95,10 +95,10 @@ export default function BalanceCard({
         <button
           onClick={onRefresh}
           disabled={isRefreshing || !onRefresh}
-          className="w-full bg-transparent p-0 border-none text-5xl font-black tabular-nums mb-3 flex items-center justify-center tracking-tight cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all disabled:cursor-default disabled:hover:opacity-100 disabled:active:scale-100 focus-visible:outline-none"
+          className="w-full bg-transparent p-0 border-none text-5xl font-bold tabular-nums mb-3 flex items-center justify-center tracking-tight cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all disabled:cursor-default disabled:hover:opacity-100 disabled:active:scale-100 focus-visible:outline-none"
           data-testid="button-refresh-balance"
         >
-          <span className={`text-4xl font-black text-foreground/40 mr-1 transition-opacity duration-300 ${isRefreshing ? 'opacity-50' : ''}`}>$</span>
+          <span className={`text-3xl font-normal text-muted-foreground mr-1.5 transition-opacity duration-300 ${isRefreshing ? 'opacity-50' : ''}`}>$</span>
           <span className={`transition-opacity duration-300 ${isRefreshing ? 'opacity-50 animate-pulse' : ''}`} data-testid="text-balance">{balance}</span>
         </button>
 

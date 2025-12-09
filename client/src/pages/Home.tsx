@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users, ChevronDown } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Dialog,
   DialogContent,
@@ -268,32 +269,50 @@ export default function Home() {
           </button>
         </div>
 
-        <div className="border border-foreground p-4 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-xs font-mono font-bold uppercase tracking-wide">Trust Health</h3>
-            <span className="text-xs text-muted-foreground font-mono">Web of Trust</span>
+        <Collapsible className="group">
+          <div className="border border-foreground p-4">
+            <CollapsibleTrigger className="w-full flex items-center justify-between gap-2" data-testid="button-trust-health-toggle">
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-mono font-bold uppercase tracking-wide">Trust Health</h3>
+                <div className="flex gap-1">
+                  <div className="h-2 w-2 rounded-full bg-cta" title="MaxFlow" />
+                  <div className="h-2 w-2 rounded-full bg-green-500" title="GoodDollar" />
+                </div>
+              </div>
+              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-[[data-state=open]]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-3 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <button 
+                  onClick={() => setLocation('/signal')}
+                  className="flex items-center gap-3 p-3 bg-muted/30 border border-foreground/10 hover-elevate text-left"
+                  data-testid="button-trust-maxflow"
+                >
+                  <div className="flex items-center justify-center w-10 h-10 bg-cta/10 text-cta">
+                    <Users className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs text-muted-foreground font-mono uppercase">MaxFlow</div>
+                    <div className="text-sm font-bold font-mono">View Signal</div>
+                  </div>
+                </button>
+                <button 
+                  onClick={() => setLocation('/signal?tab=claim')}
+                  className="flex items-center gap-3 p-3 bg-muted/30 border border-foreground/10 hover-elevate text-left"
+                  data-testid="button-trust-gooddollar"
+                >
+                  <div className="flex items-center justify-center w-10 h-10 bg-green-500/10 text-green-600 dark:text-green-400">
+                    <Shield className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs text-muted-foreground font-mono uppercase">GoodDollar</div>
+                    <div className="text-sm font-bold font-mono">Claim G$</div>
+                  </div>
+                </button>
+              </div>
+            </CollapsibleContent>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex items-center gap-3 p-3 bg-muted/30 border border-foreground/10">
-              <div className="flex items-center justify-center w-10 h-10 bg-cta/10 text-cta">
-                <Users className="h-5 w-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs text-muted-foreground font-mono uppercase">MaxFlow</div>
-                <div className="text-sm font-bold font-mono">Connected</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 bg-muted/30 border border-foreground/10">
-              <div className="flex items-center justify-center w-10 h-10 bg-green-500/10 text-green-600 dark:text-green-400">
-                <Shield className="h-5 w-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs text-muted-foreground font-mono uppercase">GoodDollar</div>
-                <div className="text-sm font-bold font-mono">Verified</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        </Collapsible>
 
         <div className="space-y-3">
           <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Recent Activity</h2>
