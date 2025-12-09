@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Marquee, MarqueeItem } from '@/components/ui/marquee';
-import { WifiOff, Wifi, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap, Users, ArrowRightLeft, ArrowRight, Shield, Coins, TrendingUp, Wallet, ScanFace, Fingerprint, CircleDollarSign, Cpu, Clock, Rocket } from 'lucide-react';
+import { WifiOff, Wifi, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap, Users, ArrowRightLeft, ArrowRight, Shield, Coins, TrendingUp, Wallet, ScanFace, Fingerprint, CircleDollarSign, Cpu, Clock, Rocket, PenTool } from 'lucide-react';
 import { hasWallet, isWalletUnlocked } from '@/lib/wallet';
 import Footer from '@/components/Footer';
 
@@ -86,13 +86,14 @@ function PhoneMockup({ balance = "$124.50" }: { balance?: string }) {
             {/* Stamp overlay - animates in when offline */}
             {isOffline && (
               <div 
-                className={`absolute -top-2 left-1/2 -translate-x-1/2 px-4 py-2 bg-gray-500 text-white text-[11px] font-mono font-bold uppercase tracking-wide whitespace-nowrap transition-all duration-300 ease-out ${
+                className={`absolute -top-2 left-1/2 -translate-x-1/2 px-4 py-2 bg-gray-500 text-white text-[11px] font-mono font-bold uppercase tracking-wide whitespace-nowrap transition-all duration-300 ease-out flex items-center gap-1.5 ${
                   showStamp 
                     ? 'opacity-100 scale-100' 
                     : 'opacity-0 scale-150'
                 }`}
                 style={{ transform: `translateX(-50%) rotate(-5deg) ${showStamp ? 'scale(1)' : 'scale(1.5)'}` }}
               >
+                <PenTool className="h-3 w-3" />
                 AUTHORIZATION SIGNED
               </div>
             )}
