@@ -22,48 +22,64 @@ interface GlobalStats {
 
 // Phone mockup component for desktop hero
 function PhoneMockup({ balance = "$124.50" }: { balance?: string }) {
+  const [isOffline, setIsOffline] = useState(false);
+  
   return (
     <div className="relative">
-      {/* Offline Mode Toggle Decoration */}
+      {/* Offline Mode Toggle */}
       <div className="flex items-center justify-end gap-2 mb-3">
         <span className="text-[10px] font-mono uppercase tracking-wide text-muted-foreground">Simulate Offline Mode</span>
-        <div className="w-10 h-5 bg-foreground rounded-full relative">
-          <div className="absolute right-0.5 top-0.5 w-4 h-4 bg-white rounded-full" />
-        </div>
+        <button 
+          onClick={() => setIsOffline(!isOffline)}
+          className={`w-10 h-5 rounded-full relative transition-colors ${isOffline ? 'bg-[#0055FF]' : 'bg-foreground/30'}`}
+          data-testid="toggle-offline-mode"
+        >
+          <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${isOffline ? 'right-0.5' : 'left-0.5'}`} />
+        </button>
       </div>
-      {/* Phone frame */}
-      <div className="bg-white border-2 border-foreground p-4 w-[280px] shadow-[8px_8px_0px_0px_rgb(0,0,0)]">
-        {/* Phone header */}
-        <div className="flex items-center justify-between mb-6 pb-2 border-b border-foreground/10">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-[#0055FF]" />
-            <span className="text-[10px] font-mono font-bold uppercase">nanoPay</span>
+      {/* Phone frame with proper outline */}
+      <div className="relative w-[280px]">
+        {/* Phone outer frame */}
+        <div className="border-2 border-foreground rounded-[24px] p-2 bg-foreground shadow-[8px_8px_0px_0px_rgb(0,0,0)]">
+          {/* Speaker/notch area */}
+          <div className="flex justify-center mb-1">
+            <div className="w-16 h-1.5 bg-foreground/50 rounded-full" />
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-green-500" />
-            <span className="text-[9px] font-mono text-muted-foreground">Online</span>
+          {/* Phone screen */}
+          <div className="bg-white rounded-[16px] p-4">
+            {/* Phone header */}
+            <div className="flex items-center justify-between mb-6 pb-2 border-b border-foreground/10">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-[#0055FF]" />
+                <span className="text-[10px] font-mono font-bold uppercase">nanoPay</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className={`w-2 h-2 rounded-full ${isOffline ? 'bg-orange-500' : 'bg-green-500'}`} />
+                <span className="text-[9px] font-mono text-muted-foreground">{isOffline ? 'Offline' : 'Online'}</span>
+              </div>
+            </div>
+            
+            {/* Balance display */}
+            <div className="text-center py-6">
+              <div className="text-xs text-muted-foreground mb-1 font-mono">Total Balance</div>
+              <div className="text-4xl font-black tracking-tight mb-2">{balance}</div>
+              <div className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono ${isOffline ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+                {isOffline ? <WifiOff className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
+                {isOffline ? 'Cached' : 'Synced'}
+              </div>
+            </div>
+            
+            {/* Action buttons */}
+            <div className="space-y-2 mt-4">
+              <button className="w-full bg-foreground text-white py-3 text-xs font-mono font-bold uppercase flex items-center justify-center gap-2">
+                <ArrowRight className="h-3 w-3" />
+                Send Money
+              </button>
+              <button className="w-full border border-foreground py-3 text-xs font-mono font-bold uppercase">
+                Receive
+              </button>
+            </div>
           </div>
-        </div>
-        
-        {/* Balance display */}
-        <div className="text-center py-6">
-          <div className="text-xs text-muted-foreground mb-1 font-mono">Total Balance</div>
-          <div className="text-4xl font-black tracking-tight mb-2">{balance}</div>
-          <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-mono">
-            <Sparkles className="h-3 w-3" />
-            Synced
-          </div>
-        </div>
-        
-        {/* Action buttons */}
-        <div className="space-y-2 mt-4">
-          <button className="w-full bg-foreground text-white py-3 text-xs font-mono font-bold uppercase flex items-center justify-center gap-2">
-            <ArrowRight className="h-3 w-3" />
-            Send Money
-          </button>
-          <button className="w-full border border-foreground py-3 text-xs font-mono font-bold uppercase">
-            Receive
-          </button>
         </div>
       </div>
     </div>
@@ -525,11 +541,13 @@ function DesktopLanding({
                   <span className="text-muted-foreground">Amount Sent:</span>
                   <span className="font-bold">10.00 USDC</span>
                 </div>
-                <div className="flex justify-between py-2 border-b border-foreground/10">
-                  <span className="text-muted-foreground">Network Fee:</span>
-                  <div className="text-right">
-                    <span className="line-through text-muted-foreground/50 mr-2">0.05 USDC</span>
-                    <span className="text-[#0055FF] font-bold">Paid by Facilitator</span>
+                <div className="py-2 border-b border-foreground/10">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Network Fee:</span>
+                    <span className="line-through text-red-400 decoration-red-400">0.05 USDC</span>
+                  </div>
+                  <div className="flex justify-end mt-1">
+                    <span className="inline-block px-2 py-0.5 bg-[#00D664] text-white text-[10px] font-mono font-bold uppercase">Paid by Facilitator</span>
                   </div>
                 </div>
                 <div className="flex justify-between py-2">
