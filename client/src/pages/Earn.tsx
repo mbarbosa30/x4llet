@@ -1156,12 +1156,28 @@ export default function Earn() {
                     <div className="text-xs text-muted-foreground font-mono uppercase tracking-widest"><span className="font-bold">USDC</span> Yielding</div>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    <div className="text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight">
-                      <span className="text-3xl font-normal text-muted-foreground mr-1.5">$</span>
-                      <span>0.00</span>
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <div className="text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight">
+                        <span className="text-3xl font-normal text-muted-foreground mr-1.5">$</span>
+                        <span>0.00</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground font-mono uppercase tracking-widest">No Deposits Yet</div>
                     </div>
-                    <div className="text-xs text-muted-foreground font-mono uppercase tracking-widest">No Deposits Yet</div>
+                    <div className="space-y-1.5 pt-2 border-t border-border/50">
+                      <p className="text-xs text-muted-foreground text-center">
+                        <TrendingUp className="inline h-3 w-3 mr-1 text-success" />
+                        Deposit USDC to earn interest automatically
+                      </p>
+                      <p className="text-xs text-muted-foreground text-center">
+                        <Shield className="inline h-3 w-3 mr-1 text-success" />
+                        Your funds stay safe in Aave, a trusted protocol
+                      </p>
+                      <p className="text-xs text-muted-foreground text-center">
+                        <Clock className="inline h-3 w-3 mr-1" />
+                        Withdraw anytime — no lock-up period
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
