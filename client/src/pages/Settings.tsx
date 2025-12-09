@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette, BookOpen, HelpCircle, MessageCircleQuestion, TrendingDown, TrendingUp, RotateCcw, Loader2, AlertTriangle, Fingerprint, Trash2, Timer } from 'lucide-react';
+import { ChevronRight, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette, BookOpen, HelpCircle, MessageCircleQuestion, TrendingDown, TrendingUp, RotateCcw, Loader2, AlertTriangle, Fingerprint, Trash2, Timer, Shield } from 'lucide-react';
 import { queryClient } from '@/lib/queryClient';
 import { Card } from '@/components/ui/card';
 import InstallPrompt from '@/components/InstallPrompt';
@@ -63,6 +63,7 @@ export default function Settings() {
   const [isRemovingPasskey, setIsRemovingPasskey] = useState(false);
   const [autoLock, setAutoLock] = useState(15);
   const [showAutoLock, setShowAutoLock] = useState(false);
+  const [sessionPersistence, setSessionPersistence] = useState(true);
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -95,8 +96,15 @@ export default function Settings() {
         }
         
         // Load auto-lock preference
+        // -1 means session persistence is OFF (password required every refresh)
         const currentAutoLock = prefs.autoLockMinutes ?? 15;
-        setAutoLock(currentAutoLock);
+        if (currentAutoLock === -1) {
+          setSessionPersistence(false);
+          setAutoLock(15); // Default timer when persistence is re-enabled
+        } else {
+          setSessionPersistence(true);
+          setAutoLock(currentAutoLock);
+        }
         setAutoLockMinutes(currentAutoLock);
       } catch (error) {
         console.error('Failed to load preferences:', error);
@@ -115,15 +123,36 @@ export default function Settings() {
     setShowCurrency(false);
   };
 
+  const handleSessionPersistenceToggle = async () => {
+    const newValue = !sessionPersistence;
+    setSessionPersistence(newValue);
+    
+    if (newValue) {
+      // Enable persistence with default 15 min timer
+      setAutoLockMinutes(autoLock);
+      await savePreferences({ currency, language, autoLockMinutes: autoLock });
+      toast({
+        title: "Session persistence enabled",
+        description: `Wallet stays unlocked across refreshes. Auto-locks after ${autoLock} minutes.`,
+      });
+    } else {
+      // Disable persistence - set to -1
+      setAutoLockMinutes(-1);
+      await savePreferences({ currency, language, autoLockMinutes: -1 });
+      toast({
+        title: "Session persistence disabled",
+        description: "Password required on every page refresh.",
+      });
+    }
+  };
+
   const handleAutoLockChange = async (minutes: number) => {
     setAutoLock(minutes);
     setAutoLockMinutes(minutes);
     await savePreferences({ currency, language, autoLockMinutes: minutes });
     
     let description: string;
-    if (minutes === -1) {
-      description = "Password required on every page refresh";
-    } else if (minutes === 0) {
+    if (minutes === 0) {
       description = "Wallet will lock when you close the tab";
     } else {
       description = `Wallet will lock after ${minutes} minutes of inactivity`;
@@ -137,7 +166,6 @@ export default function Settings() {
   };
 
   const getAutoLockLabel = (minutes: number) => {
-    if (minutes === -1) return "Every refresh (no session)";
     if (minutes === 0) return "When tab closes";
     return `${minutes} minutes`;
   };
@@ -414,19 +442,39 @@ export default function Settings() {
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
             <button
-              onClick={() => setShowAutoLock(true)}
+              onClick={handleSessionPersistenceToggle}
               className="w-full flex items-center justify-between p-4 hover-elevate"
-              data-testid="button-auto-lock"
+              data-testid="button-session-persistence"
             >
               <div className="flex items-center gap-3">
-                <Timer className="h-5 w-5 text-muted-foreground" />
+                <Shield className="h-5 w-5 text-muted-foreground" />
                 <div className="text-left">
-                  <div className="font-label text-foreground">Auto-Lock</div>
-                  <div className="text-xs text-muted-foreground">{getAutoLockLabel(autoLock)}</div>
+                  <div className="font-label text-foreground">Stay Logged In</div>
+                  <div className="text-xs text-muted-foreground">
+                    {sessionPersistence ? 'Session persists across refreshes' : 'Password required every refresh'}
+                  </div>
                 </div>
               </div>
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              <div className={`w-10 h-6 rounded-full transition-colors ${sessionPersistence ? 'bg-primary' : 'bg-muted'} relative`}>
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${sessionPersistence ? 'right-1' : 'left-1'}`} />
+              </div>
             </button>
+            {sessionPersistence && (
+              <button
+                onClick={() => setShowAutoLock(true)}
+                className="w-full flex items-center justify-between p-4 hover-elevate"
+                data-testid="button-auto-lock"
+              >
+                <div className="flex items-center gap-3">
+                  <Timer className="h-5 w-5 text-muted-foreground" />
+                  <div className="text-left">
+                    <div className="font-label text-foreground">Auto-Lock Timer</div>
+                    <div className="text-xs text-muted-foreground">{getAutoLockLabel(autoLock)}</div>
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              </button>
+            )}
           </Card>
         </div>
 
@@ -751,7 +799,7 @@ export default function Settings() {
           <DialogHeader>
             <DialogTitle>Auto-Lock Timer</DialogTitle>
             <DialogDescription>
-              Choose when your wallet should require the password again.
+              Lock wallet after a period of inactivity.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -760,7 +808,6 @@ export default function Settings() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="-1">Every refresh (always ask password)</SelectItem>
                 <SelectItem value="0">When tab closes</SelectItem>
                 <SelectItem value="5">5 minutes</SelectItem>
                 <SelectItem value="15">15 minutes</SelectItem>

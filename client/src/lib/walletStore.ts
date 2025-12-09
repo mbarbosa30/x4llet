@@ -162,15 +162,23 @@ export const walletStore = {
   setAutoLockMinutes: (minutes: number) => {
     console.log('[WalletStore] setAutoLockMinutes called with:', minutes, typeof minutes);
     autoLockMinutes = minutes;
-    resetIdleTimeout();
     
-    // If switching to "every refresh" mode, clear any stored session
+    // If switching to "every refresh" mode, clear session and stop idle timer
     if (minutes === -1) {
       clearSession();
-      console.log('[WalletStore] Session persistence disabled, cleared session');
+      // Clear any pending idle timeout - we don't want auto-lock when persistence is disabled
+      if (idleTimeout) {
+        clearTimeout(idleTimeout);
+        idleTimeout = null;
+      }
+      console.log('[WalletStore] Session persistence disabled, cleared session and idle timer');
     } else if (state.dek) {
-      // Re-persist with new expiry settings
+      // Re-persist with new expiry settings and reset idle timer
       persistSession(state.dek);
+      resetIdleTimeout();
+    } else {
+      // Just reset idle timeout for new settings (even if not currently unlocked)
+      resetIdleTimeout();
     }
   },
   
