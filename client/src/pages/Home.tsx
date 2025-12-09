@@ -359,7 +359,7 @@ export default function Home() {
             <CollapsibleContent className="pt-3 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <button 
-                  onClick={() => setLocation('/signal')}
+                  onClick={() => setLocation('/maxflow')}
                   className="flex items-center gap-3 p-3 bg-muted/30 border border-foreground/10 hover-elevate text-left"
                   data-testid="button-trust-maxflow"
                 >
@@ -376,7 +376,7 @@ export default function Home() {
                   </div>
                 </button>
                 <button 
-                  onClick={() => setLocation('/signal?tab=claim')}
+                  onClick={() => setLocation('/claim')}
                   className="flex items-center gap-3 p-3 bg-muted/30 border border-foreground/10 hover-elevate text-left"
                   data-testid="button-trust-gooddollar"
                 >
