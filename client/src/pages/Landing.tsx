@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Marquee, MarqueeItem } from '@/components/ui/marquee';
-import { WifiOff, Wifi, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap, Users, ArrowRightLeft, ArrowRight, Shield, Coins, TrendingUp, Wallet, ScanFace, Fingerprint, CircleDollarSign, Cpu, Clock, Rocket, Stamp, Link2 } from 'lucide-react';
+import { WifiOff, Wifi, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap, Users, ArrowRightLeft, ArrowRight, Shield, Coins, TrendingUp, Wallet, ScanFace, Fingerprint, CircleDollarSign, Cpu, Clock, Rocket, Stamp, Link2, Fuel } from 'lucide-react';
 import { hasWallet, isWalletUnlocked } from '@/lib/wallet';
 import Footer from '@/components/Footer';
 
@@ -19,6 +19,7 @@ interface GlobalStats {
   totalTransfers: number;
   totalXp: number;
   totalConnections: number;
+  gasSponsoredUsd: number;
 }
 
 // Phone mockup component for desktop hero - Simplified to match npay1
@@ -414,8 +415,8 @@ function DesktopLanding({
               <h2 className="text-sm font-mono uppercase tracking-widest text-muted-foreground">Network Stats</h2>
               <div className="w-24 h-px bg-foreground/20" />
             </div>
-            <div className={`grid ${globalStats.totalConnections > 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-6 text-center`}>
-              <div>
+            <div className="flex flex-wrap justify-center gap-8 text-center">
+              <div className="min-w-[120px]">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </div>
@@ -424,7 +425,7 @@ function DesktopLanding({
                 </p>
                 <p className="text-sm text-muted-foreground uppercase tracking-wide font-mono">Users</p>
               </div>
-              <div>
+              <div className="min-w-[120px]">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
                 </div>
@@ -434,7 +435,7 @@ function DesktopLanding({
                 <p className="text-sm text-muted-foreground uppercase tracking-wide font-mono">Transactions</p>
               </div>
               {globalStats.totalConnections > 0 && (
-                <div>
+                <div className="min-w-[120px]">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     <Link2 className="h-4 w-4 text-muted-foreground" />
                   </div>
@@ -444,7 +445,18 @@ function DesktopLanding({
                   <p className="text-sm text-muted-foreground uppercase tracking-wide font-mono">Connections</p>
                 </div>
               )}
-              <div>
+              {globalStats.gasSponsoredUsd > 0 && (
+                <div className="min-w-[120px]">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Fuel className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <p className="text-4xl font-black tabular-nums" data-testid="text-desktop-gas-sponsored">
+                    ${globalStats.gasSponsoredUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-sm text-muted-foreground uppercase tracking-wide font-mono">Gas Sponsored</p>
+                </div>
+              )}
+              <div className="min-w-[120px]">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Sparkles className="h-4 w-4 text-muted-foreground" />
                 </div>

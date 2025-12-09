@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, globalSettings } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo, gnosis, arbitrum } from 'viem/chains';
@@ -4004,6 +4004,7 @@ export class DbStorage extends MemStorage {
     totalTransfers: number;
     totalXp: number;
     totalConnections: number;
+    gasSponsoredUsd: number;
   }> {
     try {
       const [walletsResult] = await db.select({ count: count() }).from(wallets);
@@ -4028,16 +4029,54 @@ export class DbStorage extends MemStorage {
         console.error('[Stats] Error counting connections:', e);
       }
 
+      // Get cached gas sponsored USD value
+      let gasSponsoredUsd = 0;
+      try {
+        const [setting] = await db.select().from(globalSettings).where(eq(globalSettings.key, 'gas_sponsored_usd'));
+        if (setting) {
+          gasSponsoredUsd = parseFloat(setting.value) || 0;
+        }
+      } catch (e) {
+        console.error('[Stats] Error getting gas sponsored:', e);
+      }
+
       const totalXpCenti = Number(xpResult?.total) || 0;
       return {
         totalUsers: walletsResult?.count || 0,
         totalTransfers: transactionsResult?.count || 0,
         totalXp: Math.round(totalXpCenti) / 100,
         totalConnections,
+        gasSponsoredUsd,
       };
     } catch (error) {
       console.error('[Stats] Error getting global stats:', error);
-      return { totalUsers: 0, totalTransfers: 0, totalXp: 0, totalConnections: 0 };
+      return { totalUsers: 0, totalTransfers: 0, totalXp: 0, totalConnections: 0, gasSponsoredUsd: 0 };
+    }
+  }
+
+  async setGlobalSetting(key: string, value: string): Promise<void> {
+    try {
+      await db.insert(globalSettings).values({
+        key,
+        value,
+        updatedAt: new Date(),
+      }).onConflictDoUpdate({
+        target: globalSettings.key,
+        set: { value, updatedAt: new Date() },
+      });
+    } catch (error) {
+      console.error('[Settings] Error setting global setting:', error);
+      throw error;
+    }
+  }
+
+  async getGlobalSetting(key: string): Promise<string | null> {
+    try {
+      const [setting] = await db.select().from(globalSettings).where(eq(globalSettings.key, key));
+      return setting?.value || null;
+    } catch (error) {
+      console.error('[Settings] Error getting global setting:', error);
+      return null;
     }
   }
 }

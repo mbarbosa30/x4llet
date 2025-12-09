@@ -435,3 +435,13 @@ export const xpClaims = pgTable("xp_claims", {
 
 export type XpBalance = typeof xpBalances.$inferSelect;
 export type XpClaim = typeof xpClaims.$inferSelect;
+
+// Global Settings table for cached metrics and configuration
+export const globalSettings = pgTable("global_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type GlobalSetting = typeof globalSettings.$inferSelect;
