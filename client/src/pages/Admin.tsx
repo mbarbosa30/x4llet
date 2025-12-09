@@ -47,6 +47,7 @@ interface WalletDetails {
   poolOptInPercent: number;
   poolApproved: boolean;
   maxFlowScore: number | null;
+  isGoodDollarVerified: boolean;
 }
 
 interface TrustedUnfundedWallet {
@@ -1678,8 +1679,11 @@ export default function Admin() {
                             className="grid grid-cols-8 gap-2 p-2 bg-muted cursor-pointer hover:bg-muted/80"
                             onClick={() => setExpandedWallet(expandedWallet === wallet.address ? null : wallet.address)}
                           >
-                            <div className="col-span-2 font-mono truncate">
+                            <div className="col-span-2 font-mono truncate flex items-center gap-1">
                               {wallet.address.slice(0, 8)}...{wallet.address.slice(-6)}
+                              {wallet.isGoodDollarVerified && (
+                                <HandHeart className="h-3 w-3 text-cyan-500" />
+                              )}
                             </div>
                             <div className="font-mono">{formatAmount(wallet.totalBalance || '0')}</div>
                             <div className="font-mono text-emerald-600">{formatAmount(wallet.aUsdcBalance || '0')}</div>

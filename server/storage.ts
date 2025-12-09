@@ -2013,6 +2013,7 @@ export class DbStorage extends MemStorage {
     poolOptInPercent: number;
     poolApproved: boolean;
     maxFlowScore: number | null;
+    isGoodDollarVerified: boolean;
   }>> {
     try {
       const allWallets = await db.select().from(wallets).orderBy(desc(wallets.lastSeen));
@@ -2096,6 +2097,15 @@ export class DbStorage extends MemStorage {
           }
         }
         
+        // Check GoodDollar verification status
+        const gdIdentity = await db
+          .select()
+          .from(gooddollarIdentities)
+          .where(sql`LOWER(${gooddollarIdentities.walletAddress}) = ${normalizedAddress}`)
+          .limit(1);
+        
+        const isGoodDollarVerified = gdIdentity.length > 0 && gdIdentity[0].isWhitelisted && !gdIdentity[0].isExpired;
+        
         return {
           address: wallet.address,
           createdAt: wallet.createdAt.toISOString(),
@@ -2110,6 +2120,7 @@ export class DbStorage extends MemStorage {
           poolOptInPercent,
           poolApproved,
           maxFlowScore,
+          isGoodDollarVerified,
         };
       }));
       
