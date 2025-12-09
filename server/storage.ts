@@ -3555,14 +3555,17 @@ export class DbStorage extends MemStorage {
   async getWalletsWithScoreNoBalance(): Promise<Array<{
     address: string;
     maxFlowScore: number;
+    totalXp: number;
     lastSeen: string;
   }>> {
     try {
-      // Get all scores, all balances, and all wallets in bulk
-      const [scores, allBalances, allWallets] = await Promise.all([
+      // Get all scores, balances, wallets, GoodDollar identities, and XP balances in bulk
+      const [scores, allBalances, allWallets, gdIdentities, xpBalancesData] = await Promise.all([
         db.select().from(cachedMaxflowScores),
         db.select().from(cachedBalances),
         db.select().from(wallets),
+        db.select().from(gooddollarIdentities),
+        db.select().from(xpBalances),
       ]);
       
       // Build lookup maps for efficient access
@@ -3589,9 +3592,24 @@ export class DbStorage extends MemStorage {
         walletByAddress.set(w.address.toLowerCase(), w);
       }
       
+      // Build GoodDollar verified lookup (whitelisted = face verified)
+      const gdVerifiedAddresses = new Set<string>();
+      for (const gd of gdIdentities) {
+        if (gd.isWhitelisted) {
+          gdVerifiedAddresses.add(gd.walletAddress.toLowerCase());
+        }
+      }
+      
+      // Build XP lookup
+      const xpByAddress = new Map<string, number>();
+      for (const xp of xpBalancesData) {
+        xpByAddress.set(xp.walletAddress.toLowerCase(), xp.totalXp);
+      }
+      
       const results: Array<{
         address: string;
         maxFlowScore: number;
+        totalXp: number;
         lastSeen: string;
       }> = [];
       
@@ -3608,13 +3626,23 @@ export class DbStorage extends MemStorage {
           // Check total balance across all chains
           const totalBalance = balanceByAddress.get(normalizedAddress) || BigInt(0);
           
-          // Only include if total balance is 0
-          if (totalBalance === BigInt(0)) {
+          // Check if GoodDollar verified
+          const isGdVerified = gdVerifiedAddresses.has(normalizedAddress);
+          
+          // Check if has claimed XP
+          const totalXp = xpByAddress.get(normalizedAddress) || 0;
+          
+          // Only include if:
+          // 1. Total balance is 0
+          // 2. GoodDollar face verified
+          // 3. Has claimed some XP (totalXp > 0)
+          if (totalBalance === BigInt(0) && isGdVerified && totalXp > 0) {
             const walletInfo = walletByAddress.get(normalizedAddress);
             
             results.push({
               address: score.address,
               maxFlowScore,
+              totalXp,
               lastSeen: walletInfo?.lastSeen?.toISOString() || score.updatedAt.toISOString(),
             });
           }

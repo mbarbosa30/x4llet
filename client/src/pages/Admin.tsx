@@ -53,6 +53,7 @@ interface WalletDetails {
 interface TrustedUnfundedWallet {
   address: string;
   maxFlowScore: number;
+  totalXp: number;
   lastSeen: string;
 }
 
@@ -1441,33 +1442,37 @@ export default function Admin() {
                   </>
                 )}
 
-                {/* Trusted Unfunded Wallets */}
+                {/* Verified Unfunded Wallets */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <UserCheck className="h-5 w-5" />
-                      Trusted Unfunded Wallets
+                      Verified Unfunded Wallets
                     </CardTitle>
                     <CardDescription>
-                      Wallets with MaxFlow score &gt; 0 but no USDC balance
+                      Face verified wallets with MaxFlow score, XP claimed, but no USDC balance
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {trustedUnfundedWallets.length > 0 ? (
                       <>
-                        <div className="grid grid-cols-3 gap-2 px-2 py-1 border-b text-xs">
+                        <div className="grid grid-cols-4 gap-2 px-2 py-1 border-b text-xs">
                           <div>Address</div>
-                          <div>MaxFlow Score</div>
+                          <div>MaxFlow</div>
+                          <div>XP</div>
                           <div>Last Seen</div>
                         </div>
                         <div className="space-y-1 max-h-64 overflow-y-auto">
                           {trustedUnfundedWallets.map((wallet) => (
-                            <div key={wallet.address} className="grid grid-cols-3 gap-2 p-2 bg-muted text-xs">
+                            <div key={wallet.address} className="grid grid-cols-4 gap-2 p-2 bg-muted text-xs">
                               <div className="font-mono truncate">
                                 {wallet.address.slice(0, 8)}...{wallet.address.slice(-6)}
                               </div>
                               <div className="font-mono">
                                 {wallet.maxFlowScore.toFixed(2)}
+                              </div>
+                              <div className="font-mono">
+                                {(wallet.totalXp / 100).toFixed(2)}
                               </div>
                               <div className="text-muted-foreground">
                                 {new Date(wallet.lastSeen).toLocaleDateString()}
@@ -1476,12 +1481,12 @@ export default function Admin() {
                           ))}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {trustedUnfundedWallets.length} wallet{trustedUnfundedWallets.length !== 1 ? 's' : ''} with trust but no funds
+                          {trustedUnfundedWallets.length} verified wallet{trustedUnfundedWallets.length !== 1 ? 's' : ''} without funds
                         </p>
                       </>
                     ) : (
                       <p className="text-sm text-muted-foreground">
-                        {isLoadingTrustedUnfunded ? 'Loading...' : 'No data loaded yet'}
+                        {isLoadingTrustedUnfunded ? 'Loading...' : 'No wallets match criteria (face verified + MaxFlow + XP + no balance)'}
                       </p>
                     )}
                     <Button 
@@ -1492,7 +1497,7 @@ export default function Admin() {
                       data-testid="button-load-trusted-unfunded"
                     >
                       {isLoadingTrustedUnfunded && <Loader2 className="h-4 w-4 animate-spin" />}
-                      {trustedUnfundedWallets.length > 0 ? 'Refresh' : 'Load Trusted Unfunded Wallets'}
+                      {trustedUnfundedWallets.length > 0 ? 'Refresh' : 'Load Verified Unfunded Wallets'}
                     </Button>
                   </CardContent>
                 </Card>
