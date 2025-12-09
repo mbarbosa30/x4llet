@@ -368,7 +368,7 @@ export default function Home() {
                       <span className="text-sm text-muted-foreground line-through">Wallet created</span>
                     </div>
                     
-                    {/* Verify identity */}
+                    {/* Face Verification */}
                     <button
                       onClick={() => setLocation('/claim')}
                       className={`flex items-center gap-3 p-2 w-full text-left ${
@@ -383,14 +383,18 @@ export default function Home() {
                       ) : (
                         <Circle className="h-4 w-4 text-cta flex-shrink-0" />
                       )}
-                      <span className={`text-sm flex-1 ${isVerified ? 'text-muted-foreground line-through' : 'font-medium'}`}>
-                        Verify identity
-                        {!isVerified && <span className="text-xs text-muted-foreground ml-1">(free)</span>}
-                      </span>
-                      {!isVerified && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                      <div className="flex-1 min-w-0">
+                        <div className={`text-sm ${isVerified ? 'text-muted-foreground line-through' : 'font-medium'}`}>
+                          Face Verification
+                        </div>
+                        {!isVerified && (
+                          <div className="text-xs text-muted-foreground">Claim daily UBI in G$</div>
+                        )}
+                      </div>
+                      {!isVerified && <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
                     </button>
                     
-                    {/* Get vouched */}
+                    {/* Vouch for someone */}
                     <button
                       onClick={() => setLocation('/maxflow')}
                       className={`flex items-center gap-3 p-2 w-full text-left ${
@@ -405,10 +409,15 @@ export default function Home() {
                       ) : (
                         <Circle className="h-4 w-4 text-cta flex-shrink-0" />
                       )}
-                      <span className={`text-sm flex-1 ${isVouched ? 'text-muted-foreground line-through' : 'font-medium'}`}>
-                        Get vouched
-                      </span>
-                      {!isVouched && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                      <div className="flex-1 min-w-0">
+                        <div className={`text-sm ${isVouched ? 'text-muted-foreground line-through' : 'font-medium'}`}>
+                          Vouch for someone you know
+                        </div>
+                        {!isVouched && (
+                          <div className="text-xs text-muted-foreground">Build your signal & claim daily XP</div>
+                        )}
+                      </div>
+                      {!isVouched && <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
                     </button>
                   </div>
                 </div>
