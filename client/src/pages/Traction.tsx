@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Users, DollarSign, Network, Sparkles, PiggyBank, Gift, Trophy, Search, ArrowUpDown, ExternalLink, RefreshCw } from 'lucide-react';
+import { Loader2, Users, DollarSign, Network, Sparkles, PiggyBank, Gift, Trophy, Search, ArrowUpDown, RefreshCw, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 
@@ -328,16 +328,32 @@ export default function Traction() {
                   {filteredAndSortedUsers.map((user, idx) => (
                     <tr key={user.address} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/20'} data-testid={`row-user-${idx}`}>
                       <td className="p-3 font-mono text-xs">
-                        <a 
-                          href={`https://basescan.org/address/${user.address}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="hover:text-[#0055FF] inline-flex items-center gap-1"
-                          data-testid={`link-address-${idx}`}
-                        >
-                          {formatAddress(user.address)}
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
+                        <div className="flex items-center gap-1">
+                          <span className="break-all" data-testid={`text-address-${idx}`}>
+                            {user.address}
+                          </span>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(user.address).then(() => {
+                                toast({
+                                  title: 'Copied',
+                                  description: 'Address copied to clipboard',
+                                });
+                              }).catch(() => {
+                                toast({
+                                  title: 'Copy failed',
+                                  description: 'Unable to copy to clipboard',
+                                  variant: 'destructive',
+                                });
+                              });
+                            }}
+                            className="p-1 hover:bg-muted rounded shrink-0"
+                            aria-label="Copy address"
+                            data-testid={`button-copy-address-${idx}`}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </button>
+                        </div>
                       </td>
                       <td className="p-3 text-xs text-muted-foreground">{timeAgo(user.lastSeen)}</td>
                       <td className="p-3 font-mono text-xs">${formatMicroUsdc(user.totalBalance)}</td>
