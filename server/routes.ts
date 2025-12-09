@@ -5401,11 +5401,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }),
             ]);
             
-            // G$ has 2 decimals - use BigInt-safe formatting
+            // G$ has 18 decimals - use BigInt-safe formatting
             const gdBalance = gdBalanceBigInt.toString();
-            const wholePart = gdBalanceBigInt / 100n;
-            const fractionalPart = gdBalanceBigInt % 100n;
-            const gdBalanceFormatted = `${wholePart.toString()}.${fractionalPart.toString().padStart(2, '0')}`;
+            const divisor = 10n ** 18n;
+            const wholePart = gdBalanceBigInt / divisor;
+            const fractionalPart = gdBalanceBigInt % divisor;
+            // Show 2 decimal places for display
+            const fractionalDisplay = (fractionalPart * 100n / divisor).toString().padStart(2, '0');
+            const gdBalanceFormatted = `${wholePart.toString()}.${fractionalDisplay}`;
             
             const lastAuthSeconds = Number(lastAuthenticatedBigInt);
             const lastAuthenticated = lastAuthSeconds > 0 ? new Date(lastAuthSeconds * 1000) : null;
@@ -5455,7 +5458,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Save G$ balance
           if (result.gdBalance !== null) {
-            await storage.upsertGdBalance(result.address, result.gdBalance, result.gdBalanceFormatted!, 2);
+            await storage.upsertGdBalance(result.address, result.gdBalance, result.gdBalanceFormatted!, 18);
             balancesSynced++;
           }
         }
