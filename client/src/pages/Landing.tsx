@@ -140,7 +140,7 @@ export default function Landing() {
                 <Sliders className="h-5 w-5 text-[#0055FF] flex-shrink-0" />
                 <div className="w-px h-10 bg-[#0055FF]" />
                 <div>
-                  <div className="text-sm font-semibold uppercase tracking-wide text-foreground/80">ERC-4626 Potential</div>
+                  <div className="text-sm font-semibold uppercase tracking-wide text-foreground/80">Yield Allocation</div>
                   <div className="text-xs text-muted-foreground">Pool prizes, causes, AI credits, & more.</div>
                 </div>
               </div>
