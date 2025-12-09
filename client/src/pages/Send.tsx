@@ -614,63 +614,58 @@ export default function Send() {
         {step === 'input' && (
           <>
             <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-1">
-                  To
-                </div>
-                <div className="flex gap-2">
-                  <Input 
-                    id="recipient"
-                    placeholder="0x..."
-                    aria-label="Recipient wallet address"
-                    value={recipient}
-                    onChange={(e) => setRecipient(e.target.value)}
-                    className="flex-1 font-mono border border-foreground/10"
-                    data-testid="input-recipient"
-                  />
-                  <button
-                    onClick={async () => {
-                      try {
-                        const text = await navigator.clipboard.readText();
-                        if (/^0x[a-fA-F0-9]{40}$/.test(text.trim())) {
-                          const addr = text.trim();
-                          setRecipient(addr);
-                          toast({
-                            title: "Address pasted",
-                            description: `${addr.slice(0, 6)}...${addr.slice(-4)} set as recipient`,
-                          });
-                        } else {
-                          toast({
-                            title: "Invalid Address",
-                            description: "Clipboard doesn't contain a valid wallet address",
-                            variant: "destructive",
-                          });
-                        }
-                      } catch (err) {
-                        // Clipboard access may be blocked by browser permissions or require HTTPS
-                        const isSecure = window.isSecureContext;
+              <div className="flex gap-2">
+                <Input 
+                  id="recipient"
+                  placeholder="0x..."
+                  aria-label="Recipient wallet address"
+                  value={recipient}
+                  onChange={(e) => setRecipient(e.target.value)}
+                  className="flex-1 font-mono border border-foreground/10"
+                  data-testid="input-recipient"
+                />
+                <button
+                  onClick={async () => {
+                    try {
+                      const text = await navigator.clipboard.readText();
+                      if (/^0x[a-fA-F0-9]{40}$/.test(text.trim())) {
+                        const addr = text.trim();
+                        setRecipient(addr);
                         toast({
-                          title: "Paste Failed",
-                          description: isSecure 
-                            ? "Clipboard access denied. Please allow clipboard permissions or paste manually." 
-                            : "Clipboard requires a secure connection (HTTPS).",
+                          title: "Address pasted",
+                          description: `${addr.slice(0, 6)}...${addr.slice(-4)} set as recipient`,
+                        });
+                      } else {
+                        toast({
+                          title: "Invalid Address",
+                          description: "Clipboard doesn't contain a valid wallet address",
                           variant: "destructive",
                         });
                       }
-                    }}
-                    className="h-9 w-9 border border-foreground/10 bg-background hover:bg-muted active:bg-muted/80 flex items-center justify-center"
-                    data-testid="button-paste-address"
-                  >
-                    <Clipboard className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => setShowScanner(true)}
-                    className="h-9 w-9 border border-foreground/10 bg-background hover:bg-muted active:bg-muted/80 flex items-center justify-center"
-                    data-testid="button-scan-request"
-                  >
-                    <Scan className="h-4 w-4" />
-                  </button>
-                </div>
+                    } catch (err) {
+                      // Clipboard access may be blocked by browser permissions or require HTTPS
+                      const isSecure = window.isSecureContext;
+                      toast({
+                        title: "Paste Failed",
+                        description: isSecure 
+                          ? "Clipboard access denied. Please allow clipboard permissions or paste manually." 
+                          : "Clipboard requires a secure connection (HTTPS).",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                  className="h-10 w-10 border border-foreground/10 bg-background hover:bg-muted active:bg-muted/80 flex items-center justify-center"
+                  data-testid="button-paste-address"
+                >
+                  <Clipboard className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setShowScanner(true)}
+                  className="h-10 w-10 border border-foreground/10 bg-background hover:bg-muted active:bg-muted/80 flex items-center justify-center"
+                  data-testid="button-scan-request"
+                >
+                  <Scan className="h-4 w-4" />
+                </button>
               </div>
 
               <div className="space-y-2">
