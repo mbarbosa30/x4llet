@@ -27,58 +27,65 @@ function PhoneMockup({ balance = "$124.50" }: { balance?: string }) {
   return (
     <div className="relative">
       {/* Offline Mode Toggle */}
-      <div className="flex items-center justify-end gap-2 mb-3">
+      <div className="flex items-center justify-end gap-2 mb-4">
         <span className="text-[10px] font-mono uppercase tracking-wide text-muted-foreground">Simulate Offline Mode</span>
         <button 
           onClick={() => setIsOffline(!isOffline)}
-          className={`w-10 h-5 rounded-full relative transition-colors ${isOffline ? 'bg-[#0055FF]' : 'bg-foreground/30'}`}
+          className={`w-12 h-6 rounded-full relative transition-colors border-2 border-foreground ${isOffline ? 'bg-[#0055FF]' : 'bg-white'}`}
           data-testid="toggle-offline-mode"
         >
-          <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${isOffline ? 'right-0.5' : 'left-0.5'}`} />
+          <div className={`absolute top-0.5 w-4 h-4 bg-foreground rounded-full transition-all ${isOffline ? 'right-1' : 'left-1'}`} />
         </button>
       </div>
-      {/* Phone frame with proper outline */}
-      <div className="relative w-[280px]">
-        {/* Phone outer frame */}
-        <div className="border-2 border-foreground rounded-[24px] p-2 bg-foreground shadow-[8px_8px_0px_0px_rgb(0,0,0)]">
-          {/* Speaker/notch area */}
-          <div className="flex justify-center mb-1">
-            <div className="w-16 h-1.5 bg-foreground/50 rounded-full" />
+      {/* Phone device frame */}
+      <div className="relative">
+        {/* Phone outer shell */}
+        <div className="w-[300px] bg-white border-2 border-foreground rounded-[32px] p-3 shadow-[8px_8px_0px_0px_rgb(0,0,0)]">
+          {/* Top bezel with speaker */}
+          <div className="flex justify-center py-2">
+            <div className="w-20 h-1 bg-foreground/20 rounded-full" />
           </div>
-          {/* Phone screen */}
-          <div className="bg-white rounded-[16px] p-4">
-            {/* Phone header */}
-            <div className="flex items-center justify-between mb-6 pb-2 border-b border-foreground/10">
+          {/* Phone screen area */}
+          <div className="border-2 border-foreground/20 rounded-[20px] bg-white overflow-hidden">
+            {/* Status bar */}
+            <div className="flex items-center justify-between px-4 py-2 bg-foreground/5 border-b border-foreground/10">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-[#0055FF]" />
                 <span className="text-[10px] font-mono font-bold uppercase">nanoPay</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className={`w-2 h-2 rounded-full ${isOffline ? 'bg-orange-500' : 'bg-green-500'}`} />
+                <div className={`w-2 h-2 rounded-full ${isOffline ? 'bg-[#0055FF]' : 'bg-green-500'}`} />
                 <span className="text-[9px] font-mono text-muted-foreground">{isOffline ? 'Offline' : 'Online'}</span>
               </div>
             </div>
             
-            {/* Balance display */}
-            <div className="text-center py-6">
-              <div className="text-xs text-muted-foreground mb-1 font-mono">Total Balance</div>
-              <div className="text-4xl font-black tracking-tight mb-2">{balance}</div>
-              <div className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono ${isOffline ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
-                {isOffline ? <WifiOff className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
-                {isOffline ? 'Cached' : 'Synced'}
+            {/* Main content */}
+            <div className="p-4">
+              {/* Balance display */}
+              <div className="text-center py-8">
+                <div className="text-xs text-muted-foreground mb-2 font-mono uppercase tracking-wide">Total Balance</div>
+                <div className="text-5xl font-black tracking-tight mb-3">{balance}</div>
+                <div className={`inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-mono font-bold uppercase ${isOffline ? 'bg-[#0055FF]/10 text-[#0055FF] border border-[#0055FF]/30' : 'bg-green-100 text-green-700'}`}>
+                  {isOffline ? <Sparkles className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
+                  {isOffline ? 'Authorization Signed' : 'Synced'}
+                </div>
+              </div>
+              
+              {/* Action buttons */}
+              <div className="space-y-3 mt-2">
+                <button className="w-full bg-foreground text-white py-3.5 text-xs font-mono font-bold uppercase flex items-center justify-center gap-2 border-2 border-foreground">
+                  <ArrowRight className="h-3 w-3" />
+                  Send Money
+                </button>
+                <button className="w-full border-2 border-foreground py-3.5 text-xs font-mono font-bold uppercase bg-white">
+                  Receive
+                </button>
               </div>
             </div>
-            
-            {/* Action buttons */}
-            <div className="space-y-2 mt-4">
-              <button className="w-full bg-foreground text-white py-3 text-xs font-mono font-bold uppercase flex items-center justify-center gap-2">
-                <ArrowRight className="h-3 w-3" />
-                Send Money
-              </button>
-              <button className="w-full border border-foreground py-3 text-xs font-mono font-bold uppercase">
-                Receive
-              </button>
-            </div>
+          </div>
+          {/* Bottom bezel / home indicator */}
+          <div className="flex justify-center py-3">
+            <div className="w-24 h-1 bg-foreground/30 rounded-full" />
           </div>
         </div>
       </div>
@@ -544,7 +551,7 @@ function DesktopLanding({
                 <div className="py-2 border-b border-foreground/10">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Network Fee:</span>
-                    <span className="line-through text-red-400 decoration-red-400">0.05 USDC</span>
+                    <span className="text-muted-foreground/50 line-through decoration-[#00D664] decoration-2">0.05 USDC</span>
                   </div>
                   <div className="flex justify-end mt-1">
                     <span className="inline-block px-2 py-0.5 bg-[#00D664] text-white text-[10px] font-mono font-bold uppercase">Paid by Facilitator</span>
