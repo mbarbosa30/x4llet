@@ -414,7 +414,7 @@ export default function Home() {
                           Vouch for someone you know
                         </div>
                         {!isVouched && (
-                          <div className="text-xs text-muted-foreground">Build your signal & claim daily XP</div>
+                          <div className="text-xs text-muted-foreground">Build your signal & claim XP daily</div>
                         )}
                       </div>
                       {!isVouched && <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
