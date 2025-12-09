@@ -331,7 +331,7 @@ export default function CreateWallet() {
             </div>
           </Card>
 
-          <Card className="p-4 border-foreground/20">
+          <Card className="p-4">
             <p className="font-mono text-xs text-muted-foreground uppercase tracking-wide">
               <strong className="font-label text-foreground block mb-1">How Security Works</strong>
               Your password encrypts your wallet locally on this device. You'll see your private key backup next - that's your master recovery key if you lose your password or switch devices.

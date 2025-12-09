@@ -122,7 +122,7 @@ export default function RestoreWallet() {
           </p>
         </div>
 
-        <div className="p-4 bg-muted/50 border border-foreground/20">
+        <div className="p-4 bg-muted/50 border border-foreground/10">
           <p className="text-xs font-mono uppercase tracking-wide text-foreground">
             <span className="font-bold">Lost your password?</span> Enter the private key you saved when creating your wallet.
           </p>
