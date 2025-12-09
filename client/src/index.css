@@ -12,15 +12,15 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  /* Pure white background */
-  --background: 0 0% 100%;
+  /* Cream background - #F4F4F1 */
+  --background: 60 9% 95%;
 
   /* Pure black foreground */
   --foreground: 0 0% 0%;
 
   --border: 0 0% 80%;
 
-  /* White cards - minimal distinction */
+  /* White cards - contrast against cream background */
   --card: 0 0% 100%;
 
   --card-foreground: 0 0% 0%;
