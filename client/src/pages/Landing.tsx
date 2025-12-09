@@ -326,10 +326,10 @@ function DesktopLanding({
               <div className="inline-block border border-foreground px-3 py-1 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-6">
                 The Digital Public Utility
               </div>
-              <h1 className="text-6xl font-black uppercase tracking-tighter leading-none mb-6">
-                Money, Simplified.<br />
-                <span className="text-[#0055FF]">DeFi For Everyone.</span><br />
-                It Just Works.
+              <h1 className="text-7xl font-black uppercase tracking-tighter leading-none mb-6">
+                Money,<br />
+                <span className="text-[#0055FF]">Simplified.</span><br />
+                For Everyone.
               </h1>
               <p className="text-lg text-muted-foreground max-w-md">
                 Reliable as a hammer. Fast as cash. Built for communities, not casinos.
