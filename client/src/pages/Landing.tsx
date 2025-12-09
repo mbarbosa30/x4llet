@@ -407,9 +407,9 @@ function DesktopLanding({
 
       {/* Metrics Section */}
       {globalStats && (globalStats.totalUsers > 0 || globalStats.totalTransfers > 0 || globalStats.totalXp > 0) && (
-        <section className="py-12 px-8 bg-white">
+        <section className="py-16 px-8 bg-white">
           <div className="max-w-4xl mx-auto">
-            <div className="flex items-center justify-center gap-3 mb-8">
+            <div className="flex items-center justify-center gap-3 mb-12">
               <div className="w-24 h-px bg-foreground/20" />
               <h2 className="text-sm font-mono uppercase tracking-widest text-muted-foreground">Network Stats</h2>
               <div className="w-24 h-px bg-foreground/20" />
