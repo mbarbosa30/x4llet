@@ -3,6 +3,7 @@ import { useLocation, Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Marquee, MarqueeItem } from '@/components/ui/marquee';
 import { WifiOff, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap, Users, ArrowRightLeft, ArrowRight, Shield, Coins, TrendingUp, Wallet } from 'lucide-react';
 import { hasWallet, isWalletUnlocked } from '@/lib/wallet';
 import Footer from '@/components/Footer';
@@ -281,20 +282,20 @@ function DesktopLanding({
   return (
     <div className="flex-1">
       {/* Desktop Header */}
-      <header className="border-b border-foreground/10 py-4 px-8">
+      <header className="border-b border-foreground py-4 px-8">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-[#0055FF]" />
             <span className="text-sm font-extrabold uppercase tracking-tight">nanoPay</span>
           </div>
           <nav className="flex items-center gap-8">
-            <Link href="/how-it-works" className="text-sm font-medium text-muted-foreground hover:text-foreground uppercase tracking-wide">
+            <Link href="/how-it-works" className="text-sm font-mono font-medium text-muted-foreground hover:text-foreground uppercase tracking-wide">
               Features
             </Link>
-            <Link href="/faqs" className="text-sm font-medium text-muted-foreground hover:text-foreground uppercase tracking-wide">
+            <Link href="/faqs" className="text-sm font-mono font-medium text-muted-foreground hover:text-foreground uppercase tracking-wide">
               Security
             </Link>
-            <Link href="/context" className="text-sm font-medium text-muted-foreground hover:text-foreground uppercase tracking-wide">
+            <Link href="/context" className="text-sm font-mono font-medium text-muted-foreground hover:text-foreground uppercase tracking-wide">
               Community
             </Link>
             <Button onClick={() => setLocation('/create')} data-testid="button-launch-app">
@@ -304,12 +305,25 @@ function DesktopLanding({
         </div>
       </header>
 
-      {/* Hero Section */}
+      {/* Live Stats Ticker */}
+      <Marquee speed={40}>
+        <MarqueeItem>{globalStats?.totalUsers || 0} Users</MarqueeItem>
+        <MarqueeItem>{globalStats?.totalTransfers || 0} Transfers</MarqueeItem>
+        <MarqueeItem>{apyDisplay || '3.1%'} APY on Savings</MarqueeItem>
+        <MarqueeItem>Gasless on Base</MarqueeItem>
+        <MarqueeItem>Gasless on Celo</MarqueeItem>
+        <MarqueeItem>Gasless on Gnosis</MarqueeItem>
+        <MarqueeItem>Gasless on Arbitrum</MarqueeItem>
+        <MarqueeItem>100% Self-Custody</MarqueeItem>
+        <MarqueeItem>Offline-Ready</MarqueeItem>
+      </Marquee>
+
+      {/* Hero Section - Asymmetric Grid */}
       <section className="py-20 px-8">
-        <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
-          <div className="space-y-8">
+        <div className="max-w-6xl mx-auto grid lg:grid-cols-5 gap-12 items-center">
+          <div className="lg:col-span-3 space-y-8">
             <div>
-              <div className="inline-block border border-foreground/20 px-3 py-1 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-6">
+              <div className="inline-block border border-foreground px-3 py-1 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-6">
                 The Digital Public Utility
               </div>
               <h1 className="text-6xl font-black uppercase tracking-tighter leading-none mb-6">
@@ -332,7 +346,7 @@ function DesktopLanding({
             </div>
           </div>
           
-          <div className="flex justify-center lg:justify-end">
+          <div className="lg:col-span-2 flex justify-center lg:justify-end">
             <PhoneMockup balance="$124.50" />
           </div>
         </div>
