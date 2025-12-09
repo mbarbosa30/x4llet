@@ -440,7 +440,32 @@ function DesktopLanding({
       {/* Trust Without The Circus Section */}
       <section className="py-20 px-8 bg-white">
         <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
-          <div>
+          <div className="space-y-6">
+            <h2 className="text-4xl font-black uppercase tracking-tight">
+              Trust Without<br />The Circus.
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              ZK identity? On-chain résumés? No, thanks.
+            </p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-[#0055FF]" />
+                <span className="font-medium">Tchau attestations and POAPs you'll never use</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-[#0055FF]" />
+                <span className="font-medium">Forget your "reputation" points from clicking buttons</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-[#0055FF]" />
+                <span className="font-medium">Flexing your tokens, likes or GitHub stars = 0</span>
+              </div>
+            </div>
+            <p className="text-lg font-semibold">
+              Humans vouch for humans. Math does the rest.
+            </p>
+          </div>
+          <div className="flex justify-center lg:justify-end">
             <Card className="p-6 max-w-sm shadow-[8px_8px_0px_0px_rgb(0,0,0)]">
               <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-4">Sybil-Resistant Trust</div>
               <div className="space-y-4">
@@ -469,38 +494,25 @@ function DesktopLanding({
                   <span className="text-sm text-muted-foreground">Trust Score</span>
                   <span className="text-2xl font-black">78<span className="text-sm font-normal text-muted-foreground">/100</span></span>
                 </div>
-                <div className="flex gap-3 pt-2 text-xs text-muted-foreground/50">
-                  <span className="line-through">ZK Passport</span>
-                  <span className="line-through">Attestations</span>
-                  <span className="line-through">POAPs</span>
+                <div className="pt-3 border-t border-foreground/10">
+                  <div className="text-xs font-mono uppercase tracking-widest text-green-600 mb-2">What We Care About</div>
+                  <div className="flex gap-3 text-xs font-medium">
+                    <span>Maximum Flow</span>
+                    <span>Path Redundancy</span>
+                    <span>Edge Density</span>
+                  </div>
+                </div>
+                <div className="pt-2">
+                  <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground/50 mb-2">Not This</div>
+                  <div className="flex gap-3 text-xs text-muted-foreground/50">
+                    <span className="line-through">ZK Passport</span>
+                    <span className="line-through">Attestations</span>
+                    <span className="line-through">POAPs</span>
+                    <span className="line-through">GitHub Stars</span>
+                  </div>
                 </div>
               </div>
             </Card>
-          </div>
-          <div className="space-y-6">
-            <h2 className="text-4xl font-black uppercase tracking-tight">
-              Trust Without<br />The Circus.
-            </h2>
-            <p className="text-muted-foreground text-lg">
-              ZK identity? On-chain résumés? No, thanks.
-            </p>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-[#0055FF]" />
-                <span className="font-medium">Tchau attestations and POAPs you'll never use</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-[#0055FF]" />
-                <span className="font-medium">Forget your "reputation" points from clicking buttons</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-[#0055FF]" />
-                <span className="font-medium">Flexing your tokens, likes or GitHub stars = 0</span>
-              </div>
-            </div>
-            <p className="text-lg font-semibold">
-              Humans vouch for humans. Math does the rest.
-            </p>
           </div>
         </div>
       </section>
@@ -508,29 +520,7 @@ function DesktopLanding({
       {/* Zero Fees Section */}
       <section className="py-20 px-8">
         <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
-          <div className="order-2 lg:order-1 space-y-6">
-            <h2 className="text-4xl font-black uppercase tracking-tight">
-              Zero Hidden Fees.
-            </h2>
-            <p className="text-muted-foreground text-lg">
-              Users are suspicious of "free". We're transparent. Protocol Relayers pay the network fees so your community doesn't have to. 10 USDC sent is 10 USDC received.
-            </p>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-[#0055FF]" />
-                <span className="font-medium">No gas tokens needed</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-[#0055FF]" />
-                <span className="font-medium">Instant settlement</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-[#0055FF]" />
-                <span className="font-medium">100% On-chain</span>
-              </div>
-            </div>
-          </div>
-          <div className="order-1 lg:order-2 flex justify-center lg:justify-end">
+          <div>
             <Card className="p-6 max-w-sm shadow-[8px_8px_0px_0px_rgb(0,0,0)]">
               <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-4">Transaction Receipt</div>
               <div className="space-y-3 text-sm">
@@ -552,6 +542,28 @@ function DesktopLanding({
               </div>
               <p className="text-xs text-muted-foreground mt-4 italic">"We pay the gas so you don't have to."</p>
             </Card>
+          </div>
+          <div className="space-y-6">
+            <h2 className="text-4xl font-black uppercase tracking-tight">
+              Zero Hidden Fees.
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              Users are suspicious of "free". We're transparent. Protocol Relayers pay the network fees so your community doesn't have to. 10 USDC sent is 10 USDC received.
+            </p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-[#0055FF]" />
+                <span className="font-medium">No gas tokens needed</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-[#0055FF]" />
+                <span className="font-medium">Instant settlement</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-[#0055FF]" />
+                <span className="font-medium">100% On-chain</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -620,6 +632,20 @@ function DesktopLanding({
           <Button size="lg" onClick={() => setLocation('/create')} data-testid="button-get-started">
             Get Started <ArrowRight className="h-4 w-4" />
           </Button>
+        </div>
+      </section>
+
+      {/* Powered By Section */}
+      <section className="py-12 px-8 bg-white border-t border-foreground/10">
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-6">Powered By</div>
+          <div className="flex flex-wrap justify-center gap-6 md:gap-12">
+            <div className="text-sm font-mono">x402</div>
+            <div className="text-sm font-mono">EIP-3009</div>
+            <div className="text-sm font-mono">ERC-4626</div>
+            <div className="text-sm font-mono">Max-flow/Min-cut</div>
+            <div className="text-sm font-mono">Aave V3</div>
+          </div>
         </div>
       </section>
 
