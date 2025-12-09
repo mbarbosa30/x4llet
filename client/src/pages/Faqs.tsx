@@ -14,7 +14,7 @@ export default function Faqs() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <header 
-        className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+        className="sticky top-0 z-50 border-b border-foreground bg-background"
         style={{ 
           paddingTop: 'env(safe-area-inset-top)',
           height: 'calc(3.5rem + env(safe-area-inset-top))'
@@ -29,7 +29,10 @@ export default function Faqs() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="ml-2 text-lg text-section">FAQs</h1>
+          <div className="flex items-center gap-2 ml-2">
+            <div className="w-3 h-3 bg-[#0055FF]" />
+            <span className="text-sm font-bold uppercase">FAQs</span>
+          </div>
         </div>
       </header>
 
@@ -76,6 +79,7 @@ export default function Faqs() {
                 <li><span className="font-medium">Base</span> — Native USDC. Aave V3 savings.</li>
                 <li><span className="font-medium">Celo</span> — Native USDC. Aave V3 savings. GoodDollar UBI.</li>
                 <li><span className="font-medium">Gnosis</span> — Circle bridged USDC.e. Circles social money.</li>
+                <li><span className="font-medium">Arbitrum</span> — Native USDC. Aave V3 savings.</li>
               </ul>
               <p className="text-sm text-muted-foreground mt-2">
                 Same wallet address on all networks. Switch in Settings.

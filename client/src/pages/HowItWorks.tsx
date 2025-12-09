@@ -285,19 +285,19 @@ export default function HowItWorks() {
             <div className="grid md:grid-cols-3 gap-4">
               <RoadmapCard 
                 icon={Cpu}
-                quarter="Q1 2025"
+                quarter="Soon"
                 title="AI Credits Allocation"
                 description="Allocate yield to LLM compute credits. AI access funded by savings interest."
               />
               <RoadmapCard 
                 icon={Clock}
-                quarter="Q2 2025"
+                quarter="Soon"
                 title="Buy Now Pay Later"
                 description="Sybil-resistant credit scoring. Micro-credit backed by reputation."
               />
               <RoadmapCard 
                 icon={Rocket}
-                quarter="Q3 2025"
+                quarter="Soon"
                 title="Cross-Chain Transfers"
                 description="Seamless USDC transfers between all supported chains."
               />

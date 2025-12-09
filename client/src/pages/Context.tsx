@@ -10,7 +10,7 @@ export default function Context() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <header 
-        className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+        className="sticky top-0 z-50 border-b border-foreground bg-background"
         style={{ 
           paddingTop: 'env(safe-area-inset-top)',
           height: 'calc(3.5rem + env(safe-area-inset-top))'
@@ -20,12 +20,15 @@ export default function Context() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setLocation('/settings')}
+            onClick={() => setLocation('/')}
             data-testid="button-back"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="ml-2 text-lg text-section">Context</h1>
+          <div className="flex items-center gap-2 ml-2">
+            <div className="w-3 h-3 bg-[#0055FF]" />
+            <span className="text-sm font-bold uppercase">Context</span>
+          </div>
         </div>
       </header>
 
@@ -43,7 +46,7 @@ export default function Context() {
 
           <Separator />
 
-          <Card className="p-4 space-y-4">
+          <Card className="p-4 space-y-4 shadow-[4px_4px_0px_0px_rgb(0,0,0)]">
             <div className="flex items-start gap-3">
               <Users className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
@@ -57,7 +60,7 @@ export default function Context() {
             </div>
           </Card>
 
-          <Card className="p-4 space-y-4">
+          <Card className="p-4 space-y-4 shadow-[4px_4px_0px_0px_rgb(0,0,0)]">
             <div className="flex items-start gap-3">
               <Zap className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
@@ -71,7 +74,7 @@ export default function Context() {
             </div>
           </Card>
 
-          <Card className="p-4 space-y-4">
+          <Card className="p-4 space-y-4 shadow-[4px_4px_0px_0px_rgb(0,0,0)]">
             <div className="flex items-start gap-3">
               <Shield className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
@@ -86,7 +89,7 @@ export default function Context() {
             </div>
           </Card>
 
-          <Card className="p-4 space-y-4">
+          <Card className="p-4 space-y-4 shadow-[4px_4px_0px_0px_rgb(0,0,0)]">
             <div className="flex items-start gap-3">
               <Globe className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
@@ -104,7 +107,7 @@ export default function Context() {
             </div>
           </Card>
 
-          <Card className="p-4 space-y-4">
+          <Card className="p-4 space-y-4 shadow-[4px_4px_0px_0px_rgb(0,0,0)]">
             <div className="flex items-start gap-3">
               <PiggyBank className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
@@ -121,7 +124,7 @@ export default function Context() {
             </div>
           </Card>
 
-          <Card className="p-4 space-y-4">
+          <Card className="p-4 space-y-4 shadow-[4px_4px_0px_0px_rgb(0,0,0)]">
             <div className="flex items-start gap-3">
               <Gift className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
@@ -141,7 +144,7 @@ export default function Context() {
             </div>
           </Card>
 
-          <Card className="p-4 space-y-4">
+          <Card className="p-4 space-y-4 shadow-[4px_4px_0px_0px_rgb(0,0,0)]">
             <div className="flex items-start gap-3">
               <HeartHandshake className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
@@ -155,7 +158,7 @@ export default function Context() {
             </div>
           </Card>
 
-          <Card className="p-4 space-y-4">
+          <Card className="p-4 space-y-4 shadow-[4px_4px_0px_0px_rgb(0,0,0)]">
             <div className="flex items-start gap-3">
               <TrendingUp className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
@@ -169,7 +172,7 @@ export default function Context() {
             </div>
           </Card>
 
-          <Card className="p-4 space-y-4">
+          <Card className="p-4 space-y-4 shadow-[4px_4px_0px_0px_rgb(0,0,0)]">
             <div className="flex items-start gap-3">
               <AlertCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
