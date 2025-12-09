@@ -222,26 +222,31 @@ function MobileLanding({
           <div className="text-sm font-mono uppercase tracking-widest text-muted-foreground pt-4 mb-6 text-center">Trust Without The Circus</div>
           <div className="max-w-sm mx-auto mb-8">
             <div className="border border-foreground p-4 shadow-[4px_4px_0px_0px_rgb(0,0,0)] bg-white mb-6">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3">Identity Check</div>
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3">Sybil-Resistant Trust</div>
               <div className="flex items-center gap-3 py-2 border-b border-foreground/10">
                 <div className="w-8 h-8 bg-green-100 flex items-center justify-center">
                   <ScanFace className="h-4 w-4 text-green-600" />
                 </div>
                 <div>
-                  <div className="font-bold text-xs">Verified Human</div>
-                  <div className="text-[10px] text-muted-foreground">Face scan complete</div>
+                  <div className="font-bold text-xs">Liveness Check</div>
+                  <div className="text-[10px] text-muted-foreground">Face scan passed</div>
                 </div>
               </div>
-              <div className="flex items-center gap-3 py-2">
-                <div className="w-8 h-8 bg-green-100 flex items-center justify-center">
-                  <Users className="h-4 w-4 text-green-600" />
+              <div className="grid grid-cols-2 gap-2 py-2 border-b border-foreground/10 text-center">
+                <div>
+                  <div className="text-lg font-bold text-[#0055FF]">12</div>
+                  <div className="text-[10px] text-muted-foreground">Received</div>
                 </div>
                 <div>
-                  <div className="font-bold text-xs">Vouched by 3 friends</div>
-                  <div className="text-[10px] text-muted-foreground">Trust score: 847</div>
+                  <div className="text-lg font-bold">8</div>
+                  <div className="text-[10px] text-muted-foreground">Given</div>
                 </div>
               </div>
-              <div className="flex gap-3 pt-3 text-[10px] text-muted-foreground/50">
+              <div className="flex items-center justify-between py-2">
+                <span className="text-[10px] text-muted-foreground">Trust Score</span>
+                <span className="text-lg font-black">78<span className="text-[10px] font-normal text-muted-foreground">/100</span></span>
+              </div>
+              <div className="flex gap-3 pt-2 text-[10px] text-muted-foreground/50">
                 <span className="line-through">ZK Passport</span>
                 <span className="line-through">Attestations</span>
                 <span className="line-through">POAPs</span>
@@ -437,36 +442,37 @@ function DesktopLanding({
         <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
           <div>
             <Card className="p-6 max-w-sm shadow-[8px_8px_0px_0px_rgb(0,0,0)]">
-              <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-4">Identity Check</div>
+              <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-4">Sybil-Resistant Trust</div>
               <div className="space-y-4">
                 <div className="flex items-center gap-3 py-3 border-b border-foreground/10">
                   <div className="w-10 h-10 bg-green-100 flex items-center justify-center">
                     <ScanFace className="h-5 w-5 text-green-600" />
                   </div>
                   <div>
-                    <div className="font-bold text-sm">Verified Human</div>
-                    <div className="text-xs text-muted-foreground">Face scan complete</div>
+                    <div className="font-bold text-sm">Liveness Check</div>
+                    <div className="text-xs text-muted-foreground">Face scan passed</div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 py-3 border-b border-foreground/10">
-                  <div className="w-10 h-10 bg-green-100 flex items-center justify-center">
-                    <Users className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-sm">Vouched by 3 friends</div>
-                    <div className="text-xs text-muted-foreground">Trust score: 847</div>
+                <div className="py-3 border-b border-foreground/10">
+                  <div className="grid grid-cols-2 gap-4 text-center">
+                    <div>
+                      <div className="text-2xl font-bold text-[#0055FF]">12</div>
+                      <div className="text-xs text-muted-foreground">Vouches Received</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-foreground">8</div>
+                      <div className="text-xs text-muted-foreground">Vouches Given</div>
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-2 pt-2">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground/50 line-through">
-                    <span>ZK Passport</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground/50 line-through">
-                    <span>Attestations</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground/50 line-through">
-                    <span>POAPs</span>
-                  </div>
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-sm text-muted-foreground">Trust Score</span>
+                  <span className="text-2xl font-black">78<span className="text-sm font-normal text-muted-foreground">/100</span></span>
+                </div>
+                <div className="flex gap-3 pt-2 text-xs text-muted-foreground/50">
+                  <span className="line-through">ZK Passport</span>
+                  <span className="line-through">Attestations</span>
+                  <span className="line-through">POAPs</span>
                 </div>
               </div>
             </Card>
@@ -500,9 +506,31 @@ function DesktopLanding({
       </section>
 
       {/* Zero Fees Section */}
-      <section className="py-20 px-8 bg-white">
+      <section className="py-20 px-8">
         <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
-          <div>
+          <div className="order-2 lg:order-1 space-y-6">
+            <h2 className="text-4xl font-black uppercase tracking-tight">
+              Zero Hidden Fees.
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              Users are suspicious of "free". We're transparent. Protocol Relayers pay the network fees so your community doesn't have to. 10 USDC sent is 10 USDC received.
+            </p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-[#0055FF]" />
+                <span className="font-medium">No gas tokens needed</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-[#0055FF]" />
+                <span className="font-medium">Instant settlement</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-[#0055FF]" />
+                <span className="font-medium">100% On-chain</span>
+              </div>
+            </div>
+          </div>
+          <div className="order-1 lg:order-2 flex justify-center lg:justify-end">
             <Card className="p-6 max-w-sm shadow-[8px_8px_0px_0px_rgb(0,0,0)]">
               <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-4">Transaction Receipt</div>
               <div className="space-y-3 text-sm">
@@ -525,33 +553,11 @@ function DesktopLanding({
               <p className="text-xs text-muted-foreground mt-4 italic">"We pay the gas so you don't have to."</p>
             </Card>
           </div>
-          <div className="space-y-6">
-            <h2 className="text-4xl font-black uppercase tracking-tight">
-              Zero Hidden Fees.
-            </h2>
-            <p className="text-muted-foreground text-lg">
-              Users are suspicious of "free". We're transparent. Protocol Relayers pay the network fees so your community doesn't have to. 10 USDC sent is 10 USDC received.
-            </p>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-[#0055FF]" />
-                <span className="font-medium">No gas tokens needed</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-[#0055FF]" />
-                <span className="font-medium">Instant settlement</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-[#0055FF]" />
-                <span className="font-medium">100% On-chain</span>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
       {/* Savings Section */}
-      <section className="py-20 px-8">
+      <section className="py-20 px-8 bg-white">
         <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
           <div className="order-2 lg:order-1 space-y-6">
             <h2 className="text-4xl font-black uppercase tracking-tight">
@@ -583,7 +589,7 @@ function DesktopLanding({
       </section>
 
       {/* Setup Section */}
-      <section className="py-20 px-8 bg-white">
+      <section className="py-20 px-8">
         <div className="max-w-4xl mx-auto text-center mb-16">
           <h2 className="text-4xl font-black uppercase tracking-tight mb-4">
             Setup in Seconds
