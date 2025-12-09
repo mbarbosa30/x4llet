@@ -392,8 +392,11 @@ function DesktopLanding({
       {/* Chains Section */}
       <section className="py-16 px-8 border-t border-foreground/10">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl font-black tracking-tight mb-8">
-            Gasless on 4 Networks
+          <p className="text-lg text-muted-foreground mb-2">
+            Community signals meet on-chain finality.
+          </p>
+          <h2 className="text-2xl font-black tracking-tight mb-8">
+            Multi-chain. Gasless. Lightweight.
           </h2>
           <div className="flex justify-center gap-8">
             <div className="flex items-center gap-2">
