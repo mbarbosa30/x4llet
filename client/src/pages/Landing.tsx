@@ -290,13 +290,13 @@ function DesktopLanding({
           </div>
           <nav className="flex items-center gap-8">
             <Link href="/how-it-works" className="text-sm font-mono font-medium text-muted-foreground hover:text-foreground uppercase tracking-wide">
-              Features
+              How It Works
             </Link>
             <Link href="/faqs" className="text-sm font-mono font-medium text-muted-foreground hover:text-foreground uppercase tracking-wide">
-              Security
+              FAQs
             </Link>
             <Link href="/context" className="text-sm font-mono font-medium text-muted-foreground hover:text-foreground uppercase tracking-wide">
-              Community
+              Context
             </Link>
             <Button onClick={() => setLocation('/create')} data-testid="button-launch-app">
               Launch App <ArrowRight className="h-4 w-4" />
@@ -340,8 +340,8 @@ function DesktopLanding({
               <Button size="lg" onClick={() => setLocation('/create')} data-testid="button-hero-create">
                 Create Wallet <ArrowRight className="h-4 w-4" />
               </Button>
-              <Button size="lg" variant="outline" onClick={() => setLocation('/context')} data-testid="button-read-manifesto">
-                Read Manifesto
+              <Button size="lg" variant="outline" onClick={() => setLocation('/unlock')} data-testid="button-unlock-wallet">
+                Unlock Wallet
               </Button>
             </div>
           </div>
