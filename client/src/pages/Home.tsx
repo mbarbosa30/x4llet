@@ -345,7 +345,7 @@ export default function Home() {
         </div>
 
         <Collapsible className="group">
-          <div className="border border-foreground p-4">
+          <div className="border border-foreground/10 p-4">
             <CollapsibleTrigger className="w-full flex items-center justify-between gap-2" data-testid="button-trust-health-toggle">
               <div className="flex items-center gap-2">
                 <h3 className="text-xs font-mono font-bold uppercase tracking-wide">Trust Health</h3>

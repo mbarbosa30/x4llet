@@ -8,7 +8,7 @@ export default function BottomNav() {
 
   return (
     <nav 
-      className="fixed bottom-0 left-0 right-0 bg-background border-t-2 border-foreground"
+      className="fixed bottom-0 left-0 right-0 bg-background border-t border-foreground"
       style={{ 
         paddingBottom: 'env(safe-area-inset-bottom)',
         position: 'fixed',

@@ -87,7 +87,7 @@ export default function BalanceCard({
   });
 
   return (
-    <div className="bg-card border border-foreground p-6 text-center relative" data-testid="card-balance">
+    <div className="bg-card border border-foreground/10 p-6 text-center relative" data-testid="card-balance">
       {/* Content */}
       <div className="relative z-10">
         <div className="text-[10px] mb-4 font-mono text-muted-foreground">Total Balance</div>

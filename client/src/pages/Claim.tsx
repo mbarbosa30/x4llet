@@ -632,7 +632,7 @@ export default function Claim() {
           </TabsList>
 
           <TabsContent value="circles" className="mt-4">
-            <Card className="p-6 space-y-6 border-foreground">
+            <Card className="p-6 space-y-6">
               {isLoadingCircles ? (
                 <div className="text-center space-y-4">
                   <CircleDot className="h-12 w-12 mx-auto text-muted-foreground" />
@@ -1182,7 +1182,7 @@ export default function Claim() {
           </TabsContent>
 
           <TabsContent value="gooddollar" className="mt-4">
-            <Card className="p-6 space-y-6 border-foreground">
+            <Card className="p-6 space-y-6">
               {isLoadingGdIdentity || isRefreshingIdentity ? (
                 <div className="text-center space-y-4">
                   <Gift className="h-12 w-12 mx-auto text-muted-foreground" />

@@ -246,7 +246,7 @@ export default function MaxFlow() {
 
       <main className="max-w-md mx-auto p-4 space-y-4">
         {!isLoadingMaxFlow && score > 0 && (
-          <Card className="p-6 space-y-6 border-foreground">
+          <Card className="p-6 space-y-6">
             <div className="flex items-center gap-3">
               <Sparkles className="h-10 w-10 text-amber-500 shrink-0" />
               <div>
@@ -305,7 +305,7 @@ export default function MaxFlow() {
           </Card>
         )}
 
-        <Card className="p-6 space-y-6 border-foreground">
+        <Card className="p-6 space-y-6">
           {!isLoadingMaxFlow && score === 0 ? (
             <div className="space-y-6">
               <div className="flex items-center gap-3">
