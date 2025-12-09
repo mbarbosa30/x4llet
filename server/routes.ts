@@ -5254,6 +5254,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== TRACTION DASHBOARD ENDPOINT (PUBLIC) =====
+  app.get('/api/traction/users', async (_req, res) => {
+    try {
+      const walletsData = await storage.getAllWalletsWithDetails();
+      
+      // Enrich with G$ balance and XP data
+      const enrichedData = await Promise.all(walletsData.map(async (wallet) => {
+        // Get G$ balance
+        const gdBalance = await storage.getGdBalance(wallet.address);
+        
+        // Get XP balance
+        const xpBalance = await storage.getXpBalance(wallet.address);
+        
+        return {
+          ...wallet,
+          gdBalance: gdBalance?.balance || '0',
+          gdBalanceFormatted: gdBalance?.balanceFormatted || '0',
+          xpBalance: xpBalance?.totalXp || 0,
+          xpClaimCount: xpBalance?.claimCount || 0,
+        };
+      }));
+      
+      res.json({
+        users: enrichedData,
+        totalCount: enrichedData.length,
+        fetchedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('[Traction] Error fetching user data:', error);
+      res.status(500).json({ error: 'Failed to fetch traction data' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
