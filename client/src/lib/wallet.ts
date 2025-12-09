@@ -446,6 +446,18 @@ export async function getWallet(recoveryCode?: string): Promise<Wallet | null> {
     const isV2 = await isV2Wallet();
     if (!isV2) {
       await migrateToV2(privateKey, code);
+    } else {
+      // For existing V2 wallets, unwrap the DEK and set it in the session
+      const v2Data = await get<WalletV2Data>(WALLET_V2_KEY);
+      if (v2Data && v2Data.dekWrappedByPassword && v2Data.salt) {
+        try {
+          const salt = Uint8Array.from(atob(v2Data.salt), c => c.charCodeAt(0));
+          const dek = await unwrapDekWithPassword(v2Data.dekWrappedByPassword, code, salt);
+          await setSessionDek(dek);
+        } catch (error) {
+          console.error('[Wallet] Failed to unwrap DEK:', error);
+        }
+      }
     }
     
     return {
