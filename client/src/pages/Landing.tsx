@@ -352,7 +352,44 @@ function DesktopLanding({
         </div>
       </section>
 
-      {/* Tagline Section */}
+      {/* Metrics Section */}
+      {globalStats && (globalStats.totalUsers > 0 || globalStats.totalTransfers > 0 || globalStats.totalXp > 0) && (
+        <section className="py-12 px-8 border-t border-foreground/10">
+          <div className="max-w-4xl mx-auto">
+            <div className="grid grid-cols-3 gap-8 text-center">
+              <div>
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Users className="h-5 w-5 text-[#0055FF]" />
+                </div>
+                <p className="text-4xl font-black tabular-nums" data-testid="text-desktop-users">
+                  {globalStats.totalUsers.toLocaleString()}
+                </p>
+                <p className="text-sm text-muted-foreground uppercase tracking-wide font-mono">Users</p>
+              </div>
+              <div>
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <ArrowRightLeft className="h-5 w-5 text-[#0055FF]" />
+                </div>
+                <p className="text-4xl font-black tabular-nums" data-testid="text-desktop-transfers">
+                  {globalStats.totalTransfers.toLocaleString()}
+                </p>
+                <p className="text-sm text-muted-foreground uppercase tracking-wide font-mono">Transfers</p>
+              </div>
+              <div>
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Sparkles className="h-5 w-5 text-[#0055FF]" />
+                </div>
+                <p className="text-4xl font-black tabular-nums" data-testid="text-desktop-xp">
+                  {globalStats.totalXp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+                <p className="text-sm text-muted-foreground uppercase tracking-wide font-mono">XP Earned</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Chains Section */}
       <section className="py-16 px-8 border-t border-foreground/10">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl font-black tracking-tight mb-6">
@@ -361,19 +398,19 @@ function DesktopLanding({
           </h2>
           <div className="flex justify-center gap-8 mt-8">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-foreground" />
+              <div className="w-3 h-3 rounded-full bg-[#0055FF]" />
               <span className="text-sm font-mono uppercase">Base</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-foreground" />
+              <div className="w-3 h-3 rounded-full bg-[#FCFF52]" />
               <span className="text-sm font-mono uppercase">Celo</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-foreground" />
+              <div className="w-3 h-3 rounded-full bg-[#04795B]" />
               <span className="text-sm font-mono uppercase">Gnosis</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-foreground" />
+              <div className="w-3 h-3 rounded-full bg-[#28A0F0]" />
               <span className="text-sm font-mono uppercase">Arbitrum</span>
             </div>
           </div>
@@ -475,7 +512,7 @@ function DesktopLanding({
                   <span className="text-muted-foreground">Network Fee:</span>
                   <div className="text-right">
                     <span className="line-through text-muted-foreground/50 mr-2">0.05 USDC</span>
-                    <span className="text-[#0055FF] font-bold">Paid by Relayer</span>
+                    <span className="text-[#0055FF] font-bold">Paid by Facilitator</span>
                   </div>
                 </div>
                 <div className="flex justify-between py-2">
@@ -491,7 +528,7 @@ function DesktopLanding({
               Zero Hidden Fees.
             </h2>
             <p className="text-muted-foreground text-lg">
-              Users are suspicious of "free". We're transparent. Protocol Relayers pay the network fees so your community doesn't have to. 10 USDC sent is 10 USDC received.
+              Users are suspicious of "free". We're transparent. Protocol Facilitators pay the network fees so your community doesn't have to. 10 USDC sent is 10 USDC received.
             </p>
             <div className="space-y-3">
               <div className="flex items-center gap-3">
