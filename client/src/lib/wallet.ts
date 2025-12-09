@@ -637,7 +637,7 @@ export function lockWallet(): void {
   clearSessionDek();
 }
 
-export async function tryRestoreSession(): Promise<boolean> {
+export function tryRestoreSession(): boolean {
   return walletStore.tryRestoreSession();
 }
 

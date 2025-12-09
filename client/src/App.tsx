@@ -230,8 +230,8 @@ function App() {
           setAutoLockMinutes(prefs.autoLockMinutes);
         }
         
-        // Try to restore session from sessionStorage
-        const restored = await tryRestoreSession();
+        // Try to restore session from sessionStorage (synchronous)
+        const restored = tryRestoreSession();
         if (restored) {
           console.log('[App] Session restored successfully');
         }

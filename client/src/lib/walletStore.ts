@@ -16,7 +16,6 @@ let state: WalletStoreState = {
   isUnlocked: false,
 };
 
-let sessionKey: Uint8Array | null = null;
 let idleTimeout: ReturnType<typeof setTimeout> | null = null;
 let autoLockMinutes = 15; // Default 15 minutes
 
@@ -24,70 +23,24 @@ function notifyListeners() {
   listeners.forEach(listener => listener());
 }
 
-async function generateSessionKey(): Promise<Uint8Array> {
-  return crypto.getRandomValues(new Uint8Array(32));
-}
+/**
+ * Session Persistence Security Model:
+ * 
+ * The DEK is stored in sessionStorage to survive page refreshes.
+ * This is a UX/security trade-off:
+ * - sessionStorage is cleared when the tab closes
+ * - Idle timeout clears the session after inactivity
+ * - Primary security relies on device lock screen
+ * - XSS attacks could access sessionStorage (accepted risk for UX)
+ * 
+ * Defense-in-depth: CSP headers, dependency audits, idle timeouts
+ */
 
-async function encryptWithSessionKey(dek: Uint8Array, key: Uint8Array): Promise<string> {
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    key,
-    { name: 'AES-GCM' },
-    false,
-    ['encrypt']
-  );
-  
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encrypted = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    cryptoKey,
-    dek
-  );
-  
-  const result = new Uint8Array(iv.length + encrypted.byteLength);
-  result.set(iv, 0);
-  result.set(new Uint8Array(encrypted), iv.length);
-  
-  return btoa(String.fromCharCode(...result));
-}
-
-async function decryptWithSessionKey(encryptedData: string, key: Uint8Array): Promise<Uint8Array> {
-  const data = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
-  const iv = data.slice(0, 12);
-  const encrypted = data.slice(12);
-  
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    key,
-    { name: 'AES-GCM' },
-    false,
-    ['decrypt']
-  );
-  
-  const decrypted = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    cryptoKey,
-    encrypted
-  );
-  
-  return new Uint8Array(decrypted);
-}
-
-async function persistSession(dek: Uint8Array): Promise<void> {
+function persistSession(dek: Uint8Array): void {
   try {
-    if (!sessionKey) {
-      sessionKey = await generateSessionKey();
-    }
-    
-    const encryptedDek = await encryptWithSessionKey(dek, sessionKey);
-    
-    // Store encrypted DEK and session key in sessionStorage
-    const sessionData = {
-      encryptedDek,
-      sessionKey: btoa(String.fromCharCode(...sessionKey)),
-    };
-    
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+    // Store DEK as base64 in sessionStorage
+    const dekBase64 = btoa(String.fromCharCode(...dek));
+    sessionStorage.setItem(SESSION_KEY, dekBase64);
     
     // Set expiry based on autoLockMinutes
     if (autoLockMinutes > 0) {
@@ -101,10 +54,10 @@ async function persistSession(dek: Uint8Array): Promise<void> {
   }
 }
 
-async function restoreSession(): Promise<Uint8Array | null> {
+function restoreSession(): Uint8Array | null {
   try {
-    const sessionDataStr = sessionStorage.getItem(SESSION_KEY);
-    if (!sessionDataStr) return null;
+    const dekBase64 = sessionStorage.getItem(SESSION_KEY);
+    if (!dekBase64) return null;
     
     // Check expiry
     const expiryStr = sessionStorage.getItem(SESSION_EXPIRY_KEY);
@@ -117,12 +70,8 @@ async function restoreSession(): Promise<Uint8Array | null> {
       }
     }
     
-    const sessionData = JSON.parse(sessionDataStr);
-    const storedSessionKey = Uint8Array.from(atob(sessionData.sessionKey), c => c.charCodeAt(0));
-    
-    const dek = await decryptWithSessionKey(sessionData.encryptedDek, storedSessionKey);
-    sessionKey = storedSessionKey;
-    
+    // Restore DEK from base64
+    const dek = Uint8Array.from(atob(dekBase64), c => c.charCodeAt(0));
     console.log('[WalletStore] Session restored successfully');
     return dek;
   } catch (error) {
@@ -135,7 +84,6 @@ async function restoreSession(): Promise<Uint8Array | null> {
 function clearSession(): void {
   sessionStorage.removeItem(SESSION_KEY);
   sessionStorage.removeItem(SESSION_EXPIRY_KEY);
-  sessionKey = null;
 }
 
 function resetIdleTimeout(): void {
@@ -172,9 +120,9 @@ if (typeof window !== 'undefined') {
 export const walletStore = {
   getState: (): WalletStoreState => state,
 
-  setDek: async (dek: Uint8Array) => {
+  setDek: (dek: Uint8Array) => {
     state = { dek, isUnlocked: true };
-    await persistSession(dek);
+    persistSession(dek);
     resetIdleTimeout();
     notifyListeners();
   },
@@ -205,8 +153,8 @@ export const walletStore = {
   
   getAutoLockMinutes: (): number => autoLockMinutes,
   
-  tryRestoreSession: async (): Promise<boolean> => {
-    const dek = await restoreSession();
+  tryRestoreSession: (): boolean => {
+    const dek = restoreSession();
     if (dek) {
       state = { dek, isUnlocked: true };
       resetIdleTimeout();
