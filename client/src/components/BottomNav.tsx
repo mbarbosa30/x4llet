@@ -1,5 +1,5 @@
 import { useLocation } from 'wouter';
-import { Coins, Wallet, TrendingUp, Sparkles } from 'lucide-react';
+import { Wallet, TrendingUp, Sparkles } from 'lucide-react';
 
 export default function BottomNav() {
   const [location, setLocation] = useLocation();
@@ -17,18 +17,6 @@ export default function BottomNav() {
       data-testid="bottom-nav"
     >
       <div className="max-w-md mx-auto h-16 flex items-center">
-        <button
-          onClick={() => setLocation('/claim')}
-          className={`relative flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-[10px] font-mono font-semibold uppercase tracking-widest transition-colors ${
-            isActive('/claim') ? 'text-[#0055FF]' : 'text-foreground/60'
-          }`}
-          data-testid="nav-claim"
-        >
-          <Coins className="h-5 w-5" strokeWidth={2} />
-          <span>CLAIM</span>
-          {isActive('/claim') && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#0055FF]" />}
-        </button>
-
         <button
           onClick={() => setLocation('/home')}
           className={`relative flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-[10px] font-mono font-semibold uppercase tracking-widest transition-colors ${

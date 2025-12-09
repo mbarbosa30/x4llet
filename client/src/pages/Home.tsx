@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users, ChevronDown, Clock } from 'lucide-react';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users, Clock, QrCode } from 'lucide-react';
+import QRCodeDisplay from '@/components/QRCodeDisplay';
 import {
   Dialog,
   DialogContent,
@@ -299,126 +299,156 @@ export default function Home() {
       }}
     >
       <main className="max-w-md mx-auto p-4 space-y-4">
-        {isLoadingWallet ? (
-          <div className="h-10 bg-muted animate-pulse"></div>
-        ) : (
-          <AddressDisplay address={address!} />
-        )}
-        
-        {isLoadingWallet || isLoading ? (
-          <BalanceCardSkeleton />
-        ) : (
-          <BalanceCard 
-            balance={balance}
-            currency="USDC"
-            balanceMicro={balanceMicro}
-            exchangeRate={exchangeRate?.rate}
-            fiatCurrency={currency}
-            address={address!}
-            chains={chains}
-            aaveBalance={aaveBalance}
-            onRefresh={handleRefreshBalance}
-            isRefreshing={isRefreshingBalance && !isLoading}
-          />
-        )}
-
-        <div className="grid grid-cols-2 gap-2">
-          <Button 
-            size="lg"
-            className="w-full"
-            onClick={() => setLocation('/send')}
-            data-testid="button-send"
-          >
-            <ArrowUpRight className="h-4 w-4" />
-            Send
-          </Button>
-          <Button 
-            size="lg"
-            variant="outline"
-            className="w-full"
-            onClick={() => setLocation('/receive')}
-            data-testid="button-receive"
-          >
-            <ArrowDownLeft className="h-4 w-4" />
-            Receive
-          </Button>
-        </div>
-
-        <Collapsible className="group">
-          <div className="border border-foreground/10 p-4">
-            <CollapsibleTrigger className="w-full flex items-center justify-between gap-2" data-testid="button-trust-health-toggle">
-              <div className="flex items-center gap-2">
-                <h3 className="text-xs font-mono font-bold uppercase tracking-wide">Trust Health</h3>
-                <div className="flex gap-1">
-                  <div className="h-2 w-2 rounded-full bg-cta" title="MaxFlow" />
-                  <div className="h-2 w-2 rounded-full bg-green-500" title="GoodDollar" />
+        {/* Empty state: no balance and no transactions */}
+        {!isLoadingWallet && !isLoading && parseFloat(balance || '0') === 0 && transactions.length === 0 ? (
+          <>
+            <div className="border border-foreground/10 p-6 text-center space-y-4">
+              <div className="flex justify-center">
+                <div className="bg-background p-2 border border-foreground/10">
+                  {address && <QRCodeDisplay value={address} size={160} />}
                 </div>
               </div>
-              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-[[data-state=open]]:rotate-180" />
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pt-3 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <button 
-                  onClick={() => setLocation('/maxflow')}
-                  className="flex items-center gap-3 p-3 bg-muted/30 border border-foreground/10 hover-elevate text-left"
-                  data-testid="button-trust-maxflow"
-                >
-                  <div className="flex items-center justify-center w-10 h-10 bg-cta/10 text-cta">
-                    {getMaxflowCta().includes(':') ? (
-                      <Clock className="h-5 w-5" />
-                    ) : (
-                      <Users className="h-5 w-5" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs text-muted-foreground font-mono uppercase">MaxFlow</div>
-                    <div className="text-sm font-bold font-mono" data-testid="text-maxflow-cta">{getMaxflowCta()}</div>
-                  </div>
-                </button>
-                <button 
-                  onClick={() => setLocation('/claim')}
-                  className="flex items-center gap-3 p-3 bg-muted/30 border border-foreground/10 hover-elevate text-left"
-                  data-testid="button-trust-gooddollar"
-                >
-                  <div className="flex items-center justify-center w-10 h-10 bg-green-500/10 text-green-600 dark:text-green-400">
-                    {getGoodDollarCta().includes(':') ? (
-                      <Clock className="h-5 w-5" />
-                    ) : (
-                      <Shield className="h-5 w-5" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs text-muted-foreground font-mono uppercase">GoodDollar</div>
-                    <div className="text-sm font-bold font-mono" data-testid="text-gooddollar-cta">{getGoodDollarCta()}</div>
-                  </div>
-                </button>
+              <div className="space-y-2">
+                <AddressDisplay address={address!} />
+                <p className="text-xs text-muted-foreground font-mono">
+                  Share to receive USDC or get vouched
+                </p>
               </div>
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button 
+                size="lg"
+                className="w-full"
+                onClick={() => setLocation('/send')}
+                data-testid="button-send"
+              >
+                <ArrowUpRight className="h-4 w-4" />
+                Send
+              </Button>
+              <Button 
+                size="lg"
+                variant="outline"
+                className="w-full"
+                onClick={() => setLocation('/receive')}
+                data-testid="button-receive"
+              >
+                <ArrowDownLeft className="h-4 w-4" />
+                Receive
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            {isLoadingWallet ? (
+              <div className="h-10 bg-muted animate-pulse"></div>
+            ) : (
+              <AddressDisplay address={address!} />
+            )}
+            
+            {isLoadingWallet || isLoading ? (
+              <BalanceCardSkeleton />
+            ) : (
+              <BalanceCard 
+                balance={balance}
+                currency="USDC"
+                balanceMicro={balanceMicro}
+                exchangeRate={exchangeRate?.rate}
+                fiatCurrency={currency}
+                address={address!}
+                chains={chains}
+                aaveBalance={aaveBalance}
+                onRefresh={handleRefreshBalance}
+                isRefreshing={isRefreshingBalance && !isLoading}
+              />
+            )}
 
-        <div className="space-y-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Recent Activity</h2>
-          {isLoadingWallet ? (
-            <TransactionListSkeleton />
-          ) : (
-            <TransactionList 
-              transactions={transactions.map(tx => {
-                const fiatAmount = exchangeRate 
-                  ? ((parseFloat(tx.amount) / 1e6) * exchangeRate.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                  : null;
-                
-                return {
-                  ...tx,
-                  address: tx.type === 'send' ? tx.to : tx.from,
-                  fiatAmount: fiatAmount || undefined,
-                  fiatCurrency: currency !== 'USD' ? currency : undefined,
-                };
-              })}
-              onTransactionClick={handleTransactionClick}
-            />
-          )}
+            <div className="grid grid-cols-2 gap-2">
+              <Button 
+                size="lg"
+                className="w-full"
+                onClick={() => setLocation('/send')}
+                data-testid="button-send"
+              >
+                <ArrowUpRight className="h-4 w-4" />
+                Send
+              </Button>
+              <Button 
+                size="lg"
+                variant="outline"
+                className="w-full"
+                onClick={() => setLocation('/receive')}
+                data-testid="button-receive"
+              >
+                <ArrowDownLeft className="h-4 w-4" />
+                Receive
+              </Button>
+            </div>
+          </>
+        )}
+
+        <div className="border border-foreground/10 p-2">
+          <div className="grid grid-cols-2 gap-2">
+            <button 
+              onClick={() => setLocation('/maxflow')}
+              className="flex items-center gap-2 p-2 bg-muted/30 border border-foreground/10 hover-elevate text-left"
+              data-testid="button-trust-maxflow"
+            >
+              <div className="flex items-center justify-center w-8 h-8 bg-cta/10 text-cta">
+                {getMaxflowCta().includes(':') ? (
+                  <Clock className="h-4 w-4" />
+                ) : (
+                  <Users className="h-4 w-4" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] text-muted-foreground font-mono uppercase">MaxFlow</div>
+                <div className="text-xs font-bold font-mono" data-testid="text-maxflow-cta">{getMaxflowCta()}</div>
+              </div>
+            </button>
+            <button 
+              onClick={() => setLocation('/claim')}
+              className="flex items-center gap-2 p-2 bg-muted/30 border border-foreground/10 hover-elevate text-left"
+              data-testid="button-trust-gooddollar"
+            >
+              <div className="flex items-center justify-center w-8 h-8 bg-green-500/10 text-green-600 dark:text-green-400">
+                {getGoodDollarCta().includes(':') ? (
+                  <Clock className="h-4 w-4" />
+                ) : (
+                  <Shield className="h-4 w-4" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] text-muted-foreground font-mono uppercase">GoodDollar</div>
+                <div className="text-xs font-bold font-mono" data-testid="text-gooddollar-cta">{getGoodDollarCta()}</div>
+              </div>
+            </button>
+          </div>
         </div>
+
+        {(isLoadingWallet || transactions.length > 0) && (
+          <div className="space-y-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Recent Activity</h2>
+            {isLoadingWallet ? (
+              <TransactionListSkeleton />
+            ) : (
+              <TransactionList 
+                transactions={transactions.map(tx => {
+                  const fiatAmount = exchangeRate 
+                    ? ((parseFloat(tx.amount) / 1e6) * exchangeRate.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : null;
+                  
+                  return {
+                    ...tx,
+                    address: tx.type === 'send' ? tx.to : tx.from,
+                    fiatAmount: fiatAmount || undefined,
+                    fiatCurrency: currency !== 'USD' ? currency : undefined,
+                  };
+                })}
+                onTransactionClick={handleTransactionClick}
+              />
+            )}
+          </div>
+        )}
       </main>
 
       <Dialog open={!!selectedTransaction} onOpenChange={() => setSelectedTransaction(null)}>

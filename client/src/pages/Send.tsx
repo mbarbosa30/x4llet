@@ -2,18 +2,12 @@ import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useLocation } from 'wouter';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
-import { Scan, Clipboard, Repeat, Loader2, ChevronDown, MessageSquare } from 'lucide-react';
+import { Scan, Clipboard, Repeat, Loader2, MessageSquare } from 'lucide-react';
 import NumericKeypad from '@/components/NumericKeypad';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 
 // Lazy load QR scanner to reduce initial bundle size
 const QRScanner = lazy(() => import('@/components/QRScanner'));
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
 import { getWallet, getPrivateKey, getPreferences } from '@/lib/wallet';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getAddress } from 'viem';
@@ -616,24 +610,13 @@ export default function Send() {
         paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' 
       }}
     >
-      <main className="max-w-md mx-auto p-4 space-y-6">
-        <div className="flex items-center gap-2" data-testid="progress-indicator">
-          <div className={`flex-1 h-1 ${step === 'input' ? 'bg-[#0055FF]' : step === 'confirm' || step === 'qr' ? 'bg-[#0055FF]' : 'bg-muted'}`} />
-          <div className={`flex-1 h-1 ${step === 'confirm' ? 'bg-[#0055FF]' : step === 'qr' ? 'bg-[#0055FF]' : 'bg-muted'}`} />
-          <div className={`flex-1 h-1 ${step === 'qr' ? 'bg-[#0055FF]' : 'bg-muted'}`} />
-        </div>
-        <div className="flex items-center justify-between font-mono text-xs uppercase tracking-widest text-muted-foreground">
-          <span className={step === 'input' ? 'text-foreground' : ''}>// 01_AMOUNT</span>
-          <span className={step === 'confirm' ? 'text-foreground' : ''}>// 02_REVIEW</span>
-          <span className={step === 'qr' ? 'text-foreground' : ''}>// 03_COMPLETE</span>
-        </div>
-
+      <main className="max-w-md mx-auto p-4 space-y-4">
         {step === 'input' && (
           <>
             <div className="space-y-4">
               <div className="space-y-2">
-                <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-2">
-                  // RECIPIENT_ADDRESS
+                <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-1">
+                  To
                 </div>
                 <div className="flex gap-2">
                   <Input 
@@ -687,80 +670,36 @@ export default function Send() {
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-                    // AMOUNT_{displayCurrency === 'USDC' ? 'USDC' : currency}
-                  </span>
-                  <button
-                    onClick={handleCurrencyToggle}
-                    disabled={!rateLoaded && currency !== 'USD'}
-                    className="h-8 px-3 border-2 border-foreground bg-background hover:bg-foreground/5 active:bg-foreground/10 font-mono text-xs uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                    data-testid="button-toggle-currency"
-                  >
-                    <Repeat className="h-3 w-3" />
-                    {displayCurrency === 'USDC' ? currency : 'USDC'}
-                  </button>
-                </div>
                 <div className="text-center py-6 border-2 border-foreground bg-background">
                   <div className="text-5xl font-bold tabular-nums tracking-tight font-mono">
                     {inputValue || '0.00'}
                   </div>
-                  {displayCurrency === 'fiat' && (
-                    <div className="text-sm text-muted-foreground mt-2 font-mono">
-                      = {(parseFloat(usdcAmount) || 0).toFixed(2)} USDC
-                    </div>
-                  )}
-                  {displayCurrency === 'USDC' && currency !== 'USD' && (
-                    <div className="text-sm text-muted-foreground mt-2 font-mono">
-                      = {((parseFloat(usdcAmount) || 0) * rate).toFixed(2)} {currency}
-                    </div>
-                  )}
-                  <div className="flex items-center justify-center gap-1.5 mt-4 text-xs font-mono uppercase tracking-widest text-muted-foreground">
-                    <span 
-                      className={`w-2 h-2 ${isOnline ? 'bg-green-500' : 'bg-muted-foreground/50'}`}
-                      title={isOnline ? 'Online' : 'Offline'}
-                      data-testid="status-connection"
-                    />
-                    <span data-testid="text-balance">// {balance} USDC</span>
-                    {chainsWithBalance.length > 1 ? (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button 
-                            className="px-2 py-0.5 border border-foreground bg-background hover:bg-foreground/5 font-mono text-xs uppercase tracking-widest flex items-center gap-1"
-                            data-testid="button-network-selector"
-                          >
-                            {network === 'base' ? 'BASE' : network === 'celo' ? 'CELO' : network === 'arbitrum' ? 'ARBITRUM' : 'GNOSIS'}
-                            <ChevronDown className="h-3 w-3" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="center" className="border-2 border-foreground">
-                          {chainsWithBalance.map((chain) => (
-                            <DropdownMenuItem 
-                              key={chain.network}
-                              onClick={() => handleNetworkChange(chain.network)}
-                              className="font-mono uppercase tracking-widest text-xs"
-                              data-testid={`button-network-${chain.network}`}
-                            >
-                              // {chain.network === 'base' ? 'BASE' : chain.network === 'celo' ? 'CELO' : chain.network === 'arbitrum' ? 'ARBITRUM' : 'GNOSIS'}
-                              <span className="ml-2 text-muted-foreground">{chain.balance}</span>
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    ) : (
-                      <span className="font-medium">
-                        // {network === 'base' ? 'BASE' : network === 'celo' ? 'CELO' : network === 'arbitrum' ? 'ARBITRUM' : 'GNOSIS'}
-                      </span>
+                  <button
+                    onClick={handleCurrencyToggle}
+                    disabled={!rateLoaded && currency !== 'USD'}
+                    className="mt-2 text-sm text-muted-foreground font-mono disabled:opacity-50 flex items-center justify-center gap-1 mx-auto"
+                    data-testid="button-toggle-currency"
+                  >
+                    <Repeat className="h-3 w-3" />
+                    {displayCurrency === 'USDC' ? 'USDC' : currency}
+                    {displayCurrency === 'fiat' && (
+                      <span className="text-foreground/60">= {(parseFloat(usdcAmount) || 0).toFixed(2)} USDC</span>
                     )}
+                    {displayCurrency === 'USDC' && currency !== 'USD' && (
+                      <span className="text-foreground/60">= {((parseFloat(usdcAmount) || 0) * rate).toFixed(2)} {currency}</span>
+                    )}
+                  </button>
+                  <div className="flex items-center justify-center gap-2 mt-3 text-xs font-mono text-muted-foreground">
+                    <span data-testid="text-balance">{balance} USDC on {network.toUpperCase()}</span>
                   </div>
                 </div>
               </div>
 
               {isInsufficientBalance && (
-                <div className="border-2 border-destructive bg-destructive/10 p-3 font-mono text-xs uppercase tracking-widest text-destructive text-center" data-testid="text-insufficient-balance">
-                  // ERROR: INSUFFICIENT_BALANCE
+                <div className="border-2 border-destructive bg-destructive/10 p-2 font-mono text-xs text-destructive text-center" data-testid="text-insufficient-balance">
+                  Insufficient balance
                   {earnMode && aaveCouldCover && (
-                    <span className="block text-muted-foreground mt-1">// ${aaveUsdcAmount.toFixed(2)} AVAILABLE_SAVINGS</span>
+                    <span className="block text-muted-foreground mt-1">{aaveUsdcAmount.toFixed(2)} in savings</span>
                   )}
                 </div>
               )}
@@ -777,31 +716,31 @@ export default function Send() {
                 className="w-full h-12 border-2 border-foreground bg-[#0055FF] text-white font-mono text-sm uppercase tracking-widest hover:bg-[#0044CC] active:bg-[#0033AA] disabled:opacity-50 disabled:cursor-not-allowed"
                 data-testid="button-next"
               >
-                // CONTINUE
+                Review
               </button>
             </div>
           </>
         )}
 
         {step === 'confirm' && (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div className="border-2 border-foreground bg-background">
               <div className="p-4 border-b-2 border-foreground">
-                <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-2">// AMOUNT</div>
+                <div className="font-mono text-xs text-muted-foreground mb-1">Amount</div>
                 <div className="text-3xl font-bold font-mono">{usdcAmount} USDC</div>
                 {currency !== 'USD' && rate > 0 && parseFloat(usdcAmount) > 0 && (
                   <div className="text-sm text-muted-foreground mt-1 font-mono" data-testid="text-fiat-equivalent">
-                    // = {(parseFloat(usdcAmount) * rate).toLocaleString(undefined, { maximumFractionDigits: rate >= 100 ? 0 : 2 })} {currency}
+                    = {(parseFloat(usdcAmount) * rate).toLocaleString(undefined, { maximumFractionDigits: rate >= 100 ? 0 : 2 })} {currency}
                   </div>
                 )}
               </div>
 
               <div className="p-4 border-b-2 border-foreground">
-                <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-2">// RECIPIENT</div>
+                <div className="font-mono text-xs text-muted-foreground mb-1">To</div>
                 <div className="font-mono text-xs break-all">{recipient}</div>
               </div>
 
-              <div className="p-4 flex items-center justify-between gap-2">
+              <div className="p-3 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2" data-testid="text-network">
                   <span className={`inline-flex items-center justify-center w-5 h-5 text-[10px] font-mono font-bold text-white ${
                     network === 'base' ? 'bg-blue-500' : 
@@ -811,24 +750,23 @@ export default function Send() {
                   }`}>
                     {network === 'base' ? 'B' : network === 'celo' ? 'C' : network === 'arbitrum' ? 'A' : 'G'}
                   </span>
-                  <span className="font-mono text-xs uppercase tracking-widest">// {network.toUpperCase()}</span>
+                  <span className="font-mono text-xs">{network.toUpperCase()}</span>
                 </div>
-                <div className="font-mono text-xs uppercase tracking-widest text-green-600 dark:text-green-400" data-testid="text-no-fees">
-                  // ZERO_FEES
+                <div className="font-mono text-xs text-green-600 dark:text-green-400" data-testid="text-no-fees">
+                  Zero fees
                 </div>
               </div>
 
               {paymentRequest?.description && (
-                <div className="p-4 border-t-2 border-foreground">
-                  <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-2">// NOTE</div>
+                <div className="p-3 border-t-2 border-foreground">
+                  <div className="font-mono text-xs text-muted-foreground mb-1">Note</div>
                   <div className="text-sm font-mono">{paymentRequest.description}</div>
                 </div>
               )}
 
               {!isOnline && (
-                <div className="p-4 border-t-2 border-foreground bg-muted">
-                  <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-2">// MODE</div>
-                  <div className="font-mono text-xs uppercase tracking-widest">// OFFLINE_AUTHORIZATION</div>
+                <div className="p-3 border-t-2 border-foreground bg-muted">
+                  <div className="font-mono text-xs text-muted-foreground">Offline mode - will create shareable link</div>
                 </div>
               )}
             </div>
@@ -839,7 +777,7 @@ export default function Send() {
               className="w-full h-12 border-2 border-foreground bg-[#0055FF] text-white font-mono text-sm uppercase tracking-widest hover:bg-[#0044CC] active:bg-[#0033AA] disabled:opacity-50 disabled:cursor-not-allowed"
               data-testid="button-confirm"
             >
-              {!isOnline ? '// CREATE_AUTHORIZATION' : (sendMutation.isPending ? '// SENDING...' : '// CONFIRM_SEND')}
+              {!isOnline ? 'Create Link' : (sendMutation.isPending ? 'Sending...' : 'Send')}
             </button>
 
             <button 
@@ -847,10 +785,10 @@ export default function Send() {
                 setStep('input');
                 setPaymentRequest(null);
               }}
-              className="w-full h-12 border-2 border-foreground bg-background font-mono text-sm uppercase tracking-widest hover:bg-foreground/5 active:bg-foreground/10"
+              className="w-full h-10 border-2 border-foreground bg-background font-mono text-sm hover:bg-foreground/5 active:bg-foreground/10"
               data-testid="button-cancel"
             >
-              // CANCEL
+              Back
             </button>
           </div>
         )}
