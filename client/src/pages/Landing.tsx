@@ -354,7 +354,7 @@ function DesktopLanding({
 
       {/* Metrics Section */}
       {globalStats && (globalStats.totalUsers > 0 || globalStats.totalTransfers > 0 || globalStats.totalXp > 0) && (
-        <section className="py-12 px-8 border-t border-foreground/10">
+        <section className="py-12 px-8 bg-white">
           <div className="max-w-4xl mx-auto">
             <div className="grid grid-cols-3 gap-8 text-center">
               <div>
@@ -390,13 +390,10 @@ function DesktopLanding({
       )}
 
       {/* Chains Section */}
-      <section className="py-16 px-8 border-t border-foreground/10">
+      <section className="py-12 px-8 border-t border-foreground/10">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl font-black tracking-tight mb-6">
-            Vouched for by your community.<br />
-            Verified by math, not paperwork.
-          </h2>
-          <div className="flex justify-center gap-8 mt-8">
+          <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-6">Supported Networks</div>
+          <div className="flex justify-center gap-8">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-[#0055FF]" />
               <span className="text-sm font-mono uppercase">Base</span>
