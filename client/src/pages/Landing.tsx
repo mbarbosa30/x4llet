@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Marquee, MarqueeItem } from '@/components/ui/marquee';
-import { WifiOff, Wifi, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap, Users, ArrowRightLeft, ArrowRight, Shield, Coins, TrendingUp, Wallet, ScanFace, Fingerprint, CircleDollarSign, Cpu, Clock, Rocket, PenTool } from 'lucide-react';
+import { WifiOff, Wifi, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap, Users, ArrowRightLeft, ArrowRight, Shield, Coins, TrendingUp, Wallet, ScanFace, Fingerprint, CircleDollarSign, Cpu, Clock, Rocket, Stamp } from 'lucide-react';
 import { hasWallet, isWalletUnlocked } from '@/lib/wallet';
 import Footer from '@/components/Footer';
 
@@ -93,7 +93,7 @@ function PhoneMockup({ balance = "$124.50" }: { balance?: string }) {
                 }`}
                 style={{ transform: `translateX(-50%) rotate(-5deg) ${showStamp ? 'scale(1)' : 'scale(1.5)'}` }}
               >
-                <PenTool className="h-3 w-3" />
+                <Stamp className="h-3 w-3" />
                 AUTHORIZATION SIGNED
               </div>
             )}
