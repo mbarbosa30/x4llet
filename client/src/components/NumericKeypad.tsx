@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import { Delete } from "lucide-react";
 
 interface NumericKeypadProps {
@@ -14,29 +13,37 @@ export default function NumericKeypad({
   onDecimal,
   disabled = false 
 }: NumericKeypadProps) {
-  const numbers = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del'];
+  const rows = [
+    ['1', '2', '3'],
+    ['4', '5', '6'],
+    ['7', '8', '9'],
+    ['.', '0', 'del'],
+  ];
 
   return (
-    <div className="grid grid-cols-3 gap-1.5 w-full max-w-sm mx-auto">
-      {numbers.map((num) => (
-        <Button
-          key={num}
-          variant="ghost"
-          disabled={disabled || (num === '.' && !onDecimal)}
-          onClick={() => {
-            if (num === 'del') {
-              onBackspace();
-            } else if (num === '.' && onDecimal) {
-              onDecimal();
-            } else if (num !== '.') {
-              onNumberClick(num);
-            }
-          }}
-          className="text-lg font-medium rounded-none"
-          data-testid={`keypad-${num}`}
-        >
-          {num === 'del' ? <Delete className="h-4 w-4" /> : num}
-        </Button>
+    <div className="border-2 border-foreground w-full max-w-sm mx-auto bg-background">
+      {rows.map((row, rowIndex) => (
+        <div key={rowIndex} className={`grid grid-cols-3 ${rowIndex < 3 ? 'border-b-2 border-foreground' : ''}`}>
+          {row.map((num, colIndex) => (
+            <button
+              key={num}
+              disabled={disabled || (num === '.' && !onDecimal)}
+              onClick={() => {
+                if (num === 'del') {
+                  onBackspace();
+                } else if (num === '.' && onDecimal) {
+                  onDecimal();
+                } else if (num !== '.') {
+                  onNumberClick(num);
+                }
+              }}
+              className={`h-14 flex items-center justify-center font-mono text-xl font-bold bg-background hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-50 disabled:cursor-not-allowed ${colIndex < 2 ? 'border-r-2 border-foreground' : ''}`}
+              data-testid={`keypad-${num}`}
+            >
+              {num === 'del' ? <Delete className="h-5 w-5" /> : num}
+            </button>
+          ))}
+        </div>
       ))}
     </div>
   );

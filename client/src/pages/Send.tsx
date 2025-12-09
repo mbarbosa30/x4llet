@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useLocation } from 'wouter';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Scan, Clipboard, Repeat, Loader2, ChevronDown, MessageSquare } from 'lucide-react';
 import NumericKeypad from '@/components/NumericKeypad';
@@ -9,7 +8,6 @@ import QRCodeDisplay from '@/components/QRCodeDisplay';
 
 // Lazy load QR scanner to reduce initial bundle size
 const QRScanner = lazy(() => import('@/components/QRScanner'));
-import { Card } from '@/components/ui/card';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -600,7 +598,7 @@ export default function Send() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto" />
-          <p className="text-sm text-muted-foreground">Loading wallet...</p>
+          <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">// LOADING_WALLET</p>
         </div>
       </div>
     );
@@ -619,23 +617,35 @@ export default function Send() {
       }}
     >
       <main className="max-w-md mx-auto p-4 space-y-6">
+        <div className="flex items-center gap-2" data-testid="progress-indicator">
+          <div className={`flex-1 h-1 ${step === 'input' ? 'bg-[#0055FF]' : step === 'confirm' || step === 'qr' ? 'bg-[#0055FF]' : 'bg-muted'}`} />
+          <div className={`flex-1 h-1 ${step === 'confirm' ? 'bg-[#0055FF]' : step === 'qr' ? 'bg-[#0055FF]' : 'bg-muted'}`} />
+          <div className={`flex-1 h-1 ${step === 'qr' ? 'bg-[#0055FF]' : 'bg-muted'}`} />
+        </div>
+        <div className="flex items-center justify-between font-mono text-xs uppercase tracking-widest text-muted-foreground">
+          <span className={step === 'input' ? 'text-foreground' : ''}>// 01_AMOUNT</span>
+          <span className={step === 'confirm' ? 'text-foreground' : ''}>// 02_REVIEW</span>
+          <span className={step === 'qr' ? 'text-foreground' : ''}>// 03_COMPLETE</span>
+        </div>
+
         {step === 'input' && (
           <>
             <div className="space-y-4">
               <div className="space-y-2">
+                <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-2">
+                  // RECIPIENT_ADDRESS
+                </div>
                 <div className="flex gap-2">
                   <Input 
                     id="recipient"
-                    placeholder="Enter or paste wallet address"
+                    placeholder="0x..."
                     aria-label="Recipient wallet address"
                     value={recipient}
                     onChange={(e) => setRecipient(e.target.value)}
-                    className="flex-1"
+                    className="flex-1 font-mono border-2 border-foreground"
                     data-testid="input-recipient"
                   />
-                  <Button
-                    variant="ghost"
-                    size="icon"
+                  <button
                     onClick={async () => {
                       try {
                         const text = await navigator.clipboard.readText();
@@ -661,79 +671,77 @@ export default function Send() {
                         });
                       }
                     }}
+                    className="h-9 w-9 border-2 border-foreground bg-background hover:bg-foreground/5 active:bg-foreground/10 flex items-center justify-center"
                     data-testid="button-paste-address"
                   >
                     <Clipboard className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
+                  </button>
+                  <button
                     onClick={() => setShowScanner(true)}
+                    className="h-9 w-9 border-2 border-foreground bg-background hover:bg-foreground/5 active:bg-foreground/10 flex items-center justify-center"
                     data-testid="button-scan-request"
                   >
                     <Scan className="h-4 w-4" />
-                  </Button>
+                  </button>
                 </div>
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">
-                    Amount ({displayCurrency === 'USDC' ? 'USDC' : currency})
-                  </label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                  <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                    // AMOUNT_{displayCurrency === 'USDC' ? 'USDC' : currency}
+                  </span>
+                  <button
                     onClick={handleCurrencyToggle}
                     disabled={!rateLoaded && currency !== 'USD'}
+                    className="h-8 px-3 border-2 border-foreground bg-background hover:bg-foreground/5 active:bg-foreground/10 font-mono text-xs uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                     data-testid="button-toggle-currency"
                   >
-                    <Repeat className="h-4 w-4 mr-1" />
+                    <Repeat className="h-3 w-3" />
                     {displayCurrency === 'USDC' ? currency : 'USDC'}
-                  </Button>
+                  </button>
                 </div>
-                <div className="text-center py-4">
-                  <div className="text-4xl font-semibold tabular-nums tracking-tight">
+                <div className="text-center py-6 border-2 border-foreground bg-background">
+                  <div className="text-5xl font-bold tabular-nums tracking-tight font-mono">
                     {inputValue || '0.00'}
                   </div>
                   {displayCurrency === 'fiat' && (
-                    <div className="text-sm text-muted-foreground mt-2">
-                      ≈ {(parseFloat(usdcAmount) || 0).toFixed(2)} USDC
+                    <div className="text-sm text-muted-foreground mt-2 font-mono">
+                      = {(parseFloat(usdcAmount) || 0).toFixed(2)} USDC
                     </div>
                   )}
                   {displayCurrency === 'USDC' && currency !== 'USD' && (
-                    <div className="text-sm text-muted-foreground mt-2">
-                      ≈ {((parseFloat(usdcAmount) || 0) * rate).toFixed(2)} {currency}
+                    <div className="text-sm text-muted-foreground mt-2 font-mono">
+                      = {((parseFloat(usdcAmount) || 0) * rate).toFixed(2)} {currency}
                     </div>
                   )}
-                  <div className="flex items-center justify-center gap-1.5 mt-3 text-sm text-muted-foreground">
+                  <div className="flex items-center justify-center gap-1.5 mt-4 text-xs font-mono uppercase tracking-widest text-muted-foreground">
                     <span 
-                      className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground/50'}`}
+                      className={`w-2 h-2 ${isOnline ? 'bg-green-500' : 'bg-muted-foreground/50'}`}
                       title={isOnline ? 'Online' : 'Offline'}
                       data-testid="status-connection"
                     />
-                    <span data-testid="text-balance">{balance} USDC on</span>
+                    <span data-testid="text-balance">// {balance} USDC</span>
                     {chainsWithBalance.length > 1 ? (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button 
-                            variant="ghost"
-                            size="sm"
-                            className="h-auto py-0 px-1 font-medium"
+                          <button 
+                            className="px-2 py-0.5 border border-foreground bg-background hover:bg-foreground/5 font-mono text-xs uppercase tracking-widest flex items-center gap-1"
                             data-testid="button-network-selector"
                           >
-                            {network === 'base' ? 'Base' : network === 'celo' ? 'Celo' : network === 'arbitrum' ? 'Arbitrum' : 'Gnosis'}
+                            {network === 'base' ? 'BASE' : network === 'celo' ? 'CELO' : network === 'arbitrum' ? 'ARBITRUM' : 'GNOSIS'}
                             <ChevronDown className="h-3 w-3" />
-                          </Button>
+                          </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="center">
+                        <DropdownMenuContent align="center" className="border-2 border-foreground">
                           {chainsWithBalance.map((chain) => (
                             <DropdownMenuItem 
                               key={chain.network}
                               onClick={() => handleNetworkChange(chain.network)}
+                              className="font-mono uppercase tracking-widest text-xs"
                               data-testid={`button-network-${chain.network}`}
                             >
-                              {chain.network === 'base' ? 'Base' : chain.network === 'celo' ? 'Celo' : chain.network === 'arbitrum' ? 'Arbitrum' : 'Gnosis'}
+                              // {chain.network === 'base' ? 'BASE' : chain.network === 'celo' ? 'CELO' : chain.network === 'arbitrum' ? 'ARBITRUM' : 'GNOSIS'}
                               <span className="ml-2 text-muted-foreground">{chain.balance}</span>
                             </DropdownMenuItem>
                           ))}
@@ -741,7 +749,7 @@ export default function Send() {
                       </DropdownMenu>
                     ) : (
                       <span className="font-medium">
-                        {network === 'base' ? 'Base' : network === 'celo' ? 'Celo' : network === 'arbitrum' ? 'Arbitrum' : 'Gnosis'}
+                        // {network === 'base' ? 'BASE' : network === 'celo' ? 'CELO' : network === 'arbitrum' ? 'ARBITRUM' : 'GNOSIS'}
                       </span>
                     )}
                   </div>
@@ -749,12 +757,12 @@ export default function Send() {
               </div>
 
               {isInsufficientBalance && (
-                <p className="text-sm text-destructive text-center" data-testid="text-insufficient-balance">
-                  Insufficient balance
+                <div className="border-2 border-destructive bg-destructive/10 p-3 font-mono text-xs uppercase tracking-widest text-destructive text-center" data-testid="text-insufficient-balance">
+                  // ERROR: INSUFFICIENT_BALANCE
                   {earnMode && aaveCouldCover && (
-                    <span className="text-muted-foreground"> — ${aaveUsdcAmount.toFixed(2)} available in Savings</span>
+                    <span className="block text-muted-foreground mt-1">// ${aaveUsdcAmount.toFixed(2)} AVAILABLE_SAVINGS</span>
                   )}
-                </p>
+                </div>
               )}
 
               <NumericKeypad
@@ -763,40 +771,39 @@ export default function Send() {
                 onDecimal={handleDecimal}
               />
 
-              <Button 
+              <button 
                 onClick={handleNext}
                 disabled={!recipient || !usdcAmount || parseFloat(usdcAmount) <= 0 || isInsufficientBalance}
-                className="w-full"
-                size="lg"
+                className="w-full h-12 border-2 border-foreground bg-[#0055FF] text-white font-mono text-sm uppercase tracking-widest hover:bg-[#0044CC] active:bg-[#0033AA] disabled:opacity-50 disabled:cursor-not-allowed"
                 data-testid="button-next"
               >
-                Continue
-              </Button>
+                // CONTINUE
+              </button>
             </div>
           </>
         )}
 
         {step === 'confirm' && (
           <div className="space-y-6">
-            <Card className="p-4 space-y-4">
-              <div>
-                <div className="text-sm text-muted-foreground mb-1">Sending</div>
-                <div className="text-2xl font-semibold">{usdcAmount} USDC</div>
+            <div className="border-2 border-foreground bg-background">
+              <div className="p-4 border-b-2 border-foreground">
+                <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-2">// AMOUNT</div>
+                <div className="text-3xl font-bold font-mono">{usdcAmount} USDC</div>
                 {currency !== 'USD' && rate > 0 && parseFloat(usdcAmount) > 0 && (
-                  <div className="text-sm text-muted-foreground mt-1" data-testid="text-fiat-equivalent">
-                    ≈ {(parseFloat(usdcAmount) * rate).toLocaleString(undefined, { maximumFractionDigits: rate >= 100 ? 0 : 2 })} {currency}
+                  <div className="text-sm text-muted-foreground mt-1 font-mono" data-testid="text-fiat-equivalent">
+                    // = {(parseFloat(usdcAmount) * rate).toLocaleString(undefined, { maximumFractionDigits: rate >= 100 ? 0 : 2 })} {currency}
                   </div>
                 )}
               </div>
 
-              <div className="border-t pt-4">
-                <div className="text-sm text-muted-foreground mb-1">To</div>
-                <div className="font-mono text-sm break-all">{recipient}</div>
+              <div className="p-4 border-b-2 border-foreground">
+                <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-2">// RECIPIENT</div>
+                <div className="font-mono text-xs break-all">{recipient}</div>
               </div>
 
-              <div className="border-t pt-4 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5" data-testid="text-network">
-                  <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold text-white ${
+              <div className="p-4 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2" data-testid="text-network">
+                  <span className={`inline-flex items-center justify-center w-5 h-5 text-[10px] font-mono font-bold text-white ${
                     network === 'base' ? 'bg-blue-500' : 
                     network === 'celo' ? 'bg-yellow-500' : 
                     network === 'arbitrum' ? 'bg-cyan-500' :
@@ -804,75 +811,73 @@ export default function Send() {
                   }`}>
                     {network === 'base' ? 'B' : network === 'celo' ? 'C' : network === 'arbitrum' ? 'A' : 'G'}
                   </span>
-                  <span className="text-xs text-muted-foreground capitalize">{network}</span>
+                  <span className="font-mono text-xs uppercase tracking-widest">// {network.toUpperCase()}</span>
                 </div>
-                <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400" data-testid="text-no-fees">
-                  <span>No fees</span>
+                <div className="font-mono text-xs uppercase tracking-widest text-green-600 dark:text-green-400" data-testid="text-no-fees">
+                  // ZERO_FEES
                 </div>
               </div>
 
               {paymentRequest?.description && (
-                <div className="border-t pt-4">
-                  <div className="text-sm text-muted-foreground mb-1">Description</div>
-                  <div className="text-sm">{paymentRequest.description}</div>
+                <div className="p-4 border-t-2 border-foreground">
+                  <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-2">// NOTE</div>
+                  <div className="text-sm font-mono">{paymentRequest.description}</div>
                 </div>
               )}
 
               {!isOnline && (
-                <div className="border-t pt-4">
-                  <div className="text-sm text-muted-foreground mb-1">Mode</div>
-                  <div className="text-sm">Offline Authorization (no network needed)</div>
+                <div className="p-4 border-t-2 border-foreground bg-muted">
+                  <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-2">// MODE</div>
+                  <div className="font-mono text-xs uppercase tracking-widest">// OFFLINE_AUTHORIZATION</div>
                 </div>
               )}
-            </Card>
+            </div>
 
-            <Button 
+            <button 
               onClick={handleConfirm}
               disabled={sendMutation.isPending}
-              className="w-full"
-              size="lg"
+              className="w-full h-12 border-2 border-foreground bg-[#0055FF] text-white font-mono text-sm uppercase tracking-widest hover:bg-[#0044CC] active:bg-[#0033AA] disabled:opacity-50 disabled:cursor-not-allowed"
               data-testid="button-confirm"
             >
-              {!isOnline ? 'Create Authorization QR' : (sendMutation.isPending ? 'Sending...' : 'Confirm & Send')}
-            </Button>
+              {!isOnline ? '// CREATE_AUTHORIZATION' : (sendMutation.isPending ? '// SENDING...' : '// CONFIRM_SEND')}
+            </button>
 
-            <Button 
-              variant="outline"
+            <button 
               onClick={() => {
                 setStep('input');
                 setPaymentRequest(null);
               }}
-              className="w-full"
+              className="w-full h-12 border-2 border-foreground bg-background font-mono text-sm uppercase tracking-widest hover:bg-foreground/5 active:bg-foreground/10"
               data-testid="button-cancel"
             >
-              Cancel
-            </Button>
+              // CANCEL
+            </button>
           </div>
         )}
 
         {step === 'qr' && authorizationQR && paymentLink && (
           <div className="space-y-6">
-            <Card className="p-4">
+            <div className="border-2 border-foreground bg-background p-4">
               <div className="text-center space-y-2">
-                <div className="text-sm text-muted-foreground">Payment Link Created</div>
-                <div className="text-lg font-semibold">{usdcAmount} USDC</div>
+                <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">// PAYMENT_CREATED</div>
+                <div className="text-2xl font-bold font-mono">{usdcAmount} USDC</div>
               </div>
-            </Card>
+            </div>
 
             <div className="text-center space-y-4">
-              <div className="text-sm text-muted-foreground">
-                Anyone can execute this payment by scanning the QR or visiting the link
+              <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                // SCAN_QR_OR_SHARE_LINK
               </div>
-              <div className="flex justify-center">
-                <QRCodeDisplay value={paymentLink} size={300} />
+              <div className="flex justify-center border-2 border-foreground p-4 bg-white">
+                <QRCodeDisplay value={paymentLink} size={280} />
               </div>
-              <p className="text-xs text-muted-foreground">
-                This authorization is valid for {paymentRequest?.ttl || 600} seconds
+              <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                // EXPIRES: {paymentRequest?.ttl || 600}s
               </p>
             </div>
 
             <div className="space-y-3">
-              <Button 
+              <button 
                 onClick={() => {
                   navigator.clipboard.writeText(paymentLink);
                   toast({
@@ -880,15 +885,14 @@ export default function Send() {
                     description: `${usdcAmount} USDC payment link copied to clipboard`,
                   });
                 }}
-                className="w-full"
+                className="w-full h-12 border-2 border-foreground bg-[#0055FF] text-white font-mono text-sm uppercase tracking-widest hover:bg-[#0044CC] active:bg-[#0033AA] flex items-center justify-center gap-2"
                 data-testid="button-copy-link"
               >
                 <Clipboard className="w-4 h-4" />
-                Copy Payment Link
-              </Button>
+                // COPY_LINK
+              </button>
 
-              <Button 
-                variant="outline"
+              <button 
                 onClick={() => {
                   const message = `Please execute this payment for me: ${paymentLink}`;
                   const smsUrl = `sms:?body=${encodeURIComponent(message)}`;
@@ -898,15 +902,14 @@ export default function Send() {
                     description: "Sharing payment link via text message",
                   });
                 }}
-                className="w-full"
+                className="w-full h-12 border-2 border-foreground bg-background font-mono text-sm uppercase tracking-widest hover:bg-foreground/5 active:bg-foreground/10 flex items-center justify-center gap-2"
                 data-testid="button-share-sms"
               >
                 <MessageSquare className="w-4 h-4" />
-                Share via SMS
-              </Button>
+                // SHARE_SMS
+              </button>
 
-              <Button 
-                variant="outline"
+              <button 
                 onClick={() => {
                   setStep('input');
                   setRecipient('');
@@ -916,11 +919,11 @@ export default function Send() {
                   setAuthorizationQR(null);
                   setPaymentLink(null);
                 }}
-                className="w-full"
+                className="w-full h-12 border-2 border-foreground bg-background font-mono text-sm uppercase tracking-widest hover:bg-foreground/5 active:bg-foreground/10"
                 data-testid="button-new-payment"
               >
-                New Payment
-              </Button>
+                // NEW_PAYMENT
+              </button>
             </div>
           </div>
         )}

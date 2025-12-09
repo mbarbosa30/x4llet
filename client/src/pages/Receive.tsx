@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { Button } from '@/components/ui/button';
 import { Share2, Copy, Check, Loader2 } from 'lucide-react';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import { getWallet } from '@/lib/wallet';
@@ -13,7 +12,6 @@ export default function Receive() {
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
   const [copied, setCopied] = useState(false);
 
-  // Scroll to top on page load
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
@@ -74,7 +72,7 @@ export default function Receive() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto" />
-          <p className="text-sm text-muted-foreground">Loading wallet...</p>
+          <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">// LOADING_WALLET</p>
         </div>
       </div>
     );
@@ -93,14 +91,18 @@ export default function Receive() {
       }}
     >
       <main className="max-w-md mx-auto p-4 space-y-6">
-        <div className="text-center space-y-6">
-          <div className="flex justify-center" data-testid="qr-wallet-address">
-            <QRCodeDisplay value={address} size={240} />
+        <div className="space-y-6">
+          <div className="border-2 border-foreground p-6 bg-background" data-testid="qr-wallet-address">
+            <div className="flex justify-center">
+              <QRCodeDisplay value={address} size={240} />
+            </div>
           </div>
 
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Your wallet address</p>
-            <div className="bg-muted p-3">
+          <div className="space-y-4">
+            <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+              // YOUR_WALLET_ADDRESS
+            </div>
+            <div className="border-2 border-foreground p-4 bg-muted">
               <p 
                 className="font-mono text-xs break-all select-all"
                 data-testid="text-wallet-address"
@@ -108,16 +110,16 @@ export default function Receive() {
                 {address}
               </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Optimized for USDC on Base, Celo, and Gnosis
+            <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+              // MULTI-CHAIN: BASE, CELO, GNOSIS, ARBITRUM
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Button 
-            variant="outline" 
+          <button 
             onClick={handleCopy}
+            className="h-12 border-2 border-foreground bg-background hover:bg-foreground/5 active:bg-foreground/10 font-mono text-sm uppercase tracking-widest flex items-center justify-center gap-2"
             data-testid="button-copy"
           >
             {copied ? (
@@ -125,16 +127,16 @@ export default function Receive() {
             ) : (
               <Copy className="h-4 w-4" />
             )}
-            {copied ? 'Copied' : 'Copy'}
-          </Button>
-          <Button 
-            variant="outline" 
+            {copied ? 'COPIED' : 'COPY'}
+          </button>
+          <button 
             onClick={handleShare}
+            className="h-12 border-2 border-foreground bg-[#0055FF] text-white hover:bg-[#0044CC] active:bg-[#0033AA] font-mono text-sm uppercase tracking-widest flex items-center justify-center gap-2"
             data-testid="button-share"
           >
             <Share2 className="h-4 w-4" />
-            Share
-          </Button>
+            SHARE
+          </button>
         </div>
       </main>
     </div>
