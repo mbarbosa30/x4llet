@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Marquee, MarqueeItem } from '@/components/ui/marquee';
-import { WifiOff, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap, Users, ArrowRightLeft, ArrowRight, Shield, Coins, TrendingUp, Wallet, ScanFace, Fingerprint, CircleDollarSign, Cpu, Clock, Rocket } from 'lucide-react';
+import { WifiOff, Wifi, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap, Users, ArrowRightLeft, ArrowRight, Shield, Coins, TrendingUp, Wallet, ScanFace, Fingerprint, CircleDollarSign, Cpu, Clock, Rocket } from 'lucide-react';
 import { hasWallet, isWalletUnlocked } from '@/lib/wallet';
 import Footer from '@/components/Footer';
 
@@ -20,68 +20,71 @@ interface GlobalStats {
   totalXp: number;
 }
 
-// Phone mockup component for desktop hero - Balance display style
+// Phone mockup component for desktop hero - Simplified to match npay1
 function PhoneMockup({ balance = "$124.50" }: { balance?: string }) {
   const [isOffline, setIsOffline] = useState(false);
   
   return (
     <div className="relative">
-      {/* Offline Mode Toggle */}
-      <div className="flex items-center justify-end gap-2 mb-4">
-        <span className="text-[10px] font-mono uppercase tracking-wide text-muted-foreground">Simulate Offline Mode</span>
+      {/* Offline Mode Toggle - Pill style */}
+      <div className="flex justify-center mb-6">
         <button 
           onClick={() => setIsOffline(!isOffline)}
-          className={`w-12 h-6 rounded-full relative transition-colors border-2 border-foreground ${isOffline ? 'bg-[#0055FF]' : 'bg-white'}`}
+          className="flex items-center gap-3 px-4 py-2 bg-white border-2 border-foreground rounded-full"
           data-testid="toggle-offline-mode"
         >
-          <div className={`absolute top-0.5 w-4 h-4 bg-foreground rounded-full transition-all ${isOffline ? 'right-1' : 'left-1'}`} />
+          <span className="text-[11px] font-mono font-bold uppercase tracking-wide">Simulate Offline Mode</span>
+          <div className={`w-10 h-5 rounded-full relative transition-colors ${isOffline ? 'bg-orange-500' : 'bg-gray-300'}`}>
+            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all shadow-sm ${isOffline ? 'right-0.5' : 'left-0.5'}`} />
+          </div>
         </button>
       </div>
-      {/* Phone device frame */}
-      <div className="relative">
-        <div className="w-[340px] bg-white border-2 border-foreground rounded-[36px] p-3 shadow-[8px_8px_0px_0px_rgb(0,0,0)]">
-          <div className="flex justify-center py-2">
-            <div className="w-24 h-1 bg-foreground/20 rounded-full" />
+      
+      {/* Phone device frame - Clean and simple */}
+      <div className="w-[280px] bg-white border-2 border-foreground rounded-[24px] p-6 shadow-[4px_4px_0px_0px_rgb(0,0,0)]">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <span className="text-[11px] font-mono font-bold uppercase tracking-wide">NANOPAY OS V1.0</span>
+          <div className="flex items-center gap-1.5">
+            {isOffline ? (
+              <WifiOff className="h-4 w-4" />
+            ) : (
+              <Wifi className="h-4 w-4 text-green-500" />
+            )}
+            <span className="text-[11px] font-mono font-bold uppercase">{isOffline ? 'OFFLINE' : 'ONLINE'}</span>
           </div>
-          <div className="border-2 border-foreground/20 rounded-[24px] bg-white overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-2.5 bg-foreground/5 border-b border-foreground/10">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-[#0055FF]" />
-                <span className="text-[11px] font-mono font-bold uppercase">nanoPay</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className={`w-2 h-2 rounded-full ${isOffline ? 'bg-[#0055FF]' : 'bg-green-500'}`} />
-                <span className="text-[10px] font-mono text-muted-foreground">{isOffline ? 'Offline' : 'Online'}</span>
-              </div>
+        </div>
+        
+        {/* Balance Section */}
+        <div className="text-center py-8 relative">
+          <div className="text-sm text-muted-foreground mb-2 font-mono italic">Total Balance</div>
+          <div className="text-5xl font-black tracking-tight mb-4 font-mono">{balance}</div>
+          
+          {/* Badge / Stamp */}
+          {isOffline ? (
+            <div 
+              className="inline-block px-3 py-1.5 bg-gray-400 text-white text-[10px] font-mono font-bold uppercase tracking-wide transform -rotate-3 shadow-sm"
+              style={{ transform: 'rotate(-5deg)' }}
+            >
+              AUTHORIZATION SIGNED
             </div>
-            <div className="p-5">
-              <div className="text-center py-10">
-                <div className="text-xs text-muted-foreground mb-2 font-mono uppercase tracking-wide">Total Balance</div>
-                <div className="text-6xl font-black tracking-tight mb-4">{balance}</div>
-                <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono font-bold uppercase ${isOffline ? 'bg-[#0055FF]/10 text-[#0055FF] border border-[#0055FF]/30' : 'bg-green-100 text-green-700'}`}>
-                  {isOffline ? <Lock className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
-                  {isOffline ? 'x402 Authorization Signed' : 'Synced'}
-                </div>
-                {isOffline && (
-                  <div className="mt-2 text-[9px] font-mono text-muted-foreground">
-                    EIP-3009 • Gasless Transfer Ready
-                  </div>
-                )}
-              </div>
-              <div className="space-y-3 mt-2">
-                <button className="w-full bg-foreground text-white py-4 text-xs font-mono font-bold uppercase flex items-center justify-center gap-2 border-2 border-foreground">
-                  <ArrowRight className="h-3.5 w-3.5" />
-                  Send Money
-                </button>
-                <button className="w-full border-2 border-foreground py-4 text-xs font-mono font-bold uppercase bg-white">
-                  Receive
-                </button>
-              </div>
+          ) : (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-500 text-white text-[10px] font-mono font-bold uppercase">
+              <Sparkles className="h-3 w-3" />
+              Synced
             </div>
-          </div>
-          <div className="flex justify-center py-3">
-            <div className="w-28 h-1 bg-foreground/30 rounded-full" />
-          </div>
+          )}
+        </div>
+        
+        {/* Buttons */}
+        <div className="space-y-3 mt-4">
+          <button className="w-full bg-foreground text-white py-4 text-xs font-mono font-bold uppercase flex items-center justify-center gap-2 border-2 border-foreground">
+            <ArrowRight className="h-3.5 w-3.5" />
+            Send Money
+          </button>
+          <button className="w-full border-2 border-foreground py-4 text-xs font-mono font-bold uppercase bg-white">
+            Receive
+          </button>
         </div>
       </div>
     </div>
