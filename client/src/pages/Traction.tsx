@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Users, DollarSign, Network, Sparkles, PiggyBank, Gift, Trophy, Search, ArrowUpDown, ExternalLink } from 'lucide-react';
+import { Loader2, Users, DollarSign, Network, Sparkles, PiggyBank, Gift, Trophy, Search, ArrowUpDown, ExternalLink, RefreshCw } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 
 interface TractionUser {
   address: string;
@@ -65,6 +67,7 @@ function timeAgo(iso: string): string {
 }
 
 export default function Traction() {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<SortField>('lastSeen');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -80,6 +83,27 @@ export default function Traction() {
   const { data, isLoading, error, refetch } = useQuery<TractionResponse>({
     queryKey: ['/api/traction/users'],
     staleTime: 60000,
+  });
+
+  const syncGoodDollarMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/traction/sync-gooddollar');
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: 'GoodDollar Sync Complete',
+        description: `Synced ${data.synced} wallets, ${data.verified} verified`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/traction/users'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Sync Failed',
+        description: error.message || 'Failed to sync GoodDollar identities',
+        variant: 'destructive',
+      });
+    },
   });
 
   const filteredAndSortedUsers = useMemo(() => {
@@ -218,9 +242,25 @@ export default function Traction() {
             <div className="w-4 h-4 bg-[#0055FF]" aria-hidden="true" />
             <h1 className="text-base font-extrabold uppercase tracking-tight">nanoPay Traction</h1>
           </div>
-          <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-refresh">
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => syncGoodDollarMutation.mutate()}
+              disabled={syncGoodDollarMutation.isPending}
+              data-testid="button-sync-gooddollar"
+            >
+              {syncGoodDollarMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-1" />
+              )}
+              Sync G$
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-refresh">
+              Refresh
+            </Button>
+          </div>
         </div>
       </header>
 

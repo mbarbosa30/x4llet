@@ -5287,6 +5287,164 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== TRACTION SYNC GOODDOLLAR IDENTITY ENDPOINT =====
+  const GOODDOLLAR_IDENTITY_ADDRESS = '0xC361A6E67822a0EDc17D899227dd9FC50BD62F42' as Address;
+  const GOODDOLLAR_IDENTITY_ABI = [
+    {
+      name: 'isWhitelisted',
+      type: 'function',
+      stateMutability: 'view',
+      inputs: [{ name: 'account', type: 'address' }],
+      outputs: [{ type: 'bool' }],
+    },
+    {
+      name: 'getWhitelistedRoot',
+      type: 'function',
+      stateMutability: 'view',
+      inputs: [{ name: 'account', type: 'address' }],
+      outputs: [{ name: 'whitelisted', type: 'address' }],
+    },
+    {
+      name: 'lastAuthenticated',
+      type: 'function',
+      stateMutability: 'view',
+      inputs: [{ name: 'account', type: 'address' }],
+      outputs: [{ type: 'uint256' }],
+    },
+    {
+      name: 'authenticationPeriod',
+      type: 'function',
+      stateMutability: 'view',
+      inputs: [],
+      outputs: [{ type: 'uint256' }],
+    },
+  ] as const;
+
+  app.post('/api/traction/sync-gooddollar', async (_req, res) => {
+    try {
+      console.log('[Traction] Starting GoodDollar identity sync...');
+      
+      const celoClient = createPublicClient({
+        chain: celo,
+        transport: http('https://forno.celo.org'),
+      });
+      
+      const walletsData = await storage.getAllWalletsWithDetails();
+      const addresses = walletsData.map(w => w.address);
+      
+      if (addresses.length === 0) {
+        console.log('[Traction] No wallets to sync');
+        return res.json({
+          success: true,
+          synced: 0,
+          verified: 0,
+          errors: 0,
+          totalAddresses: 0,
+        });
+      }
+      
+      console.log(`[Traction] Syncing GoodDollar for ${addresses.length} addresses`);
+      
+      const authPeriodBigInt = await celoClient.readContract({
+        address: GOODDOLLAR_IDENTITY_ADDRESS,
+        abi: GOODDOLLAR_IDENTITY_ABI,
+        functionName: 'authenticationPeriod',
+      });
+      const authPeriodDays = Number(authPeriodBigInt);
+      
+      let synced = 0;
+      let updated = 0;
+      let errors = 0;
+      const zeroAddress = '0x0000000000000000000000000000000000000000';
+      
+      const batchSize = 10;
+      for (let i = 0; i < addresses.length; i += batchSize) {
+        const batch = addresses.slice(i, i + batchSize);
+        
+        const results = await Promise.all(batch.map(async (address) => {
+          try {
+            const [isWhitelisted, whitelistedRoot, lastAuthenticatedBigInt] = await Promise.all([
+              celoClient.readContract({
+                address: GOODDOLLAR_IDENTITY_ADDRESS,
+                abi: GOODDOLLAR_IDENTITY_ABI,
+                functionName: 'isWhitelisted',
+                args: [address as Address],
+              }),
+              celoClient.readContract({
+                address: GOODDOLLAR_IDENTITY_ADDRESS,
+                abi: GOODDOLLAR_IDENTITY_ABI,
+                functionName: 'getWhitelistedRoot',
+                args: [address as Address],
+              }),
+              celoClient.readContract({
+                address: GOODDOLLAR_IDENTITY_ADDRESS,
+                abi: GOODDOLLAR_IDENTITY_ABI,
+                functionName: 'lastAuthenticated',
+                args: [address as Address],
+              }),
+            ]);
+            
+            const lastAuthSeconds = Number(lastAuthenticatedBigInt);
+            const lastAuthenticated = lastAuthSeconds > 0 ? new Date(lastAuthSeconds * 1000) : null;
+            
+            let expiresAt: Date | null = null;
+            let isExpired = false;
+            let daysUntilExpiry: number | null = null;
+            
+            if (lastAuthenticated && authPeriodDays > 0) {
+              expiresAt = new Date(lastAuthenticated.getTime() + authPeriodDays * 24 * 60 * 60 * 1000);
+              isExpired = new Date() > expiresAt;
+              daysUntilExpiry = Math.ceil((expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+              if (daysUntilExpiry < 0) daysUntilExpiry = 0;
+            }
+            
+            return {
+              address,
+              data: {
+                walletAddress: address,
+                isWhitelisted,
+                whitelistedRoot: whitelistedRoot !== zeroAddress ? whitelistedRoot : null,
+                lastAuthenticated,
+                authenticationPeriod: authPeriodDays,
+                expiresAt,
+                isExpired,
+                daysUntilExpiry,
+              },
+            };
+          } catch (error) {
+            console.error(`[Traction] Error fetching GoodDollar for ${address}:`, error);
+            return { address, data: null };
+          }
+        }));
+        
+        for (const result of results) {
+          if (result.data) {
+            await storage.upsertGoodDollarIdentity(result.data);
+            synced++;
+            if (result.data.isWhitelisted) {
+              updated++;
+            }
+          } else {
+            errors++;
+          }
+        }
+      }
+      
+      console.log(`[Traction] GoodDollar sync complete: ${synced} synced, ${updated} verified, ${errors} errors`);
+      
+      res.json({
+        success: true,
+        synced,
+        verified: updated,
+        errors,
+        totalAddresses: addresses.length,
+      });
+    } catch (error) {
+      console.error('[Traction] Error syncing GoodDollar:', error);
+      res.status(500).json({ error: 'Failed to sync GoodDollar identities' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
