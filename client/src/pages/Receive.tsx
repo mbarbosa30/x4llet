@@ -72,7 +72,7 @@ export default function Receive() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto" />
-          <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">// LOADING_WALLET</p>
+          <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Loading Wallet</p>
         </div>
       </div>
     );
@@ -92,7 +92,7 @@ export default function Receive() {
     >
       <main className="max-w-md mx-auto p-4 space-y-6">
         <div className="space-y-6">
-          <div className="border-2 border-foreground p-6 bg-background" data-testid="qr-wallet-address">
+          <div className="border border-foreground/10 p-6 bg-background" data-testid="qr-wallet-address">
             <div className="flex justify-center">
               <QRCodeDisplay value={address} size={240} />
             </div>
@@ -100,9 +100,9 @@ export default function Receive() {
 
           <div className="space-y-4">
             <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-              // YOUR_WALLET_ADDRESS
+              Your Wallet Address
             </div>
-            <div className="border-2 border-foreground p-4 bg-muted">
+            <div className="border border-foreground/10 p-4 bg-muted">
               <p 
                 className="font-mono text-xs break-all select-all"
                 data-testid="text-wallet-address"
@@ -111,7 +111,7 @@ export default function Receive() {
               </p>
             </div>
             <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-              // MULTI-CHAIN: BASE, CELO, GNOSIS, ARBITRUM
+              Multi-chain: Base, Celo, Gnosis, Arbitrum
             </p>
           </div>
         </div>
@@ -119,7 +119,7 @@ export default function Receive() {
         <div className="grid grid-cols-2 gap-3">
           <button 
             onClick={handleCopy}
-            className="h-12 border-2 border-foreground bg-background hover:bg-foreground/5 active:bg-foreground/10 font-mono text-sm uppercase tracking-widest flex items-center justify-center gap-2"
+            className="h-12 border border-foreground/10 bg-background hover:bg-muted active:bg-muted/80 font-mono text-sm uppercase tracking-widest flex items-center justify-center gap-2"
             data-testid="button-copy"
           >
             {copied ? (
@@ -131,7 +131,7 @@ export default function Receive() {
           </button>
           <button 
             onClick={handleShare}
-            className="h-12 border-2 border-foreground bg-[#0055FF] text-white hover:bg-[#0044CC] active:bg-[#0033AA] font-mono text-sm uppercase tracking-widest flex items-center justify-center gap-2"
+            className="h-12 border border-foreground/10 bg-[#0055FF] text-white hover:bg-[#0044CC] active:bg-[#0033AA] font-mono text-sm uppercase tracking-widest flex items-center justify-center gap-2"
             data-testid="button-share"
           >
             <Share2 className="h-4 w-4" />

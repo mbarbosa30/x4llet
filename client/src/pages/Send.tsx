@@ -592,7 +592,7 @@ export default function Send() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto" />
-          <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">// LOADING_WALLET</p>
+          <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Loading Wallet</p>
         </div>
       </div>
     );
@@ -625,7 +625,7 @@ export default function Send() {
                     aria-label="Recipient wallet address"
                     value={recipient}
                     onChange={(e) => setRecipient(e.target.value)}
-                    className="flex-1 font-mono border-2 border-foreground"
+                    className="flex-1 font-mono border border-foreground/10"
                     data-testid="input-recipient"
                   />
                   <button
@@ -658,14 +658,14 @@ export default function Send() {
                         });
                       }
                     }}
-                    className="h-9 w-9 border-2 border-foreground bg-background hover:bg-foreground/5 active:bg-foreground/10 flex items-center justify-center"
+                    className="h-9 w-9 border border-foreground/10 bg-background hover:bg-muted active:bg-muted/80 flex items-center justify-center"
                     data-testid="button-paste-address"
                   >
                     <Clipboard className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => setShowScanner(true)}
-                    className="h-9 w-9 border-2 border-foreground bg-background hover:bg-foreground/5 active:bg-foreground/10 flex items-center justify-center"
+                    className="h-9 w-9 border border-foreground/10 bg-background hover:bg-muted active:bg-muted/80 flex items-center justify-center"
                     data-testid="button-scan-request"
                   >
                     <Scan className="h-4 w-4" />
@@ -674,7 +674,7 @@ export default function Send() {
               </div>
 
               <div className="space-y-2">
-                <div className="text-center py-6 border-2 border-foreground bg-background">
+                <div className="text-center py-6 border border-foreground/10 bg-background">
                   <div className="text-5xl font-bold tabular-nums tracking-tight font-mono">
                     {inputValue || '0.00'}
                   </div>
@@ -717,7 +717,7 @@ export default function Send() {
               <button 
                 onClick={handleNext}
                 disabled={!recipient || !usdcAmount || parseFloat(usdcAmount) <= 0 || isInsufficientBalance}
-                className="w-full h-12 border-2 border-foreground bg-[#0055FF] text-white font-mono text-sm uppercase tracking-widest hover:bg-[#0044CC] active:bg-[#0033AA] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-12 border border-foreground/10 bg-[#0055FF] text-white font-mono text-sm uppercase tracking-widest hover:bg-[#0044CC] active:bg-[#0033AA] disabled:opacity-50 disabled:cursor-not-allowed"
                 data-testid="button-next"
               >
                 Review
@@ -728,8 +728,8 @@ export default function Send() {
 
         {step === 'confirm' && (
           <div className="space-y-4">
-            <div className="border-2 border-foreground bg-background">
-              <div className="p-4 border-b-2 border-foreground">
+            <div className="border border-foreground/10 bg-background">
+              <div className="p-4 border-b border-foreground/10">
                 <div className="font-mono text-xs text-muted-foreground mb-1">Amount</div>
                 <div className="text-3xl font-bold font-mono">{usdcAmount} USDC</div>
                 {currency !== 'USD' && rate > 0 && parseFloat(usdcAmount) > 0 && (
@@ -739,7 +739,7 @@ export default function Send() {
                 )}
               </div>
 
-              <div className="p-4 border-b-2 border-foreground">
+              <div className="p-4 border-b border-foreground/10">
                 <div className="font-mono text-xs text-muted-foreground mb-1">To</div>
                 <div className="font-mono text-xs break-all">{recipient}</div>
               </div>
@@ -762,14 +762,14 @@ export default function Send() {
               </div>
 
               {paymentRequest?.description && (
-                <div className="p-3 border-t-2 border-foreground">
+                <div className="p-3 border-t border-foreground/10">
                   <div className="font-mono text-xs text-muted-foreground mb-1">Note</div>
                   <div className="text-sm font-mono">{paymentRequest.description}</div>
                 </div>
               )}
 
               {!isOnline && (
-                <div className="p-3 border-t-2 border-foreground bg-muted">
+                <div className="p-3 border-t border-foreground/10 bg-muted">
                   <div className="font-mono text-xs text-muted-foreground">Offline mode - will create shareable link</div>
                 </div>
               )}
@@ -778,7 +778,7 @@ export default function Send() {
             <button 
               onClick={handleConfirm}
               disabled={sendMutation.isPending}
-              className="w-full h-12 border-2 border-foreground bg-[#0055FF] text-white font-mono text-sm uppercase tracking-widest hover:bg-[#0044CC] active:bg-[#0033AA] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-12 border border-foreground/10 bg-[#0055FF] text-white font-mono text-sm uppercase tracking-widest hover:bg-[#0044CC] active:bg-[#0033AA] disabled:opacity-50 disabled:cursor-not-allowed"
               data-testid="button-confirm"
             >
               {!isOnline ? 'Create Link' : (sendMutation.isPending ? 'Sending...' : 'Send')}
@@ -789,7 +789,7 @@ export default function Send() {
                 setStep('input');
                 setPaymentRequest(null);
               }}
-              className="w-full h-10 border-2 border-foreground bg-background font-mono text-sm hover:bg-foreground/5 active:bg-foreground/10"
+              className="w-full h-10 border border-foreground/10 bg-background font-mono text-sm hover:bg-muted active:bg-muted/80"
               data-testid="button-cancel"
             >
               Back
@@ -799,22 +799,22 @@ export default function Send() {
 
         {step === 'qr' && authorizationQR && paymentLink && (
           <div className="space-y-6">
-            <div className="border-2 border-foreground bg-background p-4">
+            <div className="border border-foreground/10 bg-background p-4">
               <div className="text-center space-y-2">
-                <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">// PAYMENT_CREATED</div>
+                <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Payment Created</div>
                 <div className="text-2xl font-bold font-mono">{usdcAmount} USDC</div>
               </div>
             </div>
 
             <div className="text-center space-y-4">
               <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-                // SCAN_QR_OR_SHARE_LINK
+                Scan QR or Share Link
               </div>
-              <div className="flex justify-center border-2 border-foreground p-4 bg-white">
+              <div className="flex justify-center border border-foreground/10 p-4 bg-white">
                 <QRCodeDisplay value={paymentLink} size={280} />
               </div>
               <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-                // EXPIRES: {paymentRequest?.ttl || 600}s
+                Expires in {paymentRequest?.ttl || 600}s
               </p>
             </div>
 
@@ -827,11 +827,11 @@ export default function Send() {
                     description: `${usdcAmount} USDC payment link copied to clipboard`,
                   });
                 }}
-                className="w-full h-12 border-2 border-foreground bg-[#0055FF] text-white font-mono text-sm uppercase tracking-widest hover:bg-[#0044CC] active:bg-[#0033AA] flex items-center justify-center gap-2"
+                className="w-full h-12 border border-foreground/10 bg-[#0055FF] text-white font-mono text-sm uppercase tracking-widest hover:bg-[#0044CC] active:bg-[#0033AA] flex items-center justify-center gap-2"
                 data-testid="button-copy-link"
               >
                 <Clipboard className="w-4 h-4" />
-                // COPY_LINK
+                Copy Link
               </button>
 
               <button 
@@ -844,11 +844,11 @@ export default function Send() {
                     description: "Sharing payment link via text message",
                   });
                 }}
-                className="w-full h-12 border-2 border-foreground bg-background font-mono text-sm uppercase tracking-widest hover:bg-foreground/5 active:bg-foreground/10 flex items-center justify-center gap-2"
+                className="w-full h-12 border border-foreground/10 bg-background font-mono text-sm uppercase tracking-widest hover:bg-muted active:bg-muted/80 flex items-center justify-center gap-2"
                 data-testid="button-share-sms"
               >
                 <MessageSquare className="w-4 h-4" />
-                // SHARE_SMS
+                Share SMS
               </button>
 
               <button 
@@ -861,10 +861,10 @@ export default function Send() {
                   setAuthorizationQR(null);
                   setPaymentLink(null);
                 }}
-                className="w-full h-12 border-2 border-foreground bg-background font-mono text-sm uppercase tracking-widest hover:bg-foreground/5 active:bg-foreground/10"
+                className="w-full h-12 border border-foreground/10 bg-background font-mono text-sm uppercase tracking-widest hover:bg-muted active:bg-muted/80"
                 data-testid="button-new-payment"
               >
-                // NEW_PAYMENT
+                New Payment
               </button>
             </div>
           </div>
