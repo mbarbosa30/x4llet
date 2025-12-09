@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users, ChevronDown } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users, ChevronDown, Clock } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Dialog,
@@ -17,7 +17,8 @@ import AddressDisplay from '@/components/AddressDisplay';
 import VouchConfirmation from '@/components/VouchConfirmation';
 import { getWallet, getPreferences } from '@/lib/wallet';
 import { formatAmount } from '@/lib/formatAmount';
-import { vouchFor } from '@/lib/maxflow';
+import { vouchFor, getMaxFlowScore, type MaxFlowScore } from '@/lib/maxflow';
+import { getIdentityStatus, getClaimStatus, type IdentityStatus, type ClaimStatus } from '@/lib/gooddollar';
 import { useToast } from '@/hooks/use-toast';
 import type { BalanceResponse, Transaction as SchemaTransaction, UserPreferences } from '@shared/schema';
 
@@ -29,6 +30,21 @@ interface AaveBalanceResponse {
     gnosis: { chainId: number; aUsdcBalance: string; apy: number };
     arbitrum: { chainId: number; aUsdcBalance: string; apy: number };
   };
+}
+
+interface XpData {
+  totalXp: number;
+  claimCount: number;
+  lastClaimTime: string | null;
+  canClaim: boolean;
+  nextClaimTime: string | null;
+  timeUntilNextClaim: number | null;
+}
+
+function formatTimeRemaining(ms: number): string {
+  const hours = Math.floor(ms / (1000 * 60 * 60));
+  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
 export default function Home() {
@@ -117,6 +133,62 @@ export default function Home() {
       return res.json();
     },
   });
+
+  // Fetch MaxFlow score for Trust Health section
+  const { data: maxflowScore } = useQuery<MaxFlowScore>({
+    queryKey: ['/maxflow/score', address],
+    queryFn: () => getMaxFlowScore(address!),
+    enabled: !!address,
+    staleTime: 4 * 60 * 60 * 1000,
+  });
+
+  // Fetch XP data for Trust Health section
+  const { data: xpData } = useQuery<XpData>({
+    queryKey: ['/api/xp', address],
+    enabled: !!address,
+  });
+
+  // Fetch GoodDollar identity status
+  const { data: gdIdentity } = useQuery<IdentityStatus>({
+    queryKey: ['/gooddollar/identity', address],
+    queryFn: () => getIdentityStatus(address! as `0x${string}`),
+    enabled: !!address,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch GoodDollar claim status (only if verified)
+  const { data: gdClaimStatus } = useQuery<ClaimStatus>({
+    queryKey: ['/gooddollar/claim', address],
+    queryFn: () => getClaimStatus(address! as `0x${string}`),
+    enabled: !!address && gdIdentity?.isWhitelisted,
+    staleTime: 60 * 1000,
+  });
+
+  // Derive MaxFlow tile CTA
+  const mfScore = maxflowScore?.local_health ?? 0;
+  const getMaxflowCta = (): string => {
+    if (mfScore === 0 || !xpData) return 'Vouch';
+    if (xpData.timeUntilNextClaim && xpData.timeUntilNextClaim > 0) {
+      return formatTimeRemaining(xpData.timeUntilNextClaim);
+    }
+    if (xpData.canClaim) return 'Claim XP';
+    return 'Vouch';
+  };
+
+  // Derive GoodDollar tile CTA
+  const getGoodDollarCta = (): string => {
+    if (!gdIdentity?.isWhitelisted) return 'Verify';
+    if (gdClaimStatus?.nextClaimTime) {
+      const nextTime = typeof gdClaimStatus.nextClaimTime === 'string' 
+        ? new Date(gdClaimStatus.nextClaimTime) 
+        : gdClaimStatus.nextClaimTime;
+      const now = new Date();
+      const diff = nextTime.getTime() - now.getTime();
+      if (diff > 0) return formatTimeRemaining(diff);
+    }
+    if (gdClaimStatus?.canClaim) return 'Claim G$';
+    return 'Claim G$';
+  };
 
   const balance = balanceData?.balance || '0.00';
   const balanceMicro = balanceData?.balanceMicro;
@@ -250,23 +322,26 @@ export default function Home() {
           />
         )}
 
-        <div className="grid grid-cols-2 gap-3">
-          <button 
-            className="flex flex-col items-center justify-center gap-2 p-4 bg-cta text-white border border-foreground shadow-[4px_4px_0px_0px_rgb(0,0,0)] active:shadow-none active:translate-x-[4px] active:translate-y-[4px] transition-all hover-elevate"
+        <div className="grid grid-cols-2 gap-2">
+          <Button 
+            size="lg"
+            className="w-full"
             onClick={() => setLocation('/send')}
             data-testid="button-send"
           >
-            <ArrowUpRight className="h-6 w-6" />
-            <span className="text-xs font-mono font-bold uppercase tracking-wide">Send</span>
-          </button>
-          <button 
-            className="flex flex-col items-center justify-center gap-2 p-4 bg-background border border-foreground shadow-[4px_4px_0px_0px_rgb(0,0,0)] active:shadow-none active:translate-x-[4px] active:translate-y-[4px] transition-all hover-elevate"
+            <ArrowUpRight className="h-4 w-4" />
+            Send
+          </Button>
+          <Button 
+            size="lg"
+            variant="outline"
+            className="w-full"
             onClick={() => setLocation('/receive')}
             data-testid="button-receive"
           >
-            <ArrowDownLeft className="h-6 w-6" />
-            <span className="text-xs font-mono font-bold uppercase tracking-wide">Receive</span>
-          </button>
+            <ArrowDownLeft className="h-4 w-4" />
+            Receive
+          </Button>
         </div>
 
         <Collapsible className="group">
@@ -289,11 +364,15 @@ export default function Home() {
                   data-testid="button-trust-maxflow"
                 >
                   <div className="flex items-center justify-center w-10 h-10 bg-cta/10 text-cta">
-                    <Users className="h-5 w-5" />
+                    {getMaxflowCta().includes(':') ? (
+                      <Clock className="h-5 w-5" />
+                    ) : (
+                      <Users className="h-5 w-5" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs text-muted-foreground font-mono uppercase">MaxFlow</div>
-                    <div className="text-sm font-bold font-mono">View Signal</div>
+                    <div className="text-sm font-bold font-mono" data-testid="text-maxflow-cta">{getMaxflowCta()}</div>
                   </div>
                 </button>
                 <button 
@@ -302,11 +381,15 @@ export default function Home() {
                   data-testid="button-trust-gooddollar"
                 >
                   <div className="flex items-center justify-center w-10 h-10 bg-green-500/10 text-green-600 dark:text-green-400">
-                    <Shield className="h-5 w-5" />
+                    {getGoodDollarCta().includes(':') ? (
+                      <Clock className="h-5 w-5" />
+                    ) : (
+                      <Shield className="h-5 w-5" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs text-muted-foreground font-mono uppercase">GoodDollar</div>
-                    <div className="text-sm font-bold font-mono">Claim G$</div>
+                    <div className="text-sm font-bold font-mono" data-testid="text-gooddollar-cta">{getGoodDollarCta()}</div>
                   </div>
                 </button>
               </div>
