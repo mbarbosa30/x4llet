@@ -7,7 +7,7 @@ nanoPay is a minimalist Progressive Web App (PWA) designed for managing cryptocu
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
-- **2025-12-09**: Added session persistence - wallet now stays unlocked across page refreshes. DEK is encrypted with a session key and stored in sessionStorage. Includes configurable auto-lock timer (5/15/30/60 min or tab close) with idle detection. Settings UI added for auto-lock control.
+- **2025-12-09**: Added session persistence - wallet stays unlocked across page refreshes. DEK stored in sessionStorage with configurable auto-lock timer (5/15/30/60 min or tab close). UX/security trade-off documented: sessionStorage cleared on tab close, idle timeout limits exposure, device lock is primary security layer.
 - **2025-12-08**: Fixed service worker caching issue causing blank pages for returning users. Service worker now fetches version from `/api/version` endpoint to dynamically name caches, uses network-first strategy for JS/CSS assets, and prompts users to reload when updates are available.
 - **2025-12-08**: Added Arbitrum network support (chainId: 42161) with native USDC and Aave V3 integration. Includes balance fetching, transaction history, and gasless transfers via EIP-3009.
 - **2025-12-08**: Fixed GoodDollar claim recording bug - corrected apiRequest function calls to use proper (method, url, data) signature instead of (url, options).
@@ -24,7 +24,7 @@ The frontend is built with React 18, TypeScript, Vite, Wouter, TanStack Query, S
 The backend uses Express.js (TypeScript), Drizzle ORM, and PostgreSQL (via Neon serverless adapter). It provides APIs for multi-chain balance and transaction history, and a production-ready EIP-3009 facilitator for gasless USDC transfers on Base, Celo, and Gnosis. Transaction history is retrieved using Etherscan v2 unified API with chain-specific fallbacks. All USDC amounts are handled with BigInt for precision.
 
 ### Cryptographic Architecture
-Wallet generation uses `viem` for secp256k1 private keys, encrypted with WebCrypto API (AES-GCM with PBKDF2) and stored in IndexedDB. EIP-712 typed data signing enables gasless transfers. Session persistence encrypts the DEK with a random session key stored in sessionStorage, surviving page refreshes until tab close or idle timeout. WebAuthn passkey support is integrated for biometric unlock, using a Data Encryption Key (DEK) pattern with PRF extension for secure key derivation. Auto-lock timer (configurable: 5/15/30/60 min or tab-close) clears session on inactivity.
+Wallet generation uses `viem` for secp256k1 private keys, encrypted with WebCrypto API (AES-GCM with PBKDF2) and stored in IndexedDB. EIP-712 typed data signing enables gasless transfers. Session persistence stores the DEK in sessionStorage (UX/security trade-off: survives page refreshes until tab close or idle timeout; XSS risk accepted, device lock is primary protection). WebAuthn passkey support is integrated for biometric unlock, using a Data Encryption Key (DEK) pattern with PRF extension for secure key derivation. Auto-lock timer (configurable: 5/15/30/60 min or tab-close) clears session on inactivity.
 
 ### Data Storage
 A PostgreSQL database with Drizzle ORM is used for intelligent caching of user data, wallets, authorizations, and blockchain data (balances, transactions, MaxFlow scores, exchange rates). USDC amounts are standardized to micro-USDC integers.
