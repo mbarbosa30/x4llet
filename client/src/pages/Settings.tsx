@@ -119,16 +119,25 @@ export default function Settings() {
     setAutoLock(minutes);
     setAutoLockMinutes(minutes);
     await savePreferences({ currency, language, autoLockMinutes: minutes });
+    
+    let description: string;
+    if (minutes === -1) {
+      description = "Password required on every page refresh";
+    } else if (minutes === 0) {
+      description = "Wallet will lock when you close the tab";
+    } else {
+      description = `Wallet will lock after ${minutes} minutes of inactivity`;
+    }
+    
     toast({
       title: "Auto-lock updated",
-      description: minutes === 0 
-        ? "Wallet will lock when you close the tab" 
-        : `Wallet will lock after ${minutes} minutes of inactivity`,
+      description,
     });
     setShowAutoLock(false);
   };
 
   const getAutoLockLabel = (minutes: number) => {
+    if (minutes === -1) return "Every refresh (no session)";
     if (minutes === 0) return "When tab closes";
     return `${minutes} minutes`;
   };
@@ -742,7 +751,7 @@ export default function Settings() {
           <DialogHeader>
             <DialogTitle>Auto-Lock Timer</DialogTitle>
             <DialogDescription>
-              Your wallet stays unlocked across page refreshes. Choose when to automatically lock after inactivity.
+              Choose when your wallet should require the password again.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -751,6 +760,7 @@ export default function Settings() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="-1">Every refresh (always ask password)</SelectItem>
                 <SelectItem value="0">When tab closes</SelectItem>
                 <SelectItem value="5">5 minutes</SelectItem>
                 <SelectItem value="15">15 minutes</SelectItem>

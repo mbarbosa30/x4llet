@@ -38,15 +38,25 @@ function notifyListeners() {
 
 function persistSession(dek: Uint8Array): void {
   try {
+    // If autoLockMinutes is -1, user wants password on every refresh
+    // Don't persist to sessionStorage in this case
+    if (autoLockMinutes === -1) {
+      console.log('[WalletStore] Session persistence disabled (password required on every refresh)');
+      clearSession();
+      return;
+    }
+    
     // Store DEK as base64 in sessionStorage
     const dekBase64 = btoa(String.fromCharCode(...dek));
     sessionStorage.setItem(SESSION_KEY, dekBase64);
+    console.log('[WalletStore] Session persisted to sessionStorage');
     
     // Set expiry based on autoLockMinutes
     if (autoLockMinutes > 0) {
       const expiry = Date.now() + (autoLockMinutes * 60 * 1000);
       sessionStorage.setItem(SESSION_EXPIRY_KEY, expiry.toString());
     } else {
+      // autoLockMinutes === 0 means persist until tab closes (no expiry)
       sessionStorage.removeItem(SESSION_EXPIRY_KEY);
     }
   } catch (error) {
@@ -57,7 +67,10 @@ function persistSession(dek: Uint8Array): void {
 function restoreSession(): Uint8Array | null {
   try {
     const dekBase64 = sessionStorage.getItem(SESSION_KEY);
-    if (!dekBase64) return null;
+    if (!dekBase64) {
+      console.log('[WalletStore] No session found in sessionStorage');
+      return null;
+    }
     
     // Check expiry
     const expiryStr = sessionStorage.getItem(SESSION_EXPIRY_KEY);
@@ -147,8 +160,18 @@ export const walletStore = {
   },
   
   setAutoLockMinutes: (minutes: number) => {
+    console.log('[WalletStore] setAutoLockMinutes called with:', minutes, typeof minutes);
     autoLockMinutes = minutes;
     resetIdleTimeout();
+    
+    // If switching to "every refresh" mode, clear any stored session
+    if (minutes === -1) {
+      clearSession();
+      console.log('[WalletStore] Session persistence disabled, cleared session');
+    } else if (state.dek) {
+      // Re-persist with new expiry settings
+      persistSession(state.dek);
+    }
   },
   
   getAutoLockMinutes: (): number => autoLockMinutes,
