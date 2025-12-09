@@ -1077,7 +1077,7 @@ export default function Earn() {
             {!effectiveHasAaveBalance && aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && (
               <div className="space-y-4">
                 <Card className="p-4 space-y-3" data-testid="card-how-it-works">
-                  <div className="text-xs font-medium flex items-center gap-2 text-foreground/80">
+                  <div className="text-xs font-semibold uppercase tracking-wide flex items-center gap-2 text-foreground/80">
                     <Info className="h-4 w-4 text-[#0055FF]" />
                     HOW IT WORKS
                   </div>
@@ -1201,7 +1201,7 @@ export default function Earn() {
             {hasClaimableRewards && (
               <Card className="p-4 space-y-3" data-testid="card-claimable-rewards">
                 <div className="flex items-center justify-between">
-                  <div className="text-xs font-medium flex items-center gap-2 text-foreground/80">
+                  <div className="text-xs font-semibold uppercase tracking-wide flex items-center gap-2 text-foreground/80">
                     <Gift className="h-4 w-4 text-[#0055FF]" />
                     CLAIMABLE REWARDS
                   </div>
@@ -1271,7 +1271,7 @@ export default function Earn() {
             {/* Earnings Preview for users with no deposits */}
             {!effectiveHasAaveBalance && aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && (
               <Card className="p-4 space-y-4 border-dashed" data-testid="card-earnings-preview">
-                <div className="text-xs font-medium flex items-center gap-2 text-foreground/80">
+                <div className="text-xs font-semibold uppercase tracking-wide flex items-center gap-2 text-foreground/80">
                   <Sparkles className="h-4 w-4 text-[#0055FF]" />
                   WHAT YOU COULD EARN
                 </div>

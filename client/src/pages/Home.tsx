@@ -398,7 +398,7 @@ export default function Home() {
         </Collapsible>
 
         <div className="space-y-3">
-          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Recent Activity</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Recent Activity</h2>
           {isLoadingWallet ? (
             <TransactionListSkeleton />
           ) : (
