@@ -7,6 +7,7 @@ nanoPay is a minimalist Progressive Web App (PWA) designed for managing cryptocu
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
+- **2025-12-09**: Performance optimizations via code splitting - lazy-loaded Admin, Dashboard, HowItWorks, Faqs, Context pages using React.lazy(). QRScanner component also lazy-loaded in Send, MaxFlow, and Claim pages to reduce initial bundle size for regular wallet users.
 - **2025-12-09**: Added session persistence - wallet stays unlocked across page refreshes. DEK stored in sessionStorage with configurable auto-lock timer (5/15/30/60 min or tab close). UX/security trade-off documented: sessionStorage cleared on tab close, idle timeout limits exposure, device lock is primary security layer.
 - **2025-12-08**: Fixed service worker caching issue causing blank pages for returning users. Service worker now fetches version from `/api/version` endpoint to dynamically name caches, uses network-first strategy for JS/CSS assets, and prompts users to reload when updates are available.
 - **2025-12-08**: Added Arbitrum network support (chainId: 42161) with native USDC and Aave V3 integration. Includes balance fetching, transaction history, and gasless transfers via EIP-3009.
