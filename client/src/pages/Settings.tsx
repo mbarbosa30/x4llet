@@ -458,6 +458,7 @@ export default function Settings() {
               </div>
               <Switch 
                 checked={sessionPersistence} 
+                onCheckedChange={() => handleSessionPersistenceToggle()}
                 onClick={(e) => e.stopPropagation()}
                 data-testid="switch-session-persistence"
               />
