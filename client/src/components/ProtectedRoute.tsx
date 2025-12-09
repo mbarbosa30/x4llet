@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
-import { hasWallet, isWalletUnlocked } from '@/lib/wallet';
+import { hasWallet } from '@/lib/wallet';
+import { useWalletStore } from '@/lib/walletStore';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
@@ -9,45 +10,56 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [, setLocation] = useLocation();
-  const [checking, setChecking] = useState(true);
-  const [authorized, setAuthorized] = useState(false);
+  const { isUnlocked } = useWalletStore();
+  const [walletChecked, setWalletChecked] = useState(false);
+  const [walletExists, setWalletExists] = useState(true);
 
+  // Only check if wallet exists once (async), unlock state is tracked synchronously
   useEffect(() => {
-    async function checkAccess() {
-      const walletExists = await hasWallet();
-      const unlocked = isWalletUnlocked();
-
-      if (!walletExists) {
-        setChecking(false);
+    async function checkWalletExists() {
+      const exists = await hasWallet();
+      setWalletExists(exists);
+      setWalletChecked(true);
+      
+      if (!exists) {
         setLocation('/create');
-        return;
       }
-
-      if (!unlocked) {
-        setChecking(false);
-        setLocation('/unlock');
-        return;
-      }
-
-      setAuthorized(true);
-      setChecking(false);
     }
+    
+    // If already unlocked, we know wallet exists - skip the check
+    if (isUnlocked) {
+      setWalletChecked(true);
+      setWalletExists(true);
+    } else {
+      checkWalletExists();
+    }
+  }, [setLocation, isUnlocked]);
 
-    checkAccess();
-  }, [setLocation]);
+  // Redirect to unlock if wallet exists but not unlocked
+  useEffect(() => {
+    if (walletChecked && walletExists && !isUnlocked) {
+      setLocation('/unlock');
+    }
+  }, [walletChecked, walletExists, isUnlocked, setLocation]);
 
-  if (checking) {
+  // Show loading only during initial wallet existence check (not on every navigation)
+  if (!walletChecked) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="text-sm text-muted-foreground">Checking access...</p>
-        </div>
+      <div 
+        className="flex items-center justify-center bg-background"
+        style={{
+          paddingTop: 'calc(4rem + env(safe-area-inset-top))',
+          paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))',
+          minHeight: '100vh'
+        }}
+      >
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
-  if (!authorized) {
+  // Not authorized - redirect is happening
+  if (!walletExists || !isUnlocked) {
     return null;
   }
 
