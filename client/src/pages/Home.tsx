@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users, Clock, QrCode } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users, Clock, Share2, CheckCircle2, Circle, ChevronRight } from 'lucide-react';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import {
   Dialog,
@@ -302,40 +302,118 @@ export default function Home() {
         {/* Empty state: no balance and no transactions */}
         {!isLoadingWallet && !isLoading && parseFloat(balance || '0') === 0 && transactions.length === 0 ? (
           <>
+            {/* QR Code focused empty state */}
             <div className="border border-foreground/10 p-6 text-center space-y-4">
               <div className="flex justify-center">
-                <div className="bg-background p-2 border border-foreground/10">
-                  {address && <QRCodeDisplay value={address} size={160} />}
+                <div className="bg-background p-3 border border-foreground/10">
+                  {address && <QRCodeDisplay value={address} size={180} />}
                 </div>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <AddressDisplay address={address!} />
-                <p className="text-xs text-muted-foreground font-mono">
-                  Share to receive USDC or get vouched
-                </p>
+                <Button
+                  size="lg"
+                  className="w-full"
+                  onClick={async () => {
+                    if (navigator.share) {
+                      try {
+                        await navigator.share({
+                          title: 'My nanoPay Address',
+                          text: `Send USDC to: ${address}`,
+                          url: `https://nanopay.me/${address}`
+                        });
+                      } catch (err) {
+                        // User cancelled or share failed silently
+                      }
+                    } else {
+                      navigator.clipboard.writeText(address!);
+                      toast({ title: 'Address copied', description: 'Share it to receive USDC' });
+                    }
+                  }}
+                  data-testid="button-share-address"
+                >
+                  <Share2 className="h-4 w-4" />
+                  Share Address
+                </Button>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Button 
-                size="lg"
-                className="w-full"
-                onClick={() => setLocation('/send')}
-                data-testid="button-send"
-              >
-                <ArrowUpRight className="h-4 w-4" />
-                Send
-              </Button>
-              <Button 
-                size="lg"
-                variant="outline"
-                className="w-full"
-                onClick={() => setLocation('/receive')}
-                data-testid="button-receive"
-              >
-                <ArrowDownLeft className="h-4 w-4" />
-                Receive
-              </Button>
-            </div>
+
+            {/* Onboarding Checklist */}
+            {(() => {
+              const walletCreated = true;
+              const isVerified = gdIdentity?.isWhitelisted === true;
+              const isVouched = mfScore > 0;
+              const completedCount = [walletCreated, isVerified, isVouched].filter(Boolean).length;
+              
+              return (
+                <div className="border border-foreground/10 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Get Started</span>
+                    <span className="text-xs text-muted-foreground font-mono">{completedCount}/3 complete</span>
+                  </div>
+                  
+                  {/* Progress bar */}
+                  <div className="h-1 bg-muted overflow-hidden">
+                    <div 
+                      className="h-full bg-cta transition-all duration-300"
+                      style={{ width: `${(completedCount / 3) * 100}%` }}
+                    />
+                  </div>
+                  
+                  {/* Checklist items */}
+                  <div className="space-y-1">
+                    {/* Wallet created - always done */}
+                    <div className="flex items-center gap-3 p-2 bg-muted/20">
+                      <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                      <span className="text-sm text-muted-foreground line-through">Wallet created</span>
+                    </div>
+                    
+                    {/* Verify identity */}
+                    <button
+                      onClick={() => setLocation('/claim')}
+                      className={`flex items-center gap-3 p-2 w-full text-left ${
+                        isVerified 
+                          ? 'bg-muted/20' 
+                          : 'bg-muted/30 border border-foreground/10 hover-elevate'
+                      }`}
+                      data-testid="button-onboard-verify"
+                    >
+                      {isVerified ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                      ) : (
+                        <Circle className="h-4 w-4 text-cta flex-shrink-0" />
+                      )}
+                      <span className={`text-sm flex-1 ${isVerified ? 'text-muted-foreground line-through' : 'font-medium'}`}>
+                        Verify identity
+                        {!isVerified && <span className="text-xs text-muted-foreground ml-1">(free)</span>}
+                      </span>
+                      {!isVerified && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                    </button>
+                    
+                    {/* Get vouched */}
+                    <button
+                      onClick={() => setLocation('/maxflow')}
+                      className={`flex items-center gap-3 p-2 w-full text-left ${
+                        isVouched 
+                          ? 'bg-muted/20' 
+                          : 'bg-muted/30 border border-foreground/10 hover-elevate'
+                      }`}
+                      data-testid="button-onboard-vouch"
+                    >
+                      {isVouched ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                      ) : (
+                        <Circle className="h-4 w-4 text-cta flex-shrink-0" />
+                      )}
+                      <span className={`text-sm flex-1 ${isVouched ? 'text-muted-foreground line-through' : 'font-medium'}`}>
+                        Get vouched
+                      </span>
+                      {!isVouched && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </>
         ) : (
           <>
@@ -383,47 +461,48 @@ export default function Home() {
                 Receive
               </Button>
             </div>
+
+            {/* Trust Health tiles - only shown when user has funds */}
+            <div className="border border-foreground/10 p-2">
+              <div className="grid grid-cols-2 gap-2">
+                <button 
+                  onClick={() => setLocation('/maxflow')}
+                  className="flex items-center gap-2 p-2 bg-muted/30 border border-foreground/10 hover-elevate text-left"
+                  data-testid="button-trust-maxflow"
+                >
+                  <div className="flex items-center justify-center w-8 h-8 bg-cta/10 text-cta">
+                    {getMaxflowCta().includes(':') ? (
+                      <Clock className="h-4 w-4" />
+                    ) : (
+                      <Users className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[10px] text-muted-foreground font-mono uppercase">MaxFlow</div>
+                    <div className="text-xs font-bold font-mono" data-testid="text-maxflow-cta">{getMaxflowCta()}</div>
+                  </div>
+                </button>
+                <button 
+                  onClick={() => setLocation('/claim')}
+                  className="flex items-center gap-2 p-2 bg-muted/30 border border-foreground/10 hover-elevate text-left"
+                  data-testid="button-trust-gooddollar"
+                >
+                  <div className="flex items-center justify-center w-8 h-8 bg-green-500/10 text-green-600 dark:text-green-400">
+                    {getGoodDollarCta().includes(':') ? (
+                      <Clock className="h-4 w-4" />
+                    ) : (
+                      <Shield className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[10px] text-muted-foreground font-mono uppercase">GoodDollar</div>
+                    <div className="text-xs font-bold font-mono" data-testid="text-gooddollar-cta">{getGoodDollarCta()}</div>
+                  </div>
+                </button>
+              </div>
+            </div>
           </>
         )}
-
-        <div className="border border-foreground/10 p-2">
-          <div className="grid grid-cols-2 gap-2">
-            <button 
-              onClick={() => setLocation('/maxflow')}
-              className="flex items-center gap-2 p-2 bg-muted/30 border border-foreground/10 hover-elevate text-left"
-              data-testid="button-trust-maxflow"
-            >
-              <div className="flex items-center justify-center w-8 h-8 bg-cta/10 text-cta">
-                {getMaxflowCta().includes(':') ? (
-                  <Clock className="h-4 w-4" />
-                ) : (
-                  <Users className="h-4 w-4" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[10px] text-muted-foreground font-mono uppercase">MaxFlow</div>
-                <div className="text-xs font-bold font-mono" data-testid="text-maxflow-cta">{getMaxflowCta()}</div>
-              </div>
-            </button>
-            <button 
-              onClick={() => setLocation('/claim')}
-              className="flex items-center gap-2 p-2 bg-muted/30 border border-foreground/10 hover-elevate text-left"
-              data-testid="button-trust-gooddollar"
-            >
-              <div className="flex items-center justify-center w-8 h-8 bg-green-500/10 text-green-600 dark:text-green-400">
-                {getGoodDollarCta().includes(':') ? (
-                  <Clock className="h-4 w-4" />
-                ) : (
-                  <Shield className="h-4 w-4" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[10px] text-muted-foreground font-mono uppercase">GoodDollar</div>
-                <div className="text-xs font-bold font-mono" data-testid="text-gooddollar-cta">{getGoodDollarCta()}</div>
-              </div>
-            </button>
-          </div>
-        </div>
 
         {(isLoadingWallet || transactions.length > 0) && (
           <div className="space-y-3">
