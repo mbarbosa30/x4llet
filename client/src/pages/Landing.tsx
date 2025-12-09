@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Marquee, MarqueeItem } from '@/components/ui/marquee';
-import { WifiOff, Wifi, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap, Users, ArrowRightLeft, ArrowRight, Shield, Coins, TrendingUp, Wallet, ScanFace, Fingerprint, CircleDollarSign, Cpu, Clock, Rocket, Stamp } from 'lucide-react';
+import { WifiOff, Wifi, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap, Users, ArrowRightLeft, ArrowRight, Shield, Coins, TrendingUp, Wallet, ScanFace, Fingerprint, CircleDollarSign, Cpu, Clock, Rocket, Stamp, Link2 } from 'lucide-react';
 import { hasWallet, isWalletUnlocked } from '@/lib/wallet';
 import Footer from '@/components/Footer';
 
@@ -18,6 +18,7 @@ interface GlobalStats {
   totalUsers: number;
   totalTransfers: number;
   totalXp: number;
+  totalConnections: number;
 }
 
 // Phone mockup component for desktop hero - Simplified to match npay1
@@ -410,13 +411,13 @@ function DesktopLanding({
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-center gap-3 mb-8">
               <div className="w-24 h-px bg-foreground/20" />
-              <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Network Stats</h2>
+              <h2 className="text-sm font-mono uppercase tracking-widest text-muted-foreground">Network Stats</h2>
               <div className="w-24 h-px bg-foreground/20" />
             </div>
-            <div className="grid grid-cols-3 gap-8 text-center">
+            <div className={`grid ${globalStats.totalConnections > 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-6 text-center`}>
               <div>
                 <div className="flex items-center justify-center gap-2 mb-2">
-                  <Users className="h-5 w-5 text-[#0055FF]" />
+                  <Users className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <p className="text-4xl font-black tabular-nums" data-testid="text-desktop-users">
                   {globalStats.totalUsers.toLocaleString()}
@@ -425,16 +426,27 @@ function DesktopLanding({
               </div>
               <div>
                 <div className="flex items-center justify-center gap-2 mb-2">
-                  <ArrowRightLeft className="h-5 w-5 text-[#0055FF]" />
+                  <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <p className="text-4xl font-black tabular-nums" data-testid="text-desktop-transfers">
                   {globalStats.totalTransfers.toLocaleString()}
                 </p>
-                <p className="text-sm text-muted-foreground uppercase tracking-wide font-mono">Transfers</p>
+                <p className="text-sm text-muted-foreground uppercase tracking-wide font-mono">Transactions</p>
               </div>
+              {globalStats.totalConnections > 0 && (
+                <div>
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Link2 className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <p className="text-4xl font-black tabular-nums" data-testid="text-desktop-connections">
+                    {globalStats.totalConnections.toLocaleString()}
+                  </p>
+                  <p className="text-sm text-muted-foreground uppercase tracking-wide font-mono">Connections</p>
+                </div>
+              )}
               <div>
                 <div className="flex items-center justify-center gap-2 mb-2">
-                  <Sparkles className="h-5 w-5 text-[#0055FF]" />
+                  <Sparkles className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <p className="text-4xl font-black tabular-nums" data-testid="text-desktop-xp">
                   {globalStats.totalXp.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}

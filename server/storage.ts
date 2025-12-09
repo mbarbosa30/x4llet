@@ -4003,21 +4003,41 @@ export class DbStorage extends MemStorage {
     totalUsers: number;
     totalTransfers: number;
     totalXp: number;
+    totalConnections: number;
   }> {
     try {
       const [walletsResult] = await db.select({ count: count() }).from(wallets);
       const [transactionsResult] = await db.select({ count: count() }).from(cachedTransactions);
       const [xpResult] = await db.select({ total: sum(xpBalances.totalXp) }).from(xpBalances);
 
+      // Count connections (vouches) by parsing all MaxFlow score data
+      let totalConnections = 0;
+      try {
+        const maxflowScores = await db.select({ scoreData: cachedMaxflowScores.scoreData }).from(cachedMaxflowScores);
+        for (const score of maxflowScores) {
+          try {
+            const data = JSON.parse(score.scoreData);
+            // Count incoming vouches from vouch_counts or vouchCounts
+            const vouchCounts = data.vouch_counts || data.vouchCounts;
+            if (vouchCounts) {
+              totalConnections += (vouchCounts.incoming || 0);
+            }
+          } catch {}
+        }
+      } catch (e) {
+        console.error('[Stats] Error counting connections:', e);
+      }
+
       const totalXpCenti = Number(xpResult?.total) || 0;
       return {
         totalUsers: walletsResult?.count || 0,
         totalTransfers: transactionsResult?.count || 0,
         totalXp: Math.round(totalXpCenti) / 100,
+        totalConnections,
       };
     } catch (error) {
       console.error('[Stats] Error getting global stats:', error);
-      return { totalUsers: 0, totalTransfers: 0, totalXp: 0 };
+      return { totalUsers: 0, totalTransfers: 0, totalXp: 0, totalConnections: 0 };
     }
   }
 }
