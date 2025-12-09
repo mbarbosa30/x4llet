@@ -357,9 +357,9 @@ function DesktopLanding({
         <section className="py-12 px-8 bg-white">
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-center gap-3 mb-8">
-              <div className="w-12 h-px bg-foreground/20" />
-              <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground/50">Network Stats</h2>
-              <div className="w-12 h-px bg-foreground/20" />
+              <div className="w-24 h-px bg-foreground/20" />
+              <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Network Stats</h2>
+              <div className="w-24 h-px bg-foreground/20" />
             </div>
             <div className="grid grid-cols-3 gap-8 text-center">
               <div>
