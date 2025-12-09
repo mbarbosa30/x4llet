@@ -23,6 +23,18 @@ interface GlobalStats {
 // Phone mockup component for desktop hero - Simplified to match npay1
 function PhoneMockup({ balance = "$124.50" }: { balance?: string }) {
   const [isOffline, setIsOffline] = useState(false);
+  const [showStamp, setShowStamp] = useState(false);
+  
+  // Handle stamp animation when going offline
+  useEffect(() => {
+    if (isOffline) {
+      // Small delay before showing stamp animation
+      const timer = setTimeout(() => setShowStamp(true), 100);
+      return () => clearTimeout(timer);
+    } else {
+      setShowStamp(false);
+    }
+  }, [isOffline]);
   
   return (
     <div className="relative">
@@ -40,49 +52,60 @@ function PhoneMockup({ balance = "$124.50" }: { balance?: string }) {
         </button>
       </div>
       
-      {/* Phone device frame - Clean and simple */}
-      <div className="w-[280px] bg-white border-2 border-foreground rounded-[24px] p-6 shadow-[4px_4px_0px_0px_rgb(0,0,0)]">
+      {/* Phone device frame - Clean and simple, larger size */}
+      <div className="w-[320px] bg-white border-2 border-foreground rounded-[24px] p-8 shadow-[4px_4px_0px_0px_rgb(0,0,0)]">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <span className="text-[11px] font-mono font-bold uppercase tracking-wide">NANOPAY OS V1.0</span>
+        <div className="flex items-center justify-between mb-10">
+          <span className="text-xs font-mono font-bold uppercase tracking-wide">NANOPAY OS V1.0</span>
           <div className="flex items-center gap-1.5">
             {isOffline ? (
               <WifiOff className="h-4 w-4" />
             ) : (
               <Wifi className="h-4 w-4 text-green-500" />
             )}
-            <span className="text-[11px] font-mono font-bold uppercase">{isOffline ? 'OFFLINE' : 'ONLINE'}</span>
+            <span className="text-xs font-mono font-bold uppercase">{isOffline ? 'OFFLINE' : 'ONLINE'}</span>
           </div>
         </div>
         
         {/* Balance Section */}
-        <div className="text-center py-8 relative">
+        <div className="text-center py-10 relative">
           <div className="text-sm text-muted-foreground mb-2 font-mono italic">Total Balance</div>
-          <div className="text-5xl font-black tracking-tight mb-4 font-mono">{balance}</div>
+          <div className="text-6xl font-black tracking-tight mb-6 font-mono">{balance}</div>
           
-          {/* Badge / Stamp */}
-          {isOffline ? (
-            <div 
-              className="inline-block px-3 py-1.5 bg-gray-400 text-white text-[10px] font-mono font-bold uppercase tracking-wide transform -rotate-3 shadow-sm"
-              style={{ transform: 'rotate(-5deg)' }}
-            >
-              AUTHORIZATION SIGNED
+          {/* Badge - Shows SYNCED or NO SIGNAL */}
+          <div className="relative inline-block">
+            <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono font-bold uppercase transition-colors ${
+              isOffline 
+                ? 'bg-gray-400 text-white' 
+                : 'bg-green-500 text-white'
+            }`}>
+              {!isOffline && <Sparkles className="h-3 w-3" />}
+              {isOffline ? 'NO SIGNAL' : 'SYNCED'}
             </div>
-          ) : (
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-500 text-white text-[10px] font-mono font-bold uppercase">
-              <Sparkles className="h-3 w-3" />
-              Synced
-            </div>
-          )}
+            
+            {/* Stamp overlay - animates in when offline */}
+            {isOffline && (
+              <div 
+                className={`absolute -top-2 left-1/2 -translate-x-1/2 px-4 py-2 bg-gray-500 text-white text-[11px] font-mono font-bold uppercase tracking-wide whitespace-nowrap transition-all duration-300 ease-out ${
+                  showStamp 
+                    ? 'opacity-100 scale-100' 
+                    : 'opacity-0 scale-150'
+                }`}
+                style={{ transform: `translateX(-50%) rotate(-5deg) ${showStamp ? 'scale(1)' : 'scale(1.5)'}` }}
+              >
+                AUTHORIZATION SIGNED
+              </div>
+            )}
+          </div>
         </div>
         
         {/* Buttons */}
-        <div className="space-y-3 mt-4">
-          <button className="w-full bg-foreground text-white py-4 text-xs font-mono font-bold uppercase flex items-center justify-center gap-2 border-2 border-foreground">
-            <ArrowRight className="h-3.5 w-3.5" />
+        <div className="space-y-3 mt-6">
+          <button className="w-full bg-foreground text-white py-4 text-sm font-mono font-bold uppercase flex items-center justify-center gap-2 border-2 border-foreground">
+            <ArrowRight className="h-4 w-4" />
             Send Money
           </button>
-          <button className="w-full border-2 border-foreground py-4 text-xs font-mono font-bold uppercase bg-white">
+          <button className="w-full border-2 border-foreground py-4 text-sm font-mono font-bold uppercase bg-white">
             Receive
           </button>
         </div>
