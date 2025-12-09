@@ -414,7 +414,7 @@ function DesktopLanding({
               <h2 className="text-sm font-mono uppercase tracking-widest text-muted-foreground">Network Stats</h2>
               <div className="w-24 h-px bg-foreground/20" />
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-12 md:gap-16 text-center max-w-3xl mx-auto">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-16 md:gap-24 text-center max-w-4xl mx-auto">
               <div>
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Users className="h-4 w-4 text-muted-foreground" />
