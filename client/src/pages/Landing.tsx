@@ -140,7 +140,7 @@ export default function Landing() {
                 <Sliders className="h-5 w-5 text-[#0055FF] flex-shrink-0" />
                 <div className="w-px h-10 bg-[#0055FF]" />
                 <div>
-                  <div className="text-sm font-semibold uppercase tracking-wide text-foreground/80">Yield Allocation</div>
+                  <div className="text-sm font-semibold uppercase tracking-wide text-foreground/80">ERC-4626 Potential</div>
                   <div className="text-xs text-muted-foreground">Pool prizes, causes, AI credits, & more.</div>
                 </div>
               </div>
@@ -231,7 +231,7 @@ export default function Landing() {
               <div className="space-y-1">
                 <div className="flex items-center gap-3">
                   <Sliders className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-                  <span className="text-sm font-semibold uppercase tracking-wide">Yield Allocation</span>
+                  <span className="text-sm font-semibold uppercase tracking-wide">ERC-4626 Potential</span>
                 </div>
                 <p className="text-sm text-muted-foreground pl-8">Access prize-linked savings, vulnerable communities, AI tools, & Buy Now Pay Later.</p>
               </div>
