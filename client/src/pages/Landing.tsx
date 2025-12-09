@@ -390,9 +390,11 @@ function DesktopLanding({
       )}
 
       {/* Chains Section */}
-      <section className="py-12 px-8 border-t border-foreground/10">
+      <section className="py-16 px-8 border-t border-foreground/10">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-6">Supported Networks</div>
+          <h2 className="text-3xl font-black tracking-tight mb-8">
+            Gasless on 4 Networks
+          </h2>
           <div className="flex justify-center gap-8">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-[#0055FF]" />
@@ -625,26 +627,6 @@ function DesktopLanding({
           </div>
         </div>
       </section>
-
-      {/* Stats Section */}
-      {globalStats && (globalStats.totalUsers > 0 || globalStats.totalTransfers > 0) && (
-        <section className="py-16 px-8 border-t border-foreground/10">
-          <div className="max-w-4xl mx-auto grid grid-cols-3 gap-8 text-center">
-            <div>
-              <p className="text-4xl font-black tabular-nums">{globalStats.totalUsers.toLocaleString()}</p>
-              <p className="text-sm text-muted-foreground uppercase tracking-wide mt-2">Users</p>
-            </div>
-            <div>
-              <p className="text-4xl font-black tabular-nums">{globalStats.totalTransfers.toLocaleString()}</p>
-              <p className="text-sm text-muted-foreground uppercase tracking-wide mt-2">Transfers</p>
-            </div>
-            <div>
-              <p className="text-4xl font-black tabular-nums">{globalStats.totalXp.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
-              <p className="text-sm text-muted-foreground uppercase tracking-wide mt-2">XP Earned</p>
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* Footer */}
       <footer className="py-12 px-8 border-t border-foreground/10">
