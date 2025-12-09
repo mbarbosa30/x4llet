@@ -21,9 +21,9 @@ export default function NumericKeypad({
   ];
 
   return (
-    <div className="border-2 border-foreground w-full max-w-sm mx-auto bg-background">
+    <div className="border border-foreground/10 w-full max-w-sm mx-auto bg-background">
       {rows.map((row, rowIndex) => (
-        <div key={rowIndex} className={`grid grid-cols-3 ${rowIndex < 3 ? 'border-b-2 border-foreground' : ''}`}>
+        <div key={rowIndex} className={`grid grid-cols-3 ${rowIndex < 3 ? 'border-b border-foreground/10' : ''}`}>
           {row.map((num, colIndex) => (
             <button
               key={num}
@@ -37,7 +37,7 @@ export default function NumericKeypad({
                   onNumberClick(num);
                 }
               }}
-              className={`h-14 flex items-center justify-center font-mono text-xl font-bold bg-background hover:bg-foreground/5 active:bg-foreground/10 disabled:opacity-50 disabled:cursor-not-allowed ${colIndex < 2 ? 'border-r-2 border-foreground' : ''}`}
+              className={`h-16 flex items-center justify-center font-mono text-xl font-bold bg-background hover:bg-muted active:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed ${colIndex < 2 ? 'border-r border-foreground/10' : ''}`}
               data-testid={`keypad-${num}`}
             >
               {num === 'del' ? <Delete className="h-5 w-5" /> : num}

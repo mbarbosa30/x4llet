@@ -98,20 +98,12 @@ export default function Receive() {
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-              Your Wallet Address
-            </div>
-            <div className="border border-foreground/10 p-4 bg-muted">
-              <p 
-                className="font-mono text-xs break-all select-all"
-                data-testid="text-wallet-address"
-              >
-                {address}
-              </p>
-            </div>
-            <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-              Multi-chain: Base, Celo, Gnosis, Arbitrum
+          <div className="border border-foreground/10 p-4 bg-muted">
+            <p 
+              className="font-mono text-xs break-all select-all text-center"
+              data-testid="text-wallet-address"
+            >
+              {address}
             </p>
           </div>
         </div>

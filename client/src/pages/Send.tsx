@@ -799,22 +799,16 @@ export default function Send() {
 
         {step === 'qr' && authorizationQR && paymentLink && (
           <div className="space-y-6">
-            <div className="border border-foreground/10 bg-background p-4">
-              <div className="text-center space-y-2">
-                <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Payment Created</div>
-                <div className="text-2xl font-bold font-mono">{usdcAmount} USDC</div>
-              </div>
+            <div className="border border-foreground/10 bg-background p-4 text-center">
+              <div className="text-2xl font-bold font-mono">{usdcAmount} USDC</div>
             </div>
 
             <div className="text-center space-y-4">
-              <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-                Scan QR or Share Link
-              </div>
               <div className="flex justify-center border border-foreground/10 p-4 bg-white">
                 <QRCodeDisplay value={paymentLink} size={280} />
               </div>
-              <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-                Expires in {paymentRequest?.ttl || 600}s
+              <p className="font-mono text-xs text-muted-foreground">
+                Expires in {Math.floor((paymentRequest?.ttl || 600) / 60)} min
               </p>
             </div>
 
