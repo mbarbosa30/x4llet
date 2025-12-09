@@ -354,33 +354,32 @@ function DesktopLanding({
 
       {/* Metrics Section */}
       {globalStats && (globalStats.totalUsers > 0 || globalStats.totalTransfers > 0 || globalStats.totalXp > 0) && (
-        <section className="py-12 px-8 bg-white">
+        <section className="py-16 px-8">
           <div className="max-w-4xl mx-auto">
-            <div className="grid grid-cols-3 gap-8 text-center">
-              <div>
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <Users className="h-5 w-5 text-[#0055FF]" />
-                </div>
-                <p className="text-4xl font-black tabular-nums" data-testid="text-desktop-users">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-8 h-px bg-foreground flex-1" />
+              <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Network Stats</h2>
+              <div className="w-8 h-px bg-foreground flex-1" />
+            </div>
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="border-2 border-foreground p-6 shadow-[4px_4px_0px_0px_rgb(0,0,0)] bg-white text-center">
+                <Users className="h-6 w-6 text-[#0055FF] mx-auto mb-3" />
+                <p className="text-4xl font-black tabular-nums mb-1" data-testid="text-desktop-users">
                   {globalStats.totalUsers.toLocaleString()}
                 </p>
                 <p className="text-sm text-muted-foreground uppercase tracking-wide font-mono">Users</p>
               </div>
-              <div>
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <ArrowRightLeft className="h-5 w-5 text-[#0055FF]" />
-                </div>
-                <p className="text-4xl font-black tabular-nums" data-testid="text-desktop-transfers">
+              <div className="border-2 border-foreground p-6 shadow-[4px_4px_0px_0px_rgb(0,0,0)] bg-white text-center">
+                <ArrowRightLeft className="h-6 w-6 text-[#0055FF] mx-auto mb-3" />
+                <p className="text-4xl font-black tabular-nums mb-1" data-testid="text-desktop-transfers">
                   {globalStats.totalTransfers.toLocaleString()}
                 </p>
                 <p className="text-sm text-muted-foreground uppercase tracking-wide font-mono">Transfers</p>
               </div>
-              <div>
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <Sparkles className="h-5 w-5 text-[#0055FF]" />
-                </div>
-                <p className="text-4xl font-black tabular-nums" data-testid="text-desktop-xp">
-                  {globalStats.totalXp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <div className="border-2 border-foreground p-6 shadow-[4px_4px_0px_0px_rgb(0,0,0)] bg-white text-center">
+                <Sparkles className="h-6 w-6 text-[#0055FF] mx-auto mb-3" />
+                <p className="text-4xl font-black tabular-nums mb-1" data-testid="text-desktop-xp">
+                  {globalStats.totalXp.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </p>
                 <p className="text-sm text-muted-foreground uppercase tracking-wide font-mono">XP Earned</p>
               </div>
