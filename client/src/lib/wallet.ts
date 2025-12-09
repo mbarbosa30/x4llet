@@ -28,8 +28,8 @@ function getSessionDek(): Uint8Array | null {
   return walletStore.getDek();
 }
 
-function setSessionDek(dek: Uint8Array): void {
-  walletStore.setDek(dek);
+async function setSessionDek(dek: Uint8Array): Promise<void> {
+  await walletStore.setDek(dek);
 }
 
 function clearSessionDek(): void {
@@ -372,7 +372,7 @@ async function migrateToV2(privateKey: string, password: string): Promise<void> 
   };
   
   await set(WALLET_V2_KEY, v2Data);
-  setSessionDek(dek);
+  await setSessionDek(dek);
 }
 
 export async function createWallet(password: string): Promise<{ wallet: Wallet; privateKey: string }> {
@@ -397,7 +397,7 @@ export async function createWallet(password: string): Promise<{ wallet: Wallet; 
   const legacyEncrypted = await encryptPrivateKey(privateKey, password);
   await set(WALLET_KEY, legacyEncrypted);
   
-  setSessionDek(dek);
+  await setSessionDek(dek);
   setSessionRecoveryCode(password);
   
   const wallet: Wallet = {
@@ -482,7 +482,7 @@ export async function unlockWithPasskey(): Promise<Wallet | null> {
     const privateKey = await decryptWithDek(v2Data.encryptedPrivateKey, dek);
     const account = privateKeyToAccount(privateKey as `0x${string}`);
     
-    setSessionDek(dek);
+    await setSessionDek(dek);
     
     return {
       address: account.address,
@@ -580,7 +580,7 @@ export async function importFromPrivateKey(privateKey: string, newPassword: stri
   const legacyEncrypted = await encryptPrivateKey(cleanedKey, newPassword);
   await set(WALLET_KEY, legacyEncrypted);
   
-  setSessionDek(dek);
+  await setSessionDek(dek);
   setSessionPassword(newPassword);
   
   return {
@@ -635,6 +635,18 @@ export function isWalletUnlocked(): boolean {
 export function lockWallet(): void {
   clearSessionPassword();
   clearSessionDek();
+}
+
+export async function tryRestoreSession(): Promise<boolean> {
+  return walletStore.tryRestoreSession();
+}
+
+export function setAutoLockMinutes(minutes: number): void {
+  walletStore.setAutoLockMinutes(minutes);
+}
+
+export function getAutoLockMinutes(): number {
+  return walletStore.getAutoLockMinutes();
 }
 
 const COUNTRY_CURRENCY_MAP: Record<string, string> = {

@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette, BookOpen, HelpCircle, MessageCircleQuestion, TrendingDown, TrendingUp, RotateCcw, Loader2, AlertTriangle, Fingerprint, Trash2 } from 'lucide-react';
+import { ChevronRight, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette, BookOpen, HelpCircle, MessageCircleQuestion, TrendingDown, TrendingUp, RotateCcw, Loader2, AlertTriangle, Fingerprint, Trash2, Timer } from 'lucide-react';
 import { queryClient } from '@/lib/queryClient';
 import { Card } from '@/components/ui/card';
 import InstallPrompt from '@/components/InstallPrompt';
-import { getWallet, getPreferences, savePreferences, getPrivateKey, lockWallet, enrollWalletPasskey, removeWalletPasskey, canUsePasskey } from '@/lib/wallet';
+import { getWallet, getPreferences, savePreferences, getPrivateKey, lockWallet, enrollWalletPasskey, removeWalletPasskey, canUsePasskey, setAutoLockMinutes, getAutoLockMinutes } from '@/lib/wallet';
 import { getPasskeySupportStatus, hasPasskeyEnrolled, getPasskeyInfo, type PasskeySupportStatus } from '@/lib/webauthn';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -61,6 +61,8 @@ export default function Settings() {
   const [passkeyEnrolled, setPasskeyEnrolled] = useState(false);
   const [isEnrollingPasskey, setIsEnrollingPasskey] = useState(false);
   const [isRemovingPasskey, setIsRemovingPasskey] = useState(false);
+  const [autoLock, setAutoLock] = useState(15);
+  const [showAutoLock, setShowAutoLock] = useState(false);
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -91,6 +93,11 @@ export default function Settings() {
           const enrolled = await hasPasskeyEnrolled();
           setPasskeyEnrolled(enrolled);
         }
+        
+        // Load auto-lock preference
+        const currentAutoLock = prefs.autoLockMinutes ?? 15;
+        setAutoLock(currentAutoLock);
+        setAutoLockMinutes(currentAutoLock);
       } catch (error) {
         console.error('Failed to load preferences:', error);
       }
@@ -100,12 +107,30 @@ export default function Settings() {
 
   const handleCurrencyChange = async (newCurrency: string) => {
     setCurrency(newCurrency);
-    await savePreferences({ currency: newCurrency, language });
+    await savePreferences({ currency: newCurrency, language, autoLockMinutes: autoLock });
     toast({
       title: "Currency updated",
       description: `Display currency set to ${newCurrency}`,
     });
     setShowCurrency(false);
+  };
+
+  const handleAutoLockChange = async (minutes: number) => {
+    setAutoLock(minutes);
+    setAutoLockMinutes(minutes);
+    await savePreferences({ currency, language, autoLockMinutes: minutes });
+    toast({
+      title: "Auto-lock updated",
+      description: minutes === 0 
+        ? "Wallet will lock when you close the tab" 
+        : `Wallet will lock after ${minutes} minutes of inactivity`,
+    });
+    setShowAutoLock(false);
+  };
+
+  const getAutoLockLabel = (minutes: number) => {
+    if (minutes === 0) return "When tab closes";
+    return `${minutes} minutes`;
   };
 
   const handleResetAppData = async () => {
@@ -376,6 +401,20 @@ export default function Settings() {
               <div className="flex items-center gap-3">
                 <Lock className="h-5 w-5 text-muted-foreground" />
                 <span className="font-label text-foreground">Lock Wallet</span>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </button>
+            <button
+              onClick={() => setShowAutoLock(true)}
+              className="w-full flex items-center justify-between p-4 hover-elevate"
+              data-testid="button-auto-lock"
+            >
+              <div className="flex items-center gap-3">
+                <Timer className="h-5 w-5 text-muted-foreground" />
+                <div className="text-left">
+                  <div className="font-label text-foreground">Auto-Lock</div>
+                  <div className="text-xs text-muted-foreground">{getAutoLockLabel(autoLock)}</div>
+                </div>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
@@ -692,6 +731,31 @@ export default function Settings() {
               <SelectContent>
                 <SelectItem value="light">Light</SelectItem>
                 <SelectItem value="dark">Dark</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAutoLock} onOpenChange={setShowAutoLock}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Auto-Lock Timer</DialogTitle>
+            <DialogDescription>
+              Your wallet stays unlocked across page refreshes. Choose when to automatically lock after inactivity.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Select value={autoLock.toString()} onValueChange={(v) => handleAutoLockChange(parseInt(v))}>
+              <SelectTrigger data-testid="select-auto-lock">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">When tab closes</SelectItem>
+                <SelectItem value="5">5 minutes</SelectItem>
+                <SelectItem value="15">15 minutes</SelectItem>
+                <SelectItem value="30">30 minutes</SelectItem>
+                <SelectItem value="60">1 hour</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AlertTriangle, RotateCcw, Loader2 } from "lucide-react";
 import { useWalletStore } from "@/lib/walletStore";
+import { tryRestoreSession, setAutoLockMinutes, getPreferences } from "@/lib/wallet";
 import Landing from "@/pages/Landing";
 import CreateWallet from "@/pages/CreateWallet";
 import Unlock from "@/pages/Unlock";
@@ -216,7 +217,32 @@ function Router() {
 function App() {
   const [location] = useLocation();
   const [isEmergencyResetting, setIsEmergencyResetting] = useState(false);
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
   const { isUnlocked } = useWalletStore();
+
+  // Try to restore session on app load
+  useEffect(() => {
+    async function restoreSession() {
+      try {
+        // Load auto-lock preference
+        const prefs = await getPreferences();
+        if (prefs.autoLockMinutes !== undefined) {
+          setAutoLockMinutes(prefs.autoLockMinutes);
+        }
+        
+        // Try to restore session from sessionStorage
+        const restored = await tryRestoreSession();
+        if (restored) {
+          console.log('[App] Session restored successfully');
+        }
+      } catch (error) {
+        console.error('[App] Failed to restore session:', error);
+      } finally {
+        setIsRestoringSession(false);
+      }
+    }
+    restoreSession();
+  }, []);
 
   // Check for emergency reset URL parameter (?reset=1)
   useEffect(() => {
@@ -227,29 +253,17 @@ function App() {
     }
   }, []);
 
-  // Warn user before page refresh/close when wallet is unlocked
-  useEffect(() => {
-    console.log('[App] beforeunload effect running, isUnlocked:', isUnlocked);
-    if (!isUnlocked) return;
+  // No more beforeunload warning since session persists across refresh
 
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      console.log('[App] beforeunload triggered');
-      e.preventDefault();
-      // Modern browsers ignore custom messages and show a generic one
-      // Setting returnValue is required for the dialog to show
-      e.returnValue = 'You will need to unlock your wallet with your password after refreshing.';
-      return e.returnValue;
-    };
+  // Show loading screen during session restore or emergency reset
+  if (isRestoringSession) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
-    console.log('[App] Registering beforeunload listener');
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => {
-      console.log('[App] Removing beforeunload listener');
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [isUnlocked]);
-
-  // Show loading screen during emergency reset
   if (isEmergencyResetting) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">

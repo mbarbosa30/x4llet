@@ -295,6 +295,7 @@ export interface UserPreferences {
   currency: string;
   language: string;
   earnMode?: boolean;
+  autoLockMinutes?: number; // 0 = lock on tab close, 5/15/30 = idle timeout
 }
 
 export const balanceResponseSchema = z.object({
