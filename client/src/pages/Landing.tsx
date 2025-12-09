@@ -24,6 +24,13 @@ interface GlobalStats {
 function PhoneMockup({ balance = "$124.50" }: { balance?: string }) {
   return (
     <div className="relative">
+      {/* Offline Mode Toggle Decoration */}
+      <div className="flex items-center justify-end gap-2 mb-3">
+        <span className="text-[10px] font-mono uppercase tracking-wide text-muted-foreground">Simulate Offline Mode</span>
+        <div className="w-10 h-5 bg-foreground rounded-full relative">
+          <div className="absolute right-0.5 top-0.5 w-4 h-4 bg-white rounded-full" />
+        </div>
+      </div>
       {/* Phone frame */}
       <div className="bg-white border-2 border-foreground p-4 w-[280px] shadow-[8px_8px_0px_0px_rgb(0,0,0)]">
         {/* Phone header */}
@@ -509,7 +516,10 @@ function DesktopLanding({
         <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
           <div>
             <Card className="p-6 max-w-sm shadow-[8px_8px_0px_0px_rgb(0,0,0)]">
-              <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-4">Transaction Receipt</div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Transaction Receipt</div>
+                <div className="text-xs font-mono text-muted-foreground">#0X8F...2A</div>
+              </div>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between py-2 border-b border-foreground/10">
                   <span className="text-muted-foreground">Amount Sent:</span>
