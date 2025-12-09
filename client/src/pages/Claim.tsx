@@ -512,12 +512,13 @@ export default function Claim() {
         queryClient.invalidateQueries({ queryKey: ['/gooddollar/balance', address] });
         
         // Record claim to backend for analytics with retry logic
-        if (result.txHash && result.amountClaimed && gdClaimStatus?.currentDay) {
+        // Note: txHash is optional, but amountClaimed and currentDay are required for meaningful analytics
+        if (result.amountClaimed && gdClaimStatus?.currentDay) {
           try {
             await retryWithBackoff(
               () => apiRequest('POST', '/api/gooddollar/record-claim', {
                 walletAddress: address,
-                txHash: result.txHash,
+                txHash: result.txHash || null,
                 amount: result.amountClaimed,
                 amountFormatted: result.amountClaimed,
                 claimedDay: gdClaimStatus.currentDay,
@@ -536,6 +537,9 @@ export default function Claim() {
             });
           }
         }
+        
+        // Force refresh claim status to get new nextClaimTime for countdown
+        await refetchGdClaim();
       } else {
         toast({
           title: "Claim Failed",

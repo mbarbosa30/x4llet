@@ -647,9 +647,13 @@ export default function Send() {
                           });
                         }
                       } catch (err) {
+                        // Clipboard access may be blocked by browser permissions or require HTTPS
+                        const isSecure = window.isSecureContext;
                         toast({
                           title: "Paste Failed",
-                          description: "Could not read from clipboard",
+                          description: isSecure 
+                            ? "Clipboard access denied. Please allow clipboard permissions or paste manually." 
+                            : "Clipboard requires a secure connection (HTTPS).",
                           variant: "destructive",
                         });
                       }
