@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Marquee, MarqueeItem } from '@/components/ui/marquee';
-import { WifiOff, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap, Users, ArrowRightLeft, ArrowRight, Shield, Coins, TrendingUp, Wallet } from 'lucide-react';
+import { WifiOff, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap, Users, ArrowRightLeft, ArrowRight, Shield, Coins, TrendingUp, Wallet, ScanFace, Fingerprint, CircleDollarSign, Cpu, Clock, Rocket } from 'lucide-react';
 import { hasWallet, isWalletUnlocked } from '@/lib/wallet';
 import Footer from '@/components/Footer';
 
@@ -219,6 +219,59 @@ function MobileLanding({
         )}
 
         <div className="pt-10 border-t border-foreground/10">
+          <div className="text-sm font-mono uppercase tracking-widest text-muted-foreground pt-4 mb-8 text-center">Why nanoPay</div>
+          <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto mb-12">
+            <div className="border border-foreground p-3 shadow-[2px_2px_0px_0px_rgb(0,0,0)]">
+              <ScanFace className="h-5 w-5 text-[#0055FF] mb-2" />
+              <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Sybil-Resistant</div>
+              <div className="text-[10px] text-muted-foreground">Face verify + MaxFlow vouching.</div>
+            </div>
+            <div className="border border-foreground p-3 shadow-[2px_2px_0px_0px_rgb(0,0,0)]">
+              <Sliders className="h-5 w-5 text-[#0055FF] mb-2" />
+              <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Yield Allocation</div>
+              <div className="text-[10px] text-muted-foreground">Prizes, causes, AI credits.</div>
+            </div>
+            <div className="border border-foreground p-3 shadow-[2px_2px_0px_0px_rgb(0,0,0)]">
+              <WifiOff className="h-5 w-5 text-[#0055FF] mb-2" />
+              <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Offline & Gasless</div>
+              <div className="text-[10px] text-muted-foreground">No internet, no gas fees.</div>
+            </div>
+            <div className="border border-foreground p-3 shadow-[2px_2px_0px_0px_rgb(0,0,0)]">
+              <Layers className="h-5 w-5 text-[#0055FF] mb-2" />
+              <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Multi-Protocol</div>
+              <div className="text-[10px] text-muted-foreground">Aave, GoodDollar, Circles.</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="pt-10 border-t border-foreground/10">
+          <div className="text-sm font-mono uppercase tracking-widest text-muted-foreground pt-4 mb-8 text-center">Coming Soon</div>
+          <div className="space-y-4 max-w-sm mx-auto mb-12">
+            <div className="flex items-start gap-3 border border-dashed border-foreground/30 p-3 bg-foreground/5">
+              <Cpu className="h-5 w-5 flex-shrink-0 text-muted-foreground mt-0.5" />
+              <div>
+                <div className="text-sm font-semibold uppercase tracking-wide text-foreground/80">AI Credits</div>
+                <div className="text-xs text-muted-foreground">Allocate yield to LLM compute.</div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 border border-dashed border-foreground/30 p-3 bg-foreground/5">
+              <Clock className="h-5 w-5 flex-shrink-0 text-muted-foreground mt-0.5" />
+              <div>
+                <div className="text-sm font-semibold uppercase tracking-wide text-foreground/80">Buy Now Pay Later</div>
+                <div className="text-xs text-muted-foreground">Reputation-backed micro-credit.</div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 border border-dashed border-foreground/30 p-3 bg-foreground/5">
+              <Rocket className="h-5 w-5 flex-shrink-0 text-muted-foreground mt-0.5" />
+              <div>
+                <div className="text-sm font-semibold uppercase tracking-wide text-foreground/80">Cross-Chain</div>
+                <div className="text-xs text-muted-foreground">Seamless transfers across all chains.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="pt-10 border-t border-foreground/10">
           <div className="text-sm font-mono uppercase tracking-widest text-muted-foreground pt-4 mb-10 text-center">Powered By</div>
           <div className="space-y-5 text-left max-w-sm mx-auto">
             <div className="space-y-1">
@@ -375,6 +428,104 @@ function DesktopLanding({
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-foreground" />
               <span className="text-sm font-mono uppercase">Arbitrum</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Why nanoPay Section */}
+      <section className="py-20 px-8 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <div className="inline-block border border-foreground px-3 py-1 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-6">
+              Core Differentiators
+            </div>
+            <h2 className="text-4xl font-black uppercase tracking-tight">
+              Why nanoPay?
+            </h2>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="border-2 border-foreground p-6 shadow-[4px_4px_0px_0px_rgb(0,0,0)]">
+              <div className="w-12 h-12 bg-[#0055FF]/10 flex items-center justify-center mb-4">
+                <ScanFace className="h-6 w-6 text-[#0055FF]" />
+              </div>
+              <h3 className="font-bold text-lg mb-2">Sybil-Resistant Trust</h3>
+              <p className="text-sm text-muted-foreground">
+                Face verification + MaxFlow vouching ensures real humans only. Build reputation through your network.
+              </p>
+            </div>
+            <div className="border-2 border-foreground p-6 shadow-[4px_4px_0px_0px_rgb(0,0,0)]">
+              <div className="w-12 h-12 bg-[#0055FF]/10 flex items-center justify-center mb-4">
+                <Sliders className="h-6 w-6 text-[#0055FF]" />
+              </div>
+              <h3 className="font-bold text-lg mb-2">Yield Allocation</h3>
+              <p className="text-sm text-muted-foreground">
+                Direct your savings interest to prizes, causes, or AI credits. Your yield, your choice.
+              </p>
+            </div>
+            <div className="border-2 border-foreground p-6 shadow-[4px_4px_0px_0px_rgb(0,0,0)]">
+              <div className="w-12 h-12 bg-[#0055FF]/10 flex items-center justify-center mb-4">
+                <WifiOff className="h-6 w-6 text-[#0055FF]" />
+              </div>
+              <h3 className="font-bold text-lg mb-2">Offline & Gasless</h3>
+              <p className="text-sm text-muted-foreground">
+                Works without internet, no crypto gas fees ever. Sign authorizations offline, submit when connected.
+              </p>
+            </div>
+            <div className="border-2 border-foreground p-6 shadow-[4px_4px_0px_0px_rgb(0,0,0)]">
+              <div className="w-12 h-12 bg-[#0055FF]/10 flex items-center justify-center mb-4">
+                <Layers className="h-6 w-6 text-[#0055FF]" />
+              </div>
+              <h3 className="font-bold text-lg mb-2">Multi-Protocol</h3>
+              <p className="text-sm text-muted-foreground">
+                Aave savings, GoodDollar UBI, and Circles social money unified in one simple wallet.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Roadmap Section */}
+      <section className="py-20 px-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <div className="inline-block border border-foreground px-3 py-1 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-6">
+              Coming Soon
+            </div>
+            <h2 className="text-4xl font-black uppercase tracking-tight">
+              On The Roadmap
+            </h2>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="border-2 border-dashed border-foreground/40 p-6 bg-foreground/5">
+              <div className="flex items-center gap-3 mb-4">
+                <Cpu className="h-5 w-5 text-muted-foreground" />
+                <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Q1 2025</span>
+              </div>
+              <h3 className="font-bold text-lg mb-2">AI Credits Allocation</h3>
+              <p className="text-sm text-muted-foreground">
+                Allocate yield to purchase AI compute credits. LLM access funded by your savings interest.
+              </p>
+            </div>
+            <div className="border-2 border-dashed border-foreground/40 p-6 bg-foreground/5">
+              <div className="flex items-center gap-3 mb-4">
+                <Clock className="h-5 w-5 text-muted-foreground" />
+                <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Q2 2025</span>
+              </div>
+              <h3 className="font-bold text-lg mb-2">Buy Now Pay Later</h3>
+              <p className="text-sm text-muted-foreground">
+                Sybil-resistant credit scoring enables micro-credit. Pay over time, backed by reputation.
+              </p>
+            </div>
+            <div className="border-2 border-dashed border-foreground/40 p-6 bg-foreground/5">
+              <div className="flex items-center gap-3 mb-4">
+                <Rocket className="h-5 w-5 text-muted-foreground" />
+                <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Q3 2025</span>
+              </div>
+              <h3 className="font-bold text-lg mb-2">Cross-Chain Transfers</h3>
+              <p className="text-sm text-muted-foreground">
+                Seamless USDC transfers between Base, Celo, Gnosis, and Arbitrum. One wallet, all chains.
+              </p>
             </div>
           </div>
         </div>
