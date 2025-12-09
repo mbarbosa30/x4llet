@@ -2,7 +2,7 @@ import { Link } from 'wouter';
 
 export default function Footer() {
   return (
-    <footer className="border-t pt-1 pb-4 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+    <footer className="border-t pb-4 text-center font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
       <div className="flex items-center justify-center gap-4">
         <Link href="/context" className="hover-elevate px-2 py-1" data-testid="link-context">
           Context
