@@ -1,4 +1,4 @@
-import { useState, useEffect, Component, type ReactNode } from "react";
+import { useState, useEffect, Component, type ReactNode, lazy, Suspense } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -22,15 +22,26 @@ import Claim from "@/pages/Claim";
 import MaxFlow from "@/pages/MaxFlow";
 import Earn from "@/pages/Earn";
 import Pool from "@/pages/Pool";
-import Admin from "@/pages/Admin";
-import Dashboard from "@/pages/Dashboard";
-import HowItWorks from "@/pages/HowItWorks";
-import Faqs from "@/pages/Faqs";
-import Context from "@/pages/Context";
 import NotFound from "@/pages/not-found";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
+
+// Lazy-loaded pages (not in main bundle - loaded on demand)
+const Admin = lazy(() => import("@/pages/Admin"));
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const HowItWorks = lazy(() => import("@/pages/HowItWorks"));
+const Faqs = lazy(() => import("@/pages/Faqs"));
+const Context = lazy(() => import("@/pages/Context"));
+
+// Loading fallback for lazy-loaded pages
+function LazyLoadFallback() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
+}
 
 // Emergency reset function - clears all cached data
 async function performEmergencyReset() {
@@ -204,11 +215,31 @@ function Router() {
           <Pool />
         </ProtectedRoute>
       </Route>
-      <Route path="/admin" component={Admin} />
-      <Route path="/dashboard" component={Dashboard} />
-      <Route path="/how-it-works" component={HowItWorks} />
-      <Route path="/faqs" component={Faqs} />
-      <Route path="/context" component={Context} />
+      <Route path="/admin">
+        <Suspense fallback={<LazyLoadFallback />}>
+          <Admin />
+        </Suspense>
+      </Route>
+      <Route path="/dashboard">
+        <Suspense fallback={<LazyLoadFallback />}>
+          <Dashboard />
+        </Suspense>
+      </Route>
+      <Route path="/how-it-works">
+        <Suspense fallback={<LazyLoadFallback />}>
+          <HowItWorks />
+        </Suspense>
+      </Route>
+      <Route path="/faqs">
+        <Suspense fallback={<LazyLoadFallback />}>
+          <Faqs />
+        </Suspense>
+      </Route>
+      <Route path="/context">
+        <Suspense fallback={<LazyLoadFallback />}>
+          <Context />
+        </Suspense>
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );

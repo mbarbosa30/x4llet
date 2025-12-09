@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -43,7 +43,9 @@ import { celo } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getAddress } from 'viem';
 import { useToast } from '@/hooks/use-toast';
-import QRScanner from '@/components/QRScanner';
+
+// Lazy load QR scanner to reduce initial bundle size
+const QRScanner = lazy(() => import('@/components/QRScanner'));
 
 // Cache key for tab state persistence
 const CLAIM_TAB_KEY = 'claim_active_tab';
@@ -1372,10 +1374,12 @@ export default function Claim() {
       </main>
 
       {showScanner && (
-        <QRScanner
-          onScan={handleScan}
-          onClose={() => setShowScanner(false)}
-        />
+        <Suspense fallback={<div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+          <QRScanner
+            onScan={handleScan}
+            onClose={() => setShowScanner(false)}
+          />
+        </Suspense>
       )}
     </div>
   );

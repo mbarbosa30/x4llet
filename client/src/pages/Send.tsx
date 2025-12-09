@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useLocation } from 'wouter';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Scan, Clipboard, Repeat, Loader2, ChevronDown, MessageSquare } from 'lucide-react';
 import NumericKeypad from '@/components/NumericKeypad';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
-import QRScanner from '@/components/QRScanner';
+
+// Lazy load QR scanner to reduce initial bundle size
+const QRScanner = lazy(() => import('@/components/QRScanner'));
 import { Card } from '@/components/ui/card';
 import { 
   DropdownMenu, 
@@ -925,10 +927,12 @@ export default function Send() {
       </main>
 
       {showScanner && (
-        <QRScanner
-          onScan={handleScanRequest}
-          onClose={() => setShowScanner(false)}
-        />
+        <Suspense fallback={<div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+          <QRScanner
+            onScan={handleScanRequest}
+            onClose={() => setShowScanner(false)}
+          />
+        </Suspense>
       )}
     </div>
   );
