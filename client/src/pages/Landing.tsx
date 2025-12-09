@@ -219,63 +219,6 @@ function MobileLanding({
         )}
 
         <div className="pt-10 border-t border-foreground/10">
-          <div className="text-sm font-mono uppercase tracking-widest text-muted-foreground pt-4 mb-6 text-center">Trust Without The Circus</div>
-          <div className="max-w-sm mx-auto mb-8">
-            <div className="border border-foreground p-4 shadow-[4px_4px_0px_0px_rgb(0,0,0)] bg-white mb-6">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3">Sybil-Resistant Trust</div>
-              <div className="flex items-center gap-3 py-2 border-b border-foreground/10">
-                <div className="w-8 h-8 bg-green-100 flex items-center justify-center">
-                  <ScanFace className="h-4 w-4 text-green-600" />
-                </div>
-                <div>
-                  <div className="font-bold text-xs">Liveness Check</div>
-                  <div className="text-[10px] text-muted-foreground">Face scan passed</div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 py-2 border-b border-foreground/10 text-center">
-                <div>
-                  <div className="text-lg font-bold text-[#0055FF]">12</div>
-                  <div className="text-[10px] text-muted-foreground">Received</div>
-                </div>
-                <div>
-                  <div className="text-lg font-bold">8</div>
-                  <div className="text-[10px] text-muted-foreground">Given</div>
-                </div>
-              </div>
-              <div className="flex items-center justify-between py-2">
-                <span className="text-[10px] text-muted-foreground">Trust Score</span>
-                <span className="text-lg font-black">78<span className="text-[10px] font-normal text-muted-foreground">/100</span></span>
-              </div>
-              <div className="flex gap-3 pt-2 text-[10px] text-muted-foreground/50">
-                <span className="line-through">ZK Passport</span>
-                <span className="line-through">Attestations</span>
-                <span className="line-through">POAPs</span>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">
-              ZK identity? On-chain résumés? No, thanks.
-            </p>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-start gap-2">
-                <div className="w-1.5 h-1.5 bg-[#0055FF] mt-1.5 flex-shrink-0" />
-                <span>Tchau attestations and POAPs you'll never use</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="w-1.5 h-1.5 bg-[#0055FF] mt-1.5 flex-shrink-0" />
-                <span>Forget your "reputation" points from clicking buttons</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="w-1.5 h-1.5 bg-[#0055FF] mt-1.5 flex-shrink-0" />
-                <span>Flexing your tokens, likes or GitHub stars = 0</span>
-              </div>
-            </div>
-            <p className="text-sm font-semibold mt-4">
-              Humans vouch for humans. Math does the rest.
-            </p>
-          </div>
-        </div>
-
-        <div className="pt-10 border-t border-foreground/10">
           <div className="text-sm font-mono uppercase tracking-widest text-muted-foreground pt-4 mb-10 text-center">Powered By</div>
           <div className="space-y-5 text-left max-w-sm mx-auto">
             <div className="space-y-1">
@@ -495,7 +438,7 @@ function DesktopLanding({
                   <span className="text-2xl font-black">78<span className="text-sm font-normal text-muted-foreground">/100</span></span>
                 </div>
                 <div className="pt-3 border-t border-foreground/10">
-                  <div className="text-xs font-mono uppercase tracking-widest text-green-600 mb-2">What We Care About</div>
+                  <div className="text-xs font-mono uppercase tracking-widest text-green-600 mb-2">What Matters</div>
                   <div className="flex gap-3 text-xs font-medium">
                     <span>Maximum Flow</span>
                     <span>Path Redundancy</span>
