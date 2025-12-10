@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useInflationAnimation } from '@/hooks/use-inflation-animation';
 import AnimatedBalance from './AnimatedBalance';
+import { Wallet } from 'lucide-react';
 
 interface ChainBalance {
   chainId: number;
@@ -112,12 +113,13 @@ export default function BalanceCard({
   return (
     <div className="bg-card border border-foreground/10 p-6 relative" data-testid="card-balance">
       <div className="relative z-10 space-y-4">
-        {/* Top row: Label left, chain dots right */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
+        {/* Top row: Label left, chain dots right - matching Earn card APY section height */}
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
+            <Wallet className="h-4 w-4 text-[#0055FF]" />
             USDC Balance
           </div>
-          <div className="flex items-center gap-3" data-testid="text-chain-breakdown">
+          <div className="flex items-center gap-3 px-2.5 py-1" data-testid="text-chain-breakdown">
             {chainBreakdown.length > 0 ? (
               chainBreakdown.map((chain) => (
                 <div key={chain.chainId} className="flex items-center gap-1.5">
