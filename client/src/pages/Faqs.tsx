@@ -420,15 +420,16 @@ export default function Faqs() {
                   </AccordionTrigger>
                   <AccordionContent className="px-5 pb-4">
                     <p className="text-sm text-muted-foreground mb-2">
-                      Claim XP once per day from the MaxFlow page. The amount you earn scales with your network health:
+                      Claim XP once per day from the Signal page. The amount you earn scales exponentially with your network signal:
                     </p>
                     <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                      <li><span className="font-medium">Base amount:</span> 1 XP per day minimum</li>
-                      <li><span className="font-medium">Score multiplier:</span> Up to +1 XP based on your LocalHealth score</li>
-                      <li><span className="font-medium">Maximum:</span> ~2 XP per day at score 100</li>
+                      <li><span className="font-medium">Formula:</span> (Signal²) ÷ 100 XP per day</li>
+                      <li><span className="font-medium">Signal 100:</span> 100 XP per day</li>
+                      <li><span className="font-medium">Signal 50:</span> 25 XP per day</li>
+                      <li><span className="font-medium">Signal 10:</span> 1 XP per day</li>
                     </ul>
                     <p className="text-sm text-muted-foreground mt-2">
-                      Higher trust scores mean faster XP accumulation. Build your network to earn more.
+                      Higher trust signals mean exponentially more XP. Building a stronger network pays off significantly.
                     </p>
                   </AccordionContent>
                 </AccordionItem>
