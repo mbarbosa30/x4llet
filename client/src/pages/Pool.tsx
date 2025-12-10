@@ -827,8 +827,8 @@ export default function Pool() {
             <TabsContent value="pool" className="mt-4 space-y-4">
               {/* This Week's Prize */}
               <Card className="p-6 min-h-[180px] flex flex-col" data-testid="card-prize-pool">
-                {/* Top label */}
-                <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
+                {/* Top label - centered */}
+                <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center justify-center gap-2">
                   <Trophy className="h-4 w-4 text-[#0055FF]" />
                   THIS WEEK'S PRIZE
                 </div>
@@ -861,9 +861,6 @@ export default function Pool() {
                             )}
                           </span>
                         </button>
-                        <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest text-center mt-1">
-                          <span className="font-bold">USDC</span> Pooling
-                        </p>
                       </>
                     );
                   })()}

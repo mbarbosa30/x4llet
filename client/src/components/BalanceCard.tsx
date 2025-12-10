@@ -113,8 +113,8 @@ export default function BalanceCard({
 
   return (
     <div className="bg-card border border-foreground/10 p-6 relative min-h-[180px] flex flex-col" data-testid="card-balance">
-      {/* Top label */}
-      <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
+      {/* Top label - centered */}
+      <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center justify-center gap-2">
         <Wallet className="h-4 w-4 text-[#0055FF]" />
         USDC Balance
       </div>

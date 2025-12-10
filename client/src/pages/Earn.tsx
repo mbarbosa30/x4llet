@@ -1119,8 +1119,8 @@ export default function Earn() {
             )}
 
             <Card className="p-6 min-h-[180px] flex flex-col" data-testid="card-earning-balance">
-              {/* Top label */}
-              <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
+              {/* Top label - centered */}
+              <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center justify-center gap-2">
                 <PiggyBank className="h-4 w-4 text-[#0055FF]" />
                 Total Earning
               </div>
@@ -1148,7 +1148,6 @@ export default function Earn() {
                         )}
                       </span>
                     </button>
-                    <div className="text-xs text-muted-foreground font-mono uppercase tracking-widest mt-1"><span className="font-bold">USDC</span> Yielding</div>
                   </>
                 ) : (
                   <>
@@ -1156,7 +1155,7 @@ export default function Earn() {
                       <span className="text-3xl font-normal text-muted-foreground mr-1.5">$</span>
                       <span>0.00</span>
                     </div>
-                    <div className="text-xs text-muted-foreground font-mono uppercase tracking-widest mt-1">No Deposits Yet</div>
+                    <div className="text-xs text-muted-foreground font-mono uppercase tracking-widest mt-1">No Deposits</div>
                   </>
                 )}
               </div>
