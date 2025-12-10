@@ -50,6 +50,13 @@ interface InflationData {
   annualRate: number;
 }
 
+const CHAIN_COLORS: Record<number, string> = {
+  8453: '#0052FF',   // Base - blue
+  42220: '#FCFF52',  // Celo - yellow
+  100: '#04795B',    // Gnosis - green
+  42161: '#12AAFF',  // Arbitrum - cyan
+};
+
 export default function BalanceCard({ 
   balance, 
   currency, 
@@ -86,48 +93,76 @@ export default function BalanceCard({
     enabled: liquidBalanceMicro !== '0' && !!exchangeRate && !!inflationData,
   });
 
-  return (
-    <div className="bg-card border border-foreground/10 p-6 text-center relative" data-testid="card-balance">
-      {/* Content */}
-      <div className="relative z-10">
-        <div className="text-[10px] mb-4 font-mono text-muted-foreground">Total Balance</div>
-        
-        <button
-          onClick={onRefresh}
-          disabled={isRefreshing || !onRefresh}
-          className="w-full bg-transparent p-0 border-none text-5xl font-bold tabular-nums mb-3 flex items-center justify-center tracking-tight cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all disabled:cursor-default disabled:hover:opacity-100 disabled:active:scale-100 focus-visible:outline-none"
-          data-testid="button-refresh-balance"
-        >
-          <span className={`text-3xl font-normal text-muted-foreground mr-1.5 transition-opacity duration-300 ${isRefreshing ? 'opacity-50' : ''}`}>$</span>
-          <span className={`transition-opacity duration-300 ${isRefreshing ? 'opacity-50 animate-pulse' : ''}`} data-testid="text-balance">{balance}</span>
-        </button>
+  // Build chain breakdown with dots and amounts
+  const chainBreakdown = chains ? [
+    { chainId: 8453, balance: chains.base.balance, balanceMicro: chains.base.balanceMicro },
+    { chainId: 42220, balance: chains.celo.balance, balanceMicro: chains.celo.balanceMicro },
+    chains.gnosis ? { chainId: 100, balance: chains.gnosis.balance, balanceMicro: chains.gnosis.balanceMicro } : null,
+    chains.arbitrum ? { chainId: 42161, balance: chains.arbitrum.balance, balanceMicro: chains.arbitrum.balanceMicro } : null,
+  ].filter((c): c is { chainId: number; balance: string; balanceMicro: string } => 
+    c !== null && BigInt(c.balanceMicro) > 0n
+  ) : [];
 
-        {balanceMicro && exchangeRate && (
-          <div className="text-sm text-muted-foreground mb-4" data-testid="text-fiat-value">
-            <div className="flex items-baseline justify-center gap-1">
-              <span>≈</span>
-              <AnimatedBalance
-                value={animation.animatedValue}
-                mainDecimals={animation.mainDecimals}
-                extraDecimals={animation.extraDecimals}
-                currency={fiatCurrency}
-                className=""
-              />
-            </div>
+  // Compute display currency value
+  const hasDisplayData = !!balanceMicro && !!exchangeRate;
+  const displayValue = hasDisplayData ? animation.animatedValue : 0;
+  const displayMain = hasDisplayData ? animation.mainDecimals : '00';
+  const displayExtra = hasDisplayData ? animation.extraDecimals : '';
+
+  return (
+    <div className="bg-card border border-foreground/10 p-6 relative" data-testid="card-balance">
+      <div className="relative z-10 space-y-4">
+        {/* Top row: Label left, chain dots right */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
+            USDC Balance
           </div>
-        )}
+          <div className="flex items-center gap-3" data-testid="text-chain-breakdown">
+            {chainBreakdown.length > 0 ? (
+              chainBreakdown.map((chain) => (
+                <div key={chain.chainId} className="flex items-center gap-1.5">
+                  <div 
+                    className="w-2 h-2 rounded-full" 
+                    style={{ backgroundColor: CHAIN_COLORS[chain.chainId] || '#888' }}
+                  />
+                  <span className="text-xs font-mono text-muted-foreground">${chain.balance}</span>
+                </div>
+              ))
+            ) : (
+              <span className="text-xs font-mono text-muted-foreground">--</span>
+            )}
+          </div>
+        </div>
         
-        {/* Chain breakdown - minimal */}
-        {chains && (
-          <div className="text-[10px] font-mono text-muted-foreground pt-3 border-t border-foreground/10" data-testid="text-chain-breakdown">
-            {[
-              BigInt(chains.base.balanceMicro) > 0n && `Base $${chains.base.balance}`,
-              BigInt(chains.celo.balanceMicro) > 0n && `Celo $${chains.celo.balance}`,
-              chains.gnosis && BigInt(chains.gnosis.balanceMicro) > 0n && `Gnosis $${chains.gnosis.balance}`,
-              chains.arbitrum && BigInt(chains.arbitrum.balanceMicro) > 0n && `Arb $${chains.arbitrum.balance}`,
-            ].filter(Boolean).join(' · ') || 'No balance yet'}
+        {/* Middle: Main balance display */}
+        <div className="text-center py-4">
+          <button
+            onClick={onRefresh}
+            disabled={isRefreshing || !onRefresh}
+            className="w-full bg-transparent p-0 border-none text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all disabled:cursor-default disabled:hover:opacity-100 disabled:active:scale-100 focus-visible:outline-none"
+            data-testid="button-refresh-balance"
+          >
+            <span className={`text-3xl font-normal text-muted-foreground mr-1.5 transition-opacity duration-300 ${isRefreshing ? 'opacity-50' : ''}`}>$</span>
+            <span className={`transition-opacity duration-300 ${isRefreshing ? 'opacity-50 animate-pulse' : ''}`} data-testid="text-balance">{balance}</span>
+          </button>
+          
+          {/* Bottom: Display currency label - matching Earn/Pool style */}
+          <div className="text-xs text-muted-foreground font-mono uppercase tracking-widest mt-1" data-testid="text-display-currency">
+            {hasDisplayData ? (
+              <>
+                ≈ <AnimatedBalance
+                  value={displayValue}
+                  mainDecimals={displayMain}
+                  extraDecimals={displayExtra}
+                  currency={fiatCurrency}
+                  className="inline"
+                /> {fiatCurrency}
+              </>
+            ) : (
+              <>≈ -- {fiatCurrency}</>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
