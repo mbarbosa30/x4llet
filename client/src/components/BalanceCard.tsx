@@ -146,8 +146,20 @@ export default function BalanceCard({
               <span className={`text-3xl font-normal text-muted-foreground mr-1.5 transition-opacity duration-300 ${isRefreshing ? 'opacity-50' : ''}`}>$</span>
               <span className={`transition-opacity duration-300 ${isRefreshing ? 'opacity-50 animate-pulse' : ''}`} data-testid="text-balance">{balance}</span>
             </button>
-            <div className="text-xs text-muted-foreground font-mono uppercase tracking-widest" data-testid="text-display-currency">
-              <span className="font-bold">USDC</span> Liquid
+            <div className="flex items-center justify-center gap-1 text-xs font-mono uppercase tracking-widest text-muted-foreground" data-testid="text-display-currency">
+              <span>≈</span>
+              {hasDisplayData ? (
+                <AnimatedBalance
+                  value={animation.animatedValue}
+                  mainDecimals={animation.mainDecimals}
+                  extraDecimals={animation.extraDecimals}
+                  currency={fiatCurrency}
+                  className="inline-flex items-baseline"
+                />
+              ) : (
+                <span>--</span>
+              )}
+              <span>{fiatCurrency}</span>
             </div>
           </div>
         </div>
