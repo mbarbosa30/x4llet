@@ -1316,18 +1316,17 @@ export default function Claim() {
                     </div>
                   )}
 
-                  {/* Get XP with G$ button for verified users */}
+                  {/* Buy XP with G$ button for verified users */}
                   {parseFloat((gdBalance?.balanceFormatted || '0').replace(/,/g, '')) >= 10 && (
                     <div className="pt-3">
                       <Button
-                        variant="outline"
                         size="sm"
-                        className="w-full"
+                        className="w-full bg-orange-500 hover:bg-orange-600 text-white"
                         onClick={() => setShowGdExchangeDialog(true)}
-                        data-testid="button-get-xp-gd"
+                        data-testid="button-buy-xp-gd"
                       >
                         <Gift className="h-4 w-4" />
-                        Get XP with G$
+                        Buy XP with G$
                       </Button>
                       <p className="text-xs text-muted-foreground text-center mt-1">
                         10 G$ = 1 XP
@@ -1418,18 +1417,17 @@ export default function Claim() {
                     ) : 'Verify Face to Start'}
                   </Button>
 
-                  {/* Get XP with G$ button for non-verified users with G$ balance */}
+                  {/* Buy XP with G$ button for non-verified users with G$ balance */}
                   {parseFloat((gdBalance?.balanceFormatted || '0').replace(/,/g, '')) >= 10 && (
                     <div className="pt-3 border-t mt-4">
                       <Button
-                        variant="outline"
                         size="sm"
-                        className="w-full"
+                        className="w-full bg-orange-500 hover:bg-orange-600 text-white"
                         onClick={() => setShowGdExchangeDialog(true)}
-                        data-testid="button-get-xp-gd-unverified"
+                        data-testid="button-buy-xp-gd-unverified"
                       >
                         <Gift className="h-4 w-4" />
-                        Get XP with G$
+                        Buy XP with G$
                       </Button>
                       <p className="text-xs text-muted-foreground text-center mt-1">
                         10 G$ = 1 XP
@@ -1482,66 +1480,52 @@ export default function Claim() {
 
       {/* G$ to XP Exchange Dialog */}
       <Dialog open={showGdExchangeDialog} onOpenChange={setShowGdExchangeDialog}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Exchange G$ for XP</DialogTitle>
-            <DialogDescription>
-              Convert your G$ tokens to XP at a rate of 10 G$ = 1 XP
-            </DialogDescription>
+        <DialogContent className="max-w-[320px] p-4">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-base">Buy XP with G$</DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="gd-amount">G$ Amount</Label>
-              <Input
-                id="gd-amount"
-                type="number"
-                min="10"
-                step="10"
-                value={gdExchangeAmount}
-                onChange={(e) => setGdExchangeAmount(e.target.value)}
-                placeholder="Enter G$ amount"
-                data-testid="input-gd-exchange-amount"
-              />
-              <p className="text-xs text-muted-foreground">
-                Available: {gdBalance?.balanceFormatted || '0'} G$
+          <div className="space-y-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="gd-amount"
+                  type="number"
+                  inputMode="decimal"
+                  min="10"
+                  step="10"
+                  value={gdExchangeAmount}
+                  onChange={(e) => setGdExchangeAmount(e.target.value)}
+                  placeholder="G$ amount"
+                  className="text-lg"
+                  data-testid="input-gd-exchange-amount"
+                />
+                <span className="text-muted-foreground text-sm whitespace-nowrap">G$</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Balance: {gdBalance?.balanceFormatted || '0'} G$
               </p>
             </div>
 
-            <div className="p-3 border rounded-md bg-muted/30">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">You will receive:</span>
-                <span className="font-mono font-bold" data-testid="text-xp-preview">
-                  {Math.floor(parseFloat(gdExchangeAmount || '0') / 10)} XP
-                </span>
-              </div>
+            <div className="flex items-center justify-between p-2 border rounded bg-muted/30">
+              <span className="text-sm text-muted-foreground">You get:</span>
+              <span className="font-mono font-bold text-orange-500" data-testid="text-xp-preview">
+                {Math.floor(parseFloat(gdExchangeAmount || '0') / 10)} XP
+              </span>
             </div>
 
             {parseFloat(gdExchangeAmount || '0') > parseFloat(gdBalance?.balanceFormatted?.replace(/,/g, '') || '0') && (
-              <p className="text-xs text-destructive">
-                Insufficient G$ balance
-              </p>
+              <p className="text-xs text-destructive">Insufficient balance</p>
             )}
 
-            {parseFloat(gdExchangeAmount || '0') < 10 && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">
-                Minimum exchange is 10 G$
-              </p>
+            {parseFloat(gdExchangeAmount || '0') < 10 && parseFloat(gdExchangeAmount || '0') > 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">Min: 10 G$</p>
             )}
           </div>
 
-          <DialogFooter>
+          <div className="flex flex-col gap-2 pt-2">
             <Button
-              variant="outline"
-              onClick={() => {
-                setShowGdExchangeDialog(false);
-                setGdExchangeAmount('10');
-              }}
-              disabled={exchangeGdMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white"
               onClick={() => exchangeGdMutation.mutate(gdExchangeAmount)}
               disabled={
                 exchangeGdMutation.isPending ||
@@ -1553,13 +1537,24 @@ export default function Claim() {
               {exchangeGdMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Exchanging...
+                  Processing...
                 </>
               ) : (
-                'Exchange'
+                'Buy XP'
               )}
             </Button>
-          </DialogFooter>
+            <Button
+              variant="ghost"
+              className="w-full"
+              onClick={() => {
+                setShowGdExchangeDialog(false);
+                setGdExchangeAmount('10');
+              }}
+              disabled={exchangeGdMutation.isPending}
+            >
+              Cancel
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
