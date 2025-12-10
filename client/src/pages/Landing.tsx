@@ -463,7 +463,7 @@ function DesktopLanding({
           <div className="flex flex-wrap justify-center gap-10 md:gap-20">
             <div className="text-center">
               <div className="text-lg font-mono font-bold">x402</div>
-              <div className="text-sm text-muted-foreground">HTTP Payment Protocol</div>
+              <div className="text-sm text-muted-foreground">HTTP Payments Protocol</div>
             </div>
             <div className="text-center">
               <div className="text-lg font-mono font-bold">EIP-3009</div>
