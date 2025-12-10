@@ -691,7 +691,7 @@ function DesktopLanding({
             Community signals meet on-chain finality.
           </p>
           <h2 className="text-2xl font-black tracking-tight mb-8">
-            Multichain. Gasless. Lightweight.
+            Lightweight. Gasless. Multichain.
           </h2>
           <div className="flex justify-center gap-8">
             <div className="flex items-center gap-2">
