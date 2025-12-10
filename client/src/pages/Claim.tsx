@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Scan, CircleDot, Loader2, ExternalLink, UserPlus, Coins, Heart, HeartOff, Send, RefreshCw, Gift, CheckCircle, Clock, AlertCircle, ChevronDown, MessageCircle, Users, Share2 } from 'lucide-react';
+import { Scan, CircleDot, Loader2, ExternalLink, UserPlus, Coins, Heart, HeartOff, Send, RefreshCw, Sparkles, CheckCircle, Clock, AlertCircle, ChevronDown, MessageCircle, Users, Share2 } from 'lucide-react';
 import { getWallet, getPrivateKey } from '@/lib/wallet';
 import { 
   getCirclesAvatar, 
@@ -674,7 +674,7 @@ export default function Claim() {
         <Tabs value={activeTab} onValueChange={(tab) => { setActiveTab(tab); setCachedTab(tab); }} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="gooddollar" className="flex items-center gap-1.5 text-xs" data-testid="tab-gooddollar">
-              <Gift className="h-3.5 w-3.5" />
+              <Sparkles className="h-3.5 w-3.5" />
               GoodDollar
             </TabsTrigger>
             <TabsTrigger value="circles" className="flex items-center gap-1.5 text-xs" data-testid="tab-circles">
@@ -1237,7 +1237,7 @@ export default function Claim() {
             <Card className="p-6 space-y-6">
               {isLoadingGdIdentity || isRefreshingIdentity ? (
                 <div className="text-center space-y-4">
-                  <Gift className="h-12 w-12 mx-auto text-muted-foreground" />
+                  <Sparkles className="h-12 w-12 mx-auto text-muted-foreground" />
                   <div>
                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                     <p className="text-sm text-muted-foreground mt-2">
@@ -1248,7 +1248,7 @@ export default function Claim() {
               ) : gdIdentity?.isWhitelisted ? (
                 <div className="space-y-6">
                   <div className="flex items-center gap-3">
-                    <Gift className="h-10 w-10 text-green-600 dark:text-green-400 shrink-0" />
+                    <Sparkles className="h-10 w-10 text-green-600 dark:text-green-400 shrink-0" />
                     <div>
                       <h2 className="text-xl text-section">Daily UBI</h2>
                       <span className="font-label text-muted-foreground">// CELO</span>
@@ -1320,18 +1320,14 @@ export default function Claim() {
                   {parseFloat((gdBalance?.balanceFormatted || '0').replace(/,/g, '')) >= 10 && (
                     <div className="pt-3">
                       <Button
-                        variant="outline"
                         size="lg"
-                        className="w-full"
+                        className="w-full bg-orange-500 hover:bg-orange-600 text-white"
                         onClick={() => setShowGdExchangeDialog(true)}
                         data-testid="button-buy-xp-gd"
                       >
-                        <Gift className="h-4 w-4" />
+                        <Sparkles className="h-4 w-4" />
                         BUY XP WITH G$
                       </Button>
-                      <p className="text-xs text-muted-foreground text-center mt-1">
-                        10 G$ = 1 XP
-                      </p>
                     </div>
                   )}
 
@@ -1381,7 +1377,7 @@ export default function Claim() {
               ) : (
                 <div className="space-y-6">
                   <div className="flex items-center gap-3">
-                    <Gift className="h-10 w-10 text-[#03B2CB] shrink-0" />
+                    <Sparkles className="h-10 w-10 text-[#03B2CB] shrink-0" />
                     <div>
                       <h2 className="text-xl text-section">Daily UBI</h2>
                       <span className="font-label text-muted-foreground">// CELO</span>
@@ -1422,18 +1418,14 @@ export default function Claim() {
                   {parseFloat((gdBalance?.balanceFormatted || '0').replace(/,/g, '')) >= 10 && (
                     <div className="pt-3 border-t mt-4">
                       <Button
-                        variant="outline"
                         size="lg"
-                        className="w-full"
+                        className="w-full bg-orange-500 hover:bg-orange-600 text-white"
                         onClick={() => setShowGdExchangeDialog(true)}
                         data-testid="button-buy-xp-gd-unverified"
                       >
-                        <Gift className="h-4 w-4" />
+                        <Sparkles className="h-4 w-4" />
                         BUY XP WITH G$
                       </Button>
-                      <p className="text-xs text-muted-foreground text-center mt-1">
-                        10 G$ = 1 XP
-                      </p>
                     </div>
                   )}
                 </div>
@@ -1489,7 +1481,7 @@ export default function Claim() {
           
           <div className="space-y-3">
             <div>
-              <div className="flex items-center gap-2">
+              <div className="relative">
                 <Input
                   id="gd-amount"
                   type="number"
@@ -1498,11 +1490,11 @@ export default function Claim() {
                   step="10"
                   value={gdExchangeAmount}
                   onChange={(e) => setGdExchangeAmount(e.target.value)}
-                  placeholder="G$ amount"
-                  className="text-lg"
+                  placeholder="Amount"
+                  className="text-lg pr-10"
                   data-testid="input-gd-exchange-amount"
                 />
-                <span className="text-muted-foreground text-sm whitespace-nowrap">G$</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">G$</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Balance: {gdBalance?.balanceFormatted || '0'} G$
@@ -1525,11 +1517,20 @@ export default function Claim() {
             )}
           </div>
 
-          <div className="flex flex-col gap-2 pt-2">
+          <div className="flex gap-2 pt-2">
             <Button
               variant="outline"
-              size="lg"
-              className="w-full"
+              className="flex-1"
+              onClick={() => {
+                setShowGdExchangeDialog(false);
+                setGdExchangeAmount('10');
+              }}
+              disabled={exchangeGdMutation.isPending}
+            >
+              Close
+            </Button>
+            <Button
+              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
               onClick={() => exchangeGdMutation.mutate(gdExchangeAmount)}
               disabled={
                 exchangeGdMutation.isPending ||
@@ -1539,24 +1540,10 @@ export default function Claim() {
               data-testid="button-confirm-exchange"
             >
               {exchangeGdMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  PROCESSING...
-                </>
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                'BUY XP'
+                'Buy'
               )}
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full"
-              onClick={() => {
-                setShowGdExchangeDialog(false);
-                setGdExchangeAmount('10');
-              }}
-              disabled={exchangeGdMutation.isPending}
-            >
-              Cancel
             </Button>
           </div>
         </DialogContent>
