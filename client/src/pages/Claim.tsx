@@ -1414,20 +1414,24 @@ export default function Claim() {
                     ) : 'Verify Face to Start'}
                   </Button>
 
-                  {/* Buy XP with G$ button for non-verified users with G$ balance */}
-                  {parseFloat((gdBalance?.balanceFormatted || '0').replace(/,/g, '')) >= 10 && (
-                    <div className="pt-3 border-t mt-4">
-                      <Button
-                        size="lg"
-                        className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                        onClick={() => setShowGdExchangeDialog(true)}
-                        data-testid="button-buy-xp-gd-unverified"
-                      >
-                        <Sparkles className="h-4 w-4" />
-                        BUY XP WITH G$
-                      </Button>
-                    </div>
-                  )}
+                  {/* Buy XP with G$ button for non-verified users */}
+                  <div className="pt-3 border-t mt-4">
+                    <Button
+                      size="lg"
+                      className="w-full bg-orange-500 hover:bg-orange-600 text-white disabled:bg-orange-300 disabled:text-white/70"
+                      onClick={() => setShowGdExchangeDialog(true)}
+                      disabled={parseFloat((gdBalance?.balanceFormatted || '0').replace(/,/g, '')) < 10}
+                      data-testid="button-buy-xp-gd-unverified"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      BUY XP WITH G$
+                    </Button>
+                    {parseFloat((gdBalance?.balanceFormatted || '0').replace(/,/g, '')) < 10 && (
+                      <p className="text-xs text-muted-foreground text-center mt-2">
+                        Need at least 10 G$ to exchange for XP
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </Card>
