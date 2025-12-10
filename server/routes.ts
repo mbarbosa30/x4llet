@@ -2808,8 +2808,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       for (const wallet of wallets) {
         try {
-          // Always force refresh from MaxFlow API to get truly fresh scores
-          const response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/score/${wallet.address}?force_refresh=true`);
+          // Fetch cached score from MaxFlow API
+          const response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/score/${wallet.address}`);
           
           if (response.ok) {
             const data = await response.json();
