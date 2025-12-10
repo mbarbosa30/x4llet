@@ -486,12 +486,8 @@ export default function Home() {
 
             {/* Trust Health section */}
             <div className="space-y-2">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center justify-between">
-                <span>Trust Hub</span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[#30A99C] dark:bg-[#40C4B5]" title="MaxFlow"></span>
-                  <span className="w-2 h-2 rounded-full bg-[#03B2CB]" title="GoodDollar"></span>
-                </span>
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
+                Trust Hub
               </h2>
               <div className="grid grid-cols-2 bg-card border border-foreground/10 divide-x divide-foreground/10">
                 <button 
