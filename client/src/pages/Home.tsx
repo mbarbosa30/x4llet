@@ -487,7 +487,7 @@ export default function Home() {
             {/* Trust Health section */}
             <div className="space-y-2">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center justify-between">
-                <span>Trust Health</span>
+                <span>Trust Hub</span>
                 <span className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-[#30A99C] dark:bg-[#40C4B5]" title="MaxFlow"></span>
                   <span className="w-2 h-2 rounded-full bg-[#03B2CB]" title="GoodDollar"></span>
@@ -500,11 +500,7 @@ export default function Home() {
                   data-testid="button-trust-maxflow"
                 >
                   <span className="text-[#30A99C] dark:text-[#40C4B5]">
-                    {getMaxflowCta().includes(':') ? (
-                      <Clock className="h-5 w-5" />
-                    ) : (
-                      <Waypoints className="h-5 w-5" />
-                    )}
+                    <Waypoints className="h-5 w-5" />
                   </span>
                   <div className="text-left">
                     <div className="text-xs text-muted-foreground font-mono uppercase tracking-wide">MaxFlow</div>
@@ -517,11 +513,7 @@ export default function Home() {
                   data-testid="button-trust-gooddollar"
                 >
                   <span className="text-[#03B2CB]">
-                    {getGoodDollarCta().includes(':') ? (
-                      <Clock className="h-5 w-5" />
-                    ) : (
-                      <Shield className="h-5 w-5" />
-                    )}
+                    <Shield className="h-5 w-5" />
                   </span>
                   <div className="text-left">
                     <div className="text-xs text-muted-foreground font-mono uppercase tracking-wide">GoodDollar</div>
