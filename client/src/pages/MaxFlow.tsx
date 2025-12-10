@@ -5,7 +5,17 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Scan, Shield, Loader2, Sparkles, Clock, ChevronDown } from 'lucide-react';
+import { Scan, Shield, Loader2, Sparkles, Clock, ChevronDown, Coins } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { getWallet, getPrivateKey } from '@/lib/wallet';
 import { getMaxFlowScore, getVouchNonce, submitVouch, type MaxFlowScore } from '@/lib/maxflow';
@@ -43,6 +53,7 @@ export default function MaxFlow() {
   const [vouchAddress, setVouchAddress] = useState('');
   const [showScanner, setShowScanner] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const [showRedeemConfirm, setShowRedeemConfirm] = useState(false);
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -111,6 +122,30 @@ export default function MaxFlow() {
       toast({
         title: "Claim Failed",
         description: error instanceof Error ? error.message : "Failed to claim XP",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const redeemXpMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/xp/redeem', { address });
+    },
+    onSuccess: async (response) => {
+      const data = await response.json();
+      setShowRedeemConfirm(false);
+      toast({
+        title: "XP Redeemed!",
+        description: `1 USDC has been deposited to your savings on Celo. Check the Earn page!`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
+      queryClient.invalidateQueries({ queryKey: ['/api/aave/balance'] });
+    },
+    onError: (error) => {
+      setShowRedeemConfirm(false);
+      toast({
+        title: "Redemption Failed",
+        description: error instanceof Error ? error.message : "Failed to redeem XP",
         variant: "destructive",
       });
     },
@@ -299,6 +334,33 @@ export default function MaxFlow() {
                       {timeRemaining !== null ? formatTimeRemaining(timeRemaining) : '--'}
                     </span>
                   </div>
+                )}
+                
+                {/* XP Redemption Button */}
+                <Button
+                  onClick={() => setShowRedeemConfirm(true)}
+                  disabled={(xpData?.totalXp ?? 0) < 100 || redeemXpMutation.isPending}
+                  variant="outline"
+                  className="w-full"
+                  size="lg"
+                  data-testid="button-redeem-xp"
+                >
+                  {redeemXpMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      REDEEMING...
+                    </>
+                  ) : (
+                    <>
+                      <Coins className="h-4 w-4 mr-2" />
+                      GET 1 USDC FOR 100 XP
+                    </>
+                  )}
+                </Button>
+                {(xpData?.totalXp ?? 0) < 100 && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Need {(100 - (xpData?.totalXp ?? 0)).toFixed(2)} more XP to redeem
+                  </p>
                 )}
               </div>
             )}
@@ -550,6 +612,36 @@ export default function MaxFlow() {
           </a>
         </div>
       </main>
+
+      {/* XP Redemption Confirmation Dialog */}
+      <AlertDialog open={showRedeemConfirm} onOpenChange={setShowRedeemConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Redeem 100 XP for 1 USDC?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>This will deduct 100 XP from your balance and deposit 1 USDC to your savings on Celo.</p>
+              <p className="text-sm font-medium">The USDC will appear in your Earn page and start earning yield immediately.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={redeemXpMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => redeemXpMutation.mutate()}
+              disabled={redeemXpMutation.isPending}
+              data-testid="button-confirm-redeem"
+            >
+              {redeemXpMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Processing...
+                </>
+              ) : (
+                'Confirm Redemption'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

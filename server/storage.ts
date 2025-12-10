@@ -406,6 +406,8 @@ export interface IStorage {
   // XP System methods
   getXpBalance(walletAddress: string): Promise<XpBalance | null>;
   claimXp(walletAddress: string, xpAmount: number, maxFlowSignal: number): Promise<XpClaim>;
+  deductXp(walletAddress: string, xpAmount: number): Promise<{ success: boolean; newBalance: number }>;
+  refundXp(walletAddress: string, xpAmount: number): Promise<{ success: boolean; newBalance: number }>;
   getXpClaimHistory(walletAddress: string, limit?: number): Promise<XpClaim[]>;
 }
 
@@ -904,6 +906,14 @@ export class MemStorage implements IStorage {
 
   async claimXp(walletAddress: string, xpAmount: number, maxFlowSignal: number): Promise<XpClaim> {
     throw new Error('XP claiming not available in MemStorage');
+  }
+
+  async deductXp(walletAddress: string, xpAmount: number): Promise<{ success: boolean; newBalance: number }> {
+    throw new Error('XP deduction not available in MemStorage');
+  }
+
+  async refundXp(walletAddress: string, xpAmount: number): Promise<{ success: boolean; newBalance: number }> {
+    throw new Error('XP refund not available in MemStorage');
   }
 
   async getXpClaimHistory(walletAddress: string, limit?: number): Promise<XpClaim[]> {
@@ -3982,6 +3992,69 @@ export class DbStorage extends MemStorage {
     
     console.log(`[XP] Claimed ${xpAmount} XP for ${normalized} (signal: ${maxFlowSignal})`);
     return claim;
+  }
+
+  async deductXp(walletAddress: string, xpAmount: number): Promise<{ success: boolean; newBalance: number }> {
+    const normalized = walletAddress.toLowerCase();
+    const now = new Date();
+    
+    const existingBalance = await this.getXpBalance(normalized);
+    
+    if (!existingBalance) {
+      console.log(`[XP] Deduct failed: No XP balance for ${normalized}`);
+      return { success: false, newBalance: 0 };
+    }
+    
+    if (existingBalance.totalXp < xpAmount) {
+      console.log(`[XP] Deduct failed: Insufficient XP for ${normalized} (has ${existingBalance.totalXp}, needs ${xpAmount})`);
+      return { success: false, newBalance: existingBalance.totalXp };
+    }
+    
+    const newBalance = existingBalance.totalXp - xpAmount;
+    
+    await db
+      .update(xpBalances)
+      .set({
+        totalXp: newBalance,
+        updatedAt: now,
+      })
+      .where(eq(xpBalances.walletAddress, normalized));
+    
+    console.log(`[XP] Deducted ${xpAmount} XP from ${normalized} (new balance: ${newBalance})`);
+    return { success: true, newBalance };
+  }
+
+  async refundXp(walletAddress: string, xpAmount: number): Promise<{ success: boolean; newBalance: number }> {
+    const normalized = walletAddress.toLowerCase();
+    const now = new Date();
+    
+    const existingBalance = await this.getXpBalance(normalized);
+    
+    if (!existingBalance) {
+      // Create balance with refund amount if no existing balance
+      await db.insert(xpBalances).values({
+        walletAddress: normalized,
+        totalXp: xpAmount,
+        claimCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+      console.log(`[XP] Refunded ${xpAmount} XP to ${normalized} (new balance: ${xpAmount})`);
+      return { success: true, newBalance: xpAmount };
+    }
+    
+    const newBalance = existingBalance.totalXp + xpAmount;
+    
+    await db
+      .update(xpBalances)
+      .set({
+        totalXp: newBalance,
+        updatedAt: now,
+      })
+      .where(eq(xpBalances.walletAddress, normalized));
+    
+    console.log(`[XP] Refunded ${xpAmount} XP to ${normalized} (new balance: ${newBalance})`);
+    return { success: true, newBalance };
   }
 
   async getXpClaimHistory(walletAddress: string, limit: number = 50): Promise<XpClaim[]> {

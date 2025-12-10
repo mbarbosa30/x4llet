@@ -5262,6 +5262,163 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== XP REDEMPTION: Exchange 100 XP for 1 USDC deposited to Aave on Celo =====
+  app.post('/api/xp/redeem', async (req, res) => {
+    try {
+      const { address } = req.body;
+
+      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+
+      const normalizedAddress = address.toLowerCase();
+
+      // Check XP balance (100 XP = 10000 centi-XP)
+      const XP_REQUIRED = 10000; // 100 XP in centi-XP
+      const USDC_AMOUNT = '1000000'; // 1 USDC in micro-USDC (6 decimals)
+      
+      const xpBalance = await storage.getXpBalance(normalizedAddress);
+      
+      if (!xpBalance || xpBalance.totalXp < XP_REQUIRED) {
+        return res.status(400).json({ 
+          error: 'Insufficient XP',
+          required: 100,
+          current: (xpBalance?.totalXp || 0) / 100,
+        });
+      }
+
+      // Deduct XP first (atomic operation)
+      const deductResult = await storage.deductXp(normalizedAddress, XP_REQUIRED);
+      
+      if (!deductResult.success) {
+        return res.status(400).json({ error: 'Failed to deduct XP' });
+      }
+
+      console.log(`[XP Redeem] Deducted 100 XP from ${normalizedAddress}, depositing 1 USDC to Aave on Celo`);
+
+      // Now deposit 1 USDC to user's Aave position on Celo
+      const CELO_CHAIN_ID = 42220;
+      const network = getNetworkByChainId(CELO_CHAIN_ID);
+      
+      if (!network || !network.aavePoolAddress) {
+        // Refund XP if Aave not available
+        await storage.refundXp(normalizedAddress, XP_REQUIRED);
+        return res.status(500).json({ error: 'Aave not available on Celo' });
+      }
+
+      const chainInfo = resolveChain(CELO_CHAIN_ID);
+      if (!chainInfo) {
+        await storage.refundXp(normalizedAddress, XP_REQUIRED);
+        return res.status(500).json({ error: 'Chain configuration not found' });
+      }
+
+      const facilitatorAccount = getFacilitatorAccount();
+      const chain = chainInfo.viemChain;
+
+      const walletClient = createWalletClient({
+        account: facilitatorAccount,
+        chain,
+        transport: http(network.rpcUrl),
+      });
+
+      const publicClient = createPublicClient({
+        chain,
+        transport: http(network.rpcUrl),
+      });
+
+      // Get current nonce
+      let currentNonce = await publicClient.getTransactionCount({
+        address: facilitatorAccount.address,
+      });
+
+      console.log(`[XP Redeem] Facilitator ${facilitatorAccount.address} depositing to Aave for ${address}`);
+
+      // Step 1: Approve USDC to Aave Pool
+      let approveHash;
+      try {
+        approveHash = await walletClient.writeContract({
+          address: network.usdcAddress as Address,
+          abi: ERC20_ABI,
+          functionName: 'approve',
+          nonce: currentNonce,
+          args: [network.aavePoolAddress as Address, BigInt(USDC_AMOUNT)],
+        });
+        currentNonce++;
+      } catch (approveError) {
+        console.error('[XP Redeem] Approve failed:', approveError);
+        // Refund XP
+        await storage.refundXp(normalizedAddress, XP_REQUIRED);
+        return res.status(500).json({ error: 'Failed to approve USDC transfer' });
+      }
+
+      console.log(`[XP Redeem] Approve tx: ${approveHash}`);
+      const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveHash });
+      
+      if (approveReceipt.status !== 'success') {
+        await storage.refundXp(normalizedAddress, XP_REQUIRED);
+        return res.status(500).json({ error: 'Approval transaction failed' });
+      }
+
+      // Wait for state propagation
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Step 2: Supply to Aave on behalf of user
+      let supplyHash;
+      try {
+        supplyHash = await walletClient.writeContract({
+          address: network.aavePoolAddress as Address,
+          abi: AAVE_POOL_ABI,
+          functionName: 'supply',
+          nonce: currentNonce,
+          args: [
+            network.usdcAddress as Address,
+            BigInt(USDC_AMOUNT),
+            address as Address, // onBehalfOf: user receives aTokens
+            0, // referral code
+          ],
+        });
+      } catch (supplyError) {
+        console.error('[XP Redeem] Supply failed:', supplyError);
+        // Refund XP (approval went through but supply failed - USDC still with facilitator)
+        await storage.refundXp(normalizedAddress, XP_REQUIRED);
+        return res.status(500).json({ error: 'Failed to deposit to Aave' });
+      }
+
+      console.log(`[XP Redeem] Supply tx: ${supplyHash}`);
+      const supplyReceipt = await publicClient.waitForTransactionReceipt({ hash: supplyHash });
+
+      if (supplyReceipt.status !== 'success') {
+        await storage.refundXp(normalizedAddress, XP_REQUIRED);
+        return res.status(500).json({ error: 'Supply transaction failed' });
+      }
+
+      // Update net deposits for Pool interest tracking
+      const depositAmount = BigInt(USDC_AMOUNT);
+      const existingSnapshot = await storage.getYieldSnapshot(normalizedAddress);
+      const currentNetDeposits = BigInt(existingSnapshot?.netDeposits || '0');
+      const newNetDeposits = currentNetDeposits + depositAmount;
+      
+      await storage.upsertYieldSnapshot(normalizedAddress, {
+        netDeposits: newNetDeposits.toString(),
+        lastAusdcBalance: (currentNetDeposits + depositAmount).toString(),
+      });
+
+      console.log(`[XP Redeem] Success! 100 XP → 1 USDC deposited to ${address}'s Aave position`);
+
+      res.json({
+        success: true,
+        xpDeducted: 100,
+        usdcDeposited: '1.00',
+        newXpBalance: deductResult.newBalance / 100,
+        supplyTxHash: supplyHash,
+        approveTxHash: approveHash,
+      });
+    } catch (error) {
+      console.error('[XP Redeem] Error:', error);
+      res.status(500).json({ error: 'Failed to redeem XP' });
+    }
+  });
+
   // ===== GLOBAL STATS ENDPOINT (PUBLIC) =====
   app.get('/api/stats/global', async (req, res) => {
     try {
