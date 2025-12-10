@@ -1908,15 +1908,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Check for recent drips (rate limiting - 1 per day per chain)
-      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const recentDrips = await storage.getRecentGasDrips(address, chainId, oneDayAgo);
+      // Check for recent drips (rate limiting - 1 per 6 hours per chain)
+      const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
+      const recentDrips = await storage.getRecentGasDrips(address, chainId, sixHoursAgo);
       
       if (recentDrips.length > 0) {
         const lastDrip = recentDrips[0];
-        const nextDripTime = new Date(lastDrip.createdAt.getTime() + 24 * 60 * 60 * 1000);
+        const nextDripTime = new Date(lastDrip.createdAt.getTime() + 6 * 60 * 60 * 1000);
         return res.status(429).json({
-          error: 'Rate limited. You can request gas again in 24 hours.',
+          error: 'Rate limited. You can request gas again in 6 hours.',
           lastDripAt: lastDrip.createdAt.toISOString(),
           nextDripAvailable: nextDripTime.toISOString(),
         });
