@@ -1073,7 +1073,7 @@ export default function Earn() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="savings" className="mt-4 space-y-6">
+          <TabsContent value="savings" className="mt-4 space-y-4">
             {!effectiveHasAaveBalance && aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && (
               <div className="space-y-4">
                 <Card className="p-4 space-y-3" data-testid="card-how-it-works">
