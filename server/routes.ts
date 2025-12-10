@@ -5294,16 +5294,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Failed to deduct XP' });
       }
 
-      console.log(`[XP Redeem] Deducted 100 XP from ${normalizedAddress}, depositing 1 USDC to Aave on Celo`);
+      console.log(`[XP Redeem] Deducted 100 XP from ${normalizedAddress}, transferring 1 aUSDC on Celo`);
 
-      // Now deposit 1 USDC to user's Aave position on Celo
+      // Transfer aUSDC directly to user on Celo (facilitator already has aUSDC)
       const CELO_CHAIN_ID = 42220;
       const network = getNetworkByChainId(CELO_CHAIN_ID);
       
-      if (!network || !network.aavePoolAddress) {
-        // Refund XP if Aave not available
+      if (!network || !network.aUsdcAddress) {
         await storage.refundXp(normalizedAddress, XP_REQUIRED);
-        return res.status(500).json({ error: 'Aave not available on Celo' });
+        return res.status(500).json({ error: 'aUSDC not configured on Celo' });
       }
 
       const chainInfo = resolveChain(CELO_CHAIN_ID);
@@ -5326,70 +5325,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transport: http(network.rpcUrl),
       });
 
-      // Get current nonce
-      let currentNonce = await publicClient.getTransactionCount({
-        address: facilitatorAccount.address,
+      // Check facilitator's aUSDC balance first
+      const facilitatorAUsdcBalance = await publicClient.readContract({
+        address: network.aUsdcAddress as Address,
+        abi: ERC20_ABI,
+        functionName: 'balanceOf',
+        args: [facilitatorAccount.address],
       });
 
-      console.log(`[XP Redeem] Facilitator ${facilitatorAccount.address} depositing to Aave for ${address}`);
+      console.log(`[XP Redeem] Facilitator aUSDC balance: ${facilitatorAUsdcBalance} (need ${USDC_AMOUNT})`);
 
-      // Step 1: Approve USDC to Aave Pool
-      let approveHash;
+      if (facilitatorAUsdcBalance < BigInt(USDC_AMOUNT)) {
+        await storage.refundXp(normalizedAddress, XP_REQUIRED);
+        console.error('[XP Redeem] Insufficient aUSDC in facilitator wallet');
+        return res.status(503).json({ 
+          error: 'Redemption temporarily unavailable - please try again later',
+          details: 'Facilitator needs to be topped up with aUSDC',
+        });
+      }
+
+      console.log(`[XP Redeem] Facilitator ${facilitatorAccount.address} transferring aUSDC to ${address}`);
+
+      // Transfer aUSDC directly to user
+      let transferHash;
       try {
-        approveHash = await walletClient.writeContract({
-          address: network.usdcAddress as Address,
+        transferHash = await walletClient.writeContract({
+          address: network.aUsdcAddress as Address,
           abi: ERC20_ABI,
-          functionName: 'approve',
-          nonce: currentNonce,
-          args: [network.aavePoolAddress as Address, BigInt(USDC_AMOUNT)],
+          functionName: 'transfer',
+          args: [address as Address, BigInt(USDC_AMOUNT)],
         });
-        currentNonce++;
-      } catch (approveError) {
-        console.error('[XP Redeem] Approve failed:', approveError);
-        // Refund XP
+      } catch (transferError) {
+        console.error('[XP Redeem] Transfer failed:', transferError);
         await storage.refundXp(normalizedAddress, XP_REQUIRED);
-        return res.status(500).json({ error: 'Failed to approve USDC transfer' });
+        return res.status(500).json({ error: 'Failed to transfer aUSDC' });
       }
 
-      console.log(`[XP Redeem] Approve tx: ${approveHash}`);
-      const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveHash });
-      
-      if (approveReceipt.status !== 'success') {
+      console.log(`[XP Redeem] Transfer tx: ${transferHash}`);
+      const transferReceipt = await publicClient.waitForTransactionReceipt({ hash: transferHash });
+
+      if (transferReceipt.status !== 'success') {
         await storage.refundXp(normalizedAddress, XP_REQUIRED);
-        return res.status(500).json({ error: 'Approval transaction failed' });
-      }
-
-      // Wait for state propagation
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Step 2: Supply to Aave on behalf of user
-      let supplyHash;
-      try {
-        supplyHash = await walletClient.writeContract({
-          address: network.aavePoolAddress as Address,
-          abi: AAVE_POOL_ABI,
-          functionName: 'supply',
-          nonce: currentNonce,
-          args: [
-            network.usdcAddress as Address,
-            BigInt(USDC_AMOUNT),
-            address as Address, // onBehalfOf: user receives aTokens
-            0, // referral code
-          ],
-        });
-      } catch (supplyError) {
-        console.error('[XP Redeem] Supply failed:', supplyError);
-        // Refund XP (approval went through but supply failed - USDC still with facilitator)
-        await storage.refundXp(normalizedAddress, XP_REQUIRED);
-        return res.status(500).json({ error: 'Failed to deposit to Aave' });
-      }
-
-      console.log(`[XP Redeem] Supply tx: ${supplyHash}`);
-      const supplyReceipt = await publicClient.waitForTransactionReceipt({ hash: supplyHash });
-
-      if (supplyReceipt.status !== 'success') {
-        await storage.refundXp(normalizedAddress, XP_REQUIRED);
-        return res.status(500).json({ error: 'Supply transaction failed' });
+        return res.status(500).json({ error: 'Transfer transaction failed' });
       }
 
       // Update net deposits for Pool interest tracking
@@ -5403,15 +5380,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastAusdcBalance: (currentNetDeposits + depositAmount).toString(),
       });
 
-      console.log(`[XP Redeem] Success! 100 XP → 1 USDC deposited to ${address}'s Aave position`);
+      console.log(`[XP Redeem] Success! 100 XP → 1 aUSDC transferred to ${address}`);
 
       res.json({
         success: true,
         xpDeducted: 100,
         usdcDeposited: '1.00',
         newXpBalance: deductResult.newBalance / 100,
-        supplyTxHash: supplyHash,
-        approveTxHash: approveHash,
+        transferTxHash: transferHash,
       });
     } catch (error) {
       console.error('[XP Redeem] Error:', error);

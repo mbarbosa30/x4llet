@@ -367,7 +367,7 @@ export default function MaxFlow() {
                 <Button
                   onClick={() => setShowRedeemConfirm(true)}
                   disabled={(xpData?.totalXp ?? 0) < 100 || redeemXpMutation.isPending}
-                  variant="outline"
+                  variant={(xpData?.totalXp ?? 0) >= 100 ? "default" : "outline"}
                   className="w-full"
                   size="lg"
                   data-testid="button-redeem-xp"
