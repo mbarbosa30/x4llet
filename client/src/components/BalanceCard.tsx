@@ -51,11 +51,15 @@ interface InflationData {
   annualRate: number;
 }
 
-const CHAIN_COLORS: Record<number, string> = {
-  8453: '#0052FF',   // Base - blue
-  42220: '#FCFF52',  // Celo - yellow
-  100: '#04795B',    // Gnosis - green
-  42161: '#12AAFF',  // Arbitrum - cyan
+// Chain styling helpers matching Send page
+const getChainStyle = (chainId: number) => {
+  switch (chainId) {
+    case 8453: return { bg: 'bg-blue-500', letter: 'B' };      // Base
+    case 42220: return { bg: 'bg-yellow-500', letter: 'C' };   // Celo
+    case 100: return { bg: 'bg-green-600', letter: 'G' };      // Gnosis
+    case 42161: return { bg: 'bg-cyan-500', letter: 'A' };     // Arbitrum
+    default: return { bg: 'bg-gray-500', letter: '?' };
+  }
 };
 
 export default function BalanceCard({ 
@@ -142,18 +146,20 @@ export default function BalanceCard({
         </div>
       </div>
       
-      {/* Bottom: Chain breakdown */}
+      {/* Bottom: Chain breakdown - matching Send page styling */}
       <div className="flex items-center justify-center gap-4" data-testid="text-chain-breakdown">
         {chainBreakdown.length > 0 ? (
-          chainBreakdown.map((chain) => (
-            <div key={chain.chainId} className="flex items-center gap-1.5">
-              <div 
-                className="w-2 h-2 rounded-full" 
-                style={{ backgroundColor: CHAIN_COLORS[chain.chainId] || '#888' }}
-              />
-              <span className="text-xs font-mono text-muted-foreground">${chain.balance}</span>
-            </div>
-          ))
+          chainBreakdown.map((chain) => {
+            const style = getChainStyle(chain.chainId);
+            return (
+              <div key={chain.chainId} className="flex items-center gap-1.5">
+                <span className={`inline-flex items-center justify-center w-4 h-4 text-[8px] font-bold text-white ${style.bg}`}>
+                  {style.letter}
+                </span>
+                <span className="text-xs font-mono text-muted-foreground">${chain.balance}</span>
+              </div>
+            );
+          })
         ) : (
           <span className="text-xs font-mono text-muted-foreground">--</span>
         )}
