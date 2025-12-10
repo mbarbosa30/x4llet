@@ -42,7 +42,8 @@ self.addEventListener('install', (event) => {
       });
     })()
   );
-  self.skipWaiting();
+  // Do NOT call self.skipWaiting() here - let the client control when to activate
+  // This prevents the infinite update loop where install -> skipWaiting -> controllerchange -> reload -> install
 });
 
 self.addEventListener('activate', (event) => {
