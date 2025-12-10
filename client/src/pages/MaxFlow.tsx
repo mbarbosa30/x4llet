@@ -372,8 +372,12 @@ export default function MaxFlow() {
                       <div className="space-y-2">
                         <div className="grid grid-cols-1 gap-2 text-sm">
                           <div className="flex justify-between items-center" data-testid="metric-flow">
-                            <span className="text-muted-foreground">Flow Component</span>
+                            <span className="text-muted-foreground">Maximum Flow</span>
                             <span className="font-mono font-medium">{(scoreData.algorithm_breakdown.flow_component ?? 0).toFixed(1)}</span>
+                          </div>
+                          <div className="flex justify-between items-center" data-testid="metric-min-cut">
+                            <span className="text-muted-foreground">Minimum Cut</span>
+                            <span className="font-mono font-medium">{(scoreData.algorithm_breakdown.actual_min_cut ?? 0).toFixed(1)}</span>
                           </div>
                           <div className="flex justify-between items-center" data-testid="metric-redundancy">
                             <span className="text-muted-foreground">Redundancy Component</span>

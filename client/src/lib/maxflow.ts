@@ -26,6 +26,7 @@ export interface MaxFlowScore {
     flow_component: number;
     redundancy_component: number;
     direct_flow: number;
+    actual_min_cut?: number;
     effective_redundancy: number;
     dilution_factor: number;
     vertex_disjoint_paths: number;
