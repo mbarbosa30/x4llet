@@ -139,8 +139,9 @@ export default function MaxFlow() {
         description: `1 USDC has been deposited to your savings on Celo.`,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
-      queryClient.invalidateQueries({ queryKey: ['/api/aave/balance'] });
-      // Navigate to Earn page to show the new savings
+      // Wait for the Aave balance to be refetched before navigating
+      await queryClient.refetchQueries({ queryKey: ['/api/aave/balance'] });
+      // Navigate to Earn page with fresh data
       setLocation('/earn');
     },
     onError: (error: any) => {
