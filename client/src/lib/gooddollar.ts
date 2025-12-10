@@ -863,17 +863,25 @@ export async function exchangeGdForXp(
     }
     
     // Check CELO balance for gas
-    const celoBalance = await getCeloBalance(userAddress);
+    let celoBalance = await getCeloBalance(userAddress);
+    console.log('[G$ Exchange] CELO balance:', celoBalance.toString());
+    
     if (celoBalance < CELO_GAS_THRESHOLD) {
       console.log('[G$ Exchange] Low CELO balance, requesting gas drip...');
       const dripResult = await requestCeloGasDrip(userAddress);
       
       if (!dripResult.success) {
-        return { success: false, error: dripResult.error || 'Failed to get gas for transfer' };
-      }
-      
-      // Wait for drip to confirm
-      if (dripResult.txHash) {
+        // Gas drip failed - re-check balance in case initial check had network issues
+        celoBalance = await getCeloBalance(userAddress);
+        console.log('[G$ Exchange] Re-checked CELO balance:', celoBalance.toString());
+        
+        if (celoBalance < CELO_GAS_THRESHOLD) {
+          return { success: false, error: dripResult.error || 'Failed to get gas for transfer' };
+        }
+        // User actually has enough gas, proceed
+        console.log('[G$ Exchange] User has sufficient gas, proceeding...');
+      } else if (dripResult.txHash) {
+        // Wait for drip to confirm
         await new Promise(resolve => setTimeout(resolve, 3000));
       }
     }
