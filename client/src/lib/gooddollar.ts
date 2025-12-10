@@ -840,11 +840,13 @@ export async function exchangeGdForXp(
   const client = getCeloClient();
   
   try {
-    // Convert display amount to raw units (G$ has 2 decimals)
-    const gdRaw = BigInt(Math.floor(parseFloat(gdAmount) * 100));
+    // Convert display amount to raw units (G$ has 18 decimals)
+    const gdFloat = parseFloat(gdAmount);
+    const gdRaw = BigInt(Math.floor(gdFloat * 1e18));
     
-    // Minimum 10 G$ (1000 raw units) for 1 XP
-    if (gdRaw < BigInt(1000)) {
+    // Minimum 10 G$ for 1 XP
+    const minGdRaw = BigInt(10) * BigInt(1e18);
+    if (gdRaw < minGdRaw) {
       return { success: false, error: 'Minimum exchange is 10 G$' };
     }
     

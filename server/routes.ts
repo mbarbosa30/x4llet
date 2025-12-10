@@ -5438,12 +5438,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const normalizedAddress = address.toLowerCase();
 
-      // G$ has 2 decimals, so we expect gdAmount in raw units (e.g., "1000" = 10.00 G$)
-      // Exchange rate: 10 G$ = 1 XP (or 1000 raw G$ units = 1 XP = 100 centi-XP)
+      // G$ has 18 decimals, so we expect gdAmount in raw units (e.g., "10000000000000000000" = 10 G$)
+      // Exchange rate: 10 G$ = 1 XP = 100 centi-XP
       const gdRaw = BigInt(gdAmount);
+      const oneGd = BigInt(1e18);
+      const minGdRaw = BigInt(10) * oneGd; // 10 G$ minimum
       
-      // Minimum 10 G$ (1000 raw units) for 1 XP
-      if (gdRaw < BigInt(1000)) {
+      if (gdRaw < minGdRaw) {
         return res.status(400).json({ 
           error: 'Minimum exchange is 10 G$ for 1 XP',
           minGdRequired: '10.00',
@@ -5451,9 +5452,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Calculate XP: 10 G$ = 1 XP, stored as centi-XP (×100)
-      // 1000 raw G$ = 1 XP = 100 centi-XP
-      const xpCenti = Number(gdRaw / BigInt(10)); // e.g., 1000 raw G$ → 100 centi-XP
-      const gdFormatted = (Number(gdRaw) / 100).toFixed(2); // For logging
+      // gdRaw / 1e18 = G$ in display units
+      // G$ / 10 = XP in display units
+      // XP * 100 = centi-XP
+      // So: xpCenti = (gdRaw / 1e18) / 10 * 100 = gdRaw / 1e17
+      const xpCenti = Number(gdRaw / BigInt(1e17));
+      const gdFormatted = (Number(gdRaw) / 1e18).toFixed(2); // For logging
 
       console.log(`[XP Exchange] Processing ${gdFormatted} G$ → ${xpCenti / 100} XP for ${normalizedAddress} (tx: ${txHash})`);
 
