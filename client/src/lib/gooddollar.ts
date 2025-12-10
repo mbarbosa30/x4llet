@@ -118,6 +118,7 @@ const CELO_RPCS = [
   'https://forno.celo.org',
   'https://1rpc.io/celo',
   'https://celo.drpc.org',
+  'https://rpc.ankr.com/celo',
 ];
 
 const celoClient = createPublicClient({
@@ -566,12 +567,23 @@ export interface ClaimResult {
 
 export async function getCeloBalance(address: Address): Promise<bigint> {
   const client = getCeloClient();
-  try {
-    return await client.getBalance({ address });
-  } catch (error) {
-    console.error('Error fetching CELO balance:', error);
-    return 0n;
+  
+  // Retry up to 3 times with small delays to handle transient RPC failures
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const balance = await client.getBalance({ address });
+      console.log(`[GoodDollar] CELO balance fetch attempt ${attempt}: ${balance.toString()}`);
+      return balance;
+    } catch (error) {
+      console.error(`[GoodDollar] CELO balance fetch attempt ${attempt} failed:`, error);
+      if (attempt < 3) {
+        await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+      }
+    }
   }
+  
+  console.error('[GoodDollar] All CELO balance fetch attempts failed');
+  return 0n;
 }
 
 export async function requestCeloGasDrip(address: Address): Promise<{ success: boolean; txHash?: string; error?: string }> {
