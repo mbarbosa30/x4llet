@@ -527,25 +527,8 @@ export default function Home() {
 
         {(isLoadingWallet || transactions.length > 0) && (
           <div className="space-y-3">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center justify-between">
-              <span>Recent Activity</span>
-              {transactions.length > 0 && (
-                <span className="flex items-center gap-1">
-                  {/* Show dots for chains that have transactions */}
-                  {[...new Set(transactions.map(tx => tx.chainId).filter(Boolean))].sort().map(chainId => (
-                    <span 
-                      key={chainId}
-                      className={`w-2 h-2 rounded-full ${
-                        chainId === 8453 ? 'bg-blue-500' : 
-                        chainId === 42220 ? 'bg-yellow-500' : 
-                        chainId === 42161 ? 'bg-cyan-500' :
-                        'bg-green-600'
-                      }`}
-                      title={chainId === 8453 ? 'Base' : chainId === 42220 ? 'Celo' : chainId === 42161 ? 'Arbitrum' : 'Gnosis'}
-                    />
-                  ))}
-                </span>
-              )}
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
+              Recent Activity
             </h2>
             {isLoadingWallet ? (
               <TransactionListSkeleton />
