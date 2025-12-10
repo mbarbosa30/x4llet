@@ -490,34 +490,34 @@ export default function Home() {
               <div className="grid grid-cols-2 bg-card border border-foreground/10 divide-x divide-foreground/10">
                 <button 
                   onClick={() => setLocation('/maxflow')}
-                  className="flex flex-col items-center gap-2 p-4 hover-elevate text-center"
+                  className="flex items-center gap-2 p-3 hover-elevate"
                   data-testid="button-trust-maxflow"
                 >
-                  <div className="flex items-center justify-center w-10 h-10 bg-cta/10 text-cta">
+                  <span className="text-cta">
                     {getMaxflowCta().includes(':') ? (
-                      <Clock className="h-5 w-5" />
+                      <Clock className="h-4 w-4" />
                     ) : (
-                      <Users className="h-5 w-5" />
+                      <Users className="h-4 w-4" />
                     )}
-                  </div>
-                  <div>
+                  </span>
+                  <div className="text-left">
                     <div className="text-xs text-muted-foreground font-mono uppercase tracking-wide">MaxFlow</div>
                     <div className="text-sm font-bold font-mono tabular-nums" data-testid="text-maxflow-cta">{getMaxflowCta()}</div>
                   </div>
                 </button>
                 <button 
                   onClick={() => setLocation('/claim')}
-                  className="flex flex-col items-center gap-2 p-4 hover-elevate text-center"
+                  className="flex items-center gap-2 p-3 hover-elevate"
                   data-testid="button-trust-gooddollar"
                 >
-                  <div className="flex items-center justify-center w-10 h-10 bg-green-500/10 text-green-600 dark:text-green-400">
+                  <span className="text-green-600 dark:text-green-400">
                     {getGoodDollarCta().includes(':') ? (
-                      <Clock className="h-5 w-5" />
+                      <Clock className="h-4 w-4" />
                     ) : (
-                      <Shield className="h-5 w-5" />
+                      <Shield className="h-4 w-4" />
                     )}
-                  </div>
-                  <div>
+                  </span>
+                  <div className="text-left">
                     <div className="text-xs text-muted-foreground font-mono uppercase tracking-wide">GoodDollar</div>
                     <div className="text-sm font-bold font-mono tabular-nums" data-testid="text-gooddollar-cta">{getGoodDollarCta()}</div>
                   </div>
