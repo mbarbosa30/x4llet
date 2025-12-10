@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -125,6 +125,9 @@ export default function Claim() {
   const [isRefreshingIdentity, setIsRefreshingIdentity] = useState(false);
   const [showGdExchangeDialog, setShowGdExchangeDialog] = useState(false);
   const [gdExchangeAmount, setGdExchangeAmount] = useState('10');
+  
+  // Track optimistic claim state to prevent stale RPC data from re-enabling the button
+  const optimisticClaimDayRef = useRef<number | null>(null);
 
   // Parse FV callback immediately on mount (before address loads)
   useEffect(() => {
@@ -520,7 +523,32 @@ export default function Claim() {
           title: "G$ Claimed!", 
           description: `Successfully claimed ${result.amountClaimed} G$` 
         });
-        queryClient.invalidateQueries({ queryKey: ['/gooddollar/claim', address] });
+        
+        // Optimistically update claim status to prevent stale RPC data showing canClaim: true
+        // The blockchain RPC may not have propagated the new state yet
+        const currentDay = gdClaimStatus?.currentDay ?? 0;
+        optimisticClaimDayRef.current = currentDay; // Track that we claimed today
+        
+        queryClient.setQueryData(['/gooddollar/claim', address], (oldData: ClaimStatus | undefined) => {
+          if (!oldData) return oldData;
+          // Calculate next claim time using GoodDollar's day rollover (12:00 UTC daily)
+          const now = new Date();
+          const nextClaimTime = new Date(now);
+          nextClaimTime.setUTCHours(12, 0, 0, 0);
+          if (nextClaimTime <= now) {
+            nextClaimTime.setDate(nextClaimTime.getDate() + 1);
+          }
+          return {
+            ...oldData,
+            canClaim: false,
+            entitlement: 0n, // Zero entitlement so all UI checks agree claim was consumed
+            entitlementFormatted: '0',
+            nextClaimTime,
+            lastClaimedDay: oldData.currentDay, // Mark as claimed on current day
+            daysSinceLastClaim: 0,
+          };
+        });
+        
         queryClient.invalidateQueries({ queryKey: ['/gooddollar/balance', address] });
         
         // Record claim to backend for analytics with retry logic
@@ -550,8 +578,49 @@ export default function Claim() {
           }
         }
         
-        // Force refresh claim status to get new nextClaimTime for countdown
-        await refetchGdClaim();
+        // Poll for fresh data from blockchain until RPC catches up
+        // Uses exponential backoff: 2s, 4s, 8s
+        const pollForFreshData = async (attempt = 0) => {
+          if (attempt >= 3) {
+            // Clear optimistic flag after max attempts - let normal cache behavior resume
+            optimisticClaimDayRef.current = null;
+            return;
+          }
+          const delay = 2000 * Math.pow(2, attempt);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          const result = await refetchGdClaim();
+          
+          // Check if RPC returned fresh data (lastClaimedDay updated to current day)
+          const claimDay = optimisticClaimDayRef.current;
+          if (result.data && claimDay !== null) {
+            if (result.data.lastClaimedDay >= claimDay) {
+              // Fresh data arrived - clear the optimistic flag
+              optimisticClaimDayRef.current = null;
+            } else if (result.data.canClaim) {
+              // Still stale data - reapply optimistic update and keep polling
+              queryClient.setQueryData(['/gooddollar/claim', address], (oldData: ClaimStatus | undefined) => {
+                if (!oldData) return oldData;
+                const now = new Date();
+                const nextClaimTime = new Date(now);
+                nextClaimTime.setUTCHours(12, 0, 0, 0);
+                if (nextClaimTime <= now) {
+                  nextClaimTime.setDate(nextClaimTime.getDate() + 1);
+                }
+                return {
+                  ...oldData,
+                  canClaim: false,
+                  entitlement: 0n,
+                  entitlementFormatted: '0',
+                  nextClaimTime,
+                  lastClaimedDay: claimDay,
+                  daysSinceLastClaim: 0,
+                };
+              });
+              pollForFreshData(attempt + 1);
+            }
+          }
+        };
+        pollForFreshData();
       } else {
         toast({
           title: "Claim Failed",
