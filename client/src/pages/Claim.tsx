@@ -1248,7 +1248,7 @@ export default function Claim() {
               ) : gdIdentity?.isWhitelisted ? (
                 <div className="space-y-6">
                   <div className="flex items-center gap-3">
-                    <Gift className="h-10 w-10 text-green-600 dark:text-green-400 shrink-0" />
+                    <Gift className="h-10 w-10 text-[#03B2CB] shrink-0" />
                     <div>
                       <h2 className="text-xl text-section">Daily UBI</h2>
                       <span className="font-label text-muted-foreground">// CELO</span>
