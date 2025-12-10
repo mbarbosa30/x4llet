@@ -1527,18 +1527,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const newNetDeposits = currentNetDeposits + depositAmount;
         
         // Fetch actual on-chain aUSDC balance for accurate yield tracking
-        const actualAusdcBalance = await publicClient.readContract({
-          address: network.aUsdcAddress as Address,
-          abi: ERC20_ABI,
-          functionName: 'balanceOf',
-          args: [userAddress as Address],
-        }) as bigint;
-        
-        await storage.upsertYieldSnapshot(normalizedAddr, {
-          netDeposits: newNetDeposits.toString(),
-          lastAusdcBalance: actualAusdcBalance.toString(),
-        });
-        console.log(`[Aave Supply] Updated netDeposits for ${normalizedAddr}: ${newNetDeposits.toString()}, actual aUSDC: ${actualAusdcBalance.toString()}`);
+        try {
+          const actualAusdcBalance = await publicClient.readContract({
+            address: network.aUsdcAddress as Address,
+            abi: ERC20_ABI,
+            functionName: 'balanceOf',
+            args: [userAddress as Address],
+          }) as bigint;
+          
+          await storage.upsertYieldSnapshot(normalizedAddr, {
+            netDeposits: newNetDeposits.toString(),
+            lastAusdcBalance: actualAusdcBalance.toString(),
+          });
+          console.log(`[Aave Supply] Updated netDeposits for ${normalizedAddr}: ${newNetDeposits.toString()}, actual aUSDC: ${actualAusdcBalance.toString()}`);
+        } catch (balanceError) {
+          console.error('[Aave Supply] Failed to fetch balance for snapshot, updating netDeposits only:', balanceError);
+          await storage.upsertYieldSnapshot(normalizedAddr, {
+            netDeposits: newNetDeposits.toString(),
+          });
+        }
       }
 
       res.json({
@@ -1667,18 +1674,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : 0n;
         
         // Fetch actual on-chain aUSDC balance for accurate yield tracking
-        const actualAusdcBalance = await publicClient.readContract({
-          address: network.aUsdcAddress as Address,
-          abi: ERC20_ABI,
-          functionName: 'balanceOf',
-          args: [userAddress as Address],
-        }) as bigint;
-        
-        await storage.upsertYieldSnapshot(normalizedAddr, {
-          netDeposits: newNetDeposits.toString(),
-          lastAusdcBalance: actualAusdcBalance.toString(),
-        });
-        console.log(`[Aave Withdraw] Updated netDeposits for ${normalizedAddr}: ${newNetDeposits.toString()}, actual aUSDC: ${actualAusdcBalance.toString()}`);
+        try {
+          const actualAusdcBalance = await publicClient.readContract({
+            address: network.aUsdcAddress as Address,
+            abi: ERC20_ABI,
+            functionName: 'balanceOf',
+            args: [userAddress as Address],
+          }) as bigint;
+          
+          await storage.upsertYieldSnapshot(normalizedAddr, {
+            netDeposits: newNetDeposits.toString(),
+            lastAusdcBalance: actualAusdcBalance.toString(),
+          });
+          console.log(`[Aave Withdraw] Updated netDeposits for ${normalizedAddr}: ${newNetDeposits.toString()}, actual aUSDC: ${actualAusdcBalance.toString()}`);
+        } catch (balanceError) {
+          console.error('[Aave Withdraw] Failed to fetch balance for snapshot, updating netDeposits only:', balanceError);
+          await storage.upsertYieldSnapshot(normalizedAddr, {
+            netDeposits: newNetDeposits.toString(),
+          });
+        }
       }
 
       // Mark operation as completed
@@ -5414,19 +5428,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const newNetDeposits = currentNetDeposits + depositAmount;
       
       // Fetch actual on-chain aUSDC balance after transfer for accurate yield tracking
-      const actualAusdcBalance = await publicClient.readContract({
-        address: network.aUsdcAddress as Address,
-        abi: ERC20_ABI,
-        functionName: 'balanceOf',
-        args: [address as Address],
-      }) as bigint;
-      
-      console.log(`[XP Redeem] User's actual aUSDC balance after transfer: ${actualAusdcBalance}`);
-      
-      await storage.upsertYieldSnapshot(normalizedAddress, {
-        netDeposits: newNetDeposits.toString(),
-        lastAusdcBalance: actualAusdcBalance.toString(),
-      });
+      try {
+        const actualAusdcBalance = await publicClient.readContract({
+          address: network.aUsdcAddress as Address,
+          abi: ERC20_ABI,
+          functionName: 'balanceOf',
+          args: [address as Address],
+        }) as bigint;
+        
+        console.log(`[XP Redeem] User's actual aUSDC balance after transfer: ${actualAusdcBalance}`);
+        
+        await storage.upsertYieldSnapshot(normalizedAddress, {
+          netDeposits: newNetDeposits.toString(),
+          lastAusdcBalance: actualAusdcBalance.toString(),
+        });
+      } catch (balanceError) {
+        console.error('[XP Redeem] Failed to fetch balance for snapshot, updating netDeposits only:', balanceError);
+        await storage.upsertYieldSnapshot(normalizedAddress, {
+          netDeposits: newNetDeposits.toString(),
+        });
+      }
 
       console.log(`[XP Redeem] Success! 100 XP → 1 aUSDC transferred to ${address}`);
 
