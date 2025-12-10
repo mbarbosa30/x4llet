@@ -111,7 +111,7 @@ export default function BalanceCard({
   const displayExtra = hasDisplayData ? animation.extraDecimals : '';
 
   return (
-    <div className="bg-card border border-foreground/10 p-6 relative" data-testid="card-balance">
+    <div className="bg-card border border-foreground/10 p-6 relative min-h-[180px]" data-testid="card-balance">
       <div className="relative z-10 space-y-4">
         {/* Top row: Label left, chain dots right - matching Earn card APY section height */}
         <div className="flex items-center justify-between">

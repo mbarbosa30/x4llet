@@ -826,7 +826,7 @@ export default function Pool() {
             {/* Pool Tab */}
             <TabsContent value="pool" className="mt-4 space-y-4">
               {/* This Week's Prize */}
-              <Card className="p-6 space-y-4" data-testid="card-prize-pool">
+              <Card className="p-6 space-y-4 min-h-[180px]" data-testid="card-prize-pool">
                 <div className="flex items-center justify-between">
                   <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
                     <Trophy className="h-4 w-4 text-[#0055FF]" />

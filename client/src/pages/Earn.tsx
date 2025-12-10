@@ -1118,7 +1118,7 @@ export default function Earn() {
               </div>
             )}
 
-            <Card className="p-6 space-y-4" data-testid="card-earning-balance">
+            <Card className="p-6 space-y-4 min-h-[180px]" data-testid="card-earning-balance">
               <div className="flex items-center justify-between">
                 <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
                   <PiggyBank className="h-4 w-4 text-[#0055FF]" />
