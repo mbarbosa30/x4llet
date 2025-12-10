@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Scan, CircleDot, Loader2, ExternalLink, UserPlus, Coins, Heart, HeartOff, Send, RefreshCw, Sparkles, CheckCircle, Clock, AlertCircle, ChevronDown, MessageCircle, Users, Share2 } from 'lucide-react';
+import { Scan, CircleDot, Loader2, ExternalLink, UserPlus, Coins, Heart, HeartOff, Send, RefreshCw, Gift, Sparkles, CheckCircle, Clock, AlertCircle, ChevronDown, MessageCircle, Users, Share2 } from 'lucide-react';
 import { getWallet, getPrivateKey } from '@/lib/wallet';
 import { 
   getCirclesAvatar, 
@@ -674,7 +674,7 @@ export default function Claim() {
         <Tabs value={activeTab} onValueChange={(tab) => { setActiveTab(tab); setCachedTab(tab); }} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="gooddollar" className="flex items-center gap-1.5 text-xs" data-testid="tab-gooddollar">
-              <Sparkles className="h-3.5 w-3.5" />
+              <Gift className="h-3.5 w-3.5" />
               GoodDollar
             </TabsTrigger>
             <TabsTrigger value="circles" className="flex items-center gap-1.5 text-xs" data-testid="tab-circles">
@@ -1237,7 +1237,7 @@ export default function Claim() {
             <Card className="p-6 space-y-6">
               {isLoadingGdIdentity || isRefreshingIdentity ? (
                 <div className="text-center space-y-4">
-                  <Sparkles className="h-12 w-12 mx-auto text-muted-foreground" />
+                  <Gift className="h-12 w-12 mx-auto text-muted-foreground" />
                   <div>
                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                     <p className="text-sm text-muted-foreground mt-2">
@@ -1248,7 +1248,7 @@ export default function Claim() {
               ) : gdIdentity?.isWhitelisted ? (
                 <div className="space-y-6">
                   <div className="flex items-center gap-3">
-                    <Sparkles className="h-10 w-10 text-green-600 dark:text-green-400 shrink-0" />
+                    <Gift className="h-10 w-10 text-green-600 dark:text-green-400 shrink-0" />
                     <div>
                       <h2 className="text-xl text-section">Daily UBI</h2>
                       <span className="font-label text-muted-foreground">// CELO</span>
@@ -1377,7 +1377,7 @@ export default function Claim() {
               ) : (
                 <div className="space-y-6">
                   <div className="flex items-center gap-3">
-                    <Sparkles className="h-10 w-10 text-[#03B2CB] shrink-0" />
+                    <Gift className="h-10 w-10 text-[#03B2CB] shrink-0" />
                     <div>
                       <h2 className="text-xl text-section">Daily UBI</h2>
                       <span className="font-label text-muted-foreground">// CELO</span>
