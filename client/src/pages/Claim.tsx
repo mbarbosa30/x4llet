@@ -1320,13 +1320,14 @@ export default function Claim() {
                   {parseFloat((gdBalance?.balanceFormatted || '0').replace(/,/g, '')) >= 10 && (
                     <div className="pt-3">
                       <Button
-                        size="sm"
-                        className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                        variant="outline"
+                        size="lg"
+                        className="w-full"
                         onClick={() => setShowGdExchangeDialog(true)}
                         data-testid="button-buy-xp-gd"
                       >
                         <Gift className="h-4 w-4" />
-                        Buy XP with G$
+                        BUY XP WITH G$
                       </Button>
                       <p className="text-xs text-muted-foreground text-center mt-1">
                         10 G$ = 1 XP
@@ -1421,13 +1422,14 @@ export default function Claim() {
                   {parseFloat((gdBalance?.balanceFormatted || '0').replace(/,/g, '')) >= 10 && (
                     <div className="pt-3 border-t mt-4">
                       <Button
-                        size="sm"
-                        className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                        variant="outline"
+                        size="lg"
+                        className="w-full"
                         onClick={() => setShowGdExchangeDialog(true)}
                         data-testid="button-buy-xp-gd-unverified"
                       >
                         <Gift className="h-4 w-4" />
-                        Buy XP with G$
+                        BUY XP WITH G$
                       </Button>
                       <p className="text-xs text-muted-foreground text-center mt-1">
                         10 G$ = 1 XP
@@ -1509,7 +1511,7 @@ export default function Claim() {
 
             <div className="flex items-center justify-between p-2 border rounded bg-muted/30">
               <span className="text-sm text-muted-foreground">You get:</span>
-              <span className="font-mono font-bold text-orange-500" data-testid="text-xp-preview">
+              <span className="font-mono font-bold" data-testid="text-xp-preview">
                 {Math.floor(parseFloat(gdExchangeAmount || '0') / 10)} XP
               </span>
             </div>
@@ -1525,7 +1527,9 @@ export default function Claim() {
 
           <div className="flex flex-col gap-2 pt-2">
             <Button
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+              variant="outline"
+              size="lg"
+              className="w-full"
               onClick={() => exchangeGdMutation.mutate(gdExchangeAmount)}
               disabled={
                 exchangeGdMutation.isPending ||
@@ -1537,10 +1541,10 @@ export default function Claim() {
               {exchangeGdMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Processing...
+                  PROCESSING...
                 </>
               ) : (
-                'Buy XP'
+                'BUY XP'
               )}
             </Button>
             <Button
