@@ -1526,11 +1526,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const currentNetDeposits = BigInt(existingSnapshot?.netDeposits || '0');
         const newNetDeposits = currentNetDeposits + depositAmount;
         
+        // Fetch actual on-chain aUSDC balance for accurate yield tracking
+        const actualAusdcBalance = await publicClient.readContract({
+          address: network.aUsdcAddress as Address,
+          abi: ERC20_ABI,
+          functionName: 'balanceOf',
+          args: [userAddress as Address],
+        }) as bigint;
+        
         await storage.upsertYieldSnapshot(normalizedAddr, {
           netDeposits: newNetDeposits.toString(),
-          lastAusdcBalance: (currentNetDeposits + depositAmount).toString(), // approximate
+          lastAusdcBalance: actualAusdcBalance.toString(),
         });
-        console.log(`[Aave Supply] Updated netDeposits for ${normalizedAddr}: ${newNetDeposits.toString()}`);
+        console.log(`[Aave Supply] Updated netDeposits for ${normalizedAddr}: ${newNetDeposits.toString()}, actual aUSDC: ${actualAusdcBalance.toString()}`);
       }
 
       res.json({
@@ -1658,10 +1666,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ? currentNetDeposits - withdrawAmount 
           : 0n;
         
+        // Fetch actual on-chain aUSDC balance for accurate yield tracking
+        const actualAusdcBalance = await publicClient.readContract({
+          address: network.aUsdcAddress as Address,
+          abi: ERC20_ABI,
+          functionName: 'balanceOf',
+          args: [userAddress as Address],
+        }) as bigint;
+        
         await storage.upsertYieldSnapshot(normalizedAddr, {
           netDeposits: newNetDeposits.toString(),
+          lastAusdcBalance: actualAusdcBalance.toString(),
         });
-        console.log(`[Aave Withdraw] Updated netDeposits for ${normalizedAddr}: ${newNetDeposits.toString()}`);
+        console.log(`[Aave Withdraw] Updated netDeposits for ${normalizedAddr}: ${newNetDeposits.toString()}, actual aUSDC: ${actualAusdcBalance.toString()}`);
       }
 
       // Mark operation as completed
@@ -1763,10 +1780,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ? currentNetDeposits - amountBigInt 
           : 0n;
         
-        await storage.upsertYieldSnapshot(normalizedAddr, {
-          netDeposits: newNetDeposits.toString(),
-        });
-        console.log(`[Aave Record Withdraw] Updated netDeposits for ${normalizedAddr}: ${newNetDeposits.toString()}`);
+        // Fetch actual on-chain aUSDC balance for accurate yield tracking
+        const chainInfo = resolveChain(chainId);
+        if (chainInfo) {
+          const publicClient = createPublicClient({
+            chain: chainInfo.viemChain,
+            transport: http(network.rpcUrl),
+          });
+          const actualAusdcBalance = await publicClient.readContract({
+            address: network.aUsdcAddress as Address,
+            abi: ERC20_ABI,
+            functionName: 'balanceOf',
+            args: [userAddress as Address],
+          }) as bigint;
+          
+          await storage.upsertYieldSnapshot(normalizedAddr, {
+            netDeposits: newNetDeposits.toString(),
+            lastAusdcBalance: actualAusdcBalance.toString(),
+          });
+          console.log(`[Aave Record Withdraw] Updated netDeposits for ${normalizedAddr}: ${newNetDeposits.toString()}, actual aUSDC: ${actualAusdcBalance.toString()}`);
+        } else {
+          await storage.upsertYieldSnapshot(normalizedAddr, {
+            netDeposits: newNetDeposits.toString(),
+          });
+          console.log(`[Aave Record Withdraw] Updated netDeposits for ${normalizedAddr}: ${newNetDeposits.toString()}`);
+        }
       }
 
       console.log('[Aave Record Withdraw] Operation recorded successfully:', operation.id);
@@ -5375,9 +5413,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentNetDeposits = BigInt(existingSnapshot?.netDeposits || '0');
       const newNetDeposits = currentNetDeposits + depositAmount;
       
+      // Fetch actual on-chain aUSDC balance after transfer for accurate yield tracking
+      const actualAusdcBalance = await publicClient.readContract({
+        address: network.aUsdcAddress as Address,
+        abi: ERC20_ABI,
+        functionName: 'balanceOf',
+        args: [address as Address],
+      }) as bigint;
+      
+      console.log(`[XP Redeem] User's actual aUSDC balance after transfer: ${actualAusdcBalance}`);
+      
       await storage.upsertYieldSnapshot(normalizedAddress, {
         netDeposits: newNetDeposits.toString(),
-        lastAusdcBalance: (currentNetDeposits + depositAmount).toString(),
+        lastAusdcBalance: actualAusdcBalance.toString(),
       });
 
       console.log(`[XP Redeem] Success! 100 XP → 1 aUSDC transferred to ${address}`);
