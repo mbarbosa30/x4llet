@@ -456,31 +456,26 @@ function DesktopLanding({
         </section>
       )}
 
-      {/* Chains Section */}
+      {/* Powered By Section */}
       <section className="py-16 px-8 border-t border-foreground/10">
         <div className="max-w-4xl mx-auto text-center">
-          <p className="text-lg text-muted-foreground mb-2">
-            Community signals meet on-chain finality.
-          </p>
-          <h2 className="text-2xl font-black tracking-tight mb-8">
-            Multichain. Gasless. Lightweight.
-          </h2>
-          <div className="flex justify-center gap-8">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#0055FF]" />
-              <span className="text-sm font-mono uppercase">Base</span>
+          <div className="text-sm font-mono uppercase tracking-widest text-muted-foreground mb-8">Powered By</div>
+          <div className="flex flex-wrap justify-center gap-10 md:gap-20">
+            <div className="text-center">
+              <div className="text-lg font-mono font-bold">x402</div>
+              <div className="text-sm text-muted-foreground">HTTP Payment Protocol</div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#FCFF52]" />
-              <span className="text-sm font-mono uppercase">Celo</span>
+            <div className="text-center">
+              <div className="text-lg font-mono font-bold">EIP-3009</div>
+              <div className="text-sm text-muted-foreground">Pre-Authorized Transfers</div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#04795B]" />
-              <span className="text-sm font-mono uppercase">Gnosis</span>
+            <div className="text-center">
+              <div className="text-lg font-mono font-bold">ERC-4626</div>
+              <div className="text-sm text-muted-foreground">Tokenized Vaults</div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#28A0F0]" />
-              <span className="text-sm font-mono uppercase">Arbitrum</span>
+            <div className="text-center">
+              <div className="text-lg font-mono font-bold">Max-flow/Min-cut</div>
+              <div className="text-sm text-muted-foreground">Graph-based Signals</div>
             </div>
           </div>
         </div>
@@ -689,26 +684,31 @@ function DesktopLanding({
         </div>
       </section>
 
-      {/* Powered By Section */}
+      {/* Chains Section */}
       <section className="py-12 px-8 bg-white border-t border-foreground/10">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="text-sm font-mono uppercase tracking-widest text-muted-foreground mb-8">Powered By</div>
-          <div className="flex flex-wrap justify-center gap-10 md:gap-20">
-            <div className="text-center">
-              <div className="text-lg font-mono font-bold">x402</div>
-              <div className="text-sm text-muted-foreground">HTTP Payment Protocol</div>
+          <p className="text-lg text-muted-foreground mb-2">
+            Community signals meet on-chain finality.
+          </p>
+          <h2 className="text-2xl font-black tracking-tight mb-8">
+            Multichain. Gasless. Lightweight.
+          </h2>
+          <div className="flex justify-center gap-8">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-[#0055FF]" />
+              <span className="text-sm font-mono uppercase">Base</span>
             </div>
-            <div className="text-center">
-              <div className="text-lg font-mono font-bold">EIP-3009</div>
-              <div className="text-sm text-muted-foreground">Pre-Authorized Transfers</div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-[#FCFF52]" />
+              <span className="text-sm font-mono uppercase">Celo</span>
             </div>
-            <div className="text-center">
-              <div className="text-lg font-mono font-bold">ERC-4626</div>
-              <div className="text-sm text-muted-foreground">Tokenized Vaults</div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-[#04795B]" />
+              <span className="text-sm font-mono uppercase">Gnosis</span>
             </div>
-            <div className="text-center">
-              <div className="text-lg font-mono font-bold">Max-flow/Min-cut</div>
-              <div className="text-sm text-muted-foreground">Graph-based Signals</div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-[#28A0F0]" />
+              <span className="text-sm font-mono uppercase">Arbitrum</span>
             </div>
           </div>
         </div>
