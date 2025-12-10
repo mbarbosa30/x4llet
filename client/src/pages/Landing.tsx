@@ -700,7 +700,7 @@ function DesktopLanding({
             </div>
             <div className="text-center">
               <div className="text-base font-mono font-bold">EIP-3009</div>
-              <div className="text-sm text-muted-foreground">Gasless Transfers</div>
+              <div className="text-sm text-muted-foreground">Transfers with Authorization</div>
             </div>
             <div className="text-center">
               <div className="text-base font-mono font-bold">ERC-4626</div>
