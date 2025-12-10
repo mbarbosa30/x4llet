@@ -1418,7 +1418,7 @@ export default function Claim() {
                   <div className="pt-3 border-t mt-4">
                     <Button
                       size="lg"
-                      className="w-full bg-orange-500 hover:bg-orange-600 text-white disabled:bg-orange-300 disabled:text-white/70"
+                      className="w-full bg-orange-500 hover:bg-orange-600 text-white disabled:bg-neutral-400 disabled:text-neutral-600"
                       onClick={() => setShowGdExchangeDialog(true)}
                       disabled={parseFloat((gdBalance?.balanceFormatted || '0').replace(/,/g, '')) < 10}
                       data-testid="button-buy-xp-gd-unverified"
