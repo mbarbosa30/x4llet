@@ -2806,27 +2806,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let failed = 0;
       const errors: string[] = [];
       
-      for (const wallet of wallets) {
-        try {
-          // Fetch cached score from MaxFlow API
-          const response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/score/${wallet.address}`);
-          
-          if (response.ok) {
-            const data = await response.json();
-            await storage.saveMaxFlowScore(wallet.address, data);
-            updated++;
+      // Process wallets in parallel batches of 5
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < wallets.length; i += BATCH_SIZE) {
+        const batch = wallets.slice(i, i + BATCH_SIZE);
+        
+        const results = await Promise.allSettled(
+          batch.map(async (wallet) => {
+            const response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/score/${wallet.address}`);
+            
+            if (response.ok) {
+              const data = await response.json();
+              await storage.saveMaxFlowScore(wallet.address, data);
+              return { success: true, address: wallet.address };
+            } else {
+              const errorMsg = response.status !== 404 ? `${wallet.address}: HTTP ${response.status}` : null;
+              return { success: false, address: wallet.address, error: errorMsg };
+            }
+          })
+        );
+        
+        for (const result of results) {
+          if (result.status === 'fulfilled') {
+            if (result.value.success) {
+              updated++;
+            } else {
+              failed++;
+              if (result.value.error) {
+                errors.push(result.value.error);
+              }
+            }
           } else {
             failed++;
-            if (response.status !== 404) {
-              errors.push(`${wallet.address}: HTTP ${response.status}`);
-            }
+            errors.push(`Unknown error: ${result.reason}`);
           }
-        } catch (error: any) {
-          failed++;
-          errors.push(`${wallet.address}: ${error.message}`);
         }
-        
-        await new Promise(resolve => setTimeout(resolve, 100));
       }
       
       res.json({
