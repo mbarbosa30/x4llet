@@ -408,6 +408,7 @@ export interface IStorage {
   claimXp(walletAddress: string, xpAmount: number, maxFlowSignal: number): Promise<XpClaim>;
   deductXp(walletAddress: string, xpAmount: number): Promise<{ success: boolean; newBalance: number }>;
   refundXp(walletAddress: string, xpAmount: number): Promise<{ success: boolean; newBalance: number }>;
+  creditXpFromGdExchange(walletAddress: string, xpAmountCenti: number, gdAmount: string): Promise<{ success: boolean; newBalance: number }>;
   getXpClaimHistory(walletAddress: string, limit?: number): Promise<XpClaim[]>;
 }
 
@@ -914,6 +915,10 @@ export class MemStorage implements IStorage {
 
   async refundXp(walletAddress: string, xpAmount: number): Promise<{ success: boolean; newBalance: number }> {
     throw new Error('XP refund not available in MemStorage');
+  }
+
+  async creditXpFromGdExchange(walletAddress: string, xpAmountCenti: number, gdAmount: string): Promise<{ success: boolean; newBalance: number }> {
+    throw new Error('XP credit from G$ exchange not available in MemStorage');
   }
 
   async getXpClaimHistory(walletAddress: string, limit?: number): Promise<XpClaim[]> {
@@ -4060,6 +4065,39 @@ export class DbStorage extends MemStorage {
       .where(eq(xpBalances.walletAddress, normalized));
     
     console.log(`[XP] Refunded ${xpAmount} XP to ${normalized} (new balance: ${newBalance})`);
+    return { success: true, newBalance };
+  }
+
+  async creditXpFromGdExchange(walletAddress: string, xpAmountCenti: number, gdAmount: string): Promise<{ success: boolean; newBalance: number }> {
+    const normalized = walletAddress.toLowerCase();
+    const now = new Date();
+    
+    const existingBalance = await this.getXpBalance(normalized);
+    
+    if (!existingBalance) {
+      // Create new balance entry
+      await db.insert(xpBalances).values({
+        walletAddress: normalized,
+        totalXp: xpAmountCenti,
+        claimCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+      console.log(`[XP] Credited ${xpAmountCenti} centi-XP from G$ exchange (${gdAmount} G$) to ${normalized} (new balance: ${xpAmountCenti})`);
+      return { success: true, newBalance: xpAmountCenti };
+    }
+    
+    const newBalance = existingBalance.totalXp + xpAmountCenti;
+    
+    await db
+      .update(xpBalances)
+      .set({
+        totalXp: newBalance,
+        updatedAt: now,
+      })
+      .where(eq(xpBalances.walletAddress, normalized));
+    
+    console.log(`[XP] Credited ${xpAmountCenti} centi-XP from G$ exchange (${gdAmount} G$) to ${normalized} (new balance: ${newBalance})`);
     return { success: true, newBalance };
   }
 

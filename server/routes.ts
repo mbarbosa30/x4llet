@@ -5419,6 +5419,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== XP EXCHANGE: Buy XP with G$ (10 G$ = 1 XP) =====
+  app.post('/api/xp/exchange-gd', async (req, res) => {
+    try {
+      const { address, gdAmount, txHash } = req.body;
+
+      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+
+      if (!gdAmount || typeof gdAmount !== 'string') {
+        return res.status(400).json({ error: 'Invalid G$ amount' });
+      }
+
+      if (!txHash || typeof txHash !== 'string') {
+        return res.status(400).json({ error: 'Transaction hash required' });
+      }
+
+      const normalizedAddress = address.toLowerCase();
+
+      // G$ has 2 decimals, so we expect gdAmount in raw units (e.g., "1000" = 10.00 G$)
+      // Exchange rate: 10 G$ = 1 XP (or 1000 raw G$ units = 1 XP = 100 centi-XP)
+      const gdRaw = BigInt(gdAmount);
+      
+      // Minimum 10 G$ (1000 raw units) for 1 XP
+      if (gdRaw < BigInt(1000)) {
+        return res.status(400).json({ 
+          error: 'Minimum exchange is 10 G$ for 1 XP',
+          minGdRequired: '10.00',
+        });
+      }
+
+      // Calculate XP: 10 G$ = 1 XP, stored as centi-XP (×100)
+      // 1000 raw G$ = 1 XP = 100 centi-XP
+      const xpCenti = Number(gdRaw / BigInt(10)); // e.g., 1000 raw G$ → 100 centi-XP
+      const gdFormatted = (Number(gdRaw) / 100).toFixed(2); // For logging
+
+      console.log(`[XP Exchange] Processing ${gdFormatted} G$ → ${xpCenti / 100} XP for ${normalizedAddress} (tx: ${txHash})`);
+
+      // Credit XP to user
+      const result = await storage.creditXpFromGdExchange(normalizedAddress, xpCenti, gdFormatted);
+
+      if (!result.success) {
+        return res.status(500).json({ error: 'Failed to credit XP' });
+      }
+
+      res.json({
+        success: true,
+        gdExchanged: gdFormatted,
+        xpReceived: xpCenti / 100,
+        newXpBalance: result.newBalance / 100,
+        txHash,
+      });
+    } catch (error) {
+      console.error('[XP Exchange] Error:', error);
+      res.status(500).json({ error: 'Failed to exchange G$ for XP' });
+    }
+  });
+
   // ===== GLOBAL STATS ENDPOINT (PUBLIC) =====
   app.get('/api/stats/global', async (req, res) => {
     try {

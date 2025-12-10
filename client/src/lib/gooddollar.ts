@@ -798,3 +798,149 @@ export async function claimGoodDollarWithWallet(
     return { success: false, error: error.shortMessage || error.message || 'Failed to claim G$' };
   }
 }
+
+// ===== G$ to XP Exchange =====
+
+const TRANSFER_ABI = [
+  {
+    name: 'transfer',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ type: 'bool' }],
+  },
+] as const;
+
+async function getFacilitatorAddress(): Promise<string> {
+  const response = await fetch('/api/facilitator/address');
+  if (!response.ok) {
+    throw new Error('Failed to get facilitator address');
+  }
+  const data = await response.json();
+  return data.address;
+}
+
+export interface GdToXpExchangeResult {
+  success: boolean;
+  txHash?: string;
+  gdExchanged?: string;
+  xpReceived?: number;
+  newXpBalance?: number;
+  error?: string;
+}
+
+export async function exchangeGdForXp(
+  userAddress: Address,
+  privateKey: `0x${string}`,
+  gdAmount: string // Amount in G$ display units (e.g., "10.00")
+): Promise<GdToXpExchangeResult> {
+  const client = getCeloClient();
+  
+  try {
+    // Convert display amount to raw units (G$ has 2 decimals)
+    const gdRaw = BigInt(Math.floor(parseFloat(gdAmount) * 100));
+    
+    // Minimum 10 G$ (1000 raw units) for 1 XP
+    if (gdRaw < BigInt(1000)) {
+      return { success: false, error: 'Minimum exchange is 10 G$' };
+    }
+    
+    // Get facilitator address
+    const facilitatorAddress = await getFacilitatorAddress();
+    console.log('[G$ Exchange] Facilitator:', facilitatorAddress);
+    
+    // Check user's G$ balance
+    const balance = await getGoodDollarBalance(userAddress);
+    const balanceRaw = BigInt(balance.balance);
+    
+    if (balanceRaw < gdRaw) {
+      return { success: false, error: `Insufficient G$ balance. You have ${balance.balanceFormatted} G$` };
+    }
+    
+    // Check CELO balance for gas
+    const celoBalance = await getCeloBalance(userAddress);
+    if (celoBalance < CELO_GAS_THRESHOLD) {
+      console.log('[G$ Exchange] Low CELO balance, requesting gas drip...');
+      const dripResult = await requestCeloGasDrip(userAddress);
+      
+      if (!dripResult.success) {
+        return { success: false, error: dripResult.error || 'Failed to get gas for transfer' };
+      }
+      
+      // Wait for drip to confirm
+      if (dripResult.txHash) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+    }
+    
+    // Create wallet client for signing
+    const { createWalletClient, http, fallback: fb } = await import('viem');
+    const { privateKeyToAccount } = await import('viem/accounts');
+    
+    const account = privateKeyToAccount(privateKey);
+    const walletClient = createWalletClient({
+      account,
+      chain: celo,
+      transport: fb(CELO_RPCS.map(url => http(url))),
+    });
+    
+    // Transfer G$ to facilitator
+    console.log(`[G$ Exchange] Transferring ${gdAmount} G$ to facilitator...`);
+    
+    const txHash = await walletClient.writeContract({
+      address: GOODDOLLAR_CONTRACTS.token.celo,
+      abi: TRANSFER_ABI,
+      functionName: 'transfer',
+      args: [facilitatorAddress as Address, gdRaw],
+    });
+    
+    console.log('[G$ Exchange] Transfer submitted:', txHash);
+    
+    // Wait for confirmation
+    const receipt = await client.waitForTransactionReceipt({ 
+      hash: txHash,
+      timeout: 60_000,
+    });
+    
+    if (receipt.status !== 'success') {
+      return { success: false, error: 'Transfer transaction failed', txHash };
+    }
+    
+    console.log('[G$ Exchange] Transfer confirmed, crediting XP...');
+    
+    // Call backend to credit XP
+    const response = await fetch('/api/xp/exchange-gd', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        address: userAddress,
+        gdAmount: gdRaw.toString(),
+        txHash,
+      }),
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      return { 
+        success: false, 
+        error: data.error || 'Failed to credit XP',
+        txHash, // Include txHash so user knows transfer succeeded
+      };
+    }
+    
+    return {
+      success: true,
+      txHash,
+      gdExchanged: data.gdExchanged,
+      xpReceived: data.xpReceived,
+      newXpBalance: data.newXpBalance,
+    };
+  } catch (error: any) {
+    console.error('[G$ Exchange] Error:', error);
+    return { success: false, error: error.shortMessage || error.message || 'Failed to exchange G$' };
+  }
+}
