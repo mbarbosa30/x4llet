@@ -385,7 +385,7 @@ function DesktopLanding({
                 For Everyone.
               </h1>
               <p className="text-lg text-muted-foreground max-w-md">
-                Reliable as a hammer. Fast as cash.<br />Built for communities, not casinos.
+                Reliable as a hammer. Fast as cash. Built for communities, not casinos.
               </p>
             </div>
             
