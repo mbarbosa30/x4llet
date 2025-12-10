@@ -112,12 +112,23 @@ export default function BalanceCard({
   const hasDisplayData = !!balanceMicro && !!exchangeRate;
 
   return (
-    <div className="bg-card border border-foreground/10 p-6 relative min-h-[180px] flex flex-col" data-testid="card-balance">
-      {/* Top row: icon top-left, title centered */}
+    <div className="bg-card border border-foreground/10 p-6 relative min-h-[200px] flex flex-col" data-testid="card-balance">
+      {/* Top row: icon top-left, title centered, fiat display top-right */}
       <div className="relative">
         <Wallet className="h-4 w-4 text-[#0055FF] absolute left-0 top-0" />
         <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 text-center">
           USDC Balance
+        </div>
+        <div className="absolute right-0 top-0 text-xs font-mono text-muted-foreground" data-testid="text-display-currency">
+          {hasDisplayData ? (
+            <span className="flex items-baseline gap-0.5">
+              <span>≈</span>
+              <span>{fiatCurrency}</span>
+              <span className="font-bold">{Math.floor(animation.animatedValue).toLocaleString()}.{animation.mainDecimals}</span>
+            </span>
+          ) : (
+            <span>≈ {fiatCurrency} --</span>
+          )}
         </div>
       </div>
       
@@ -132,20 +143,6 @@ export default function BalanceCard({
           <span className={`text-3xl font-normal text-muted-foreground mr-1.5 transition-opacity duration-300 ${isRefreshing ? 'opacity-50' : ''}`}>$</span>
           <span className={`transition-opacity duration-300 ${isRefreshing ? 'opacity-50 animate-pulse' : ''}`} data-testid="text-balance">{balance}</span>
         </button>
-        <div className="flex items-center justify-center gap-1 text-xs font-mono uppercase tracking-widest text-muted-foreground mt-1" data-testid="text-display-currency">
-          <span>≈</span>
-          {hasDisplayData ? (
-            <AnimatedBalance
-              value={animation.animatedValue}
-              mainDecimals={animation.mainDecimals}
-              extraDecimals={animation.extraDecimals}
-              currency={fiatCurrency}
-              className="inline-flex items-baseline"
-            />
-          ) : (
-            <span>-- {fiatCurrency}</span>
-          )}
-        </div>
       </div>
       
       {/* Bottom: Chain breakdown - matching Send page styling */}

@@ -1118,7 +1118,7 @@ export default function Earn() {
               </div>
             )}
 
-            <Card className="p-6 min-h-[180px] flex flex-col" data-testid="card-earning-balance">
+            <Card className="p-6 min-h-[200px] flex flex-col" data-testid="card-earning-balance">
               {/* Top row: icon top-left, title centered */}
               <div className="relative">
                 <PiggyBank className="h-4 w-4 text-[#0055FF] absolute left-0 top-0" />

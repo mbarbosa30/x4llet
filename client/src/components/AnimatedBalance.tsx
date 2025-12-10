@@ -24,8 +24,8 @@ export default function AnimatedBalance({
 
   return (
     <div className={`flex items-baseline ${className}`} data-testid={testId}>
-      <span className="text-inherit tabular-nums font-bold mr-1">{currency}</span>
-      <span className="inline-flex items-baseline text-inherit tabular-nums">
+      <span className="text-inherit tabular-nums mr-1">{currency}</span>
+      <span className="inline-flex items-baseline text-inherit tabular-nums font-bold">
         {formattedWholePart}.{mainDecimals}
         {extraDecimals && (
           <span className="text-[0.45em] font-light text-success opacity-70 tabular-nums relative ml-0.5" style={{ top: '-0.5em' }}>
