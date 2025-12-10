@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users, Clock, Share2, CheckCircle2, Circle, ChevronRight } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users, Clock, Share2, Waypoints, CheckCircle2, Circle, ChevronRight } from 'lucide-react';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import {
   Dialog,
@@ -503,7 +503,7 @@ export default function Home() {
                     {getMaxflowCta().includes(':') ? (
                       <Clock className="h-5 w-5" />
                     ) : (
-                      <Share2 className="h-5 w-5" />
+                      <Waypoints className="h-5 w-5" />
                     )}
                   </span>
                   <div className="text-left">
