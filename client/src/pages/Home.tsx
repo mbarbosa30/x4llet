@@ -44,7 +44,8 @@ interface XpData {
 function formatTimeRemaining(ms: number): string {
   const hours = Math.floor(ms / (1000 * 60 * 60));
   const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  const seconds = Math.floor((ms % (1000 * 60)) / 1000);
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
 
 export default function Home() {
@@ -471,44 +472,42 @@ export default function Home() {
               </Button>
             </div>
 
-            {/* Trust Health tiles - only shown when user has funds */}
-            <div className="border border-foreground/10 p-2">
-              <div className="grid grid-cols-2 gap-2">
-                <button 
-                  onClick={() => setLocation('/maxflow')}
-                  className="flex items-center gap-2 p-2 bg-muted/30 border border-foreground/10 hover-elevate text-left"
-                  data-testid="button-trust-maxflow"
-                >
-                  <div className="flex items-center justify-center w-8 h-8 bg-cta/10 text-cta">
-                    {getMaxflowCta().includes(':') ? (
-                      <Clock className="h-4 w-4" />
-                    ) : (
-                      <Users className="h-4 w-4" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[10px] text-muted-foreground font-mono uppercase">MaxFlow</div>
-                    <div className="text-xs font-bold font-mono" data-testid="text-maxflow-cta">{getMaxflowCta()}</div>
-                  </div>
-                </button>
-                <button 
-                  onClick={() => setLocation('/claim')}
-                  className="flex items-center gap-2 p-2 bg-muted/30 border border-foreground/10 hover-elevate text-left"
-                  data-testid="button-trust-gooddollar"
-                >
-                  <div className="flex items-center justify-center w-8 h-8 bg-green-500/10 text-green-600 dark:text-green-400">
-                    {getGoodDollarCta().includes(':') ? (
-                      <Clock className="h-4 w-4" />
-                    ) : (
-                      <Shield className="h-4 w-4" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[10px] text-muted-foreground font-mono uppercase">GoodDollar</div>
-                    <div className="text-xs font-bold font-mono" data-testid="text-gooddollar-cta">{getGoodDollarCta()}</div>
-                  </div>
-                </button>
-              </div>
+            {/* Trust Health tiles */}
+            <div className="grid grid-cols-2 gap-3">
+              <button 
+                onClick={() => setLocation('/maxflow')}
+                className="flex items-center gap-3 p-4 bg-card border border-foreground/10 hover-elevate text-left"
+                data-testid="button-trust-maxflow"
+              >
+                <div className="flex items-center justify-center w-10 h-10 bg-cta/10 text-cta">
+                  {getMaxflowCta().includes(':') ? (
+                    <Clock className="h-5 w-5" />
+                  ) : (
+                    <Users className="h-5 w-5" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-muted-foreground font-mono uppercase tracking-wide">MaxFlow</div>
+                  <div className="text-sm font-bold font-mono tabular-nums" data-testid="text-maxflow-cta">{getMaxflowCta()}</div>
+                </div>
+              </button>
+              <button 
+                onClick={() => setLocation('/claim')}
+                className="flex items-center gap-3 p-4 bg-card border border-foreground/10 hover-elevate text-left"
+                data-testid="button-trust-gooddollar"
+              >
+                <div className="flex items-center justify-center w-10 h-10 bg-green-500/10 text-green-600 dark:text-green-400">
+                  {getGoodDollarCta().includes(':') ? (
+                    <Clock className="h-5 w-5" />
+                  ) : (
+                    <Shield className="h-5 w-5" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-muted-foreground font-mono uppercase tracking-wide">GoodDollar</div>
+                  <div className="text-sm font-bold font-mono tabular-nums" data-testid="text-gooddollar-cta">{getGoodDollarCta()}</div>
+                </div>
+              </button>
             </div>
           </>
         )}
