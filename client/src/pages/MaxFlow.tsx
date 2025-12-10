@@ -1,11 +1,11 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
-import { useLocation } from 'wouter';
+import { useLocation, Link } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Scan, Shield, Loader2, Sparkles, Clock, ChevronDown, Coins } from 'lucide-react';
+import { Scan, Shield, Loader2, Sparkles, Clock, ChevronDown, Coins, Info } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -299,12 +299,19 @@ export default function MaxFlow() {
       <main className="max-w-md mx-auto p-4 space-y-4">
         {!isLoadingMaxFlow && score > 0 && (
           <Card className="p-6 space-y-6">
-            <div className="flex items-center gap-3">
-              <Sparkles className="h-10 w-10 text-amber-500 shrink-0" />
-              <div>
-                <h2 className="text-xl text-section">Experience</h2>
-                <span className="font-label text-muted-foreground">// XP_REWARDS</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Sparkles className="h-10 w-10 text-amber-500 shrink-0" />
+                <div>
+                  <h2 className="text-xl text-section">Experience</h2>
+                  <span className="font-label text-muted-foreground">// XP_REWARDS</span>
+                </div>
               </div>
+              <Link href="/faqs#experience-points">
+                <Button variant="ghost" size="icon" className="h-8 w-8" data-testid="button-xp-info">
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </Link>
             </div>
 
             <div className="text-center py-2">
@@ -574,7 +581,7 @@ export default function MaxFlow() {
                 <Sparkles className="h-5 w-5 text-amber-500" />
                 <span className="font-medium">XP Balance</span>
               </div>
-              <div className="text-right">
+              <div className="flex items-center gap-2">
                 {isLoadingXp ? (
                   <span className="text-2xl font-bold tabular-nums">--</span>
                 ) : (
@@ -582,6 +589,11 @@ export default function MaxFlow() {
                     {xpData?.totalXp ?? 0}
                   </span>
                 )}
+                <Link href="/faqs#experience-points">
+                  <Button variant="ghost" size="icon" className="h-6 w-6" data-testid="button-xp-info-zero">
+                    <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                </Link>
               </div>
             </div>
 
