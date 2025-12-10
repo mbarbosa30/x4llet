@@ -32,12 +32,22 @@ import {
   generateFVLink,
   parseFVCallback,
   claimGoodDollarWithWallet,
+  exchangeGdForXp,
   type IdentityStatus,
   type ClaimStatus,
   type GoodDollarBalance,
   type GoodDollarPrice,
   type ClaimResult,
 } from '@/lib/gooddollar';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { createWalletClient, http } from 'viem';
 import { celo } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -113,6 +123,8 @@ export default function Claim() {
   const [showWaitingTips, setShowWaitingTips] = useState(false);
   const [pendingFvResult, setPendingFvResult] = useState<{ isVerified: boolean; reason?: string } | null>(null);
   const [isRefreshingIdentity, setIsRefreshingIdentity] = useState(false);
+  const [showGdExchangeDialog, setShowGdExchangeDialog] = useState(false);
+  const [gdExchangeAmount, setGdExchangeAmount] = useState('10');
 
   // Parse FV callback immediately on mount (before address loads)
   useEffect(() => {
@@ -552,6 +564,42 @@ export default function Claim() {
       toast({
         title: "Claim Failed",
         description: error.message || "Failed to claim G$",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const exchangeGdMutation = useMutation({
+    mutationFn: async (amount: string) => {
+      if (!address) throw new Error('No wallet found');
+      
+      const privateKey = await getPrivateKey();
+      if (!privateKey) throw new Error('No private key found');
+      
+      return exchangeGdForXp(address as `0x${string}`, privateKey as `0x${string}`, amount);
+    },
+    onSuccess: (result) => {
+      if (result.success) {
+        toast({
+          title: "Exchange Complete!",
+          description: `Exchanged ${result.gdExchanged} G$ for ${result.xpReceived} XP`,
+        });
+        setShowGdExchangeDialog(false);
+        setGdExchangeAmount('10');
+        queryClient.invalidateQueries({ queryKey: ['/gooddollar/balance', address] });
+        queryClient.invalidateQueries({ queryKey: ['/api/xp/balance', address] });
+      } else {
+        toast({
+          title: "Exchange Failed",
+          description: result.error || "Failed to exchange G$ for XP",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Exchange Failed",
+        description: error instanceof Error ? error.message : "Failed to exchange G$ for XP",
         variant: "destructive",
       });
     },
@@ -1268,6 +1316,25 @@ export default function Claim() {
                     </div>
                   )}
 
+                  {/* Get XP with G$ button for verified users */}
+                  {parseFloat((gdBalance?.balanceFormatted || '0').replace(/,/g, '')) >= 10 && (
+                    <div className="pt-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => setShowGdExchangeDialog(true)}
+                        data-testid="button-get-xp-gd"
+                      >
+                        <Gift className="h-4 w-4" />
+                        Get XP with G$
+                      </Button>
+                      <p className="text-xs text-muted-foreground text-center mt-1">
+                        10 G$ = 1 XP
+                      </p>
+                    </div>
+                  )}
+
                   <div className="pt-4 border-t space-y-2">
                     <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">UBI Stats</h3>
                     <div className="grid grid-cols-2 gap-3 text-sm">
@@ -1350,6 +1417,25 @@ export default function Claim() {
                       </>
                     ) : 'Verify Face to Start'}
                   </Button>
+
+                  {/* Get XP with G$ button for non-verified users with G$ balance */}
+                  {parseFloat((gdBalance?.balanceFormatted || '0').replace(/,/g, '')) >= 10 && (
+                    <div className="pt-3 border-t mt-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => setShowGdExchangeDialog(true)}
+                        data-testid="button-get-xp-gd-unverified"
+                      >
+                        <Gift className="h-4 w-4" />
+                        Get XP with G$
+                      </Button>
+                      <p className="text-xs text-muted-foreground text-center mt-1">
+                        10 G$ = 1 XP
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </Card>
@@ -1393,6 +1479,89 @@ export default function Claim() {
           />
         </Suspense>
       )}
+
+      {/* G$ to XP Exchange Dialog */}
+      <Dialog open={showGdExchangeDialog} onOpenChange={setShowGdExchangeDialog}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Exchange G$ for XP</DialogTitle>
+            <DialogDescription>
+              Convert your G$ tokens to XP at a rate of 10 G$ = 1 XP
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="gd-amount">G$ Amount</Label>
+              <Input
+                id="gd-amount"
+                type="number"
+                min="10"
+                step="10"
+                value={gdExchangeAmount}
+                onChange={(e) => setGdExchangeAmount(e.target.value)}
+                placeholder="Enter G$ amount"
+                data-testid="input-gd-exchange-amount"
+              />
+              <p className="text-xs text-muted-foreground">
+                Available: {gdBalance?.balanceFormatted || '0'} G$
+              </p>
+            </div>
+
+            <div className="p-3 border rounded-md bg-muted/30">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">You will receive:</span>
+                <span className="font-mono font-bold" data-testid="text-xp-preview">
+                  {Math.floor(parseFloat(gdExchangeAmount || '0') / 10)} XP
+                </span>
+              </div>
+            </div>
+
+            {parseFloat(gdExchangeAmount || '0') > parseFloat(gdBalance?.balanceFormatted?.replace(/,/g, '') || '0') && (
+              <p className="text-xs text-destructive">
+                Insufficient G$ balance
+              </p>
+            )}
+
+            {parseFloat(gdExchangeAmount || '0') < 10 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Minimum exchange is 10 G$
+              </p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowGdExchangeDialog(false);
+                setGdExchangeAmount('10');
+              }}
+              disabled={exchangeGdMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => exchangeGdMutation.mutate(gdExchangeAmount)}
+              disabled={
+                exchangeGdMutation.isPending ||
+                parseFloat(gdExchangeAmount || '0') < 10 ||
+                parseFloat(gdExchangeAmount || '0') > parseFloat(gdBalance?.balanceFormatted?.replace(/,/g, '') || '0')
+              }
+              data-testid="button-confirm-exchange"
+            >
+              {exchangeGdMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Exchanging...
+                </>
+              ) : (
+                'Exchange'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
