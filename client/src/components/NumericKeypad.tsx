@@ -37,7 +37,7 @@ export default function NumericKeypad({
                   onNumberClick(num);
                 }
               }}
-              className={`h-16 flex items-center justify-center font-mono text-xl font-bold bg-background hover:bg-muted active:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed ${colIndex < 2 ? 'border-r border-foreground/10' : ''}`}
+              className={`h-12 flex items-center justify-center font-mono text-xl font-bold bg-background hover:bg-muted active:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed ${colIndex < 2 ? 'border-r border-foreground/10' : ''}`}
               data-testid={`keypad-${num}`}
             >
               {num === 'del' ? <Delete className="h-5 w-5" /> : num}

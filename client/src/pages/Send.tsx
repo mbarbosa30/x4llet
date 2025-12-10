@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useLocation } from 'wouter';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
-import { Scan, Clipboard, Repeat, Loader2, MessageSquare } from 'lucide-react';
+import { Scan, Clipboard, Repeat, Loader2, MessageSquare, ChevronDown, Check } from 'lucide-react';
 import NumericKeypad from '@/components/NumericKeypad';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 
@@ -44,6 +44,7 @@ export default function Send() {
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
   const [earnMode, setEarnMode] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [showChainSelector, setShowChainSelector] = useState(false);
   const isTogglingRef = useRef(false);
   const lastConvertedRef = useRef<{value: string; currency: 'USDC' | 'fiat'}>({value: '', currency: 'USDC'});
   const hasAutoSelectedRef = useRef(false); // Track if we've auto-selected network
@@ -172,13 +173,24 @@ export default function Send() {
     : '0.00';
   const balance = selectedChainBalance;
   
-  // Get chains with USDC balance for selector
-  const chainsWithBalance = balanceData?.chains ? [
+  // Default chain list (used when balance data is loading)
+  const defaultChains = [
+    { network: 'base' as const, chainId: 8453, balance: '--', balanceMicro: 0n },
+    { network: 'celo' as const, chainId: 42220, balance: '--', balanceMicro: 0n },
+    { network: 'gnosis' as const, chainId: 100, balance: '--', balanceMicro: 0n },
+    { network: 'arbitrum' as const, chainId: 42161, balance: '--', balanceMicro: 0n },
+  ];
+  
+  // Get all chains for selector (show all, not just ones with balance)
+  const allChains = balanceData?.chains ? [
     { network: 'base' as const, chainId: 8453, balance: balanceData.chains.base.balance, balanceMicro: BigInt(balanceData.chains.base.balanceMicro) },
     { network: 'celo' as const, chainId: 42220, balance: balanceData.chains.celo.balance, balanceMicro: BigInt(balanceData.chains.celo.balanceMicro) },
     { network: 'gnosis' as const, chainId: 100, balance: balanceData.chains.gnosis.balance, balanceMicro: BigInt(balanceData.chains.gnosis.balanceMicro) },
     { network: 'arbitrum' as const, chainId: 42161, balance: balanceData.chains.arbitrum?.balance || '0.00', balanceMicro: BigInt(balanceData.chains.arbitrum?.balanceMicro || '0') },
-  ].filter(c => c.balanceMicro > 0n) : [];
+  ] : defaultChains;
+  
+  // Filter for chains with balance (used elsewhere)
+  const chainsWithBalance = allChains.filter(c => c.balanceMicro > 0n);
   
   const handleNetworkChange = (newNetwork: 'base' | 'celo' | 'gnosis' | 'arbitrum') => {
     const chainIds = { base: 8453, celo: 42220, gnosis: 100, arbitrum: 42161 };
@@ -688,8 +700,61 @@ export default function Send() {
                       <span className="text-foreground/60">= {((parseFloat(usdcAmount) || 0) * rate).toFixed(2)} {currency}</span>
                     )}
                   </button>
-                  <div className="flex items-center justify-center gap-2 mt-3 text-xs font-mono text-muted-foreground">
-                    <span data-testid="text-balance">{balance} USDC on {network.toUpperCase()}</span>
+                  <div className="relative flex flex-col items-center mt-3">
+                    <button
+                      onClick={() => setShowChainSelector(!showChainSelector)}
+                      className="flex items-center gap-1 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"
+                      data-testid="button-chain-selector"
+                    >
+                      <span className={`inline-flex items-center justify-center w-4 h-4 text-[8px] font-bold text-white ${
+                        network === 'base' ? 'bg-blue-500' : 
+                        network === 'celo' ? 'bg-yellow-500' : 
+                        network === 'arbitrum' ? 'bg-cyan-500' :
+                        'bg-green-600'
+                      }`}>
+                        {network === 'base' ? 'B' : network === 'celo' ? 'C' : network === 'arbitrum' ? 'A' : 'G'}
+                      </span>
+                      <span data-testid="text-balance">{balance} USDC on {network.toUpperCase()}</span>
+                      <ChevronDown className={`h-3 w-3 transition-transform ${showChainSelector ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                    {showChainSelector && (
+                      <div className="absolute top-full mt-2 z-50 border border-foreground/10 bg-background shadow-lg min-w-48">
+                        {allChains.length > 0 ? (
+                          allChains.map((chain) => (
+                            <button
+                              key={chain.network}
+                              onClick={() => {
+                                handleNetworkChange(chain.network);
+                                setShowChainSelector(false);
+                              }}
+                              className="w-full flex items-center justify-between gap-3 px-3 py-2 text-xs font-mono hover:bg-muted transition-colors"
+                              data-testid={`chain-option-${chain.network}`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className={`inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold text-white ${
+                                  chain.network === 'base' ? 'bg-blue-500' : 
+                                  chain.network === 'celo' ? 'bg-yellow-500' : 
+                                  chain.network === 'arbitrum' ? 'bg-cyan-500' :
+                                  'bg-green-600'
+                                }`}>
+                                  {chain.network === 'base' ? 'B' : chain.network === 'celo' ? 'C' : chain.network === 'arbitrum' ? 'A' : 'G'}
+                                </span>
+                                <span>{chain.network.toUpperCase()}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">{chain.balance} USDC</span>
+                                {chain.network === network && <Check className="h-3 w-3 text-[#0055FF]" />}
+                              </div>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-3 py-2 text-xs font-mono text-muted-foreground">
+                            No chains with balance
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
