@@ -1539,6 +1539,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             netDeposits: newNetDeposits.toString(),
             lastAusdcBalance: actualAusdcBalance.toString(),
           });
+          
+          // Cache aUSDC balance for Traction page visibility
+          await storage.cacheAUsdcBalance(normalizedAddr, chainId, actualAusdcBalance.toString());
+          
           console.log(`[Aave Supply] Updated netDeposits for ${normalizedAddr}: ${newNetDeposits.toString()}, actual aUSDC: ${actualAusdcBalance.toString()}`);
         } catch (balanceError) {
           console.error('[Aave Supply] Failed to fetch balance for snapshot, updating netDeposits only:', balanceError);
@@ -1686,6 +1690,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             netDeposits: newNetDeposits.toString(),
             lastAusdcBalance: actualAusdcBalance.toString(),
           });
+          
+          // Cache aUSDC balance for Traction page visibility
+          await storage.cacheAUsdcBalance(normalizedAddr, chainId, actualAusdcBalance.toString());
+          
           console.log(`[Aave Withdraw] Updated netDeposits for ${normalizedAddr}: ${newNetDeposits.toString()}, actual aUSDC: ${actualAusdcBalance.toString()}`);
         } catch (balanceError) {
           console.error('[Aave Withdraw] Failed to fetch balance for snapshot, updating netDeposits only:', balanceError);
@@ -5442,6 +5450,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           netDeposits: newNetDeposits.toString(),
           lastAusdcBalance: actualAusdcBalance.toString(),
         });
+        
+        // Cache aUSDC balance for Traction page visibility (Celo = chainId 42220)
+        await storage.cacheAUsdcBalance(normalizedAddress, 42220, actualAusdcBalance.toString());
       } catch (balanceError) {
         console.error('[XP Redeem] Failed to fetch balance for snapshot, updating netDeposits only:', balanceError);
         await storage.upsertYieldSnapshot(normalizedAddress, {
