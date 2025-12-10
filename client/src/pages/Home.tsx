@@ -486,14 +486,20 @@ export default function Home() {
 
             {/* Trust Health section */}
             <div className="space-y-2">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Trust Health</h2>
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
+                Trust Health
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-[#30A99C] dark:bg-[#40C4B5]" title="MaxFlow"></span>
+                  <span className="w-2 h-2 rounded-full bg-[#03B2CB]" title="GoodDollar"></span>
+                </span>
+              </h2>
               <div className="grid grid-cols-2 bg-card border border-foreground/10 divide-x divide-foreground/10">
                 <button 
                   onClick={() => setLocation('/maxflow')}
                   className="flex items-center gap-3 px-4 py-3 hover-elevate"
                   data-testid="button-trust-maxflow"
                 >
-                  <span className="text-cta">
+                  <span className="text-[#30A99C] dark:text-[#40C4B5]">
                     {getMaxflowCta().includes(':') ? (
                       <Clock className="h-5 w-5" />
                     ) : (
@@ -510,7 +516,7 @@ export default function Home() {
                   className="flex items-center gap-3 px-4 py-3 hover-elevate"
                   data-testid="button-trust-gooddollar"
                 >
-                  <span className="text-green-600 dark:text-green-400">
+                  <span className="text-[#03B2CB]">
                     {getGoodDollarCta().includes(':') ? (
                       <Clock className="h-5 w-5" />
                     ) : (
@@ -529,7 +535,26 @@ export default function Home() {
 
         {(isLoadingWallet || transactions.length > 0) && (
           <div className="space-y-3">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Recent Activity</h2>
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
+              Recent Activity
+              {transactions.length > 0 && (
+                <span className="flex items-center gap-1">
+                  {/* Show dots for chains that have transactions */}
+                  {[...new Set(transactions.map(tx => tx.chainId).filter(Boolean))].sort().map(chainId => (
+                    <span 
+                      key={chainId}
+                      className={`w-2 h-2 rounded-full ${
+                        chainId === 8453 ? 'bg-blue-500' : 
+                        chainId === 42220 ? 'bg-yellow-500' : 
+                        chainId === 42161 ? 'bg-cyan-500' :
+                        'bg-green-600'
+                      }`}
+                      title={chainId === 8453 ? 'Base' : chainId === 42220 ? 'Celo' : chainId === 42161 ? 'Arbitrum' : 'Gnosis'}
+                    />
+                  ))}
+                </span>
+              )}
+            </h2>
             {isLoadingWallet ? (
               <TransactionListSkeleton />
             ) : (

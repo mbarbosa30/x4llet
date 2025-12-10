@@ -886,7 +886,7 @@ export default function Claim() {
               ) : (
                 <div className="space-y-6">
                   <div className="flex items-center gap-3">
-                    <CircleDot className="h-10 w-10 text-[#0055FF] shrink-0" />
+                    <CircleDot className="h-10 w-10 text-[#03B2CB] shrink-0" />
                     <div>
                       <h2 className="text-xl text-section">Social Money</h2>
                       <span className="font-label text-muted-foreground">// GNOSIS</span>
@@ -1314,7 +1314,7 @@ export default function Claim() {
               ) : (
                 <div className="space-y-6">
                   <div className="flex items-center gap-3">
-                    <Gift className="h-10 w-10 text-[#0055FF] shrink-0" />
+                    <Gift className="h-10 w-10 text-[#03B2CB] shrink-0" />
                     <div>
                       <h2 className="text-xl text-section">Daily UBI</h2>
                       <span className="font-label text-muted-foreground">// CELO</span>

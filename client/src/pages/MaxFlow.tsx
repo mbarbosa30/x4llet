@@ -309,7 +309,7 @@ export default function MaxFlow() {
           {!isLoadingMaxFlow && score === 0 ? (
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <Shield className="h-10 w-10 text-[#0055FF] shrink-0" />
+                <Shield className="h-10 w-10 text-[#30A99C] dark:text-[#40C4B5] shrink-0" />
                 <div>
                   <h2 className="text-xl text-section">Trust Graph</h2>
                   <span className="font-label text-muted-foreground">// MAXFLOW</span>
@@ -355,7 +355,7 @@ export default function MaxFlow() {
                   <div
                     key={i}
                     className={`h-2 w-2 rounded-full ${
-                      i < Math.round(score / 10) ? 'bg-[#0055FF]' : 'bg-muted'
+                      i < Math.round(score / 10) ? 'bg-[#30A99C] dark:bg-[#40C4B5]' : 'bg-muted'
                     }`}
                   />
                 ))}
@@ -533,7 +533,7 @@ export default function MaxFlow() {
               href="https://maxflow.one" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="text-[#0055FF] hover:underline"
+              className="text-[#30A99C] dark:text-[#40C4B5] hover:underline"
             >
               MaxFlow.one
             </a>{' '}
@@ -543,7 +543,7 @@ export default function MaxFlow() {
             href="https://maxflow.one/whitepaper" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="inline-block text-xs text-[#0055FF] hover:underline font-medium"
+            className="inline-block text-xs text-[#30A99C] dark:text-[#40C4B5] hover:underline font-medium"
             data-testid="link-whitepaper"
           >
             Read the Whitepaper →
