@@ -16,6 +16,7 @@ interface TransactionRecord {
   gasUsed: string;
   gasPrice: string;
   timeStamp: string;
+  value: string; // Native token value transferred (for drips)
 }
 
 interface GasScanResult {
@@ -89,9 +90,12 @@ async function fetchFacilitatorTransactions(
         gasUsed: tx.gasUsed,
         gasPrice: tx.gasPrice,
         timeStamp: tx.timeStamp,
+        value: tx.value || '0', // Native token value transferred
       }));
     
-    console.log(`[GasScanner] Chain ${chainId}: Found ${data.result.length} total txs, ${filtered.length} from facilitator`);
+    // Count drip transactions (native token transfers with value > 0)
+    const dripCount = filtered.filter((tx: TransactionRecord) => BigInt(tx.value) > 0n).length;
+    console.log(`[GasScanner] Chain ${chainId}: Found ${data.result.length} total txs, ${filtered.length} from facilitator (${dripCount} drips)`);
     return filtered;
   } catch (error) {
     console.error(`[GasScanner] Error fetching chain ${chainId}:`, error);
@@ -99,14 +103,20 @@ async function fetchFacilitatorTransactions(
   }
 }
 
-function calculateGasCost(transactions: TransactionRecord[]): bigint {
-  let totalWei = 0n;
+function calculateTotalSponsored(transactions: TransactionRecord[]): { gasCost: bigint; dripValue: bigint; total: bigint } {
+  let gasCost = 0n;
+  let dripValue = 0n;
+  
   for (const tx of transactions) {
     const gasUsed = BigInt(tx.gasUsed || '0');
     const gasPrice = BigInt(tx.gasPrice || '0');
-    totalWei += gasUsed * gasPrice;
+    gasCost += gasUsed * gasPrice;
+    
+    // Add native token value transferred (drips)
+    dripValue += BigInt(tx.value || '0');
   }
-  return totalWei;
+  
+  return { gasCost, dripValue, total: gasCost + dripValue };
 }
 
 function weiToNative(wei: bigint, decimals: number = 18): string {
@@ -156,8 +166,8 @@ export async function scanAllChainsGas(
         continue;
       }
 
-      const totalWei = calculateGasCost(transactions);
-      const totalNative = weiToNative(totalWei, chain.decimals);
+      const { gasCost, dripValue, total } = calculateTotalSponsored(transactions);
+      const totalNative = weiToNative(total, chain.decimals);
       const nativeFloat = parseFloat(totalNative);
       
       const priceKey = chain.nativeToken === 'XDAI' ? 'XDAI' : chain.nativeToken;
@@ -167,7 +177,10 @@ export async function scanAllChainsGas(
       const lastTxBlock = transactions[transactions.length - 1].blockNumber;
       await setLastBlock(chain.chainId, lastTxBlock);
 
-      console.log(`[GasScanner] ${chain.name}: ${transactions.length} txs, ${totalNative} ${chain.nativeToken}, $${totalUsd.toFixed(2)}`);
+      // Log breakdown of gas fees vs drip values
+      const gasNative = weiToNative(gasCost, chain.decimals);
+      const dripNative = weiToNative(dripValue, chain.decimals);
+      console.log(`[GasScanner] ${chain.name}: ${transactions.length} txs, gas: ${gasNative}, drips: ${dripNative}, total: ${totalNative} ${chain.nativeToken}, $${totalUsd.toFixed(2)}`);
 
       results.push({
         chainId: chain.chainId,
