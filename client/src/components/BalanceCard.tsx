@@ -113,13 +113,13 @@ export default function BalanceCard({
 
   return (
     <div className="bg-card border border-foreground/10 p-6 relative min-h-[200px] flex flex-col" data-testid="card-balance">
-      {/* Top row: icon top-left, title centered, fiat display top-right */}
-      <div className="relative">
-        <Wallet className="h-4 w-4 text-[#0055FF] absolute left-0 top-0" />
-        <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 text-center">
+      {/* Top row: icon top-left, title centered, fiat display top-right - fixed height */}
+      <div className="relative h-5 flex items-center">
+        <Wallet className="h-4 w-4 text-[#0055FF] absolute left-0" />
+        <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 text-center flex-1">
           USDC Balance
         </div>
-        <div className="absolute right-0 top-0 text-xs font-mono text-muted-foreground" data-testid="text-display-currency">
+        <div className="absolute right-0 text-xs font-mono text-muted-foreground" data-testid="text-display-currency">
           {hasDisplayData ? (
             <span className="flex items-baseline gap-0.5">
               <span>≈</span>
@@ -145,8 +145,8 @@ export default function BalanceCard({
         </button>
       </div>
       
-      {/* Bottom: Chain breakdown - matching Send page styling */}
-      <div className="flex items-center justify-center gap-4" data-testid="text-chain-breakdown">
+      {/* Bottom: Chain breakdown - matching Send page styling - fixed height */}
+      <div className="flex items-center justify-center gap-4 h-6" data-testid="text-chain-breakdown">
         {chainBreakdown.length > 0 ? (
           chainBreakdown.map((chain) => {
             const style = getChainStyle(chain.chainId);

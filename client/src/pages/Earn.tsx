@@ -1119,10 +1119,10 @@ export default function Earn() {
             )}
 
             <Card className="p-6 min-h-[200px] flex flex-col" data-testid="card-earning-balance">
-              {/* Top row: icon top-left, title centered */}
-              <div className="relative">
-                <PiggyBank className="h-4 w-4 text-[#0055FF] absolute left-0 top-0" />
-                <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 text-center">
+              {/* Top row: icon top-left, title centered - fixed height */}
+              <div className="relative h-5 flex items-center">
+                <PiggyBank className="h-4 w-4 text-[#0055FF] absolute left-0" />
+                <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 text-center flex-1">
                   Total Earning
                 </div>
               </div>
@@ -1162,8 +1162,8 @@ export default function Earn() {
                 )}
               </div>
               
-              {/* Bottom: APY badge */}
-              <div className="flex items-center justify-center">
+              {/* Bottom: APY badge - fixed height */}
+              <div className="flex items-center justify-center h-6">
                 <div className="bg-[#0055FF] text-white px-2.5 py-1 text-xs font-semibold uppercase tracking-wide">
                   {weightedApy > 0 ? `${weightedApy.toFixed(2)}%` : '—'} APY
                 </div>

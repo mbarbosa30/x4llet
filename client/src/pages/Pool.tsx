@@ -827,10 +827,10 @@ export default function Pool() {
             <TabsContent value="pool" className="mt-4 space-y-4">
               {/* This Week's Prize */}
               <Card className="p-6 min-h-[200px] flex flex-col" data-testid="card-prize-pool">
-                {/* Top row: icon top-left, title centered */}
-                <div className="relative">
-                  <Trophy className="h-4 w-4 text-[#0055FF] absolute left-0 top-0" />
-                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 text-center">
+                {/* Top row: icon top-left, title centered - fixed height */}
+                <div className="relative h-5 flex items-center">
+                  <Trophy className="h-4 w-4 text-[#0055FF] absolute left-0" />
+                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 text-center flex-1">
                     THIS WEEK'S PRIZE
                   </div>
                 </div>
@@ -868,8 +868,8 @@ export default function Pool() {
                   })()}
                 </div>
                 
-                {/* Bottom: Week badge and stats */}
-                <div className="flex items-center justify-center gap-4">
+                {/* Bottom: Week badge and stats - fixed height */}
+                <div className="flex items-center justify-center gap-4 h-6">
                   <div className="bg-[#0055FF] text-white px-2.5 py-1 text-xs font-semibold uppercase tracking-wide">
                     Week {poolStatus.draw.weekNumber}
                   </div>
