@@ -693,22 +693,22 @@ function DesktopLanding({
       <section className="py-12 px-8 bg-white border-t border-foreground/10">
         <div className="max-w-4xl mx-auto text-center">
           <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-6">Powered By</div>
-          <div className="flex flex-wrap justify-center gap-8 md:gap-16">
+          <div className="flex flex-wrap justify-center gap-10 md:gap-20">
             <div className="text-center">
-              <div className="text-sm font-mono font-bold">x402</div>
-              <div className="text-xs text-muted-foreground">HTTP Protocol</div>
+              <div className="text-base font-mono font-bold">x402</div>
+              <div className="text-sm text-muted-foreground">HTTP Protocol</div>
             </div>
             <div className="text-center">
-              <div className="text-sm font-mono font-bold">EIP-3009</div>
-              <div className="text-xs text-muted-foreground">Gasless Transfers</div>
+              <div className="text-base font-mono font-bold">EIP-3009</div>
+              <div className="text-sm text-muted-foreground">Gasless Transfers</div>
             </div>
             <div className="text-center">
-              <div className="text-sm font-mono font-bold">ERC-4626</div>
-              <div className="text-xs text-muted-foreground">Tokenized Vaults</div>
+              <div className="text-base font-mono font-bold">ERC-4626</div>
+              <div className="text-sm text-muted-foreground">Tokenized Vaults</div>
             </div>
             <div className="text-center">
-              <div className="text-sm font-mono font-bold">Max-flow/Min-cut</div>
-              <div className="text-xs text-muted-foreground">Graph-based Signals</div>
+              <div className="text-base font-mono font-bold">Max-flow/Min-cut</div>
+              <div className="text-sm text-muted-foreground">Graph-based Signals</div>
             </div>
           </div>
         </div>
