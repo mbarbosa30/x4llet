@@ -178,8 +178,11 @@ export default function Home() {
   const mfScore = maxflowScore?.local_health ?? 0;
   const getMaxflowCta = (): string => {
     if (mfScore === 0 || !xpData) return 'Vouch';
-    if (xpData.timeUntilNextClaim && xpData.timeUntilNextClaim > 0) {
-      return formatTimeRemaining(xpData.timeUntilNextClaim);
+    if (xpData.nextClaimTime) {
+      const nextTime = new Date(xpData.nextClaimTime);
+      const now = new Date();
+      const diff = nextTime.getTime() - now.getTime();
+      if (diff > 0) return formatTimeRemaining(diff);
     }
     if (xpData.canClaim) return 'Claim XP';
     return 'Vouch';
