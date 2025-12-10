@@ -157,9 +157,8 @@ export default function BalanceCard({
                   className="inline-flex items-baseline"
                 />
               ) : (
-                <span>--</span>
+                <span>-- {fiatCurrency}</span>
               )}
-              <span>{fiatCurrency}</span>
             </div>
           </div>
         </div>
