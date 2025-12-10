@@ -1,11 +1,11 @@
 {
-  "name": "nanoPay - Gasless USDC Wallet",
+  "name": "nanoPay - Money Simplified",
   "short_name": "nanoPay",
-  "description": "Send USDC without gas fees on Base, Celo, and Gnosis. Earn yield with Aave. Build trust with Circles. Non-custodial, offline-first.",
+  "description": "Money simplified for everyone. Send instantly, earn automatically, build trust globally. No gas fees, no complexity.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "background_color": "#F4F4F1",
+  "theme_color": "#0055FF",
   "orientation": "portrait",
   "scope": "/",
   "icons": [
