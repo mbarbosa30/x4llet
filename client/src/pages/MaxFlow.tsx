@@ -141,11 +141,28 @@ export default function MaxFlow() {
       queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
       queryClient.invalidateQueries({ queryKey: ['/api/aave/balance'] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       setShowRedeemConfirm(false);
+      let errorMessage = "Failed to redeem XP";
+      try {
+        if (error instanceof Error && error.message) {
+          // apiRequest throws Error with message format "status: json_text"
+          const match = error.message.match(/^\d+:\s*(.+)$/);
+          if (match) {
+            try {
+              const parsed = JSON.parse(match[1]);
+              errorMessage = parsed.error || match[1];
+            } catch {
+              errorMessage = match[1];
+            }
+          } else {
+            errorMessage = error.message;
+          }
+        }
+      } catch {}
       toast({
         title: "Redemption Failed",
-        description: error instanceof Error ? error.message : "Failed to redeem XP",
+        description: errorMessage,
         variant: "destructive",
       });
     },

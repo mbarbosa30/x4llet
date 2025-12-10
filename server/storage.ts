@@ -3998,28 +3998,34 @@ export class DbStorage extends MemStorage {
     const normalized = walletAddress.toLowerCase();
     const now = new Date();
     
-    const existingBalance = await this.getXpBalance(normalized);
+    // Use atomic UPDATE with WHERE clause to prevent race conditions
+    // This ensures balance check and deduction happen in a single atomic operation
+    const result = await db
+      .update(xpBalances)
+      .set({
+        totalXp: sql`"total_xp" - ${xpAmount}`,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(xpBalances.walletAddress, normalized),
+          gte(xpBalances.totalXp, xpAmount)
+        )
+      )
+      .returning({ newBalance: xpBalances.totalXp });
     
-    if (!existingBalance) {
-      console.log(`[XP] Deduct failed: No XP balance for ${normalized}`);
-      return { success: false, newBalance: 0 };
-    }
-    
-    if (existingBalance.totalXp < xpAmount) {
+    if (result.length === 0) {
+      // Either no balance exists or insufficient XP
+      const existingBalance = await this.getXpBalance(normalized);
+      if (!existingBalance) {
+        console.log(`[XP] Deduct failed: No XP balance for ${normalized}`);
+        return { success: false, newBalance: 0 };
+      }
       console.log(`[XP] Deduct failed: Insufficient XP for ${normalized} (has ${existingBalance.totalXp}, needs ${xpAmount})`);
       return { success: false, newBalance: existingBalance.totalXp };
     }
     
-    const newBalance = existingBalance.totalXp - xpAmount;
-    
-    await db
-      .update(xpBalances)
-      .set({
-        totalXp: newBalance,
-        updatedAt: now,
-      })
-      .where(eq(xpBalances.walletAddress, normalized));
-    
+    const newBalance = result[0].newBalance;
     console.log(`[XP] Deducted ${xpAmount} XP from ${normalized} (new balance: ${newBalance})`);
     return { success: true, newBalance };
   }
