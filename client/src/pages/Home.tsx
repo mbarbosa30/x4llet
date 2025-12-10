@@ -490,14 +490,14 @@ export default function Home() {
               <div className="grid grid-cols-2 bg-card border border-foreground/10 divide-x divide-foreground/10">
                 <button 
                   onClick={() => setLocation('/maxflow')}
-                  className="flex items-center gap-2 p-3 hover-elevate"
+                  className="flex items-center gap-3 px-4 py-3 hover-elevate"
                   data-testid="button-trust-maxflow"
                 >
                   <span className="text-cta">
                     {getMaxflowCta().includes(':') ? (
-                      <Clock className="h-4 w-4" />
+                      <Clock className="h-5 w-5" />
                     ) : (
-                      <Users className="h-4 w-4" />
+                      <Users className="h-5 w-5" />
                     )}
                   </span>
                   <div className="text-left">
@@ -507,14 +507,14 @@ export default function Home() {
                 </button>
                 <button 
                   onClick={() => setLocation('/claim')}
-                  className="flex items-center gap-2 p-3 hover-elevate"
+                  className="flex items-center gap-3 px-4 py-3 hover-elevate"
                   data-testid="button-trust-gooddollar"
                 >
                   <span className="text-green-600 dark:text-green-400">
                     {getGoodDollarCta().includes(':') ? (
-                      <Clock className="h-4 w-4" />
+                      <Clock className="h-5 w-5" />
                     ) : (
-                      <Shield className="h-4 w-4" />
+                      <Shield className="h-5 w-5" />
                     )}
                   </span>
                   <div className="text-left">
