@@ -82,7 +82,7 @@ export default function MaxFlow() {
     staleTime: 4 * 60 * 60 * 1000, // 4 hours - score rarely changes
   });
 
-  const { data: xpData, isLoading: isLoadingXp } = useQuery<XpData>({
+  const { data: xpData, isLoading: isLoadingXp, isFetching: isFetchingXp } = useQuery<XpData>({
     queryKey: ['/api/xp', address],
     enabled: !!address,
   });
@@ -354,14 +354,21 @@ export default function MaxFlow() {
                       </>
                     )}
                   </Button>
-                ) : (
+                ) : timeRemaining === 0 ? (
+                  <div className="flex items-center justify-center gap-2 py-3 px-4 bg-muted border border-foreground/10">
+                    <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
+                    <span className="font-mono text-sm text-muted-foreground">
+                      {isFetchingXp ? 'Refreshing...' : 'Ready soon...'}
+                    </span>
+                  </div>
+                ) : timeRemaining !== null && timeRemaining > 0 ? (
                   <div className="flex items-center justify-center gap-2 py-3 px-4 bg-muted border border-foreground/10">
                     <Clock className="h-4 w-4 text-muted-foreground" />
                     <span className="font-mono text-sm text-muted-foreground" data-testid="text-xp-cooldown">
-                      {timeRemaining !== null ? formatTimeRemaining(timeRemaining) : '--'}
+                      {formatTimeRemaining(timeRemaining)}
                     </span>
                   </div>
-                )}
+                ) : null}
                 
                 {/* XP Redemption Button */}
                 <Button
