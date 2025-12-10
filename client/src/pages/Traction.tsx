@@ -272,7 +272,7 @@ export default function Traction() {
             <StatCard icon={Gift} label="G$ Verified" value={stats.goodDollarVerified} testId="stat-gooddollar" />
             <StatCard icon={DollarSign} label="Has USDC" value={stats.withUsdc} testId="stat-usdc" />
             <StatCard icon={Sparkles} label="Has G$" value={stats.withGd} testId="stat-gd" />
-            <StatCard icon={PiggyBank} label="Savings" value={stats.withSavings} testId="stat-savings" />
+            <StatCard icon={PiggyBank} label="Has Savings" value={stats.withSavings} testId="stat-savings" />
             <StatCard icon={Trophy} label="In Pool" value={stats.inPool} testId="stat-pool" />
             <StatCard icon={Sparkles} label="Has XP" value={stats.withXp} testId="stat-xp" />
           </div>
