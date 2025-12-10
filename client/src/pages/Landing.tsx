@@ -694,11 +694,10 @@ function DesktopLanding({
         <div className="max-w-4xl mx-auto text-center">
           <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-6">Powered By</div>
           <div className="flex flex-wrap justify-center gap-6 md:gap-12">
-            <div className="text-sm font-mono">x402</div>
-            <div className="text-sm font-mono">EIP-3009</div>
-            <div className="text-sm font-mono">ERC-4626</div>
-            <div className="text-sm font-mono">Max-flow/Min-cut</div>
-            <div className="text-sm font-mono">Aave V3</div>
+            <div className="text-sm font-mono">x402 Protocol</div>
+            <div className="text-sm font-mono">Gasless Transfers</div>
+            <div className="text-sm font-mono">Tokenized Vaults</div>
+            <div className="text-sm font-mono">Trust Graphs</div>
           </div>
         </div>
       </section>
