@@ -826,17 +826,15 @@ export default function Pool() {
             {/* Pool Tab */}
             <TabsContent value="pool" className="mt-4 space-y-4">
               {/* This Week's Prize */}
-              <Card className="p-6 space-y-4 min-h-[180px]" data-testid="card-prize-pool">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
-                    <Trophy className="h-4 w-4 text-[#0055FF]" />
-                    THIS WEEK'S PRIZE
-                  </div>
-                  <div className="bg-[#0055FF] text-white px-2.5 py-1 text-xs font-semibold uppercase tracking-wide">
-                    Week {poolStatus.draw.weekNumber}
-                  </div>
+              <Card className="p-6 min-h-[180px] flex flex-col" data-testid="card-prize-pool">
+                {/* Top label */}
+                <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
+                  <Trophy className="h-4 w-4 text-[#0055FF]" />
+                  THIS WEEK'S PRIZE
                 </div>
-                <div className="text-center py-4">
+                
+                {/* Center: Main balance display - vertically and horizontally centered */}
+                <div className="flex-1 flex flex-col items-center justify-center">
                   {(() => {
                     const poolValue = Number(poolStatus.draw.totalPool) / 1_000_000;
                     const isAnimating = prizePoolAnimation.animatedValue > 0 && !!celoApyData?.apy;
@@ -845,11 +843,11 @@ export default function Pool() {
                     const staticDec = (poolValue % 1).toFixed(2).slice(2);
                     
                     return (
-                      <div className="space-y-1">
+                      <>
                         <button
                           onClick={handleRefreshPool}
                           disabled={isRefreshingPrize}
-                          className="w-full bg-transparent p-0 border-none text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all disabled:cursor-default disabled:hover:opacity-100 disabled:active:scale-100 focus-visible:outline-none"
+                          className="bg-transparent p-0 border-none text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all disabled:cursor-default disabled:hover:opacity-100 disabled:active:scale-100 focus-visible:outline-none"
                           data-testid="button-refresh-prize"
                         >
                           <span className={`text-3xl font-normal text-muted-foreground mr-1.5 transition-opacity duration-300 ${isRefreshingPrize ? 'opacity-50' : ''}`}>$</span>
@@ -863,18 +861,23 @@ export default function Pool() {
                             )}
                           </span>
                         </button>
-                        <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest text-center">
+                        <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest text-center mt-1">
                           <span className="font-bold">USDC</span> Pooling
                         </p>
-                      </div>
+                      </>
                     );
                   })()}
                 </div>
+                
+                {/* Bottom: Week badge and stats */}
                 <div className="flex items-center justify-center gap-4">
+                  <div className="bg-[#0055FF] text-white px-2.5 py-1 text-xs font-semibold uppercase tracking-wide">
+                    Week {poolStatus.draw.weekNumber}
+                  </div>
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <Users className="h-4 w-4" />
                     <span data-testid="text-participant-count">
-                      {poolStatus.draw.participantCount} participants
+                      {poolStatus.draw.participantCount}
                     </span>
                   </div>
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">

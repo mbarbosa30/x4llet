@@ -1118,28 +1118,23 @@ export default function Earn() {
               </div>
             )}
 
-            <Card className="p-6 space-y-4 min-h-[180px]" data-testid="card-earning-balance">
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
-                  <PiggyBank className="h-4 w-4 text-[#0055FF]" />
-                  Total Earning
-                </div>
-                <div className="bg-[#0055FF] text-white px-2.5 py-1 text-xs font-semibold uppercase tracking-wide">
-                  {weightedApy > 0 ? `${weightedApy.toFixed(2)}%` : '—'} APY
-                </div>
+            <Card className="p-6 min-h-[180px] flex flex-col" data-testid="card-earning-balance">
+              {/* Top label */}
+              <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center gap-2">
+                <PiggyBank className="h-4 w-4 text-[#0055FF]" />
+                Total Earning
               </div>
               
-              <div className="text-center py-4">
+              {/* Center: Main balance display - vertically and horizontally centered */}
+              <div className="flex-1 flex flex-col items-center justify-center">
                 {isAaveBalanceBaseLoading || isAaveBalanceCeloLoading ? (
-                  <div className="flex items-center justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  </div>
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 ) : effectiveHasAaveBalance ? (
-                  <div className="space-y-1">
+                  <>
                     <button
                       onClick={handleRefreshAaveBalance}
                       disabled={isRefreshingAave}
-                      className="w-full bg-transparent p-0 border-none text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all disabled:cursor-default disabled:hover:opacity-100 disabled:active:scale-100 focus-visible:outline-none"
+                      className="bg-transparent p-0 border-none text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all disabled:cursor-default disabled:hover:opacity-100 disabled:active:scale-100 focus-visible:outline-none"
                       data-testid="button-refresh-earning"
                     >
                       <span className={`text-3xl font-normal text-muted-foreground mr-1.5 transition-opacity duration-300 ${isRefreshingAave ? 'opacity-50' : ''}`}>$</span>
@@ -1153,35 +1148,25 @@ export default function Earn() {
                         )}
                       </span>
                     </button>
-                    <div className="text-xs text-muted-foreground font-mono uppercase tracking-widest"><span className="font-bold">USDC</span> Yielding</div>
-                  </div>
+                    <div className="text-xs text-muted-foreground font-mono uppercase tracking-widest mt-1"><span className="font-bold">USDC</span> Yielding</div>
+                  </>
                 ) : (
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <div className="text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight">
-                        <span className="text-3xl font-normal text-muted-foreground mr-1.5">$</span>
-                        <span>0.00</span>
-                      </div>
-                      <div className="text-xs text-muted-foreground font-mono uppercase tracking-widest">No Deposits Yet</div>
+                  <>
+                    <div className="text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight">
+                      <span className="text-3xl font-normal text-muted-foreground mr-1.5">$</span>
+                      <span>0.00</span>
                     </div>
-                    <div className="space-y-1.5 pt-2 border-t border-border/50">
-                      <p className="text-xs text-muted-foreground text-center">
-                        <TrendingUp className="inline h-3 w-3 mr-1 text-success" />
-                        Deposit USDC to earn interest automatically
-                      </p>
-                      <p className="text-xs text-muted-foreground text-center">
-                        <Shield className="inline h-3 w-3 mr-1 text-success" />
-                        Your funds stay safe in Aave, a trusted protocol
-                      </p>
-                      <p className="text-xs text-muted-foreground text-center">
-                        <Clock className="inline h-3 w-3 mr-1" />
-                        Withdraw anytime — no lock-up period
-                      </p>
-                    </div>
-                  </div>
+                    <div className="text-xs text-muted-foreground font-mono uppercase tracking-widest mt-1">No Deposits Yet</div>
+                  </>
                 )}
               </div>
-
+              
+              {/* Bottom: APY badge */}
+              <div className="flex items-center justify-center">
+                <div className="bg-[#0055FF] text-white px-2.5 py-1 text-xs font-semibold uppercase tracking-wide">
+                  {weightedApy > 0 ? `${weightedApy.toFixed(2)}%` : '—'} APY
+                </div>
+              </div>
               </Card>
 
             <div className="grid grid-cols-2 gap-2">
