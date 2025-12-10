@@ -136,10 +136,12 @@ export default function MaxFlow() {
       setShowRedeemConfirm(false);
       toast({
         title: "XP Redeemed!",
-        description: `1 USDC has been deposited to your savings on Celo. Check the Earn page!`,
+        description: `1 USDC has been deposited to your savings on Celo.`,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
       queryClient.invalidateQueries({ queryKey: ['/api/aave/balance'] });
+      // Navigate to Earn page to show the new savings
+      setLocation('/earn');
     },
     onError: (error: any) => {
       setShowRedeemConfirm(false);
