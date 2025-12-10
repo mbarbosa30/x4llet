@@ -134,33 +134,21 @@ export default function BalanceCard({
           </div>
         </div>
         
-        {/* Middle: Main balance display */}
+        {/* Middle: Main balance display - matching Earn card structure */}
         <div className="text-center py-4">
-          <button
-            onClick={onRefresh}
-            disabled={isRefreshing || !onRefresh}
-            className="w-full bg-transparent p-0 border-none text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all disabled:cursor-default disabled:hover:opacity-100 disabled:active:scale-100 focus-visible:outline-none"
-            data-testid="button-refresh-balance"
-          >
-            <span className={`text-3xl font-normal text-muted-foreground mr-1.5 transition-opacity duration-300 ${isRefreshing ? 'opacity-50' : ''}`}>$</span>
-            <span className={`transition-opacity duration-300 ${isRefreshing ? 'opacity-50 animate-pulse' : ''}`} data-testid="text-balance">{balance}</span>
-          </button>
-          
-          {/* Bottom: Display currency label - matching Earn/Pool style */}
-          <div className="text-xs text-muted-foreground font-mono uppercase tracking-widest mt-1" data-testid="text-display-currency">
-            {hasDisplayData ? (
-              <>
-                ≈ <AnimatedBalance
-                  value={displayValue}
-                  mainDecimals={displayMain}
-                  extraDecimals={displayExtra}
-                  currency={fiatCurrency}
-                  className="inline"
-                /> {fiatCurrency}
-              </>
-            ) : (
-              <>≈ -- {fiatCurrency}</>
-            )}
+          <div className="space-y-1">
+            <button
+              onClick={onRefresh}
+              disabled={isRefreshing || !onRefresh}
+              className="w-full bg-transparent p-0 border-none text-5xl font-bold tabular-nums flex items-center justify-center tracking-tight cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all disabled:cursor-default disabled:hover:opacity-100 disabled:active:scale-100 focus-visible:outline-none"
+              data-testid="button-refresh-balance"
+            >
+              <span className={`text-3xl font-normal text-muted-foreground mr-1.5 transition-opacity duration-300 ${isRefreshing ? 'opacity-50' : ''}`}>$</span>
+              <span className={`transition-opacity duration-300 ${isRefreshing ? 'opacity-50 animate-pulse' : ''}`} data-testid="text-balance">{balance}</span>
+            </button>
+            <div className="text-xs text-muted-foreground font-mono uppercase tracking-widest" data-testid="text-display-currency">
+              <span className="font-bold">USDC</span> Liquid
+            </div>
           </div>
         </div>
       </div>
