@@ -2801,71 +2801,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/admin/refetch-maxflow-scores', adminAuthMiddleware, async (req, res) => {
     try {
       const wallets = await storage.getAllWalletsWithDetails();
-      const walletAddresses = new Set(wallets.map(w => w.address.toLowerCase()));
       
-      console.log(`[Admin] Fetching all MaxFlow scores via bulk endpoint for ${wallets.length} wallets`);
+      console.log(`[Admin] Fetching all MaxFlow scores via /scores/cached for ${wallets.length} wallets`);
       
-      // Fetch all scores at once from the bulk endpoint
-      const response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/graph/local-health`);
+      // Use the bulk cached scores endpoint - returns { count, scores: [...] }
+      const response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/scores/cached`);
       
       if (!response.ok) {
         throw new Error(`Bulk MaxFlow API returned ${response.status}: ${response.statusText}`);
       }
       
-      const allScores = await response.json();
-      console.log(`[Admin] Bulk response type: ${typeof allScores}, isArray: ${Array.isArray(allScores)}`);
-      console.log(`[Admin] Bulk response keys: ${typeof allScores === 'object' ? Object.keys(allScores).slice(0, 10).join(', ') : 'N/A'}`);
+      const data = await response.json();
+      console.log(`[Admin] Bulk response: count=${data.count}, scores array length=${data.scores?.length || 0}`);
       
       let updated = 0;
       let notFound = 0;
       const errors: string[] = [];
       
-      // Handle different response formats from MaxFlow API
+      // Build a map of address -> score data from the scores array
       const scoresMap = new Map<string, any>();
-      
-      // Format 1: Direct object where keys are addresses { "0x123": { local_health: 50 }, ... }
-      if (typeof allScores === 'object' && !Array.isArray(allScores)) {
-        // Check if keys look like addresses
-        const keys = Object.keys(allScores);
-        if (keys.length > 0 && keys[0].startsWith('0x')) {
-          console.log(`[Admin] Detected address-keyed object format with ${keys.length} entries`);
-          for (const [address, score] of Object.entries(allScores)) {
-            if (typeof score === 'object' && score !== null) {
-              scoresMap.set(address.toLowerCase(), { address, ...score as object });
-            }
-          }
-        } 
-        // Format 2: Nested { nodes: [...] } or { data: [...] }
-        else if (allScores.nodes && Array.isArray(allScores.nodes)) {
-          console.log(`[Admin] Detected nested nodes format with ${allScores.nodes.length} entries`);
-          for (const node of allScores.nodes) {
-            const addr = node.address || node.id;
-            if (addr) {
-              scoresMap.set(addr.toLowerCase(), { address: addr, ...node });
-            }
-          }
-        } else if (allScores.data && Array.isArray(allScores.data)) {
-          console.log(`[Admin] Detected nested data format with ${allScores.data.length} entries`);
-          for (const item of allScores.data) {
-            if (item.address) {
-              scoresMap.set(item.address.toLowerCase(), item);
-            }
-          }
-        } else {
-          console.log(`[Admin] Unknown object format, sample: ${JSON.stringify(allScores).slice(0, 500)}`);
-        }
-      }
-      // Format 3: Array of score objects
-      else if (Array.isArray(allScores)) {
-        console.log(`[Admin] Detected array format with ${allScores.length} entries`);
-        for (const score of allScores) {
+      if (data.scores && Array.isArray(data.scores)) {
+        for (const score of data.scores) {
           if (score.address) {
             scoresMap.set(score.address.toLowerCase(), score);
           }
         }
       }
       
-      console.log(`[Admin] Built scoresMap with ${scoresMap.size} entries`);
+      console.log(`[Admin] Built scoresMap with ${scoresMap.size} entries from API`);
       
       // Save scores for our wallets
       for (const wallet of wallets) {
@@ -2888,6 +2851,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         walletsProcessed: wallets.length,
         scoresUpdated: updated,
         notInGraph: notFound,
+        totalInGraph: data.count || 0,
         errors: errors.slice(0, 10),
       });
     } catch (error) {
