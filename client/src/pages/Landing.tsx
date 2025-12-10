@@ -263,7 +263,7 @@ function MobileLanding({
                   <Sparkles className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <p className="text-2xl font-bold tabular-nums" data-testid="text-global-xp">
-                  {globalStats.totalXp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {Math.floor(globalStats.totalXp).toLocaleString()}
                 </p>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">XP Earned</p>
               </div>
