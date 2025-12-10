@@ -2085,7 +2085,7 @@ export class DbStorage extends MemStorage {
         const transferCount = Number(txData[0]?.count || 0);
         const totalVolume = txData[0]?.volume || '0';
         
-        const savingsBalance = '0';
+        const savingsBalance = totalAUsdcBalance.toString();
         
         // Use case-insensitive matching for pool settings
         const poolData = await db
