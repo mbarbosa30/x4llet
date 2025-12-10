@@ -2801,52 +2801,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/admin/refetch-maxflow-scores', adminAuthMiddleware, async (req, res) => {
     try {
       const wallets = await storage.getAllWalletsWithDetails();
+      const walletAddresses = new Set(wallets.map(w => w.address.toLowerCase()));
+      
+      console.log(`[Admin] Fetching all MaxFlow scores via bulk endpoint for ${wallets.length} wallets`);
+      
+      // Fetch all scores at once from the bulk endpoint
+      const response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/graph/local-health`);
+      
+      if (!response.ok) {
+        throw new Error(`Bulk MaxFlow API returned ${response.status}: ${response.statusText}`);
+      }
+      
+      const allScores = await response.json();
+      console.log(`[Admin] Bulk response type: ${typeof allScores}, isArray: ${Array.isArray(allScores)}`);
+      console.log(`[Admin] Bulk response keys: ${typeof allScores === 'object' ? Object.keys(allScores).slice(0, 10).join(', ') : 'N/A'}`);
       
       let updated = 0;
-      let failed = 0;
+      let notFound = 0;
       const errors: string[] = [];
       
-      // Process wallets in parallel batches of 5
-      const BATCH_SIZE = 5;
-      for (let i = 0; i < wallets.length; i += BATCH_SIZE) {
-        const batch = wallets.slice(i, i + BATCH_SIZE);
-        
-        const results = await Promise.allSettled(
-          batch.map(async (wallet) => {
-            const response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/score/${wallet.address}`);
-            
-            if (response.ok) {
-              const data = await response.json();
-              await storage.saveMaxFlowScore(wallet.address, data);
-              return { success: true, address: wallet.address };
-            } else {
-              const errorMsg = response.status !== 404 ? `${wallet.address}: HTTP ${response.status}` : null;
-              return { success: false, address: wallet.address, error: errorMsg };
+      // Handle different response formats from MaxFlow API
+      const scoresMap = new Map<string, any>();
+      
+      // Format 1: Direct object where keys are addresses { "0x123": { local_health: 50 }, ... }
+      if (typeof allScores === 'object' && !Array.isArray(allScores)) {
+        // Check if keys look like addresses
+        const keys = Object.keys(allScores);
+        if (keys.length > 0 && keys[0].startsWith('0x')) {
+          console.log(`[Admin] Detected address-keyed object format with ${keys.length} entries`);
+          for (const [address, score] of Object.entries(allScores)) {
+            if (typeof score === 'object' && score !== null) {
+              scoresMap.set(address.toLowerCase(), { address, ...score as object });
             }
-          })
-        );
-        
-        for (const result of results) {
-          if (result.status === 'fulfilled') {
-            if (result.value.success) {
-              updated++;
-            } else {
-              failed++;
-              if (result.value.error) {
-                errors.push(result.value.error);
-              }
+          }
+        } 
+        // Format 2: Nested { nodes: [...] } or { data: [...] }
+        else if (allScores.nodes && Array.isArray(allScores.nodes)) {
+          console.log(`[Admin] Detected nested nodes format with ${allScores.nodes.length} entries`);
+          for (const node of allScores.nodes) {
+            const addr = node.address || node.id;
+            if (addr) {
+              scoresMap.set(addr.toLowerCase(), { address: addr, ...node });
             }
-          } else {
-            failed++;
-            errors.push(`Unknown error: ${result.reason}`);
+          }
+        } else if (allScores.data && Array.isArray(allScores.data)) {
+          console.log(`[Admin] Detected nested data format with ${allScores.data.length} entries`);
+          for (const item of allScores.data) {
+            if (item.address) {
+              scoresMap.set(item.address.toLowerCase(), item);
+            }
+          }
+        } else {
+          console.log(`[Admin] Unknown object format, sample: ${JSON.stringify(allScores).slice(0, 500)}`);
+        }
+      }
+      // Format 3: Array of score objects
+      else if (Array.isArray(allScores)) {
+        console.log(`[Admin] Detected array format with ${allScores.length} entries`);
+        for (const score of allScores) {
+          if (score.address) {
+            scoresMap.set(score.address.toLowerCase(), score);
           }
         }
       }
       
+      console.log(`[Admin] Built scoresMap with ${scoresMap.size} entries`);
+      
+      // Save scores for our wallets
+      for (const wallet of wallets) {
+        const score = scoresMap.get(wallet.address.toLowerCase());
+        if (score) {
+          try {
+            await storage.saveMaxFlowScore(wallet.address, score);
+            updated++;
+          } catch (err: any) {
+            errors.push(`${wallet.address}: ${err.message}`);
+          }
+        } else {
+          notFound++;
+        }
+      }
+      
+      console.log(`[Admin] MaxFlow bulk refetch complete: ${updated} updated, ${notFound} not found in graph`);
+      
       res.json({
         walletsProcessed: wallets.length,
         scoresUpdated: updated,
-        failed,
+        notInGraph: notFound,
         errors: errors.slice(0, 10),
       });
     } catch (error) {
