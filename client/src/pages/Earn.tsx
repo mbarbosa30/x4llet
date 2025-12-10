@@ -1119,10 +1119,12 @@ export default function Earn() {
             )}
 
             <Card className="p-6 min-h-[180px] flex flex-col" data-testid="card-earning-balance">
-              {/* Top label - centered */}
-              <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center justify-center gap-2">
-                <PiggyBank className="h-4 w-4 text-[#0055FF]" />
-                Total Earning
+              {/* Top row: icon top-left, title centered */}
+              <div className="relative">
+                <PiggyBank className="h-4 w-4 text-[#0055FF] absolute left-0 top-0" />
+                <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 text-center">
+                  Total Earning
+                </div>
               </div>
               
               {/* Center: Main balance display - vertically and horizontally centered */}

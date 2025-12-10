@@ -827,10 +827,12 @@ export default function Pool() {
             <TabsContent value="pool" className="mt-4 space-y-4">
               {/* This Week's Prize */}
               <Card className="p-6 min-h-[180px] flex flex-col" data-testid="card-prize-pool">
-                {/* Top label - centered */}
-                <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 flex items-center justify-center gap-2">
-                  <Trophy className="h-4 w-4 text-[#0055FF]" />
-                  THIS WEEK'S PRIZE
+                {/* Top row: icon top-left, title centered */}
+                <div className="relative">
+                  <Trophy className="h-4 w-4 text-[#0055FF] absolute left-0 top-0" />
+                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/80 text-center">
+                    THIS WEEK'S PRIZE
+                  </div>
                 </div>
                 
                 {/* Center: Main balance display - vertically and horizontally centered */}
