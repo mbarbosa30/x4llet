@@ -1,5 +1,5 @@
 import { useLocation, Link } from 'wouter';
-import { ArrowLeft, ArrowRight, Shield, Users, Zap, Globe, HeartHandshake, TrendingUp, AlertCircle, PiggyBank, Gift } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Shield, Users, Zap, Globe, HeartHandshake, TrendingUp, AlertCircle, PiggyBank, Gift, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 function FeatureCard({ icon: Icon, title, children }: { icon: any, title: string, children: React.ReactNode }) {
@@ -166,15 +166,18 @@ export default function Context() {
               <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Trust Infrastructure</h2>
               <div className="w-8 h-px bg-foreground flex-1" />
             </div>
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid md:grid-cols-2 gap-4">
               <FeatureCard icon={HeartHandshake} title="MaxFlow">
-                <p>Graph-based signal measuring trust network health. Anti-sybil by design.</p>
+                <p>Graph-based signal measuring trust network health. Anti-sybil by design. Claim XP daily based on your score.</p>
               </FeatureCard>
               <FeatureCard icon={Users} title="Circles">
                 <p>Community social money on Gnosis. Claim 1 CRC/hour. Build trust with friends.</p>
               </FeatureCard>
               <FeatureCard icon={Gift} title="GoodDollar">
-                <p>Daily UBI claims on Celo after one-time face verification.</p>
+                <p>Daily UBI claims on Celo after one-time face verification. Convert G$ to XP in Trust Hub.</p>
+              </FeatureCard>
+              <FeatureCard icon={Sparkles} title="XP Rewards">
+                <p>Earn XP from MaxFlow claims or GoodDollar conversion. Redeem 100 XP for 1 USDC deposited to savings.</p>
               </FeatureCard>
             </div>
           </section>

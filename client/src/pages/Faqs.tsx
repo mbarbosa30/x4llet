@@ -420,16 +420,22 @@ export default function Faqs() {
                   </AccordionTrigger>
                   <AccordionContent className="px-5 pb-4">
                     <p className="text-sm text-muted-foreground mb-2">
-                      Claim XP once per day from the Signal page. The amount you earn scales exponentially with your network signal:
+                      There are two ways to earn XP:
                     </p>
-                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                      <li><span className="font-medium">Formula:</span> (Signal²) ÷ 100 XP per day</li>
-                      <li><span className="font-medium">Signal 100:</span> 100 XP per day</li>
-                      <li><span className="font-medium">Signal 50:</span> 25 XP per day</li>
-                      <li><span className="font-medium">Signal 10:</span> 1 XP per day</li>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      <span className="font-medium">1. Daily MaxFlow Claims:</span> Claim XP once per day from the Signal page. Uses a blended formula that rewards high trust while still giving newcomers meaningful rewards:
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground mb-3">
+                      <li><span className="font-medium">Formula:</span> (Signal²/100 + √Signal) ÷ 2</li>
+                      <li><span className="font-medium">Signal 100:</span> 55 XP per day</li>
+                      <li><span className="font-medium">Signal 50:</span> 16 XP per day</li>
+                      <li><span className="font-medium">Signal 10:</span> 2.08 XP per day</li>
                     </ul>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      <span className="font-medium">2. GoodDollar to XP:</span> Verified GoodDollar users can exchange G$ tokens for XP in the Trust Hub at a rate of 10 G$ = 1 XP. This lets you convert your daily UBI claims into XP toward USDC redemption.
+                    </p>
                     <p className="text-sm text-muted-foreground mt-2">
-                      Higher trust signals mean exponentially more XP. Building a stronger network pays off significantly.
+                      Both methods let you accumulate XP toward the 100 XP threshold for USDC redemption.
                     </p>
                   </AccordionContent>
                 </AccordionItem>

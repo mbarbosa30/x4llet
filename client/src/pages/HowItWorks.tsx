@@ -241,6 +241,16 @@ export default function HowItWorks() {
                   "Re-verify every ~180 days"
                 ]}
               />
+              <FeatureCard 
+                icon={Sparkles}
+                title="XP Rewards"
+                description="Earn Experience Points for network participation, redeemable for real USDC."
+                items={[
+                  "Claim daily from MaxFlow signal",
+                  "GoodDollar users: convert G$ to XP",
+                  "Redeem 100 XP for 1 USDC"
+                ]}
+              />
             </div>
           </section>
 
