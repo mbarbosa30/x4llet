@@ -9,10 +9,7 @@ import { Card } from "@/components/ui/card";
 import { AlertTriangle, RotateCcw, Loader2 } from "lucide-react";
 import { useWalletStore } from "@/lib/walletStore";
 import { tryRestoreSession, setAutoLockMinutes, getPreferences } from "@/lib/wallet";
-import Landing from "@/pages/Landing";
-import CreateWallet from "@/pages/CreateWallet";
 import Unlock from "@/pages/Unlock";
-import RestoreWallet from "@/pages/RestoreWallet";
 import Home from "@/pages/Home";
 import Send from "@/pages/Send";
 import Receive from "@/pages/Receive";
@@ -21,13 +18,19 @@ import Settings from "@/pages/Settings";
 import Claim from "@/pages/Claim";
 import MaxFlow from "@/pages/MaxFlow";
 import Earn from "@/pages/Earn";
-import Pool from "@/pages/Pool";
 import NotFound from "@/pages/not-found";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
 
 // Lazy-loaded pages (not in main bundle - loaded on demand)
+// Onboarding pages - only needed once
+const Landing = lazy(() => import("@/pages/Landing"));
+const CreateWallet = lazy(() => import("@/pages/CreateWallet"));
+const RestoreWallet = lazy(() => import("@/pages/RestoreWallet"));
+// Secondary features
+const Pool = lazy(() => import("@/pages/Pool"));
+// Public/admin pages
 const Admin = lazy(() => import("@/pages/Admin"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const HowItWorks = lazy(() => import("@/pages/HowItWorks"));
@@ -171,10 +174,22 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Landing} />
-      <Route path="/create" component={CreateWallet} />
+      <Route path="/">
+        <Suspense fallback={<LazyLoadFallback />}>
+          <Landing />
+        </Suspense>
+      </Route>
+      <Route path="/create">
+        <Suspense fallback={<LazyLoadFallback />}>
+          <CreateWallet />
+        </Suspense>
+      </Route>
       <Route path="/unlock" component={Unlock} />
-      <Route path="/restore" component={RestoreWallet} />
+      <Route path="/restore">
+        <Suspense fallback={<LazyLoadFallback />}>
+          <RestoreWallet />
+        </Suspense>
+      </Route>
       <Route path="/home">
         <ProtectedRoute>
           <Home />
@@ -213,7 +228,9 @@ function Router() {
       </Route>
       <Route path="/pool">
         <ProtectedRoute>
-          <Pool />
+          <Suspense fallback={<LazyLoadFallback />}>
+            <Pool />
+          </Suspense>
         </ProtectedRoute>
       </Route>
       <Route path="/admin">
