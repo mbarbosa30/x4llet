@@ -391,11 +391,6 @@ export default function MaxFlow() {
                     </>
                   )}
                 </Button>
-                {(xpData?.totalXp ?? 0) < 100 && (
-                  <p className="text-xs text-muted-foreground text-center">
-                    Need {(100 - (xpData?.totalXp ?? 0)).toFixed(2)} more XP to redeem
-                  </p>
-                )}
               </div>
             )}
           </Card>
