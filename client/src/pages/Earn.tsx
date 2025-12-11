@@ -1861,54 +1861,72 @@ export default function Earn() {
           
           {aaveOperationStep === 'input' && (
             <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Network</Label>
-                <Select 
-                  value={selectedChain.toString()} 
-                  onValueChange={(v) => setSelectedChain(parseInt(v))}
-                >
-                  <SelectTrigger data-testid="select-deposit-chain">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {parseFloat(liquidBalanceBase?.balanceMicro || '0') > 0 && (
-                      <SelectItem value="8453">Base ({aaveApyBase?.apyFormatted || '—'} APY)</SelectItem>
-                    )}
-                    {parseFloat(liquidBalanceCelo?.balanceMicro || '0') > 0 && (
-                      <SelectItem value="42220">Celo ({aaveApyCelo?.apyFormatted || '—'} APY)</SelectItem>
-                    )}
-                    {parseFloat(liquidBalanceGnosis?.balanceMicro || '0') > 0 && (
-                      <SelectItem value="100">Gnosis ({aaveApyGnosis?.apyFormatted || '—'} APY)</SelectItem>
-                    )}
-                    {parseFloat(liquidBalanceArbitrum?.balanceMicro || '0') > 0 && (
-                      <SelectItem value="42161">Arbitrum ({aaveApyArbitrum?.apyFormatted || '—'} APY)</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Amount (USDC)</Label>
-                  <button 
-                    type="button"
-                    className="text-xs text-primary hover:underline"
-                    onClick={() => setDepositAmount(getMaxDepositAmount())}
-                    data-testid="button-deposit-max"
-                  >
-                    Max: ${getMaxDepositAmount()}
-                  </button>
+              {/* Check if user has any liquid USDC balance */}
+              {parseFloat(liquidBalanceBase?.balanceMicro || '0') === 0 &&
+               parseFloat(liquidBalanceCelo?.balanceMicro || '0') === 0 &&
+               parseFloat(liquidBalanceGnosis?.balanceMicro || '0') === 0 &&
+               parseFloat(liquidBalanceArbitrum?.balanceMicro || '0') === 0 ? (
+                <div className="py-6 text-center space-y-3">
+                  <Wallet className="h-10 w-10 mx-auto text-muted-foreground" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">No USDC balance</p>
+                    <p className="text-xs text-muted-foreground">
+                      You need USDC on Base, Celo, Gnosis, or Arbitrum to deposit
+                    </p>
+                  </div>
                 </div>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={depositAmount}
-                  onChange={(e) => setDepositAmount(e.target.value)}
-                  min="0"
-                  step="0.01"
-                  data-testid="input-deposit-amount"
-                />
-              </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label>Network</Label>
+                    <Select 
+                      value={selectedChain.toString()} 
+                      onValueChange={(v) => setSelectedChain(parseInt(v))}
+                    >
+                      <SelectTrigger data-testid="select-deposit-chain">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {parseFloat(liquidBalanceBase?.balanceMicro || '0') > 0 && (
+                          <SelectItem value="8453">Base ({aaveApyBase?.apyFormatted || '—'} APY)</SelectItem>
+                        )}
+                        {parseFloat(liquidBalanceCelo?.balanceMicro || '0') > 0 && (
+                          <SelectItem value="42220">Celo ({aaveApyCelo?.apyFormatted || '—'} APY)</SelectItem>
+                        )}
+                        {parseFloat(liquidBalanceGnosis?.balanceMicro || '0') > 0 && (
+                          <SelectItem value="100">Gnosis ({aaveApyGnosis?.apyFormatted || '—'} APY)</SelectItem>
+                        )}
+                        {parseFloat(liquidBalanceArbitrum?.balanceMicro || '0') > 0 && (
+                          <SelectItem value="42161">Arbitrum ({aaveApyArbitrum?.apyFormatted || '—'} APY)</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Amount (USDC)</Label>
+                      <button 
+                        type="button"
+                        className="text-xs text-primary hover:underline"
+                        onClick={() => setDepositAmount(getMaxDepositAmount())}
+                        data-testid="button-deposit-max"
+                      >
+                        Max: ${getMaxDepositAmount()}
+                      </button>
+                    </div>
+                    <Input
+                      type="number"
+                      placeholder="0.00"
+                      value={depositAmount}
+                      onChange={(e) => setDepositAmount(e.target.value)}
+                      min="0"
+                      step="0.01"
+                      data-testid="input-deposit-amount"
+                    />
+                  </div>
+                </>
+              )}
             </div>
           )}
           
@@ -1952,18 +1970,27 @@ export default function Earn() {
           
           <DialogFooter>
             {aaveOperationStep === 'input' && (
-              <>
+              parseFloat(liquidBalanceBase?.balanceMicro || '0') === 0 &&
+              parseFloat(liquidBalanceCelo?.balanceMicro || '0') === 0 &&
+              parseFloat(liquidBalanceGnosis?.balanceMicro || '0') === 0 &&
+              parseFloat(liquidBalanceArbitrum?.balanceMicro || '0') === 0 ? (
                 <Button variant="outline" onClick={() => setShowAaveDeposit(false)}>
-                  Cancel
+                  Close
                 </Button>
-                <Button 
-                  onClick={handleAaveDeposit}
-                  disabled={!depositAmount || parseFloat(depositAmount) <= 0 || parseFloat(depositAmount) > parseFloat(getMaxDepositAmount())}
-                  data-testid="button-confirm-deposit"
-                >
-                  Deposit
-                </Button>
-              </>
+              ) : (
+                <>
+                  <Button variant="outline" onClick={() => setShowAaveDeposit(false)}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleAaveDeposit}
+                    disabled={!depositAmount || parseFloat(depositAmount) <= 0 || parseFloat(depositAmount) > parseFloat(getMaxDepositAmount())}
+                    data-testid="button-confirm-deposit"
+                  >
+                    Deposit
+                  </Button>
+                </>
+              )
             )}
           </DialogFooter>
         </DialogContent>
