@@ -350,7 +350,7 @@ export default function MaxFlow() {
                     ) : (
                       <>
                         <Sparkles className="h-4 w-4 mr-2" />
-                        CLAIM {((score * score) / 100).toFixed(2)} XP
+                        CLAIM {(((score * score) / 100 + Math.sqrt(score)) / 2).toFixed(2)} XP
                       </>
                     )}
                   </Button>

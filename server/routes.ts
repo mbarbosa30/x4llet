@@ -5266,9 +5266,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Calculate XP: (signal² / 100), stored as centi-XP (×100)
-      const xpDecimal = (rawSignal * rawSignal) / 100;
-      const xpCenti = Math.round(xpDecimal * 100); // e.g., 25.00 → 2500
+      // Calculate XP using blended formula: (signal²/100 + √signal) / 2
+      // This balances high score rewards with accessibility for newcomers
+      const squared = (rawSignal * rawSignal) / 100;
+      const sqrtScore = Math.sqrt(rawSignal);
+      const xpDecimal = (squared + sqrtScore) / 2;
+      const xpCenti = Math.round(xpDecimal * 100); // stored as centi-XP
 
       if (xpCenti === 0) {
         return res.status(400).json({ 
