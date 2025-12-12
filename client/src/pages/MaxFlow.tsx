@@ -449,8 +449,8 @@ export default function MaxFlow() {
           </Card>
         )}
 
-        {/* SENADOR Token Section */}
-        {!isLoadingMaxFlow && score > 0 && (
+        {/* SENADOR Token Section - show if user has XP or SENADOR tokens */}
+        {!isLoadingMaxFlow && ((xpData?.totalXp ?? 0) > 0 || (senadorData?.balance ?? 0n) > 0n) && (
           <Card className="p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
