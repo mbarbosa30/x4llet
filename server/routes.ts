@@ -5619,19 +5619,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Endpoint to get SENADOR price from DEX (Uniswap/Ubeswap on Celo)
+  // Celo RPC endpoints with fallback for SENADOR balance
+  const CELO_RPCS = [
+    'https://forno.celo.org',
+    'https://1rpc.io/celo',
+    'https://celo.drpc.org',
+    'https://rpc.ankr.com/celo',
+  ];
+
+  // Endpoint to get SENADOR balance for a user
+  app.get('/api/senador/balance/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      
+      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+
+      const chainInfo = resolveChain(42220);
+      if (!chainInfo) {
+        return res.status(500).json({ error: 'Chain configuration not found' });
+      }
+
+      // Try each RPC until one works
+      let lastError: any = null;
+      for (const rpcUrl of CELO_RPCS) {
+        try {
+          const publicClient = createPublicClient({
+            chain: chainInfo.viemChain,
+            transport: http(rpcUrl),
+          });
+
+          const balance = await publicClient.readContract({
+            address: SENADOR_TOKEN_ADDRESS,
+            abi: ERC20_ABI,
+            functionName: 'balanceOf',
+            args: [address as Address],
+          }) as bigint;
+
+          const balanceFormatted = (Number(balance) / 1e18).toFixed(2);
+          
+          console.log(`[SENADOR Balance] ${address}: ${balanceFormatted} SENADOR (${balance}) via ${rpcUrl}`);
+
+          return res.json({
+            balance: balance.toString(),
+            balanceFormatted,
+            decimals: 18,
+          });
+        } catch (rpcError) {
+          console.warn(`[SENADOR Balance] RPC ${rpcUrl} failed:`, rpcError);
+          lastError = rpcError;
+          continue;
+        }
+      }
+
+      // All RPCs failed
+      console.error('[SENADOR Balance] All RPCs failed:', lastError);
+      res.status(500).json({ 
+        error: 'Failed to fetch SENADOR balance from all RPC endpoints',
+        balance: '0',
+        balanceFormatted: '0.00',
+        decimals: 18,
+      });
+    } catch (error) {
+      console.error('[SENADOR Balance] Error:', error);
+      res.status(500).json({ 
+        error: 'Failed to fetch SENADOR balance',
+        balance: '0',
+        balanceFormatted: '0.00', 
+        decimals: 18,
+      });
+    }
+  });
+
+  // Endpoint to get SENADOR price from Uniswap V3 pool on Celo
+  // Pool: SENADOR/USDC - 0x18878177bcd26098bc8c20f8ff6dd4ebd5ce41c3879ba349e323d21307f22546
   app.get('/api/senador/price', async (_req, res) => {
     try {
-      // For now, return a placeholder price. In production, this would query
-      // a DEX like Ubeswap or use a price oracle on Celo.
-      // Price can be fetched from Uniswap V3 pool or CoinGecko if listed.
+      // Uniswap V3 pool address for SENADOR/USDC on Celo
+      // This is a pool ID, we need the actual pool contract address
+      // For now, we'll try to get price from the pool
+      const CELO_CHAIN_ID = 42220;
+      const network = getNetworkByChainId(CELO_CHAIN_ID);
       
-      // TODO: Implement actual DEX price lookup
-      // For MVP, we'll return 0 which means "price unavailable"
+      if (!network) {
+        return res.json({ price: 0, priceFormatted: 'N/A', source: 'unavailable' });
+      }
+
+      const chainInfo = resolveChain(CELO_CHAIN_ID);
+      if (!chainInfo) {
+        return res.json({ price: 0, priceFormatted: 'N/A', source: 'unavailable' });
+      }
+
+      // For now, return price unavailable since we need the actual pool contract
+      // The pool ID provided is a Uniswap identifier, not a contract address
+      // TODO: Query Uniswap subgraph or find pool contract address
       res.json({
         price: 0,
         priceFormatted: 'N/A',
-        source: 'unavailable',
+        source: 'pool_lookup_pending',
       });
     } catch (error) {
       console.error('[SENADOR Price] Error:', error);

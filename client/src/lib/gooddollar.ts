@@ -980,26 +980,42 @@ export interface SenadorBalance {
 }
 
 export async function getSenadorBalance(address: Address): Promise<SenadorBalance> {
-  const client = getCeloClient();
-  
   console.log('[SENADOR] Checking balance for:', address);
   
   try {
-    const balance = await client.readContract({
-      address: SENADOR_TOKEN.address,
-      abi: ERC20_ABI,
-      functionName: 'balanceOf',
-      args: [address],
+    // Use backend API for reliable balance fetching
+    const response = await fetch(`/api/senador/balance/${address}`);
+    const data = await response.json();
+    
+    // Validate response has required fields
+    if (typeof data.balance !== 'string' && typeof data.balance !== 'number') {
+      console.warn('[SENADOR] Invalid balance response:', data);
+      return {
+        balance: 0n,
+        balanceFormatted: data.balanceFormatted || '0.00',
+        decimals: data.decimals || SENADOR_TOKEN.decimals,
+      };
+    }
+    
+    // Safely convert to BigInt
+    let balance: bigint;
+    try {
+      balance = BigInt(data.balance);
+    } catch {
+      console.warn('[SENADOR] Could not parse balance as BigInt:', data.balance);
+      balance = 0n;
+    }
+    
+    console.log('[SENADOR] Balance result:', { 
+      balance: balance.toString(), 
+      decimals: data.decimals, 
+      formatted: data.balanceFormatted 
     });
-    
-    const balanceFormatted = (Number(balance) / Math.pow(10, SENADOR_TOKEN.decimals)).toFixed(2);
-    
-    console.log('[SENADOR] Balance result:', { balance: balance.toString(), decimals: SENADOR_TOKEN.decimals, formatted: balanceFormatted });
     
     return {
       balance,
-      balanceFormatted,
-      decimals: SENADOR_TOKEN.decimals,
+      balanceFormatted: data.balanceFormatted || (Number(balance) / 1e18).toFixed(2),
+      decimals: data.decimals || SENADOR_TOKEN.decimals,
     };
   } catch (error) {
     console.error('[SENADOR] Failed to get balance:', error);
