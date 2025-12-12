@@ -482,6 +482,88 @@ export default function Faqs() {
             </div>
           </section>
 
+          {/* SENADOR Token */}
+          <section id="senador-token" className="space-y-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-px bg-foreground flex-1" />
+              <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground">SENADOR Token</h2>
+              <div className="w-8 h-px bg-foreground flex-1" />
+            </div>
+            <div className="border-2 border-foreground shadow-[4px_4px_0px_0px_rgb(0,0,0)] bg-white">
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="senador-what" className="border-b border-foreground/20 last:border-0">
+                  <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left px-5" data-testid="faq-senador-what">
+                    What is SENADOR DUPONT?
+                  </AccordionTrigger>
+                  <AccordionContent className="px-5 pb-4">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      SENADOR DUPONT is an experimental token on the Celo network that can be obtained by exchanging XP at a 1:1 ratio. 
+                      It is a community-driven experiment and should be treated as a high-risk crypto asset.
+                    </p>
+                    <p className="text-sm text-amber-600 dark:text-amber-500 font-medium">
+                      This is NOT investment advice. SENADOR has no guaranteed value and its price can fluctuate significantly.
+                    </p>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="senador-risks" className="border-b border-foreground/20 last:border-0">
+                  <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left px-5" data-testid="faq-senador-risks">
+                    What are the risks?
+                  </AccordionTrigger>
+                  <AccordionContent className="px-5 pb-4">
+                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground mb-3">
+                      <li><span className="font-medium">Highly volatile:</span> Price can drop to zero or increase unpredictably</li>
+                      <li><span className="font-medium">Experimental:</span> This is an experimental project with no guarantees</li>
+                      <li><span className="font-medium">No refunds:</span> XP exchanged for SENADOR cannot be recovered</li>
+                      <li><span className="font-medium">Limited liquidity:</span> You may not be able to sell at your desired price</li>
+                      <li><span className="font-medium">Regulatory uncertainty:</span> Crypto assets face evolving regulations</li>
+                    </ul>
+                    <p className="text-sm text-red-600 dark:text-red-500 font-medium">
+                      Only exchange XP you can afford to lose entirely. This is a high-risk crypto asset.
+                    </p>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="senador-exchange" className="border-b border-foreground/20 last:border-0">
+                  <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left px-5" data-testid="faq-senador-exchange">
+                    How do I exchange XP for SENADOR?
+                  </AccordionTrigger>
+                  <AccordionContent className="px-5 pb-4">
+                    <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
+                      <li>Go to the Signal page (Trust Hub)</li>
+                      <li>Scroll down to the SENADOR section</li>
+                      <li>Enter the amount of XP you want to exchange</li>
+                      <li>Confirm the exchange in the dialog</li>
+                      <li>SENADOR tokens will be sent to your wallet on Celo</li>
+                    </ol>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Exchange rate: 1 XP = 1 SENADOR. This exchange is irreversible.
+                    </p>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="senador-disclaimer" className="border-b border-foreground/20 last:border-0">
+                  <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left px-5" data-testid="faq-senador-disclaimer">
+                    Important Disclaimer
+                  </AccordionTrigger>
+                  <AccordionContent className="px-5 pb-4">
+                    <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 text-sm space-y-2">
+                      <p className="text-amber-800 dark:text-amber-200 font-medium">
+                        SENADOR DUPONT is provided "as is" without any warranties.
+                      </p>
+                      <p className="text-amber-700 dark:text-amber-300 text-xs">
+                        By exchanging XP for SENADOR, you acknowledge that: (1) this is an experimental crypto asset, 
+                        (2) you may lose your entire investment, (3) past performance does not indicate future results, 
+                        (4) you are solely responsible for your own investment decisions, and (5) this does not constitute 
+                        financial, investment, or legal advice.
+                      </p>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
+          </section>
+
           {/* Other Trust Systems */}
           <section className="space-y-6">
             <div className="flex items-center gap-3 mb-4">
