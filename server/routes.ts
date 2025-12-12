@@ -2614,6 +2614,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const data = await response.json();
       console.log('[MaxFlow API] Vouch success:', JSON.stringify(data, null, 2));
+      
+      // Trigger background refresh of vouchee's MaxFlow score
+      // This ensures their score is cached and ready when they check
+      const endorseeAddress = req.body.endorsee;
+      if (endorseeAddress) {
+        console.log(`[MaxFlow API] Triggering score refresh for vouchee: ${endorseeAddress}`);
+        // Don't await - let it run in background
+        (async () => {
+          try {
+            const scoreResponse = await fetchMaxFlow(`${MAXFLOW_API_BASE}/score/${endorseeAddress}`);
+            if (scoreResponse.ok) {
+              const scoreData = await scoreResponse.json();
+              await storage.saveMaxFlowScore(endorseeAddress, scoreData);
+              console.log(`[MaxFlow API] Cached fresh score for vouchee ${endorseeAddress}: ${scoreData.local_health}`);
+            }
+          } catch (err) {
+            console.error(`[MaxFlow API] Failed to refresh vouchee score:`, err);
+          }
+        })();
+      }
+      
       res.json(data);
     } catch (error) {
       console.error('Error submitting vouch:', error);

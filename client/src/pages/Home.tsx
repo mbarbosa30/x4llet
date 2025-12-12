@@ -106,6 +106,7 @@ export default function Home() {
   const { data: balanceData, isLoading, isFetching: isRefreshingBalance, refetch: refetchBalance } = useQuery<BalanceResponse & { chains?: any }>({
     queryKey: ['/api/balance', address],
     enabled: !!address,
+    staleTime: 30 * 1000, // 30 seconds - allows background refresh after transactions
     queryFn: async () => {
       const res = await fetch(`/api/balance/${address}`);
       if (!res.ok) throw new Error('Failed to fetch balance');
@@ -149,7 +150,7 @@ export default function Home() {
     queryKey: ['/maxflow/score', address],
     queryFn: () => getMaxFlowScore(address!),
     enabled: !!address,
-    staleTime: 4 * 60 * 60 * 1000,
+    staleTime: 30 * 1000, // 30 seconds - enables faster updates after receiving vouches
   });
 
   // Fetch XP data for Trust Health section

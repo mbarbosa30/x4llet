@@ -82,7 +82,7 @@ export default function MaxFlow() {
     queryKey: ['/maxflow/score', address],
     queryFn: () => getMaxFlowScore(address!),
     enabled: !!address,
-    staleTime: 4 * 60 * 60 * 1000, // 4 hours - score rarely changes
+    staleTime: 30 * 1000, // 30 seconds - enables faster updates after receiving vouches
   });
 
   const { data: xpData, isLoading: isLoadingXp, isFetching: isFetchingXp } = useQuery<XpData>({
@@ -285,9 +285,11 @@ export default function MaxFlow() {
         title: "Vouch submitted",
         description: `You vouched for ${vouchAddress.slice(0, 6)}...${vouchAddress.slice(-4)}`,
       });
+      // Invalidate both endorser's and vouchee's MaxFlow score cache
+      queryClient.invalidateQueries({ queryKey: ['/maxflow/score', address] });
+      queryClient.invalidateQueries({ queryKey: ['/maxflow/score', vouchAddress.toLowerCase()] });
       setVouchAddress('');
       setShowVouchInput(false);
-      queryClient.invalidateQueries({ queryKey: ['/maxflow/score', address] });
     },
     onError: (error) => {
       toast({

@@ -426,9 +426,9 @@ export default function Send() {
       const validAfter = '0';
       const validBefore = Math.floor(Date.now() / 1000 + (paymentRequest?.ttl || 600)).toString();
 
-      // Both Base and Celo use standard chainId format, but Celo uses "USDC" as name
+      // Celo uses "USDC" as domain name, all others (Base, Gnosis, Arbitrum) use "USD Coin"
       const domain = {
-        name: networkConfig.chainId === 8453 ? 'USD Coin' : 'USDC',
+        name: networkConfig.chainId === 42220 ? 'USDC' : 'USD Coin',
         version: '2',
         chainId: networkConfig.chainId,
         verifyingContract: getAddress(networkConfig.usdcAddress),
@@ -526,9 +526,9 @@ export default function Send() {
       const validAfter = '0';
       const validBefore = Math.floor(Date.now() / 1000 + 600).toString();
 
-      // Both Base and Celo use standard chainId format, but Celo uses "USDC" as name
+      // Celo uses "USDC" as domain name, all others (Base, Gnosis, Arbitrum) use "USD Coin"
       const domain = {
-        name: networkConfig.chainId === 8453 ? 'USD Coin' : 'USDC',
+        name: networkConfig.chainId === 42220 ? 'USDC' : 'USD Coin',
         version: '2',
         chainId: networkConfig.chainId,
         verifyingContract: getAddress(networkConfig.usdcAddress),

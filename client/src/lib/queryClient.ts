@@ -63,9 +63,9 @@ const CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours max cache age
 
 // Keys that should be persisted for instant load
 const PERSISTABLE_PREFIXES = [
-  "/api/balance/",
-  "/api/xp/",
-  "/api/senador/balance/",
+  "/api/balance",
+  "/api/xp",
+  "/senador/balance",
 ];
 
 function shouldPersistQuery(queryKey: unknown): boolean {
