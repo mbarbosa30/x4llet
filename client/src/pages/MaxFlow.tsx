@@ -479,7 +479,7 @@ export default function MaxFlow() {
             </div>
 
             <p className="text-sm text-muted-foreground text-center">
-              Exchange your XP for SENADOR tokens at 1:1 ratio.
+              Exchange your XP for SENADOR tokens.
             </p>
             <p className="text-xs text-amber-600 dark:text-amber-500 text-center font-medium">
               High-risk experimental token. Not investment advice.
