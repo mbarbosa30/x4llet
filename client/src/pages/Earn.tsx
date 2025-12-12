@@ -18,9 +18,6 @@ import {
   CheckCircle2,
   Clock,
   Sparkles,
-  Gift,
-  CircleDot,
-  Coins,
   Trophy,
   Heart,
   Wallet,
@@ -66,13 +63,6 @@ import { supplyToAave, withdrawFromAave, parseAmountToMicroUsdc } from '@/lib/aa
 import { formatPrecisionBalance } from '@/components/PrecisionBalance';
 import { useEarningAnimation } from '@/hooks/use-earning-animation';
 import { apiRequest } from '@/lib/queryClient';
-import { 
-  getCirclesAvatar, 
-  getCirclesBalance, 
-  mintPersonalCRC,
-  type CirclesAvatar, 
-  type CirclesBalance 
-} from '@/lib/circles';
 
 interface AaveApyData {
   chainId: number;
@@ -344,20 +334,6 @@ export default function Earn() {
     },
   });
 
-  const { data: circlesAvatar } = useQuery<CirclesAvatar>({
-    queryKey: ['/circles/avatar', address],
-    queryFn: () => getCirclesAvatar(address!),
-    enabled: !!address,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const { data: circlesBalance, refetch: refetchCirclesBalance } = useQuery<CirclesBalance>({
-    queryKey: ['/circles/balance', address],
-    queryFn: () => getCirclesBalance(address!),
-    enabled: !!address && circlesAvatar?.isRegistered,
-    staleTime: 60 * 1000,
-  });
-
   interface PoolStatusData {
     user: {
       optInPercent: number;
@@ -395,27 +371,6 @@ export default function Earn() {
   }, [poolStatus?.user?.optInPercent, localOptInPercent]);
 
   const localQueryClient = useQueryClient();
-
-  const mintCrcMutation = useMutation({
-    mutationFn: async () => {
-      if (!address) throw new Error('No wallet found');
-      return mintPersonalCRC(address);
-    },
-    onSuccess: () => {
-      toast({ 
-        title: "CRC claimed",
-        description: "Your daily CRC tokens have been claimed",
-      });
-      localQueryClient.invalidateQueries({ queryKey: ['/circles/balance', address] });
-    },
-    onError: (error) => {
-      toast({
-        title: "Claim Failed",
-        description: error instanceof Error ? error.message : "Failed to claim CRC",
-        variant: "destructive",
-      });
-    },
-  });
 
   const saveOptInMutation = useMutation({
     mutationFn: async (percent: number) => {
@@ -459,8 +414,6 @@ export default function Earn() {
       setIsSavingOptIn(false);
     }
   };
-
-  const hasClaimableRewards = circlesAvatar?.isRegistered;
 
   // Use BigInt for precise micro-USDC arithmetic
   const baseAaveBalanceMicro = aaveBalanceBase?.aUsdcBalance ? BigInt(aaveBalanceBase.aUsdcBalance) : 0n;
@@ -1177,55 +1130,6 @@ export default function Earn() {
                 Withdraw
               </Button>
             </div>
-
-            {/* Claimable Rewards Section */}
-            {hasClaimableRewards && (
-              <Card className="p-4 space-y-3" data-testid="card-claimable-rewards">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-semibold uppercase tracking-wide flex items-center gap-2 text-foreground/80">
-                    <Gift className="h-4 w-4 text-[#0055FF]" />
-                    CLAIMABLE REWARDS
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  {/* Circles CRC */}
-                  {circlesAvatar?.isRegistered && (
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-none">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-pink-500/10 flex items-center justify-center">
-                          <CircleDot className="h-4 w-4 text-pink-600" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium">Circles CRC</div>
-                          <div className="text-xs text-muted-foreground">1 CRC/hour, up to 24/day</div>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        onClick={() => mintCrcMutation.mutate()}
-                        disabled={mintCrcMutation.isPending}
-                        data-testid="button-claim-crc"
-                      >
-                        {mintCrcMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            <Coins className="h-3 w-3 mr-1" />
-                            Claim
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  )}
-
-                </div>
-
-                <p className="text-xs text-muted-foreground text-center">
-                  These tokens are separate from your USDC balance
-                </p>
-              </Card>
-            )}
 
             {/* Earnings Preview for users with no deposits */}
             {!effectiveHasAaveBalance && aaveBalanceBase !== undefined && aaveBalanceCelo !== undefined && (
