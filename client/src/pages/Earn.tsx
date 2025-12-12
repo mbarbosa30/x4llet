@@ -73,12 +73,6 @@ import {
   type CirclesAvatar, 
   type CirclesBalance 
 } from '@/lib/circles';
-import {
-  getIdentityStatus,
-  getClaimStatus,
-  type IdentityStatus,
-  type ClaimStatus,
-} from '@/lib/gooddollar';
 
 interface AaveApyData {
   chainId: number;
@@ -364,20 +358,6 @@ export default function Earn() {
     staleTime: 60 * 1000,
   });
 
-  const { data: gdIdentity } = useQuery<IdentityStatus>({
-    queryKey: ['/gooddollar/identity', address],
-    queryFn: () => getIdentityStatus(address! as `0x${string}`),
-    enabled: !!address,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const { data: gdClaimStatus, refetch: refetchGdClaim } = useQuery<ClaimStatus>({
-    queryKey: ['/gooddollar/claim', address],
-    queryFn: () => getClaimStatus(address! as `0x${string}`),
-    enabled: !!address && gdIdentity?.isWhitelisted,
-    staleTime: 60 * 1000,
-  });
-
   interface PoolStatusData {
     user: {
       optInPercent: number;
@@ -480,8 +460,7 @@ export default function Earn() {
     }
   };
 
-  const hasClaimableRewards = circlesAvatar?.isRegistered || 
-                              (gdIdentity?.isWhitelisted && gdClaimStatus?.canClaim);
+  const hasClaimableRewards = circlesAvatar?.isRegistered;
 
   // Use BigInt for precise micro-USDC arithmetic
   const baseAaveBalanceMicro = aaveBalanceBase?.aUsdcBalance ? BigInt(aaveBalanceBase.aUsdcBalance) : 0n;
@@ -1240,28 +1219,6 @@ export default function Earn() {
                     </div>
                   )}
 
-                  {/* GoodDollar G$ */}
-                  {gdIdentity?.isWhitelisted && gdClaimStatus?.canClaim && (
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-none">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-green-500/10 flex items-center justify-center">
-                          <Gift className="h-4 w-4 text-green-600" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium">GoodDollar G$</div>
-                          <div className="text-xs text-muted-foreground">{gdClaimStatus.entitlementFormatted} available</div>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        onClick={() => window.open('https://wallet.gooddollar.org', '_blank', 'noopener,noreferrer')}
-                        data-testid="button-claim-gd"
-                      >
-                        <Coins className="h-3 w-3 mr-1" />
-                        Claim
-                      </Button>
-                    </div>
-                  )}
                 </div>
 
                 <p className="text-xs text-muted-foreground text-center">
