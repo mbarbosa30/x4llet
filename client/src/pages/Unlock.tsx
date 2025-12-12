@@ -243,6 +243,18 @@ export default function Unlock() {
               Back to Start
             </button>
           </div>
+          
+          <div className="pt-2 border-t border-muted">
+            <a 
+              href="https://nanopaystrellar.replit.app/unlock"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground"
+              data-testid="link-stellar-network"
+            >
+              Want Stellar network? Switch
+            </a>
+          </div>
         </div>
       </div>
     </div>

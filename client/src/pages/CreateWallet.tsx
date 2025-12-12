@@ -348,7 +348,7 @@ export default function CreateWallet() {
             {isCreating ? 'Creating...' : 'Create Wallet'}
           </Button>
 
-          <div className="text-center">
+          <div className="text-center space-y-3">
             <Link 
               href="/unlock"
               className="font-label text-muted-foreground hover:text-foreground"
@@ -356,6 +356,18 @@ export default function CreateWallet() {
             >
               Already have a wallet? Unlock
             </Link>
+            
+            <div className="pt-2 border-t border-muted">
+              <a 
+                href="https://nanopaystrellar.replit.app/create"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                data-testid="link-stellar-network"
+              >
+                Want Stellar network? Switch
+              </a>
+            </div>
           </div>
         </div>
       </div>

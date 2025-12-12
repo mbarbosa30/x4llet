@@ -194,7 +194,7 @@ export default function RestoreWallet() {
           </Button>
         </Card>
 
-        <div className="text-center">
+        <div className="text-center space-y-3">
           <button 
             onClick={() => setLocation('/')}
             className="text-xs font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground"
@@ -202,6 +202,18 @@ export default function RestoreWallet() {
           >
             Back to Start
           </button>
+          
+          <div className="pt-2 border-t border-muted">
+            <a 
+              href="https://nanopaystrellar.replit.app/restore"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground"
+              data-testid="link-stellar-network"
+            >
+              Want Stellar network? Switch
+            </a>
+          </div>
         </div>
       </div>
     </div>

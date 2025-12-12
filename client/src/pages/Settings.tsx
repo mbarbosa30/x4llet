@@ -603,6 +603,32 @@ export default function Settings() {
 
         <div className="space-y-2">
           <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-muted-foreground px-2">
+            Network
+          </h2>
+          <Card className="divide-y">
+            <a
+              href="https://nanopaystrellar.replit.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-between p-4 hover-elevate"
+              data-testid="button-switch-stellar"
+            >
+              <div className="flex items-center gap-3">
+                <svg className="h-5 w-5 text-muted-foreground" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12.283 1.851A10.154 10.154 0 001.846 12.002c0 .259.01.516.03.773A1.847 1.847 0 01.872 14.56L0 15.005v2.074l2.568-1.309.832-.424.855-.436 16.912-8.627.833-.425V3.784l-4.868 2.483A10.123 10.123 0 0012.283 1.85zM21.126 6.92l-.832.424-.855.436-16.912 8.627-.833.425v2.074l4.868-2.483a10.123 10.123 0 004.849 4.417 10.154 10.154 0 0010.437-10.151c0-.259-.01-.516-.03-.773a1.847 1.847 0 011.004-1.785L24 6.846V4.772z"/>
+                </svg>
+                <div className="text-left">
+                  <div className="font-label text-foreground">Switch to Stellar</div>
+                  <div className="text-xs text-muted-foreground">Use Stellar network wallet</div>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </a>
+          </Card>
+        </div>
+
+        <div className="space-y-2">
+          <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-muted-foreground px-2">
             Troubleshooting
           </h2>
           <Card className="divide-y">
