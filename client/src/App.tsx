@@ -17,7 +17,6 @@ import Pay from "@/pages/Pay";
 import Settings from "@/pages/Settings";
 import Claim from "@/pages/Claim";
 import MaxFlow from "@/pages/MaxFlow";
-import Earn from "@/pages/Earn";
 import NotFound from "@/pages/not-found";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import AppHeader from "@/components/AppHeader";
@@ -29,6 +28,7 @@ const Landing = lazy(() => import("@/pages/Landing"));
 const CreateWallet = lazy(() => import("@/pages/CreateWallet"));
 const RestoreWallet = lazy(() => import("@/pages/RestoreWallet"));
 // Secondary features
+const Earn = lazy(() => import("@/pages/Earn"));
 const Pool = lazy(() => import("@/pages/Pool"));
 // Public/admin pages
 const Admin = lazy(() => import("@/pages/Admin"));
@@ -223,7 +223,9 @@ function Router() {
       </Route>
       <Route path="/earn">
         <ProtectedRoute>
-          <Earn />
+          <Suspense fallback={<LazyLoadFallback />}>
+            <Earn />
+          </Suspense>
         </ProtectedRoute>
       </Route>
       <Route path="/pool">
