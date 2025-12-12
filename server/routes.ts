@@ -5478,6 +5478,164 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== XP EXCHANGE: Get SENADOR with XP (1 XP = 1 SENADOR) =====
+  const SENADOR_TOKEN_ADDRESS = '0xc48d80f75bef8723226dcac5e61304df7277d2a2' as Address;
+  const SENADOR_DECIMALS = 18;
+  
+  app.post('/api/xp/redeem-senador', async (req, res) => {
+    try {
+      const { address, xpAmount } = req.body;
+
+      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+
+      const xpToSpend = parseFloat(xpAmount);
+      if (isNaN(xpToSpend) || xpToSpend < 1) {
+        return res.status(400).json({ error: 'Minimum 1 XP required' });
+      }
+
+      const normalizedAddress = address.toLowerCase();
+      
+      // XP stored as centi-XP (100 centi-XP = 1 XP)
+      const xpCentiRequired = Math.floor(xpToSpend * 100);
+      
+      // Check XP balance
+      const xpBalance = await storage.getXpBalance(normalizedAddress);
+      
+      if (!xpBalance || xpBalance.totalXp < xpCentiRequired) {
+        return res.status(400).json({ 
+          error: 'Insufficient XP',
+          required: xpToSpend,
+          current: (xpBalance?.totalXp || 0) / 100,
+        });
+      }
+
+      // Deduct XP first (atomic operation)
+      const deductResult = await storage.deductXp(normalizedAddress, xpCentiRequired);
+      
+      if (!deductResult.success) {
+        return res.status(400).json({ error: 'Failed to deduct XP' });
+      }
+
+      console.log(`[XP → SENADOR] Deducted ${xpToSpend} XP from ${normalizedAddress}, transferring ${xpToSpend} SENADOR`);
+
+      // Transfer SENADOR tokens from facilitator to user
+      const CELO_CHAIN_ID = 42220;
+      const network = getNetworkByChainId(CELO_CHAIN_ID);
+      
+      if (!network) {
+        await storage.refundXp(normalizedAddress, xpCentiRequired);
+        return res.status(500).json({ error: 'Celo network not configured' });
+      }
+
+      const chainInfo = resolveChain(CELO_CHAIN_ID);
+      if (!chainInfo) {
+        await storage.refundXp(normalizedAddress, xpCentiRequired);
+        return res.status(500).json({ error: 'Chain configuration not found' });
+      }
+
+      const facilitatorAccount = getFacilitatorAccount();
+      const chain = chainInfo.viemChain;
+
+      const walletClient = createWalletClient({
+        account: facilitatorAccount,
+        chain,
+        transport: http(network.rpcUrl),
+      });
+
+      const publicClient = createPublicClient({
+        chain,
+        transport: http(network.rpcUrl),
+      });
+
+      // Calculate SENADOR amount: 1 XP = 1 SENADOR (18 decimals)
+      const senadorAmount = BigInt(Math.floor(xpToSpend * 1e18));
+
+      // Check facilitator's SENADOR balance
+      const facilitatorSenadorBalance = await publicClient.readContract({
+        address: SENADOR_TOKEN_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: 'balanceOf',
+        args: [facilitatorAccount.address],
+      });
+
+      console.log(`[XP → SENADOR] Facilitator SENADOR balance: ${facilitatorSenadorBalance} (need ${senadorAmount})`);
+
+      if (facilitatorSenadorBalance < senadorAmount) {
+        console.error('[XP → SENADOR] Insufficient SENADOR in facilitator wallet');
+        await storage.refundXp(normalizedAddress, xpCentiRequired);
+        return res.status(500).json({ 
+          error: 'Insufficient SENADOR in facilitator wallet',
+          available: (Number(facilitatorSenadorBalance) / 1e18).toFixed(2),
+        });
+      }
+
+      console.log(`[XP → SENADOR] Facilitator ${facilitatorAccount.address} transferring SENADOR to ${address}`);
+
+      // Transfer SENADOR to user
+      let transferHash;
+      try {
+        transferHash = await walletClient.writeContract({
+          address: SENADOR_TOKEN_ADDRESS,
+          abi: ERC20_ABI,
+          functionName: 'transfer',
+          args: [address as Address, senadorAmount],
+        });
+      } catch (transferError) {
+        console.error('[XP → SENADOR] Transfer failed:', transferError);
+        await storage.refundXp(normalizedAddress, xpCentiRequired);
+        return res.status(500).json({ error: 'Failed to transfer SENADOR' });
+      }
+
+      console.log(`[XP → SENADOR] Transfer tx: ${transferHash}`);
+      const transferReceipt = await publicClient.waitForTransactionReceipt({ hash: transferHash });
+
+      if (transferReceipt.status !== 'success') {
+        console.error('[XP → SENADOR] Transaction failed:', transferReceipt);
+        await storage.refundXp(normalizedAddress, xpCentiRequired);
+        return res.status(500).json({ error: 'SENADOR transfer transaction failed' });
+      }
+
+      console.log(`[XP → SENADOR] Success! ${xpToSpend} XP → ${xpToSpend} SENADOR transferred to ${address}`);
+
+      res.json({
+        success: true,
+        xpDeducted: xpToSpend,
+        senadorReceived: xpToSpend.toFixed(2),
+        newXpBalance: deductResult.newBalance / 100,
+        transferTxHash: transferHash,
+      });
+    } catch (error) {
+      console.error('[XP → SENADOR] Error:', error);
+      res.status(500).json({ error: 'Failed to exchange XP for SENADOR' });
+    }
+  });
+
+  // Endpoint to get SENADOR price from DEX (Uniswap/Ubeswap on Celo)
+  app.get('/api/senador/price', async (_req, res) => {
+    try {
+      // For now, return a placeholder price. In production, this would query
+      // a DEX like Ubeswap or use a price oracle on Celo.
+      // Price can be fetched from Uniswap V3 pool or CoinGecko if listed.
+      
+      // TODO: Implement actual DEX price lookup
+      // For MVP, we'll return 0 which means "price unavailable"
+      res.json({
+        price: 0,
+        priceFormatted: 'N/A',
+        source: 'unavailable',
+      });
+    } catch (error) {
+      console.error('[SENADOR Price] Error:', error);
+      res.json({
+        price: 0,
+        priceFormatted: 'N/A',
+        source: 'error',
+      });
+    }
+  });
+
   // ===== XP EXCHANGE: Buy XP with G$ (10 G$ = 1 XP) =====
   app.post('/api/xp/exchange-gd', async (req, res) => {
     try {

@@ -13,6 +13,12 @@ export const GOODDOLLAR_CONTRACTS = {
   }
 } as const;
 
+export const SENADOR_TOKEN = {
+  address: '0xc48d80f75bef8723226dcac5e61304df7277d2a2' as Address,
+  decimals: 18,
+  symbol: 'SENADOR',
+} as const;
+
 const IDENTITY_ABI = [
   {
     name: 'isWhitelisted',
@@ -964,5 +970,43 @@ export async function exchangeGdForXp(
   } catch (error: any) {
     console.error('[G$ Exchange] Error:', error);
     return { success: false, error: error.shortMessage || error.message || 'Failed to exchange G$' };
+  }
+}
+
+export interface SenadorBalance {
+  balance: bigint;
+  balanceFormatted: string;
+  decimals: number;
+}
+
+export async function getSenadorBalance(address: Address): Promise<SenadorBalance> {
+  const client = getCeloClient();
+  
+  console.log('[SENADOR] Checking balance for:', address);
+  
+  try {
+    const balance = await client.readContract({
+      address: SENADOR_TOKEN.address,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [address],
+    });
+    
+    const balanceFormatted = (Number(balance) / Math.pow(10, SENADOR_TOKEN.decimals)).toFixed(2);
+    
+    console.log('[SENADOR] Balance result:', { balance: balance.toString(), decimals: SENADOR_TOKEN.decimals, formatted: balanceFormatted });
+    
+    return {
+      balance,
+      balanceFormatted,
+      decimals: SENADOR_TOKEN.decimals,
+    };
+  } catch (error) {
+    console.error('[SENADOR] Failed to get balance:', error);
+    return {
+      balance: 0n,
+      balanceFormatted: '0.00',
+      decimals: SENADOR_TOKEN.decimals,
+    };
   }
 }
