@@ -2620,24 +2620,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = await response.json();
       console.log('[MaxFlow API] Vouch success:', JSON.stringify(data, null, 2));
       
-      // Trigger background refresh of vouchee's MaxFlow score
-      // This ensures their score is cached and ready when they check
+      // Cache the endorsee's fresh score from the response (API now returns it directly)
       const endorseeAddress = req.body.endorsee;
-      if (endorseeAddress) {
-        console.log(`[MaxFlow API] Triggering score refresh for vouchee: ${endorseeAddress}`);
-        // Don't await - let it run in background
-        (async () => {
-          try {
-            const scoreResponse = await fetchMaxFlow(`${MAXFLOW_API_BASE}/score/${endorseeAddress}`);
-            if (scoreResponse.ok) {
-              const scoreData = await scoreResponse.json();
-              await storage.saveMaxFlowScore(endorseeAddress, scoreData);
-              console.log(`[MaxFlow API] Cached fresh score for vouchee ${endorseeAddress}: ${scoreData.local_health}`);
+      if (endorseeAddress && data.endorseeLocalHealth !== undefined) {
+        console.log(`[MaxFlow API] Caching fresh score for vouchee ${endorseeAddress}: ${data.endorseeLocalHealth}`);
+        
+        // Load existing cached score (raw - bypasses staleness check) to preserve vouch_counts and activity
+        const existingScore = await storage.getMaxFlowScoreRaw(endorseeAddress);
+        
+        if (existingScore) {
+          // Update just the local_health while preserving other fields
+          await storage.saveMaxFlowScore(endorseeAddress, {
+            ...existingScore,
+            address: endorseeAddress.toLowerCase(),
+            local_health: data.endorseeLocalHealth,
+            cached: false,
+            cached_at: new Date().toISOString(),
+          });
+        } else {
+          // No existing cache - fetch full score in background to get complete metadata
+          console.log(`[MaxFlow API] No existing cache for ${endorseeAddress}, fetching full score in background`);
+          (async () => {
+            try {
+              const scoreResponse = await fetchMaxFlow(`${MAXFLOW_API_BASE}/score/${endorseeAddress}`);
+              if (scoreResponse.ok) {
+                const scoreData = await scoreResponse.json();
+                // Update with fresh local_health from vouch response
+                scoreData.local_health = data.endorseeLocalHealth;
+                scoreData.cached_at = new Date().toISOString();
+                await storage.saveMaxFlowScore(endorseeAddress, scoreData);
+                console.log(`[MaxFlow API] Cached full score for new vouchee ${endorseeAddress}`);
+              }
+            } catch (err) {
+              console.error(`[MaxFlow API] Failed to fetch full score for vouchee:`, err);
             }
-          } catch (err) {
-            console.error(`[MaxFlow API] Failed to refresh vouchee score:`, err);
-          }
-        })();
+          })();
+        }
       }
       
       res.json(data);

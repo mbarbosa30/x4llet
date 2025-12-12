@@ -328,6 +328,7 @@ export interface IStorage {
   markAuthorizationUsed(nonce: string, chainId: number, txHash: string): Promise<void>;
   
   getMaxFlowScore(address: string): Promise<MaxFlowScore | null>;
+  getMaxFlowScoreRaw(address: string): Promise<MaxFlowScore | null>; // Bypasses staleness check
   saveMaxFlowScore(address: string, scoreData: MaxFlowScore): Promise<void>;
   
   getBalanceHistory(address: string, chainId: number, days?: number): Promise<BalanceHistoryPoint[]>;
@@ -676,6 +677,11 @@ export class MemStorage implements IStorage {
   }
 
   async getMaxFlowScore(address: string): Promise<MaxFlowScore | null> {
+    // MemStorage doesn't cache MaxFlow scores
+    return null;
+  }
+
+  async getMaxFlowScoreRaw(address: string): Promise<MaxFlowScore | null> {
     // MemStorage doesn't cache MaxFlow scores
     return null;
   }
@@ -1381,6 +1387,27 @@ export class DbStorage extends MemStorage {
       return normalizeMaxFlowScore(rawData) as MaxFlowScore;
     } catch (error) {
       console.error('[DB] Error fetching cached MaxFlow score:', error);
+      return null;
+    }
+  }
+
+  // Raw getter that bypasses staleness checks - used to preserve metadata when updating
+  async getMaxFlowScoreRaw(address: string): Promise<MaxFlowScore | null> {
+    try {
+      const cached = await db
+        .select()
+        .from(cachedMaxflowScores)
+        .where(eq(cachedMaxflowScores.address, address.toLowerCase()))
+        .limit(1);
+
+      if (cached.length === 0) {
+        return null;
+      }
+
+      const rawData = JSON.parse(cached[0].scoreData);
+      return normalizeMaxFlowScore(rawData) as MaxFlowScore;
+    } catch (error) {
+      console.error('[DB] Error fetching raw MaxFlow score:', error);
       return null;
     }
   }
