@@ -462,7 +462,7 @@ export default function MaxFlow() {
                   <span className="font-label text-muted-foreground">// TOKEN</span>
                 </div>
               </div>
-              <div className="text-right">
+              <div className="flex items-center gap-2">
                 {isLoadingSenador ? (
                   <p className="font-mono text-2xl font-bold">--</p>
                 ) : (
@@ -470,11 +470,19 @@ export default function MaxFlow() {
                     {senadorData?.balanceFormatted ?? '0.00'}
                   </p>
                 )}
+                <Link href="/faqs#senador-token">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" data-testid="button-senador-info">
+                    <Info className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </Link>
               </div>
             </div>
 
             <p className="text-sm text-muted-foreground text-center">
               Exchange your XP for SENADOR tokens at 1:1 ratio.
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-500 text-center font-medium">
+              High-risk experimental token. Not investment advice.
             </p>
 
             <div className="space-y-3">
