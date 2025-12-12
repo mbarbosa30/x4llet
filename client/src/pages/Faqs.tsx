@@ -302,116 +302,6 @@ export default function Faqs() {
             </div>
           </section>
 
-          {/* MaxFlow & Trust */}
-          <section className="space-y-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-px bg-foreground flex-1" />
-              <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground">MaxFlow & Trust</h2>
-              <div className="w-8 h-px bg-foreground flex-1" />
-            </div>
-            <div className="border-2 border-foreground shadow-[4px_4px_0px_0px_rgb(0,0,0)] bg-white">
-              <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="maxflow" className="border-b border-foreground/20 last:border-0">
-                  <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left px-5" data-testid="faq-maxflow">
-                    What is MaxFlow?
-                  </AccordionTrigger>
-                  <AccordionContent className="px-5 pb-4">
-                    <p className="text-sm text-muted-foreground">
-                      MaxFlow is neutral reputation infrastructure that measures your network health through graph algorithms. 
-                      Instead of verifying identity through documents or biometrics, it analyzes the structure and quality of your social connections. 
-                      Your "LocalHealth" score (0-100) reflects how well-integrated you are in a trusted network—useful for creditworthiness, access control, and governance weight.
-                    </p>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="maxflow-algorithm" className="border-b border-foreground/20 last:border-0">
-                  <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left px-5" data-testid="faq-maxflow-algorithm">
-                    How does the MaxFlow algorithm work?
-                  </AccordionTrigger>
-                  <AccordionContent className="px-5 pb-4">
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Your score depends on who vouches for you, and their trustworthiness depends on who vouches for them—recursive trust weighting.
-                    </p>
-                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                      <li><span className="font-medium">60% Flow Component:</span> Sum of your vouchers' scores, weighted by their quality. High-score vouchers matter more.</li>
-                      <li><span className="font-medium">40% Structure Component:</span> Min-cut redundancy (how many connections must be removed to isolate you) plus path diversity bonuses.</li>
-                    </ul>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      The algorithm iterates across the entire network until scores converge—typically 4-6 rounds.
-                    </p>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="maxflow-sybil" className="border-b border-foreground/20 last:border-0">
-                  <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left px-5" data-testid="faq-maxflow-sybil">
-                    Why can't fake accounts game the system?
-                  </AccordionTrigger>
-                  <AccordionContent className="px-5 pb-4">
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Sybil attacks fail because of recursive trust:
-                    </p>
-                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                      <li>Fake accounts vouching for each other all have low scores because none have high-quality endorsers</li>
-                      <li>You can't bootstrap from nothing—the cluster stays near zero</li>
-                      <li>Getting one real person to vouch helps, but dilution penalties limit "vouch merchants"</li>
-                      <li>Min-cut requirements ensure multiple independent paths, not just one bridge</li>
-                    </ul>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Attack patterns consistently score below 60, while genuine users with organic networks score 70+.
-                    </p>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="maxflow-ego" className="border-b border-foreground/20 last:border-0">
-                  <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left px-5" data-testid="faq-maxflow-ego">
-                    What is an "ego network"?
-                  </AccordionTrigger>
-                  <AccordionContent className="px-5 pb-4">
-                    <p className="text-sm text-muted-foreground">
-                      Your ego network is the subgraph of all accounts connected to you within a few hops. MaxFlow analyzes this local network: 
-                      its size, edge density, and how many independent paths connect you to trusted sources. 
-                      A dense ego network with multiple disjoint paths scores higher because it's harder for attackers to isolate or impersonate you.
-                    </p>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="maxflow-improve" className="border-b border-foreground/20 last:border-0">
-                  <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left px-5" data-testid="faq-maxflow-improve">
-                    How do I improve my score?
-                  </AccordionTrigger>
-                  <AccordionContent className="px-5 pb-4">
-                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                      <li><span className="font-medium">Get vouches from high-score users:</span> Quality over quantity. One vouch from a 80+ user is worth more than five from 20-score accounts.</li>
-                      <li><span className="font-medium">Build genuine connections:</span> Participate in trusted communities. Real relationships create organic vouching.</li>
-                      <li><span className="font-medium">Create path redundancy:</span> Vouches from different parts of the network increase your min-cut and structural score.</li>
-                      <li><span className="font-medium">Don't over-vouch:</span> Endorsing more than 10 people starts reducing your own score through dilution penalties.</li>
-                    </ul>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="maxflow-dilution" className="border-b border-foreground/20 last:border-0">
-                  <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left px-5" data-testid="faq-maxflow-dilution">
-                    Why does vouching cost me score?
-                  </AccordionTrigger>
-                  <AccordionContent className="px-5 pb-4">
-                    <p className="text-sm text-muted-foreground mb-2">
-                      The dilution penalty creates accountability:
-                    </p>
-                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                      <li>1-10 vouches: No penalty</li>
-                      <li>11-15 vouches: Gentle decay (down to 85%)</li>
-                      <li>16-25 vouches: Steeper decay (down to 55%)</li>
-                      <li>25+ vouches: Asymptotic floor at 40%</li>
-                    </ul>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      This prevents "vouch merchants" from selling endorsements. Each vouch you give dilutes your capacity, so you're incentivized to vouch only for people you genuinely trust.
-                    </p>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            </div>
-          </section>
-
           {/* MaxFlow */}
           <section id="maxflow" className="space-y-6">
             <div className="flex items-center gap-3 mb-4">
@@ -427,8 +317,9 @@ export default function Faqs() {
                   </AccordionTrigger>
                   <AccordionContent className="px-5 pb-4">
                     <p className="text-sm text-muted-foreground">
-                      MaxFlow is a sybil-resistant reputation system that measures trust through a network of endorsements ("vouches"). 
-                      It uses max-flow/min-cut graph algorithms to compute a numerical signal representing your position in the trust network.
+                      MaxFlow is neutral reputation infrastructure that measures your network health through graph algorithms. 
+                      Instead of verifying identity through documents or biometrics, it analyzes the structure and quality of your social connections. 
+                      Your signal score (0-100) reflects how well-integrated you are in a trusted network—useful for creditworthiness, access control, and governance weight.
                     </p>
                   </AccordionContent>
                 </AccordionItem>
@@ -448,6 +339,24 @@ export default function Faqs() {
                     </ul>
                     <p className="text-sm text-muted-foreground mt-2">
                       Scores range from 0 to 100. A score of 0 means you haven't been vouched into the network yet.
+                    </p>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="maxflow-algorithm" className="border-b border-foreground/20 last:border-0">
+                  <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left px-5" data-testid="faq-maxflow-algorithm">
+                    How does the algorithm work?
+                  </AccordionTrigger>
+                  <AccordionContent className="px-5 pb-4">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Your score depends on who vouches for you, and their trustworthiness depends on who vouches for them—recursive trust weighting.
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                      <li><span className="font-medium">60% Flow Component:</span> Sum of your vouchers' scores, weighted by their quality. High-score vouchers matter more.</li>
+                      <li><span className="font-medium">40% Structure Component:</span> Min-cut redundancy (how many connections must be removed to isolate you) plus path diversity bonuses.</li>
+                    </ul>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      The algorithm iterates across the entire network until scores converge—typically 4-6 rounds.
                     </p>
                   </AccordionContent>
                 </AccordionItem>
@@ -487,6 +396,60 @@ export default function Faqs() {
                     </ol>
                     <p className="text-sm text-amber-600 dark:text-amber-500 mt-2">
                       Only vouch for people you genuinely trust—your endorsements affect your own reputation.
+                    </p>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="maxflow-improve" className="border-b border-foreground/20 last:border-0">
+                  <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left px-5" data-testid="faq-maxflow-improve">
+                    How do I improve my score?
+                  </AccordionTrigger>
+                  <AccordionContent className="px-5 pb-4">
+                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                      <li><span className="font-medium">Get vouches from high-score users:</span> Quality over quantity. One vouch from a 80+ user is worth more than five from 20-score accounts.</li>
+                      <li><span className="font-medium">Build genuine connections:</span> Participate in trusted communities. Real relationships create organic vouching.</li>
+                      <li><span className="font-medium">Create path redundancy:</span> Vouches from different parts of the network increase your min-cut and structural score.</li>
+                      <li><span className="font-medium">Don't over-vouch:</span> Endorsing more than 10 people starts reducing your own score through dilution penalties.</li>
+                    </ul>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="maxflow-sybil" className="border-b border-foreground/20 last:border-0">
+                  <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left px-5" data-testid="faq-maxflow-sybil">
+                    Why can't fake accounts game the system?
+                  </AccordionTrigger>
+                  <AccordionContent className="px-5 pb-4">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Sybil attacks fail because of recursive trust:
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                      <li>Fake accounts vouching for each other all have low scores because none have high-quality endorsers</li>
+                      <li>You can't bootstrap from nothing—the cluster stays near zero</li>
+                      <li>Getting one real person to vouch helps, but dilution penalties limit "vouch merchants"</li>
+                      <li>Min-cut requirements ensure multiple independent paths, not just one bridge</li>
+                    </ul>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Attack patterns consistently score below 60, while genuine users with organic networks score 70+.
+                    </p>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="maxflow-dilution" className="border-b border-foreground/20 last:border-0">
+                  <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left px-5" data-testid="faq-maxflow-dilution">
+                    Why does vouching cost me score?
+                  </AccordionTrigger>
+                  <AccordionContent className="px-5 pb-4">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      The dilution penalty creates accountability:
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                      <li>1-10 vouches: No penalty</li>
+                      <li>11-15 vouches: Gentle decay (down to 85%)</li>
+                      <li>16-25 vouches: Steeper decay (down to 55%)</li>
+                      <li>25+ vouches: Asymptotic floor at 40%</li>
+                    </ul>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      This prevents "vouch merchants" from selling endorsements. Each vouch you give dilutes your capacity, so you're incentivized to vouch only for people you genuinely trust.
                     </p>
                   </AccordionContent>
                 </AccordionItem>
