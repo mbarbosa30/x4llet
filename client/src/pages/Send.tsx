@@ -426,9 +426,14 @@ export default function Send() {
       const validAfter = '0';
       const validBefore = Math.floor(Date.now() / 1000 + (paymentRequest?.ttl || 600)).toString();
 
-      // Celo uses "USDC" as domain name, all others (Base, Gnosis, Arbitrum) use "USD Coin"
+      // Domain names vary by chain: Celo="USDC", Gnosis="Bridged USDC (Gnosis)", others="USD Coin"
+      const getDomainName = (chain: number): string => {
+        if (chain === 42220) return 'USDC';
+        if (chain === 100) return 'Bridged USDC (Gnosis)';
+        return 'USD Coin';
+      };
       const domain = {
-        name: networkConfig.chainId === 42220 ? 'USDC' : 'USD Coin',
+        name: getDomainName(networkConfig.chainId),
         version: '2',
         chainId: networkConfig.chainId,
         verifyingContract: getAddress(networkConfig.usdcAddress),
@@ -526,9 +531,14 @@ export default function Send() {
       const validAfter = '0';
       const validBefore = Math.floor(Date.now() / 1000 + 600).toString();
 
-      // Celo uses "USDC" as domain name, all others (Base, Gnosis, Arbitrum) use "USD Coin"
+      // Domain names vary by chain: Celo="USDC", Gnosis="Bridged USDC (Gnosis)", others="USD Coin"
+      const getDomainName = (chain: number): string => {
+        if (chain === 42220) return 'USDC';
+        if (chain === 100) return 'Bridged USDC (Gnosis)';
+        return 'USD Coin';
+      };
       const domain = {
-        name: networkConfig.chainId === 42220 ? 'USDC' : 'USD Coin',
+        name: getDomainName(networkConfig.chainId),
         version: '2',
         chainId: networkConfig.chainId,
         verifyingContract: getAddress(networkConfig.usdcAddress),

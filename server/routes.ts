@@ -261,8 +261,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Validate domain parameters (name varies by network, version is always "2")
-      // Base and Gnosis use "USD Coin" (Circle's native/bridged standard), Celo uses "USDC"
-      const expectedName = validatedData.chainId === 42220 ? 'USDC' : 'USD Coin';
+      // Celo: "USDC", Gnosis: "Bridged USDC (Gnosis)", Base/Arbitrum: "USD Coin"
+      const getExpectedDomainName = (chainId: number): string => {
+        if (chainId === 42220) return 'USDC';
+        if (chainId === 100) return 'Bridged USDC (Gnosis)';
+        return 'USD Coin';
+      };
+      const expectedName = getExpectedDomainName(validatedData.chainId);
       if (validatedData.typedData.domain.name !== expectedName ||
           validatedData.typedData.domain.version !== '2') {
         return res.status(400).json({ error: `Invalid domain parameters (expected name: "${expectedName}", version: "2")` });
