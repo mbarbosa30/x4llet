@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { get, set, del } from "idb-keyval";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -54,4 +55,128 @@ export const queryClient = new QueryClient({
       retry: false,
     },
   },
+});
+
+// IndexedDB cache persistence for instant UI loading
+const CACHE_KEY = "npay-query-cache";
+const CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours max cache age
+
+// Keys that should be persisted for instant load
+const PERSISTABLE_PREFIXES = [
+  "/api/balance/",
+  "/api/xp/",
+  "/api/senador/balance/",
+];
+
+function shouldPersistQuery(queryKey: unknown): boolean {
+  if (!Array.isArray(queryKey) || queryKey.length === 0) return false;
+  const key = queryKey[0];
+  if (typeof key !== "string") return false;
+  return PERSISTABLE_PREFIXES.some(prefix => key.startsWith(prefix));
+}
+
+interface CachedQuery {
+  queryKey: unknown[];
+  data: unknown;
+  timestamp: number;
+}
+
+interface PersistedCache {
+  queries: CachedQuery[];
+  savedAt: number;
+}
+
+// Internal function to actually persist the cache
+async function doPeristCache(): Promise<void> {
+  try {
+    const cache = queryClient.getQueryCache();
+    const queries: CachedQuery[] = [];
+    
+    for (const query of cache.getAll()) {
+      if (
+        query.state.status === "success" &&
+        query.state.data !== undefined &&
+        shouldPersistQuery(query.queryKey)
+      ) {
+        queries.push({
+          queryKey: query.queryKey as unknown[],
+          data: query.state.data,
+          timestamp: query.state.dataUpdatedAt,
+        });
+      }
+    }
+    
+    if (queries.length > 0) {
+      const persisted: PersistedCache = {
+        queries,
+        savedAt: Date.now(),
+      };
+      await set(CACHE_KEY, persisted);
+      console.log(`[QueryCache] Persisted ${queries.length} queries to IndexedDB`);
+    }
+  } catch (error) {
+    console.error("[QueryCache] Failed to persist cache:", error);
+  }
+}
+
+// Save query cache to IndexedDB (debounced for subscription updates)
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+export function persistQueryCache(): void {
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => doPeristCache(), 1000);
+}
+
+// Flush cache immediately (for use after hydration)
+export async function flushQueryCache(): Promise<void> {
+  if (saveTimeout) clearTimeout(saveTimeout);
+  await doPeristCache();
+}
+
+// Restore query cache from IndexedDB on startup
+export async function hydrateQueryCache(): Promise<void> {
+  try {
+    const persisted = await get<PersistedCache>(CACHE_KEY);
+    
+    if (!persisted || !persisted.queries) {
+      console.log("[QueryCache] No persisted cache found");
+      return;
+    }
+    
+    // Check if cache is too old
+    if (Date.now() - persisted.savedAt > CACHE_MAX_AGE) {
+      console.log("[QueryCache] Persisted cache too old, clearing");
+      await del(CACHE_KEY);
+      return;
+    }
+    
+    let hydratedCount = 0;
+    for (const cached of persisted.queries) {
+      // Only hydrate if not too stale (max 5 minutes for balance data)
+      const age = Date.now() - cached.timestamp;
+      if (age < 5 * 60 * 1000) {
+        queryClient.setQueryData(cached.queryKey, cached.data);
+        hydratedCount++;
+      }
+    }
+    
+    console.log(`[QueryCache] Hydrated ${hydratedCount}/${persisted.queries.length} queries from IndexedDB`);
+    
+    // Re-persist immediately to update timestamps and keep cache fresh across reloads
+    if (hydratedCount > 0) {
+      await flushQueryCache();
+    }
+  } catch (error) {
+    console.error("[QueryCache] Failed to hydrate cache:", error);
+  }
+}
+
+// Subscribe to cache updates for persistence
+queryClient.getQueryCache().subscribe((event) => {
+  if (
+    event.type === "updated" &&
+    event.query.state.status === "success" &&
+    shouldPersistQuery(event.query.queryKey)
+  ) {
+    persistQueryCache();
+  }
 });

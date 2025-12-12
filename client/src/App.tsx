@@ -1,6 +1,6 @@
 import { useState, useEffect, Component, type ReactNode, lazy, Suspense } from "react";
 import { Switch, Route, useLocation } from "wouter";
-import { queryClient } from "./lib/queryClient";
+import { queryClient, hydrateQueryCache } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -280,6 +280,9 @@ function App() {
   useEffect(() => {
     async function restoreSession() {
       try {
+        // Hydrate React Query cache from IndexedDB for instant data display
+        await hydrateQueryCache();
+        
         // Load auto-lock preference
         const prefs = await getPreferences();
         if (prefs.autoLockMinutes !== undefined) {

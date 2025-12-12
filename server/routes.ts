@@ -5619,13 +5619,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Celo RPC endpoints with fallback for SENADOR balance
+  // Celo RPC endpoints with parallel racing for SENADOR balance
   const CELO_RPCS = [
     'https://forno.celo.org',
     'https://1rpc.io/celo',
     'https://celo.drpc.org',
     'https://rpc.ankr.com/celo',
   ];
+
+  // In-memory cache for SENADOR balances (60 second TTL)
+  const senadorBalanceCache = new Map<string, { balance: string; balanceFormatted: string; timestamp: number }>();
+  const SENADOR_CACHE_TTL = 60000; // 60 seconds
 
   // Endpoint to get SENADOR balance for a user
   app.get('/api/senador/balance/:address', async (req, res) => {
@@ -5636,51 +5640,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid wallet address' });
       }
 
+      const normalizedAddress = address.toLowerCase();
+      
+      // Check cache first
+      const cached = senadorBalanceCache.get(normalizedAddress);
+      if (cached && (Date.now() - cached.timestamp) < SENADOR_CACHE_TTL) {
+        console.log(`[SENADOR Balance] Cache hit for ${address}`);
+        return res.json({
+          balance: cached.balance,
+          balanceFormatted: cached.balanceFormatted,
+          decimals: 18,
+        });
+      }
+
       const chainInfo = resolveChain(42220);
       if (!chainInfo) {
         return res.status(500).json({ error: 'Chain configuration not found' });
       }
 
-      // Try each RPC until one works
-      let lastError: any = null;
-      for (const rpcUrl of CELO_RPCS) {
-        try {
+      try {
+        // Race all RPCs in parallel with 800ms timeout per host using viem's native timeout
+        const rpcPromises = CELO_RPCS.map((rpcUrl) => {
           const publicClient = createPublicClient({
             chain: chainInfo.viemChain,
-            transport: http(rpcUrl),
+            transport: http(rpcUrl, { timeout: 800 }),
           });
 
-          const balance = await publicClient.readContract({
+          return publicClient.readContract({
             address: SENADOR_TOKEN_ADDRESS,
             abi: ERC20_ABI,
             functionName: 'balanceOf',
             args: [address as Address],
-          }) as bigint;
+          }) as Promise<bigint>;
+        });
 
-          const balanceFormatted = (Number(balance) / 1e18).toFixed(2);
-          
-          console.log(`[SENADOR Balance] ${address}: ${balanceFormatted} SENADOR (${balance}) via ${rpcUrl}`);
+        // First successful RPC wins
+        const balance = await Promise.any(rpcPromises);
 
+        const balanceFormatted = (Number(balance) / 1e18).toFixed(2);
+        
+        // Cache the result
+        senadorBalanceCache.set(normalizedAddress, {
+          balance: balance.toString(),
+          balanceFormatted,
+          timestamp: Date.now(),
+        });
+        
+        console.log(`[SENADOR Balance] ${address}: ${balanceFormatted} SENADOR (racing)`);
+
+        return res.json({
+          balance: balance.toString(),
+          balanceFormatted,
+          decimals: 18,
+        });
+      } catch (aggregateError) {
+        // All RPCs failed or timed out
+        console.error('[SENADOR Balance] All RPCs failed:', aggregateError);
+        
+        // Return stale cache if available
+        if (cached) {
+          console.log(`[SENADOR Balance] Returning stale cache for ${address}`);
           return res.json({
-            balance: balance.toString(),
-            balanceFormatted,
+            balance: cached.balance,
+            balanceFormatted: cached.balanceFormatted,
             decimals: 18,
           });
-        } catch (rpcError) {
-          console.warn(`[SENADOR Balance] RPC ${rpcUrl} failed:`, rpcError);
-          lastError = rpcError;
-          continue;
         }
+        
+        res.status(500).json({ 
+          error: 'Failed to fetch SENADOR balance from all RPC endpoints',
+          balance: '0',
+          balanceFormatted: '0.00',
+          decimals: 18,
+        });
       }
-
-      // All RPCs failed
-      console.error('[SENADOR Balance] All RPCs failed:', lastError);
-      res.status(500).json({ 
-        error: 'Failed to fetch SENADOR balance from all RPC endpoints',
-        balance: '0',
-        balanceFormatted: '0.00',
-        decimals: 18,
-      });
     } catch (error) {
       console.error('[SENADOR Balance] Error:', error);
       res.status(500).json({ 
