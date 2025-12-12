@@ -545,12 +545,19 @@ export default function MaxFlow() {
         <Card className="p-6 space-y-6">
           {!isLoadingMaxFlow && score === 0 ? (
             <div className="space-y-6">
-              <div className="flex items-center gap-3">
-                <Shield className="h-10 w-10 text-[#30A99C] dark:text-[#40C4B5] shrink-0" />
-                <div>
-                  <h2 className="text-xl text-section">Trust Graph</h2>
-                  <span className="font-label text-muted-foreground">// MAXFLOW</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Shield className="h-10 w-10 text-[#30A99C] dark:text-[#40C4B5] shrink-0" />
+                  <div>
+                    <h2 className="text-xl text-section">Trust Graph</h2>
+                    <span className="font-label text-muted-foreground">// MAXFLOW</span>
+                  </div>
                 </div>
+                <Link href="/faqs#maxflow">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" data-testid="button-maxflow-info">
+                    <Info className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </Link>
               </div>
 
               <div className="text-center py-4">
@@ -576,6 +583,13 @@ export default function MaxFlow() {
             </div>
           ) : (
             <div className="text-center space-y-4">
+              <div className="flex justify-end -mt-2 -mr-2">
+                <Link href="/faqs#maxflow">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" data-testid="button-maxflow-info">
+                    <Info className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </Link>
+              </div>
               <div>
                 <h2 className="text-sm text-muted-foreground mb-2">Your MaxFlow Signal</h2>
                 {isLoadingMaxFlow ? (

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useLocation, Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
@@ -10,6 +11,24 @@ import {
 
 export default function Faqs() {
   const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    const scrollToHash = () => {
+      const hash = window.location.hash.slice(1);
+      if (hash) {
+        requestAnimationFrame(() => {
+          const element = document.getElementById(hash);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        });
+      }
+    };
+
+    scrollToHash();
+    window.addEventListener('hashchange', scrollToHash);
+    return () => window.removeEventListener('hashchange', scrollToHash);
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -386,6 +405,88 @@ export default function Faqs() {
                     </ul>
                     <p className="text-sm text-muted-foreground mt-2">
                       This prevents "vouch merchants" from selling endorsements. Each vouch you give dilutes your capacity, so you're incentivized to vouch only for people you genuinely trust.
+                    </p>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
+          </section>
+
+          {/* MaxFlow */}
+          <section id="maxflow" className="space-y-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-px bg-foreground flex-1" />
+              <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground">MaxFlow</h2>
+              <div className="w-8 h-px bg-foreground flex-1" />
+            </div>
+            <div className="border-2 border-foreground shadow-[4px_4px_0px_0px_rgb(0,0,0)] bg-white">
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="maxflow-what" className="border-b border-foreground/20 last:border-0">
+                  <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left px-5" data-testid="faq-maxflow-what">
+                    What is MaxFlow?
+                  </AccordionTrigger>
+                  <AccordionContent className="px-5 pb-4">
+                    <p className="text-sm text-muted-foreground">
+                      MaxFlow is a sybil-resistant reputation system that measures trust through a network of endorsements ("vouches"). 
+                      It uses max-flow/min-cut graph algorithms to compute a numerical signal representing your position in the trust network.
+                    </p>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="maxflow-signal" className="border-b border-foreground/20 last:border-0">
+                  <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left px-5" data-testid="faq-maxflow-signal">
+                    What does my signal score mean?
+                  </AccordionTrigger>
+                  <AccordionContent className="px-5 pb-4">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Your signal score represents the strength of your connection to the trust network's anchor points. Higher scores indicate:
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                      <li>Multiple independent paths through trusted endorsers</li>
+                      <li>Stronger redundancy in your trust connections</li>
+                      <li>Higher daily XP earning potential</li>
+                    </ul>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Scores range from 0 to 100. A score of 0 means you haven't been vouched into the network yet.
+                    </p>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="maxflow-vouch" className="border-b border-foreground/20 last:border-0">
+                  <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left px-5" data-testid="faq-maxflow-vouch">
+                    How do I get vouched?
+                  </AccordionTrigger>
+                  <AccordionContent className="px-5 pb-4">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      To build your signal, you need others in the network to vouch for you:
+                    </p>
+                    <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
+                      <li>Share your wallet address with someone who has a MaxFlow signal</li>
+                      <li>They can vouch for you from their Signal page</li>
+                      <li>Once vouched, your signal will be calculated within a few hours</li>
+                    </ol>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      The more people who vouch for you (especially those with high signals), the stronger your own signal becomes.
+                    </p>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="maxflow-give-vouch" className="border-b border-foreground/20 last:border-0">
+                  <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left px-5" data-testid="faq-maxflow-give-vouch">
+                    How do I vouch for others?
+                  </AccordionTrigger>
+                  <AccordionContent className="px-5 pb-4">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      If you have a MaxFlow signal, you can vouch for others:
+                    </p>
+                    <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
+                      <li>Go to the Signal page in your wallet</li>
+                      <li>Click "Vouch for Address"</li>
+                      <li>Enter or scan the person's wallet address</li>
+                      <li>Sign the vouch transaction (gasless)</li>
+                    </ol>
+                    <p className="text-sm text-amber-600 dark:text-amber-500 mt-2">
+                      Only vouch for people you genuinely trust—your endorsements affect your own reputation.
                     </p>
                   </AccordionContent>
                 </AccordionItem>
