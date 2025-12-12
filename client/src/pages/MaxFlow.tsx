@@ -19,8 +19,9 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { getWallet, getPrivateKey } from '@/lib/wallet';
 import { getMaxFlowScore, getVouchNonce, submitVouch, type MaxFlowScore } from '@/lib/maxflow';
+import { getSenadorBalance, type SenadorBalance } from '@/lib/gooddollar';
 import { privateKeyToAccount } from 'viem/accounts';
-import { getAddress } from 'viem';
+import { getAddress, type Address } from 'viem';
 import { useToast } from '@/hooks/use-toast';
 
 // Lazy load QR scanner to reduce initial bundle size
@@ -54,6 +55,8 @@ export default function MaxFlow() {
   const [showScanner, setShowScanner] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [showRedeemConfirm, setShowRedeemConfirm] = useState(false);
+  const [showSenadorConfirm, setShowSenadorConfirm] = useState(false);
+  const [senadorAmount, setSenadorAmount] = useState('');
 
   useEffect(() => {
     const loadWallet = async () => {
@@ -165,6 +168,56 @@ export default function MaxFlow() {
       } catch {}
       toast({
         title: "Redemption Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // SENADOR balance query
+  const { data: senadorData, isLoading: isLoadingSenador } = useQuery({
+    queryKey: ['/senador/balance', address],
+    queryFn: () => getSenadorBalance(address as Address),
+    enabled: !!address,
+    staleTime: 60 * 1000, // 1 minute
+  });
+
+  // SENADOR exchange mutation
+  const redeemSenadorMutation = useMutation({
+    mutationFn: async (xpAmount: number) => {
+      return apiRequest('POST', '/api/xp/redeem-senador', { address, xpAmount });
+    },
+    onSuccess: async (response) => {
+      const data = await response.json();
+      setShowSenadorConfirm(false);
+      setSenadorAmount('');
+      toast({
+        title: "SENADOR Received!",
+        description: `${data.senadorReceived} SENADOR has been sent to your wallet.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
+      queryClient.invalidateQueries({ queryKey: ['/senador/balance', address] });
+    },
+    onError: (error: any) => {
+      setShowSenadorConfirm(false);
+      let errorMessage = "Failed to exchange XP for SENADOR";
+      try {
+        if (error instanceof Error && error.message) {
+          const match = error.message.match(/^\d+:\s*(.+)$/);
+          if (match) {
+            try {
+              const parsed = JSON.parse(match[1]);
+              errorMessage = parsed.error || match[1];
+            } catch {
+              errorMessage = match[1];
+            }
+          } else {
+            errorMessage = error.message;
+          }
+        }
+      } catch {}
+      toast({
+        title: "Exchange Failed",
         description: errorMessage,
         variant: "destructive",
       });
@@ -393,6 +446,91 @@ export default function MaxFlow() {
                 </Button>
               </div>
             )}
+          </Card>
+        )}
+
+        {/* SENADOR Token Section */}
+        {!isLoadingMaxFlow && score > 0 && (
+          <Card className="p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0">
+                  <span className="text-lg font-bold text-white">S</span>
+                </div>
+                <div>
+                  <h2 className="text-xl text-section">SENADOR</h2>
+                  <span className="font-label text-muted-foreground">// TOKEN</span>
+                </div>
+              </div>
+              <div className="text-right">
+                {isLoadingSenador ? (
+                  <p className="font-mono text-2xl font-bold">--</p>
+                ) : (
+                  <p className="font-mono text-2xl font-bold tabular-nums" data-testid="text-senador-balance">
+                    {senadorData?.balanceFormatted ?? '0.00'}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <p className="text-sm text-muted-foreground text-center">
+              Exchange your XP for SENADOR tokens at 1:1 ratio.
+            </p>
+
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  placeholder="Amount of XP"
+                  value={senadorAmount}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    // Only allow positive integers
+                    if (val === '' || /^\d+$/.test(val)) {
+                      setSenadorAmount(val);
+                    }
+                  }}
+                  min="1"
+                  step="1"
+                  max={xpData?.totalXp ?? 0}
+                  className="flex-1"
+                  data-testid="input-senador-amount"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSenadorAmount(String(Math.floor(xpData?.totalXp ?? 0)))}
+                  disabled={!xpData || xpData.totalXp < 1}
+                  data-testid="button-senador-max"
+                >
+                  MAX
+                </Button>
+              </div>
+              
+              <Button
+                onClick={() => setShowSenadorConfirm(true)}
+                disabled={
+                  !senadorAmount || 
+                  parseFloat(senadorAmount) < 1 || 
+                  parseFloat(senadorAmount) > (xpData?.totalXp ?? 0) ||
+                  redeemSenadorMutation.isPending
+                }
+                className="w-full"
+                size="lg"
+                data-testid="button-exchange-senador"
+              >
+                {redeemSenadorMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    EXCHANGING...
+                  </>
+                ) : (
+                  <>
+                    GET {senadorAmount || '0'} SENADOR FOR {senadorAmount || '0'} XP
+                  </>
+                )}
+              </Button>
+            </div>
           </Card>
         )}
 
@@ -671,6 +809,36 @@ export default function MaxFlow() {
                 </>
               ) : (
                 'Confirm Redemption'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* SENADOR Exchange Confirmation Dialog */}
+      <AlertDialog open={showSenadorConfirm} onOpenChange={setShowSenadorConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Exchange {senadorAmount} XP for SENADOR?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>This will deduct {senadorAmount} XP from your balance and send you {senadorAmount} SENADOR tokens on Celo.</p>
+              <p className="text-sm font-medium">The tokens will be transferred to your wallet address.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={redeemSenadorMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => redeemSenadorMutation.mutate(parseFloat(senadorAmount))}
+              disabled={redeemSenadorMutation.isPending}
+              data-testid="button-confirm-senador"
+            >
+              {redeemSenadorMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Processing...
+                </>
+              ) : (
+                'Confirm Exchange'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

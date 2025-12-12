@@ -5490,10 +5490,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid wallet address' });
       }
 
-      const xpToSpend = parseFloat(xpAmount);
-      if (isNaN(xpToSpend) || xpToSpend < 1) {
+      const parsedXp = parseFloat(xpAmount);
+      if (isNaN(parsedXp) || parsedXp < 1) {
         return res.status(400).json({ error: 'Minimum 1 XP required' });
       }
+      
+      // Reject fractional XP - must be a whole number
+      if (!Number.isInteger(parsedXp) || parsedXp <= 0) {
+        return res.status(400).json({ error: 'XP amount must be a positive whole number' });
+      }
+      
+      const xpToSpend = parsedXp;
 
       const normalizedAddress = address.toLowerCase();
       
