@@ -20,6 +20,10 @@ interface GlobalStats {
   totalTransfers: number;
   totalXp: number;
   gasSponsoredUsd: number;
+  stellar?: {
+    currentApy: number;
+    xlmSponsoredUsd: number;
+  };
 }
 
 // Phone mockup component for desktop hero - Simplified to match npay1
@@ -774,13 +778,14 @@ export default function Landing() {
     staleTime: 60000,
   });
 
-  const bestApy = Math.max(aaveApyBase?.apy || 0, aaveApyCelo?.apy || 0);
-  const apyDisplay = bestApy > 0 ? `${bestApy.toFixed(1)}%` : null;
-
   const { data: globalStats } = useQuery<GlobalStats>({
     queryKey: ['/api/stats/global'],
     staleTime: 60000,
   });
+
+  const stellarApy = globalStats?.stellar?.currentApy || 0;
+  const bestApy = Math.max(aaveApyBase?.apy || 0, aaveApyCelo?.apy || 0, stellarApy);
+  const apyDisplay = bestApy > 0 ? `${bestApy.toFixed(1)}%` : null;
 
   useEffect(() => {
     let isActive = true;
