@@ -224,6 +224,8 @@ export default function MaxFlow() {
     },
   });
 
+  const isStellarAddress = (addr: string) => addr.startsWith('G') && addr.length === 56;
+
   const vouchMutation = useMutation({
     mutationFn: async (endorsedAddress: string) => {
       if (!address) throw new Error('No wallet found');
@@ -234,10 +236,26 @@ export default function MaxFlow() {
       const account = privateKeyToAccount(privateKey as `0x${string}`);
       
       const validatedEndorser = getAddress(address);
-      const validatedEndorsed = getAddress(endorsedAddress);
       
       // Get epoch and nonce (combined endpoint in v1 API)
       const { epoch, nonce } = await getVouchNonce(validatedEndorser.toLowerCase());
+      
+      // Check if endorsee is a Stellar address
+      if (isStellarAddress(endorsedAddress)) {
+        // Stellar addresses: no EIP-712 signing needed, use externallyVerified
+        return submitVouch({
+          endorser: validatedEndorser.toLowerCase(),
+          endorsee: endorsedAddress, // Stellar addresses are case-sensitive
+          epoch: epoch.toString(),
+          nonce: nonce.toString(),
+          sig: 'externally_verified',
+          chainNamespace: 'stellar',
+          externallyVerified: true,
+        });
+      }
+      
+      // EVM address flow with EIP-712 signing
+      const validatedEndorsed = getAddress(endorsedAddress);
       
       const chainId = 42220;
       
@@ -306,15 +324,19 @@ export default function MaxFlow() {
   };
 
   const handleScan = (data: string) => {
-    if (/^0x[a-fA-F0-9]{40}$/.test(data.trim())) {
-      const scannedAddress = data.trim();
+    const trimmed = data.trim();
+    // Accept EVM addresses (0x...) or Stellar addresses (G...)
+    const isEvm = /^0x[a-fA-F0-9]{40}$/.test(trimmed);
+    const isStellar = trimmed.startsWith('G') && trimmed.length === 56;
+    
+    if (isEvm || isStellar) {
       setShowScanner(false);
-      setVouchAddress(scannedAddress);
+      setVouchAddress(trimmed);
       setShowVouchInput(true);
     } else {
       toast({
         title: "Invalid QR Code",
-        description: "Please scan a valid wallet address",
+        description: "Please scan a valid EVM (0x...) or Stellar (G...) address",
         variant: "destructive",
       });
     }

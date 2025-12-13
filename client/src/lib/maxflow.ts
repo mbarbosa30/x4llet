@@ -146,6 +146,7 @@ export async function getVouchStatus(endorser: string, endorsee: string): Promis
 
 /**
  * Submit a vouch to MaxFlow (flat request body for v1 API)
+ * Supports EVM chains (default) and non-EVM chains (Stellar, Solana, Cosmos)
  */
 export async function submitVouch(params: {
   endorser: string;
@@ -153,7 +154,9 @@ export async function submitVouch(params: {
   epoch: string;
   nonce: string;
   sig: string;
-  chainId: number;
+  chainId?: number;
+  chainNamespace?: 'eip155' | 'stellar' | 'solana' | 'cosmos';
+  externallyVerified?: boolean;
 }): Promise<VouchResponse> {
   const response = await fetch(`${MAXFLOW_API}/vouch`, {
     method: 'POST',
