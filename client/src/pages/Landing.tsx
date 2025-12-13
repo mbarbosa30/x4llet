@@ -238,7 +238,7 @@ function MobileLanding({
           </div>
           
           <p className="text-sm text-muted-foreground text-center pt-4 flex items-center justify-center gap-2">
-            <img src={stellarLogo} alt="Stellar" className="h-4 w-4" />
+            <img src={stellarLogo} alt="Stellar" className="h-4" />
             <span><span className="font-semibold">Stellar</span> version available. <Link href="/stellar" className="underline hover:text-foreground font-semibold" data-testid="link-stellar-landing">Access Now</Link></span>
           </p>
         </div>
@@ -405,7 +405,7 @@ function DesktopLanding({
             </div>
             
             <p className="text-sm text-muted-foreground flex items-center gap-2">
-              <img src={stellarLogo} alt="Stellar" className="h-4 w-4" />
+              <img src={stellarLogo} alt="Stellar" className="h-4" />
               <span><span className="font-semibold">Stellar</span> version available. <Link href="/stellar" className="underline hover:text-foreground font-semibold" data-testid="link-stellar-desktop">Access Now</Link></span>
             </p>
           </div>
