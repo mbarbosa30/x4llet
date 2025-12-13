@@ -261,6 +261,11 @@ function Router() {
           <Context />
         </Suspense>
       </Route>
+      <Route path="/stellar">
+        <Suspense fallback={<LazyLoadFallback />}>
+          <StellarEmbed />
+        </Suspense>
+      </Route>
       <Route path="/stellar/:path*">
         <Suspense fallback={<LazyLoadFallback />}>
           <StellarEmbed />
