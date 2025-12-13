@@ -7,6 +7,7 @@ import { Marquee, MarqueeItem } from '@/components/ui/marquee';
 import { WifiOff, Wifi, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap, Users, ArrowRightLeft, ArrowRight, Shield, Coins, TrendingUp, Wallet, ScanFace, Fingerprint, CircleDollarSign, Cpu, Clock, Rocket, Stamp, Fuel } from 'lucide-react';
 import { hasWallet, isWalletUnlocked } from '@/lib/wallet';
 import Footer from '@/components/Footer';
+import stellarLogo from '@assets/200-2004304_9-stellar-logo-new-stellar-png-icon-clipart_1765646675902.png';
 
 interface AaveApyData {
   chainId: number;
@@ -236,8 +237,9 @@ function MobileLanding({
             </Link>
           </div>
           
-          <p className="text-sm text-muted-foreground text-center pt-4">
-            Stellar version available. <Link href="/stellar" className="underline hover:text-foreground" data-testid="link-stellar-landing">Open</Link>
+          <p className="text-sm text-muted-foreground text-center pt-4 flex items-center justify-center gap-2">
+            <img src={stellarLogo} alt="Stellar" className="h-4 w-4" />
+            <span><span className="font-semibold">Stellar</span> version available. <Link href="/stellar" className="underline hover:text-foreground font-semibold" data-testid="link-stellar-landing">Access Now</Link></span>
           </p>
         </div>
 
@@ -402,8 +404,9 @@ function DesktopLanding({
               </Button>
             </div>
             
-            <p className="text-sm text-muted-foreground">
-              Stellar version available. <Link href="/stellar" className="underline hover:text-foreground" data-testid="link-stellar-desktop">Open</Link>
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <img src={stellarLogo} alt="Stellar" className="h-4 w-4" />
+              <span><span className="font-semibold">Stellar</span> version available. <Link href="/stellar" className="underline hover:text-foreground font-semibold" data-testid="link-stellar-desktop">Access Now</Link></span>
             </p>
           </div>
           
