@@ -306,7 +306,7 @@ function MobileLanding({
                 <Layers className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
                 <span className="text-sm font-semibold uppercase tracking-wide">Multi-Chain</span>
               </div>
-              <p className="text-sm text-muted-foreground pl-8">Seamless experience on Base, Celo, Gnosis, and Arbitrum networks.</p>
+              <p className="text-sm text-muted-foreground pl-8">Seamless experience on Base, Celo, Gnosis, Arbitrum, and Stellar networks.</p>
             </div>
           </div>
         </div>
@@ -373,6 +373,7 @@ function DesktopLanding({
         <MarqueeItem>Gasless on Celo</MarqueeItem>
         <MarqueeItem>Gasless on Gnosis</MarqueeItem>
         <MarqueeItem>Gasless on Arbitrum</MarqueeItem>
+        <MarqueeItem>Gasless on Stellar</MarqueeItem>
         <MarqueeItem>100% Self-Custody</MarqueeItem>
         <MarqueeItem>Offline-Ready</MarqueeItem>
       </Marquee>

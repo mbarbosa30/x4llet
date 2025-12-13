@@ -5868,11 +5868,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== STELLAR METRICS HELPER =====
+  // Stellar wallet (nanopaystellar.replit.app) is a SEPARATE application with its own database.
+  // storage.getGlobalStats() only queries the EVM database (wallets, cachedTransactions tables).
+  // This helper fetches from the Stellar wallet's public API and merges into combined stats.
+  // Cache Stellar metrics for 1 hour to avoid excessive API calls.
+  let stellarMetricsCache: { data: any; timestamp: number } | null = null;
+  const STELLAR_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+  const STELLAR_WALLET_URL = process.env.VITE_STELLAR_WALLET_URL || 'https://nanopaystellar.replit.app';
+
+  async function getStellarMetrics(): Promise<{
+    userCount: number;
+    transactionCount: number;
+    totalXpClaimed: number;
+    currentApy: number;
+    xlmSponsored: number;
+    xlmSponsoredUsd: number;
+    cachedAt: string;
+  } | null> {
+    // Check cache - return cached data if fresh
+    if (stellarMetricsCache && Date.now() - stellarMetricsCache.timestamp < STELLAR_CACHE_TTL) {
+      return { ...stellarMetricsCache.data, cachedAt: new Date(stellarMetricsCache.timestamp).toISOString() };
+    }
+
+    try {
+      // Fetch Stellar metrics and XLM price in parallel
+      const [metricsResponse, priceResponse] = await Promise.all([
+        fetch(`${STELLAR_WALLET_URL}/api/public/metrics`),
+        fetch('https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=usd'),
+      ]);
+
+      if (!metricsResponse.ok) {
+        console.error('[Stellar] Failed to fetch metrics:', metricsResponse.status);
+        // Return stale cache if available (better than nothing), otherwise null
+        if (stellarMetricsCache) {
+          console.warn('[Stellar] Using stale cache from:', new Date(stellarMetricsCache.timestamp).toISOString());
+          return { ...stellarMetricsCache.data, cachedAt: new Date(stellarMetricsCache.timestamp).toISOString() };
+        }
+        return null;
+      }
+
+      const metrics = await metricsResponse.json();
+      let xlmPrice = 0.10; // Fallback price
+
+      if (priceResponse.ok) {
+        const priceData = await priceResponse.json();
+        xlmPrice = priceData?.stellar?.usd || 0.10;
+      }
+
+      const now = Date.now();
+      const result = {
+        userCount: metrics.userCount || 0,
+        transactionCount: metrics.transactionCount || 0,
+        totalXpClaimed: metrics.totalXpClaimed || 0,
+        currentApy: metrics.currentApy || 0,
+        xlmSponsored: metrics.xlmSponsored || 0,
+        xlmSponsoredUsd: (metrics.xlmSponsored || 0) * xlmPrice,
+        cachedAt: new Date(now).toISOString(),
+      };
+
+      stellarMetricsCache = { data: result, timestamp: now };
+      console.log('[Stellar] Fetched and cached metrics:', result);
+      return result;
+    } catch (error) {
+      console.error('[Stellar] Error fetching metrics:', error);
+      // Return stale cache if available
+      if (stellarMetricsCache) {
+        console.warn('[Stellar] Using stale cache due to error, from:', new Date(stellarMetricsCache.timestamp).toISOString());
+        return { ...stellarMetricsCache.data, cachedAt: new Date(stellarMetricsCache.timestamp).toISOString() };
+      }
+      return null;
+    }
+  }
+
   // ===== GLOBAL STATS ENDPOINT (PUBLIC) =====
+  // Returns combined metrics from both EVM wallet (this app) and Stellar wallet (separate app).
+  // storage.getGlobalStats() = EVM-only data (wallets/cachedTransactions tables in THIS database)
+  // getStellarMetrics() = Stellar-only data (from nanopaystellar.replit.app's separate database)
+  // No double-counting: each source is independent and additive.
   app.get('/api/stats/global', async (req, res) => {
     try {
-      const stats = await storage.getGlobalStats();
-      res.json(stats);
+      const [stats, stellarMetrics] = await Promise.all([
+        storage.getGlobalStats(),
+        getStellarMetrics(),
+      ]);
+
+      // Combine EVM stats with Stellar stats (two separate systems, no overlap)
+      const combinedStats = {
+        ...stats,
+        // Total across both EVM and Stellar wallets
+        totalUsers: stats.totalUsers + (stellarMetrics?.userCount || 0),
+        totalTransfers: stats.totalTransfers + (stellarMetrics?.transactionCount || 0),
+        totalXp: stats.totalXp + (stellarMetrics?.totalXpClaimed || 0),
+        // Gas sponsorship: EVM native gas + XLM sponsored (converted to USD)
+        gasSponsoredUsd: stats.gasSponsoredUsd + (stellarMetrics?.xlmSponsoredUsd || 0),
+        // Stellar-specific fields for detailed breakdown
+        stellar: stellarMetrics,
+      };
+
+      res.json(combinedStats);
     } catch (error) {
       console.error('[Stats] Error fetching global stats:', error);
       res.status(500).json({ error: 'Failed to fetch global stats' });
