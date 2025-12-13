@@ -59,6 +59,13 @@ const UBI_SCHEME_ABI = [
     outputs: [{ type: 'uint256' }],
   },
   {
+    name: 'checkEntitlement',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
     name: 'claim',
     type: 'function',
     stateMutability: 'nonpayable',
@@ -254,12 +261,12 @@ export async function getClaimStatus(address: Address): Promise<ClaimStatus> {
   
   try {
     // Fetch UBI scheme data and token decimals in parallel
-    const [entitlement, currentDay, dailyUbi, lastClaimedDay, tokenDecimals] = await Promise.all([
+    const [entitlement, currentDay, dailyUbi, lastClaimedTimestamp, periodStart, tokenDecimals] = await Promise.all([
       client.readContract({
         address: GOODDOLLAR_CONTRACTS.ubi.celo,
         abi: UBI_SCHEME_ABI,
         functionName: 'checkEntitlement',
-        account: address,
+        args: [address],
       }),
       client.readContract({
         address: GOODDOLLAR_CONTRACTS.ubi.celo,
@@ -278,17 +285,30 @@ export async function getClaimStatus(address: Address): Promise<ClaimStatus> {
         args: [address],
       }),
       client.readContract({
+        address: GOODDOLLAR_CONTRACTS.ubi.celo,
+        abi: UBI_SCHEME_ABI,
+        functionName: 'periodStart',
+      }),
+      client.readContract({
         address: GOODDOLLAR_CONTRACTS.token.celo,
         abi: ERC20_ABI,
         functionName: 'decimals',
       }),
     ]);
     
+    // lastClaimed returns a Unix timestamp (seconds) - convert to day number using periodStart
+    // Formula: day = (timestamp - periodStart) / 86400
+    const periodStartNum = Number(periodStart);
+    const lastClaimedTs = Number(lastClaimedTimestamp);
+    const lastClaimedDay = lastClaimedTs > 0 ? Math.floor((lastClaimedTs - periodStartNum) / 86400) : 0;
+    
     console.log('[GoodDollar] Claim status contract responses:', {
       entitlement: entitlement.toString(),
       currentDay: currentDay.toString(),
       dailyUbi: dailyUbi.toString(),
-      lastClaimedDay: lastClaimedDay.toString(),
+      lastClaimedTimestamp: lastClaimedTimestamp.toString(),
+      periodStart: periodStart.toString(),
+      lastClaimedDay,
       canClaim: entitlement > 0n,
       tokenDecimals,
     });
@@ -651,7 +671,7 @@ export async function claimGoodDollar(
         address: GOODDOLLAR_CONTRACTS.ubi.celo,
         abi: UBI_SCHEME_ABI,
         functionName: 'checkEntitlement',
-        account: address,
+        args: [address],
       }),
       client.readContract({
         address: GOODDOLLAR_CONTRACTS.token.celo,
@@ -752,7 +772,7 @@ export async function claimGoodDollarWithWallet(
         address: GOODDOLLAR_CONTRACTS.ubi.celo,
         abi: UBI_SCHEME_ABI,
         functionName: 'checkEntitlement',
-        account: address,
+        args: [address],
       }),
       client.readContract({
         address: GOODDOLLAR_CONTRACTS.token.celo,

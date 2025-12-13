@@ -136,7 +136,7 @@ function resolveChain(chainId: number) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  const BUILD_VERSION = '2025-12-08T23:50:00Z';
+  const BUILD_VERSION = '2025-12-13T20:15:00Z';
   
   app.get('/api/version', (req, res) => {
     res.json({
