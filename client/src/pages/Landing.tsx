@@ -681,6 +681,9 @@ function DesktopLanding({
           <Button size="lg" onClick={() => setLocation('/create')} data-testid="button-get-started">
             Get Started <ArrowRight className="h-4 w-4" />
           </Button>
+          <p className="text-sm text-muted-foreground mt-4">
+            Stellar version available. <Link href="/stellar" className="underline hover:text-foreground" data-testid="link-stellar-landing">Open →</Link>
+          </p>
         </div>
       </section>
 

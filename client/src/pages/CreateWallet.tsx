@@ -264,9 +264,7 @@ export default function CreateWallet() {
           </div>
 
           <a 
-            href="https://nanopaystrellar.replit.app/create"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/stellar"
             className="flex items-center justify-center gap-2 p-3 bg-muted/50 border text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             data-testid="link-stellar-network"
           >

@@ -37,6 +37,7 @@ const HowItWorks = lazy(() => import("@/pages/HowItWorks"));
 const Faqs = lazy(() => import("@/pages/Faqs"));
 const Context = lazy(() => import("@/pages/Context"));
 const Traction = lazy(() => import("@/pages/Traction"));
+const StellarEmbed = lazy(() => import("@/pages/StellarEmbed"));
 
 // Loading fallback for lazy-loaded pages
 function LazyLoadFallback() {
@@ -258,6 +259,11 @@ function Router() {
       <Route path="/context">
         <Suspense fallback={<LazyLoadFallback />}>
           <Context />
+        </Suspense>
+      </Route>
+      <Route path="/stellar">
+        <Suspense fallback={<LazyLoadFallback />}>
+          <StellarEmbed />
         </Suspense>
       </Route>
       <Route path="/traction">
