@@ -153,7 +153,7 @@ export default function Unlock() {
         </div>
 
         <a 
-          href="/stellar"
+          href="/stellar/unlock"
           className="flex items-center justify-center gap-2 p-3 bg-muted/50 border text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           data-testid="link-stellar-network"
         >

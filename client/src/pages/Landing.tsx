@@ -235,6 +235,10 @@ function MobileLanding({
               Already have a wallet? <span className="font-bold">UNLOCK</span>
             </Link>
           </div>
+          
+          <p className="text-sm text-muted-foreground text-center pt-4">
+            Stellar version available. <Link href="/stellar" className="underline hover:text-foreground" data-testid="link-stellar-landing">Open</Link>
+          </p>
         </div>
 
         {globalStats && (globalStats.totalUsers > 0 || globalStats.totalTransfers > 0 || globalStats.totalXp > 0) && (
@@ -397,6 +401,10 @@ function DesktopLanding({
                 Unlock Wallet
               </Button>
             </div>
+            
+            <p className="text-sm text-muted-foreground">
+              Stellar version available. <Link href="/stellar" className="underline hover:text-foreground" data-testid="link-stellar-desktop">Open</Link>
+            </p>
           </div>
           
           <div className="lg:col-span-2 flex justify-center lg:justify-end">
