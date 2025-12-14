@@ -2,7 +2,10 @@ import { useEffect, useRef } from 'react';
 import { useRoute } from 'wouter';
 
 const STELLAR_WALLET_URL = import.meta.env.VITE_STELLAR_WALLET_URL || 'https://nanopaystellar.replit.app';
-const STELLAR_SESSION_PREFIX = 'stellar_session_';
+const WALLET_SESSION_PREFIX = 'wallet_session_';
+
+// Allowed key prefixes for multi-wallet support (stellar, evm, solana, etc.)
+const ALLOWED_KEY_PREFIXES = ['stellar_', 'evm_', 'solana_', 'wallet_'];
 
 export default function StellarEmbed() {
   const [, params] = useRoute('/stellar/:path*');
@@ -21,13 +24,14 @@ export default function StellarEmbed() {
       
       if (!type || !key) return;
       
-      // Security: only allow specific key prefixes
-      if (!key.startsWith('stellar_')) {
-        console.warn('[StellarBridge] Rejected key with invalid prefix:', key);
+      // Security: only allow specific key prefixes for multi-wallet support
+      const hasValidPrefix = ALLOWED_KEY_PREFIXES.some(prefix => key.startsWith(prefix));
+      if (!hasValidPrefix) {
+        console.warn('[WalletBridge] Rejected key with invalid prefix:', key);
         return;
       }
       
-      const storageKey = `${STELLAR_SESSION_PREFIX}${key}`;
+      const storageKey = `${WALLET_SESSION_PREFIX}${key}`;
       
       switch (type) {
         case 'storeSession':
@@ -35,9 +39,9 @@ export default function StellarEmbed() {
           if (value !== undefined) {
             try {
               sessionStorage.setItem(storageKey, JSON.stringify(value));
-              console.log('[StellarBridge] Stored session for key:', key);
+              console.log('[WalletBridge] Stored session for key:', key);
             } catch (err) {
-              console.error('[StellarBridge] Failed to store session:', err);
+              console.error('[WalletBridge] Failed to store session:', err);
             }
           }
           break;
@@ -54,9 +58,9 @@ export default function StellarEmbed() {
               value: parsedValue,
             }, stellarOrigin);
             
-            console.log('[StellarBridge] Sent session for key:', key, parsedValue ? '(found)' : '(empty)');
+            console.log('[WalletBridge] Sent session for key:', key, parsedValue ? '(found)' : '(empty)');
           } catch (err) {
-            console.error('[StellarBridge] Failed to retrieve session:', err);
+            console.error('[WalletBridge] Failed to retrieve session:', err);
           }
           break;
           
@@ -64,9 +68,9 @@ export default function StellarEmbed() {
           // Clear specific session data
           try {
             sessionStorage.removeItem(storageKey);
-            console.log('[StellarBridge] Cleared session for key:', key);
+            console.log('[WalletBridge] Cleared session for key:', key);
           } catch (err) {
-            console.error('[StellarBridge] Failed to clear session:', err);
+            console.error('[WalletBridge] Failed to clear session:', err);
           }
           break;
       }
