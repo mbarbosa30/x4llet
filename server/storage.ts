@@ -1356,9 +1356,10 @@ export class DbStorage extends MemStorage {
   }
 
   async getMaxFlowScore(address: string): Promise<MaxFlowScore | null> {
+    // Stale-while-revalidate: Always return cached data if it exists
+    // Caller should check _stale flag and trigger background refresh if needed
     try {
-      const MAXFLOW_CACHE_TTL_MS = 300000; // 5 minutes for our local cache
-      const MAXFLOW_DATA_STALE_MS = 60 * 60 * 1000; // 1 hour - if MaxFlow's cached_at is older, treat as stale
+      const MAXFLOW_CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours - match frontend staleTime
       
       const cached = await db
         .select()
@@ -1371,37 +1372,17 @@ export class DbStorage extends MemStorage {
       }
 
       const cacheAge = Date.now() - cached[0].updatedAt.getTime();
-      
-      if (cacheAge > MAXFLOW_CACHE_TTL_MS) {
-        console.log(`[DB Cache] MaxFlow score cache expired for ${address} (age: ${Math.round(cacheAge / 1000)}s)`);
-        return null;
-      }
-
-      // Parse the cached data to check MaxFlow's cached_at timestamp
       const rawData = JSON.parse(cached[0].scoreData);
+      const normalizedData = normalizeMaxFlowScore(rawData) as MaxFlowScore;
       
-      // Check if MaxFlow's own cached data is stale (>1 hour old)
-      // Also treat missing/unparsable cached_at as stale to force refresh
-      const cachedAt = rawData.cached_at;
-      if (!cachedAt || typeof cachedAt !== 'string') {
-        console.log(`[DB Cache] MaxFlow data missing cached_at, treating as stale for ${address}`);
-        return null;
-      }
-      
-      const cachedAtTime = new Date(cachedAt).getTime();
-      if (isNaN(cachedAtTime)) {
-        console.log(`[DB Cache] MaxFlow data has unparsable cached_at (${cachedAt}), treating as stale for ${address}`);
-        return null;
-      }
-      
-      const dataAge = Date.now() - cachedAtTime;
-      if (dataAge > MAXFLOW_DATA_STALE_MS) {
-        console.log(`[DB Cache] MaxFlow data stale (cached_at: ${cachedAt}, age: ${Math.round(dataAge / 1000 / 60)}min), forcing refresh for ${address}`);
-        return null; // This will trigger a fresh fetch with force_refresh=true
+      // Mark as stale if cache is older than TTL, but still return the data
+      if (cacheAge > MAXFLOW_CACHE_TTL_MS) {
+        console.log(`[DB Cache] MaxFlow score stale for ${address} (age: ${Math.round(cacheAge / 1000 / 60)}min), returning with _stale flag`);
+        return { ...normalizedData, _stale: true } as MaxFlowScore;
       }
 
-      console.log(`[DB Cache] Returning cached MaxFlow score for ${address} (age: ${Math.round(cacheAge / 1000)}s)`);
-      return normalizeMaxFlowScore(rawData) as MaxFlowScore;
+      console.log(`[DB Cache] Returning fresh MaxFlow score for ${address} (age: ${Math.round(cacheAge / 1000)}s)`);
+      return normalizedData;
     } catch (error) {
       console.error('[DB] Error fetching cached MaxFlow score:', error);
       return null;

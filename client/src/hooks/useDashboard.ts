@@ -29,10 +29,20 @@ export interface DashboardXp {
   timeUntilNextClaim: number | null;
 }
 
+export interface DashboardMaxFlow {
+  local_health?: number;
+  vouch_counts?: {
+    incoming_active?: number;
+    outgoing_active?: number;
+  };
+  cached_at?: string;
+}
+
 export interface DashboardData {
   balance: DashboardBalance;
   transactions: (Transaction & { chainId: number })[];
   xp: DashboardXp;
+  maxflow: DashboardMaxFlow | null;
 }
 
 export function useDashboard(address: string | null) {

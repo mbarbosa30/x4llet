@@ -135,6 +135,120 @@ function resolveChain(chainId: number) {
   }
 }
 
+// MaxFlow API Proxy Routes (v1 API - https://maxflow.one/api/v1)
+// Primary domain with fallback to Replit internal domain for DNS reliability
+const MAXFLOW_API_BASE = 'https://maxflow.one/api/v1';
+const MAXFLOW_API_FALLBACK = 'https://TrustFlow.replit.app/api/v1'; // Fallback for DNS issues
+const MAXFLOW_REQUEST_TIMEOUT_MS = 15000; // 15 second timeout
+
+// Helper: Standard headers for MaxFlow API requests
+const MAXFLOW_HEADERS_BASE = {
+  'Accept': 'application/json',
+  'User-Agent': 'nanoPay/1.0 (https://nanopay.live)',
+};
+
+// Helper: Check if error is a DNS resolution failure
+function isDnsError(error: any): boolean {
+  return error?.cause?.code === 'EAI_AGAIN' || 
+         error?.code === 'EAI_AGAIN' ||
+         error?.cause?.code === 'ENOTFOUND' ||
+         error?.code === 'ENOTFOUND';
+}
+
+// Helper: Single fetch attempt with timeout
+async function singleFetch(
+  url: string, 
+  options: RequestInit, 
+  headers: Record<string, string>,
+  signal: AbortSignal
+): Promise<globalThis.Response> {
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...headers,
+      ...options.headers as Record<string, string>,
+    },
+    signal,
+  });
+}
+
+// Helper: Fetch with timeout, retry, and fallback for MaxFlow API
+// Note: Returns globalThis.Response (fetch API), not Express Response
+// Implements retry logic for DNS failures (EAI_AGAIN) with exponential backoff
+// Falls back to TrustFlow.replit.app if primary domain DNS fails
+async function fetchMaxFlow(url: string, options: RequestInit = {}, retries = 3): Promise<globalThis.Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), MAXFLOW_REQUEST_TIMEOUT_MS);
+  
+  // Compose signals: both the helper's timeout and any caller-supplied signal can abort
+  const signals: AbortSignal[] = [controller.signal];
+  if (options.signal) {
+    signals.push(options.signal);
+  }
+  const composedSignal = signals.length > 1 ? AbortSignal.any(signals) : controller.signal;
+  
+  // Build headers - only add Content-Type for POST/PUT/PATCH with body
+  const headers: Record<string, string> = { ...MAXFLOW_HEADERS_BASE };
+  const method = (options.method || 'GET').toUpperCase();
+  if ((method === 'POST' || method === 'PUT' || method === 'PATCH') && options.body) {
+    headers['Content-Type'] = 'application/json';
+  }
+  
+  // Retry loop with exponential backoff for DNS failures
+  let lastError: any = null;
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      return await singleFetch(url, options, headers, composedSignal);
+    } catch (error: any) {
+      lastError = error;
+      
+      // If it's the last attempt or not a DNS error, break and try fallback below
+      if (attempt === retries - 1 || !isDnsError(error)) {
+        break;
+      }
+      
+      // Exponential backoff: 500ms, 1000ms, 2000ms
+      const delay = 500 * Math.pow(2, attempt);
+      console.log(`[MaxFlow] DNS error (${error.cause?.code || error.code}), retrying in ${delay}ms (attempt ${attempt + 1}/${retries})`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  // If DNS error and URL uses primary domain, try fallback
+  if (isDnsError(lastError) && url.includes(MAXFLOW_API_BASE)) {
+    const fallbackUrl = url.replace(MAXFLOW_API_BASE, MAXFLOW_API_FALLBACK);
+    console.log(`[MaxFlow] Primary domain DNS failed, trying fallback: ${fallbackUrl}`);
+    
+    try {
+      const fallbackResponse = await singleFetch(fallbackUrl, options, headers, composedSignal);
+      console.log(`[MaxFlow] Fallback succeeded (status: ${fallbackResponse.status})`);
+      clearTimeout(timeoutId);
+      return fallbackResponse;
+    } catch (fallbackError: any) {
+      console.error(`[MaxFlow] Fallback also failed: ${fallbackError.cause?.code || fallbackError.code || fallbackError.message}`);
+      // Preserve original error for consistency
+    }
+  }
+  
+  // All retries and fallback exhausted
+  clearTimeout(timeoutId);
+  const errorCode = lastError?.cause?.code || lastError?.code;
+  if (errorCode === 'EAI_AGAIN' || errorCode === 'ENOTFOUND') {
+    console.error(`[MaxFlow] DNS resolution failed after ${retries} retries and fallback (code: ${errorCode})`);
+  }
+  throw lastError;
+}
+
+// Helper: Check if MaxFlow API cached_at is stale (older than 1 hour)
+const MAXFLOW_API_STALE_THRESHOLD_MS = 60 * 60 * 1000; // 1 hour
+
+function isMaxFlowResponseStale(data: any): boolean {
+  if (!data?.cached || !data?.cached_at) return false;
+  const cachedAt = new Date(data.cached_at).getTime();
+  const age = Date.now() - cachedAt;
+  return age > MAXFLOW_API_STALE_THRESHOLD_MS;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   const BUILD_VERSION = '2025-12-13T20:15:00Z';
   
@@ -156,7 +270,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid wallet address' });
       }
 
-      // Fetch all data in parallel
+      // Fetch all data in parallel (including cached MaxFlow score)
       const [
         baseBalance,
         celoBalance,
@@ -167,6 +281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         gnosisTransactions,
         arbitrumTransactions,
         xpBalance,
+        maxflowScore,
       ] = await Promise.all([
         storage.getBalance(address, 8453),
         storage.getBalance(address, 42220),
@@ -177,6 +292,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getTransactions(address, 100),
         storage.getTransactions(address, 42161),
         storage.getXpBalance(address),
+        storage.getMaxFlowScore(address),
       ]);
 
       // Calculate total balance
@@ -218,6 +334,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalXpCenti = xpBalance?.totalXp ?? 0;
       const claimCount = xpBalance?.claimCount ?? 0;
 
+      // If MaxFlow cache is stale, trigger background refresh server-side
+      const maxflowStale = (maxflowScore as any)?._stale;
+      if (maxflowStale) {
+        console.log(`[Dashboard] MaxFlow cache stale for ${address}, triggering background refresh`);
+        (async () => {
+          try {
+            const response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/score/${address}`);
+            if (response.ok) {
+              const data = await response.json();
+              await storage.saveMaxFlowScore(address, data);
+              console.log(`[Dashboard] Background MaxFlow refresh complete for ${address}`);
+            }
+          } catch (err) {
+            console.error(`[Dashboard] Background MaxFlow refresh failed for ${address}:`, err);
+          }
+        })();
+      }
+      
+      // Remove internal _stale flag from response
+      const { _stale, ...maxflowData } = (maxflowScore as any) ?? {};
+
       res.json({
         balance: {
           balance: totalFormatted,
@@ -240,6 +377,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           nextClaimTime,
           timeUntilNextClaim,
         },
+        maxflow: maxflowScore ? maxflowData : null,
       });
     } catch (error) {
       console.error('Error fetching dashboard:', error);
@@ -2397,120 +2535,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // MaxFlow API Proxy Routes (v1 API - https://maxflow.one/api/v1)
-  // Primary domain with fallback to Replit internal domain for DNS reliability
-  const MAXFLOW_API_BASE = 'https://maxflow.one/api/v1';
-  const MAXFLOW_API_FALLBACK = 'https://TrustFlow.replit.app/api/v1'; // Fallback for DNS issues
-  const MAXFLOW_REQUEST_TIMEOUT_MS = 15000; // 15 second timeout
-
-  // Helper: Standard headers for MaxFlow API requests
-  const MAXFLOW_HEADERS_BASE = {
-    'Accept': 'application/json',
-    'User-Agent': 'nanoPay/1.0 (https://nanopay.live)',
-  };
-
-  // Helper: Check if error is a DNS resolution failure
-  function isDnsError(error: any): boolean {
-    return error?.cause?.code === 'EAI_AGAIN' || 
-           error?.code === 'EAI_AGAIN' ||
-           error?.cause?.code === 'ENOTFOUND' ||
-           error?.code === 'ENOTFOUND';
-  }
-
-  // Helper: Single fetch attempt with timeout
-  async function singleFetch(
-    url: string, 
-    options: RequestInit, 
-    headers: Record<string, string>,
-    signal: AbortSignal
-  ): Promise<globalThis.Response> {
-    return fetch(url, {
-      ...options,
-      headers: {
-        ...headers,
-        ...options.headers as Record<string, string>,
-      },
-      signal,
-    });
-  }
-
-  // Helper: Fetch with timeout, retry, and fallback for MaxFlow API
-  // Note: Returns globalThis.Response (fetch API), not Express Response
-  // Implements retry logic for DNS failures (EAI_AGAIN) with exponential backoff
-  // Falls back to TrustFlow.replit.app if primary domain DNS fails
-  async function fetchMaxFlow(url: string, options: RequestInit = {}, retries = 3): Promise<globalThis.Response> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), MAXFLOW_REQUEST_TIMEOUT_MS);
-    
-    // Compose signals: both the helper's timeout and any caller-supplied signal can abort
-    const signals: AbortSignal[] = [controller.signal];
-    if (options.signal) {
-      signals.push(options.signal);
-    }
-    const composedSignal = signals.length > 1 ? AbortSignal.any(signals) : controller.signal;
-    
-    // Build headers - only add Content-Type for POST/PUT/PATCH with body
-    const headers: Record<string, string> = { ...MAXFLOW_HEADERS_BASE };
-    const method = (options.method || 'GET').toUpperCase();
-    if ((method === 'POST' || method === 'PUT' || method === 'PATCH') && options.body) {
-      headers['Content-Type'] = 'application/json';
-    }
-    
-    // Retry loop with exponential backoff for DNS failures
-    let lastError: any = null;
-    for (let attempt = 0; attempt < retries; attempt++) {
-      try {
-        return await singleFetch(url, options, headers, composedSignal);
-      } catch (error: any) {
-        lastError = error;
-        
-        // If it's the last attempt or not a DNS error, break and try fallback below
-        if (attempt === retries - 1 || !isDnsError(error)) {
-          break;
-        }
-        
-        // Exponential backoff: 500ms, 1000ms, 2000ms
-        const delay = 500 * Math.pow(2, attempt);
-        console.log(`[MaxFlow] DNS error (${error.cause?.code || error.code}), retrying in ${delay}ms (attempt ${attempt + 1}/${retries})`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-    
-    // If DNS error and URL uses primary domain, try fallback
-    if (isDnsError(lastError) && url.includes(MAXFLOW_API_BASE)) {
-      const fallbackUrl = url.replace(MAXFLOW_API_BASE, MAXFLOW_API_FALLBACK);
-      console.log(`[MaxFlow] Primary domain DNS failed, trying fallback: ${fallbackUrl}`);
-      
-      try {
-        const fallbackResponse = await singleFetch(fallbackUrl, options, headers, composedSignal);
-        console.log(`[MaxFlow] Fallback succeeded (status: ${fallbackResponse.status})`);
-        clearTimeout(timeoutId);
-        return fallbackResponse;
-      } catch (fallbackError: any) {
-        console.error(`[MaxFlow] Fallback also failed: ${fallbackError.cause?.code || fallbackError.code || fallbackError.message}`);
-        // Preserve original error for consistency
-      }
-    }
-    
-    // All retries and fallback exhausted
-    clearTimeout(timeoutId);
-    const errorCode = lastError?.cause?.code || lastError?.code;
-    if (errorCode === 'EAI_AGAIN' || errorCode === 'ENOTFOUND') {
-      console.error(`[MaxFlow] DNS resolution failed after ${retries} retries and fallback (code: ${errorCode})`);
-    }
-    throw lastError;
-  }
-
-  // Helper: Check if MaxFlow API cached_at is stale (older than 1 hour)
-  const MAXFLOW_API_STALE_THRESHOLD_MS = 60 * 60 * 1000; // 1 hour
-  
-  function isMaxFlowResponseStale(data: any): boolean {
-    if (!data?.cached || !data?.cached_at) return false;
-    const cachedAt = new Date(data.cached_at).getTime();
-    const age = Date.now() - cachedAt;
-    return age > MAXFLOW_API_STALE_THRESHOLD_MS;
-  }
-
   // Debug endpoint to see raw MaxFlow API response (for troubleshooting production issues)
   app.get('/api/debug/maxflow/:address', async (req, res) => {
     try {
@@ -2586,18 +2610,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { address } = req.params;
       
-      // Check cache first (returns fresh data only, not stale)
+      // Stale-while-revalidate: Return cached data immediately (even if stale)
+      // If stale, trigger background refresh without blocking the response
       const cachedScore = await storage.getMaxFlowScore(address);
+      
       if (cachedScore) {
-        return res.json(cachedScore);
+        // If cache is stale, trigger background refresh (don't await)
+        if ((cachedScore as any)._stale) {
+          console.log(`[MaxFlow API] Returning stale cache for ${address}, triggering background refresh`);
+          res.setHeader('X-Cache-Status', 'stale-revalidating');
+          
+          // Background refresh - fire and forget
+          (async () => {
+            try {
+              console.log(`[MaxFlow API] Background refresh for ${address}`);
+              const response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/score/${address}`);
+              if (response.ok) {
+                const data = await response.json();
+                await storage.saveMaxFlowScore(address, data);
+                console.log(`[MaxFlow API] Background refresh complete for ${address}`);
+              }
+            } catch (err) {
+              console.error(`[MaxFlow API] Background refresh failed for ${address}:`, err);
+            }
+          })();
+        } else {
+          res.setHeader('X-Cache-Status', 'hit');
+        }
+        
+        // Return cached data immediately (remove internal _stale flag from response)
+        const { _stale, ...scoreData } = cachedScore as any;
+        return res.json(scoreData);
       }
       
-      // Cache miss - fetch from MaxFlow API v1
+      // Cache miss - must fetch from MaxFlow API (blocking)
       console.log(`[MaxFlow API] Cache miss, fetching score for ${address}`);
-      console.log(`[MaxFlow API] Fetching from URL: ${MAXFLOW_API_BASE}/score/${address}`);
       let response = await fetchMaxFlow(`${MAXFLOW_API_BASE}/score/${address}`);
-      
-      console.log(`[MaxFlow API] Response status: ${response.status} ${response.statusText}`);
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -2607,17 +2655,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let data = await response.json();
       
-      // Note: We no longer force refresh for stale data - MaxFlow API handles its own caching
-      // Force refresh was causing timeouts and 503 errors. Stale data is better than no data.
-      if (isMaxFlowResponseStale(data)) {
-        console.log(`[MaxFlow API] Response is stale (cached_at: ${data.cached_at}), but returning it anyway for ${address}`);
-      }
-      
-      console.log(`[MaxFlow API] Score response for ${address}:`, JSON.stringify(data, null, 2));
-      
       // Save to cache
       await storage.saveMaxFlowScore(address, data);
       
+      res.setHeader('X-Cache-Status', 'miss');
       res.json(data);
     } catch (error: any) {
       // Check if this is a DNS error (all retries and fallback exhausted)
@@ -2627,22 +2668,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('[MaxFlow API] All endpoints failed (DNS), attempting to return stale cache');
         
         // Try to get ANY cached data, even if stale
-        const staleCache = await storage.getMaxFlowScore(req.params.address);
+        const staleCache = await storage.getMaxFlowScoreRaw(req.params.address);
         if (staleCache) {
           console.log('[MaxFlow API] Returning stale cached data (200 OK) due to DNS failure');
           res.setHeader('X-Cache-Status', 'stale-dns-fallback');
-          res.setHeader('Warning', '110 - "Response is Stale"'); // RFC 7234
-          // Return 200 OK so clients use the data, with metadata indicating staleness
-          return res.status(200).json({
-            ...staleCache,
-            _stale: true,
-            _reason: 'Temporary network issue - using cached data',
-          });
+          return res.status(200).json(staleCache);
         }
       }
       
       console.error('[MaxFlow API] Exception fetching MaxFlow score:', error);
-      console.error('[MaxFlow API] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       
       // Return structured error with retry guidance
       res.setHeader('Retry-After', '60');

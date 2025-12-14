@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users, Clock, Share2, Waypoints, CheckCircle2, Circle, ChevronRight } from 'lucide-react';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
@@ -19,7 +19,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { useDashboard } from '@/hooks/useDashboard';
 import { useAaveBalance } from '@/hooks/useAaveBalance';
 import { formatAmount } from '@/lib/formatAmount';
-import { vouchFor, getMaxFlowScore, type MaxFlowScore } from '@/lib/maxflow';
+import { vouchFor } from '@/lib/maxflow';
 import { getIdentityStatus, getClaimStatus, type IdentityStatus, type ClaimStatus } from '@/lib/gooddollar';
 import { useToast } from '@/hooks/use-toast';
 import type { Transaction as SchemaTransaction } from '@shared/schema';
@@ -56,26 +56,16 @@ export default function Home() {
     await refetchDashboard();
   };
 
-  // Extract data from dashboard response
+  // Extract data from dashboard response (includes MaxFlow from cache)
   const balanceData = dashboardData?.balance;
   const allTransactions = dashboardData?.transactions;
   const xpData = dashboardData?.xp;
+  const maxflowScore = dashboardData?.maxflow;
 
   const { data: exchangeRate } = useExchangeRate(currency, { skipUsd: false });
 
   // Fetch Aave balance when earn mode is enabled (no polling)
   const { data: aaveBalance } = useAaveBalance(address, earnMode);
-
-  // Fetch MaxFlow score for Trust Health section
-  // Uses placeholderData to show cached data immediately while refreshing in background
-  // This prevents 10-12 second loading states when the slow MaxFlow API is called
-  const { data: maxflowScore } = useQuery<MaxFlowScore>({
-    queryKey: ['/maxflow/score', address],
-    queryFn: () => getMaxFlowScore(address!),
-    enabled: !!address,
-    staleTime: 4 * 60 * 60 * 1000, // 4 hours - external API is slow, cache invalidated on vouch
-    placeholderData: keepPreviousData, // Show stale data while fetching new data
-  });
 
   // Fetch GoodDollar identity status
   const { data: gdIdentity } = useQuery<IdentityStatus>({
