@@ -61,6 +61,8 @@ export default function AiChat() {
       return response.json();
     },
     enabled: !!walletAddress && !conversationLoaded,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   useEffect(() => {
