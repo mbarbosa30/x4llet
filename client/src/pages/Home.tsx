@@ -26,6 +26,7 @@ import type { Transaction as SchemaTransaction } from '@shared/schema';
 import { useXp } from '@/hooks/useXp';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { formatTimeRemaining } from '@/lib/formatTime';
+import { useTick } from '@/hooks/useCountdown';
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -35,15 +36,9 @@ export default function Home() {
   const [copiedHash, setCopiedHash] = useState(false);
   const [pendingReferral, setPendingReferral] = useState<string | null>(null);
   const [showVouchConfirmation, setShowVouchConfirmation] = useState(false);
-  const [, setTick] = useState(0);
-
-  // Timer for countdown updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTick(t => t + 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  
+  // Force re-render every second for countdown displays
+  useTick();
 
   useEffect(() => {
     if (!isLoadingWallet && address) {

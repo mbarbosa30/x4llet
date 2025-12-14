@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense, useCallback } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -54,6 +54,7 @@ import { celo } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getAddress } from 'viem';
 import { useToast } from '@/hooks/use-toast';
+import { useCountdown } from '@/hooks/useCountdown';
 
 // Lazy load QR scanner to reduce initial bundle size
 const QRScanner = lazy(() => import('@/components/QRScanner'));
@@ -117,7 +118,6 @@ export default function Claim() {
   const [sendAmount, setSendAmount] = useState('');
   const [scanContext, setScanContext] = useState<'trust' | 'send' | 'inviter'>('trust');
   const [isVerifyingFace, setIsVerifyingFace] = useState(false);
-  const [countdown, setCountdown] = useState<string | null>(null);
   const [showCustomInviter, setShowCustomInviter] = useState(false);
   const [customInviterAddress, setCustomInviterAddress] = useState('');
   const [inviterValidation, setInviterValidation] = useState<{ valid?: boolean; error?: string; checking?: boolean } | null>(null);
@@ -272,35 +272,19 @@ export default function Claim() {
     processFvResult();
   }, [pendingFvResult, address, queryClient, toast]);
 
-  // Countdown timer for next claim
-  useEffect(() => {
-    if (!gdClaimStatus?.nextClaimTime || gdClaimStatus?.canClaim) {
-      setCountdown(null);
-      return;
+  // Memoize refetch callback to prevent useCountdown from resetting on every render
+  const handleCountdownComplete = useCallback(() => {
+    refetchGdClaim();
+  }, [refetchGdClaim]);
+
+  // Countdown timer for next GoodDollar claim using centralized hook
+  const { formatted: countdown } = useCountdown(
+    gdClaimStatus?.nextClaimTime,
+    { 
+      enabled: !gdClaimStatus?.canClaim && !!gdClaimStatus?.nextClaimTime,
+      onComplete: handleCountdownComplete
     }
-
-    const updateCountdown = () => {
-      const now = new Date();
-      const target = gdClaimStatus.nextClaimTime!;
-      const diff = target.getTime() - now.getTime();
-
-      if (diff <= 0) {
-        setCountdown('Ready!');
-        refetchGdClaim();
-        return;
-      }
-
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      setCountdown(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
-    };
-
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
-    return () => clearInterval(interval);
-  }, [gdClaimStatus?.nextClaimTime, gdClaimStatus?.canClaim, refetchGdClaim]);
+  );
 
   // Validate custom inviter when it changes
   useEffect(() => {

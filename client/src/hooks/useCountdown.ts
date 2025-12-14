@@ -13,7 +13,7 @@ interface UseCountdownResult {
 }
 
 export function useCountdown(
-  targetTime: Date | number | null | undefined,
+  targetTime: Date | number | string | null | undefined,
   options: UseCountdownOptions = {}
 ): UseCountdownResult {
   const { onComplete, enabled = true } = options;
@@ -27,9 +27,27 @@ export function useCountdown(
       return;
     }
 
-    const target = typeof targetTime === 'number' 
-      ? new Date(targetTime) 
-      : targetTime;
+    // Normalize targetTime to Date object (handles Date, number timestamp, or ISO string)
+    let target: Date;
+    if (targetTime instanceof Date) {
+      target = targetTime;
+    } else if (typeof targetTime === 'number') {
+      target = new Date(targetTime);
+    } else if (typeof targetTime === 'string') {
+      target = new Date(targetTime);
+    } else {
+      // Shouldn't happen due to type checking, but handle gracefully
+      setTimeRemaining(null);
+      setIsComplete(false);
+      return;
+    }
+    
+    // Validate the date is valid
+    if (isNaN(target.getTime())) {
+      setTimeRemaining(null);
+      setIsComplete(false);
+      return;
+    }
 
     const updateCountdown = () => {
       const now = Date.now();

@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense, useCallback } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useWallet } from '@/hooks/useWallet';
 import { useXp } from '@/hooks/useXp';
 import { formatTimeRemaining } from '@/lib/formatTime';
+import { useCountdown } from '@/hooks/useCountdown';
 
 // Lazy load QR scanner to reduce initial bundle size
 const QRScanner = lazy(() => import('@/components/QRScanner'));
@@ -40,7 +41,6 @@ export default function MaxFlow() {
   const [showVouchInput, setShowVouchInput] = useState(false);
   const [vouchAddress, setVouchAddress] = useState('');
   const [showScanner, setShowScanner] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [showRedeemConfirm, setShowRedeemConfirm] = useState(false);
   const [showSenadorConfirm, setShowSenadorConfirm] = useState(false);
   const [senadorAmount, setSenadorAmount] = useState('');
@@ -54,24 +54,16 @@ export default function MaxFlow() {
 
   const { data: xpData, isLoading: isLoadingXp, isFetching: isFetchingXp } = useXp(address);
 
-  useEffect(() => {
-    if (xpData?.timeUntilNextClaim && xpData.timeUntilNextClaim > 0) {
-      setTimeRemaining(xpData.timeUntilNextClaim);
-      const interval = setInterval(() => {
-        setTimeRemaining((prev) => {
-          if (prev === null || prev <= 1000) {
-            clearInterval(interval);
-            queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
-            return 0;
-          }
-          return prev - 1000;
-        });
-      }, 1000);
-      return () => clearInterval(interval);
-    } else {
-      setTimeRemaining(null);
-    }
-  }, [xpData?.timeUntilNextClaim, address, queryClient]);
+  // Memoize onComplete callback to prevent useCountdown from resetting interval on every render
+  const handleXpCountdownComplete = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
+  }, [queryClient, address]);
+
+  // Countdown timer for XP claim cooldown using centralized hook
+  const { timeRemaining } = useCountdown(
+    xpData?.nextClaimTime,
+    { onComplete: handleXpCountdownComplete }
+  );
 
   const claimXpMutation = useMutation({
     mutationFn: async () => {
