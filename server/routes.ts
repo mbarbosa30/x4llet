@@ -146,6 +146,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Batched dashboard endpoint - combines balance, transactions, and XP into single request
+  // Reduces network round-trips for Home page initial load
+  app.get('/api/dashboard/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      
+      if (!address || !/^0x[a-fA-F0-9]{40}$/i.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+
+      // Fetch all data in parallel
+      const [
+        baseBalance,
+        celoBalance,
+        gnosisBalance,
+        arbitrumBalance,
+        baseTransactions,
+        celoTransactions,
+        gnosisTransactions,
+        arbitrumTransactions,
+        xpBalance,
+      ] = await Promise.all([
+        storage.getBalance(address, 8453),
+        storage.getBalance(address, 42220),
+        storage.getBalance(address, 100),
+        storage.getBalance(address, 42161),
+        storage.getTransactions(address, 8453),
+        storage.getTransactions(address, 42220),
+        storage.getTransactions(address, 100),
+        storage.getTransactions(address, 42161),
+        storage.getXpBalance(address),
+      ]);
+
+      // Calculate total balance
+      const totalMicroUsdc = BigInt(baseBalance.balanceMicro) + BigInt(celoBalance.balanceMicro) + BigInt(gnosisBalance.balanceMicro) + BigInt(arbitrumBalance.balanceMicro);
+      const roundedMicroUsdc = totalMicroUsdc + 5000n;
+      const integerPart = roundedMicroUsdc / 1000000n;
+      const fractionalPart = (roundedMicroUsdc % 1000000n) / 10000n;
+      const totalFormatted = `${integerPart}.${fractionalPart.toString().padStart(2, '0')}`;
+
+      // Merge and sort transactions
+      const allTransactions = [
+        ...baseTransactions.map(tx => ({ ...tx, chainId: 8453 })),
+        ...celoTransactions.map(tx => ({ ...tx, chainId: 42220 })),
+        ...gnosisTransactions.map(tx => ({ ...tx, chainId: 100 })),
+        ...arbitrumTransactions.map(tx => ({ ...tx, chainId: 42161 })),
+      ].sort((a, b) => {
+        const timeDiff = new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+        if (timeDiff !== 0) return timeDiff;
+        return a.id.localeCompare(b.id);
+      });
+
+      // Calculate XP status
+      const CLAIM_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+      let canClaim = true;
+      let nextClaimTime: string | null = null;
+      let timeUntilNextClaim: number | null = null;
+
+      if (xpBalance?.lastClaimTime) {
+        const timeSinceLastClaim = Date.now() - xpBalance.lastClaimTime.getTime();
+        if (timeSinceLastClaim < CLAIM_COOLDOWN_MS) {
+          canClaim = false;
+          const nextTime = new Date(xpBalance.lastClaimTime.getTime() + CLAIM_COOLDOWN_MS);
+          nextClaimTime = nextTime.toISOString();
+          timeUntilNextClaim = CLAIM_COOLDOWN_MS - timeSinceLastClaim;
+        }
+      }
+
+      // Guard against undefined xpBalance - ensure numeric fields default to 0
+      const totalXpCenti = xpBalance?.totalXp ?? 0;
+      const claimCount = xpBalance?.claimCount ?? 0;
+
+      res.json({
+        balance: {
+          balance: totalFormatted,
+          balanceMicro: totalMicroUsdc.toString(),
+          decimals: 6,
+          nonce: baseBalance.nonce,
+          chains: {
+            base: { chainId: 8453, balance: baseBalance.balance, balanceMicro: baseBalance.balanceMicro },
+            celo: { chainId: 42220, balance: celoBalance.balance, balanceMicro: celoBalance.balanceMicro },
+            gnosis: { chainId: 100, balance: gnosisBalance.balance, balanceMicro: gnosisBalance.balanceMicro },
+            arbitrum: { chainId: 42161, balance: arbitrumBalance.balance, balanceMicro: arbitrumBalance.balanceMicro },
+          },
+        },
+        transactions: allTransactions,
+        xp: {
+          totalXp: totalXpCenti / 100,
+          claimCount,
+          lastClaimTime: xpBalance?.lastClaimTime?.toISOString() ?? null,
+          canClaim,
+          nextClaimTime,
+          timeUntilNextClaim,
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard:', error);
+      res.status(500).json({ error: 'Failed to fetch dashboard data' });
+    }
+  });
+
   app.get('/api/balance/:address', async (req, res) => {
     try {
       const { address } = req.params;

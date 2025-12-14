@@ -1,0 +1,50 @@
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import type { Transaction } from '@shared/schema';
+
+interface ChainBalance {
+  chainId: number;
+  balance: string;
+  balanceMicro: string;
+}
+
+export interface DashboardBalance {
+  balance: string;
+  balanceMicro: string;
+  decimals: number;
+  nonce: number;
+  chains: {
+    base: ChainBalance;
+    celo: ChainBalance;
+    gnosis: ChainBalance;
+    arbitrum: ChainBalance;
+  };
+}
+
+export interface DashboardXp {
+  totalXp: number;
+  claimCount: number;
+  lastClaimTime: string | null;
+  canClaim: boolean;
+  nextClaimTime: string | null;
+  timeUntilNextClaim: number | null;
+}
+
+export interface DashboardData {
+  balance: DashboardBalance;
+  transactions: (Transaction & { chainId: number })[];
+  xp: DashboardXp;
+}
+
+export function useDashboard(address: string | null) {
+  return useQuery<DashboardData>({
+    queryKey: ['/api/dashboard', address],
+    enabled: !!address,
+    staleTime: 30 * 1000, // 30 seconds
+    placeholderData: keepPreviousData, // Show cached data while refreshing
+    queryFn: async () => {
+      const res = await fetch(`/api/dashboard/${address}`);
+      if (!res.ok) throw new Error('Failed to fetch dashboard');
+      return res.json();
+    },
+  });
+}

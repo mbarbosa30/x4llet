@@ -16,14 +16,13 @@ import TransactionList from '@/components/TransactionList';
 import AddressDisplay from '@/components/AddressDisplay';
 import VouchConfirmation from '@/components/VouchConfirmation';
 import { useWallet } from '@/hooks/useWallet';
-import { useBalance } from '@/hooks/useBalance';
+import { useDashboard } from '@/hooks/useDashboard';
 import { useAaveBalance } from '@/hooks/useAaveBalance';
 import { formatAmount } from '@/lib/formatAmount';
 import { vouchFor, getMaxFlowScore, type MaxFlowScore } from '@/lib/maxflow';
 import { getIdentityStatus, getClaimStatus, type IdentityStatus, type ClaimStatus } from '@/lib/gooddollar';
 import { useToast } from '@/hooks/use-toast';
 import type { Transaction as SchemaTransaction } from '@shared/schema';
-import { useXp } from '@/hooks/useXp';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { formatTimeRemaining } from '@/lib/formatTime';
 import { useTick } from '@/hooks/useCountdown';
@@ -50,23 +49,17 @@ export default function Home() {
     }
   }, [isLoadingWallet, address]);
 
-  // Fetch aggregated balance from all chains (no polling - manual refresh only)
-  const { data: balanceData, isLoading, isFetching: isRefreshingBalance, refetch: refetchBalance } = useBalance(address);
+  // Fetch dashboard data (balance, transactions, XP) in a single request
+  const { data: dashboardData, isLoading, isFetching: isRefreshingBalance, refetch: refetchDashboard } = useDashboard(address);
 
   const handleRefreshBalance = async () => {
-    await refetchBalance();
+    await refetchDashboard();
   };
 
-  // Fetch aggregated transactions from all chains (no polling - manual refresh only)
-  const { data: allTransactions } = useQuery<(SchemaTransaction & { chainId?: number })[]>({
-    queryKey: ['/api/transactions', address],
-    enabled: !!address,
-    queryFn: async () => {
-      const res = await fetch(`/api/transactions/${address}`);
-      if (!res.ok) throw new Error('Failed to fetch transactions');
-      return res.json();
-    },
-  });
+  // Extract data from dashboard response
+  const balanceData = dashboardData?.balance;
+  const allTransactions = dashboardData?.transactions;
+  const xpData = dashboardData?.xp;
 
   const { data: exchangeRate } = useExchangeRate(currency, { skipUsd: false });
 
@@ -83,9 +76,6 @@ export default function Home() {
     staleTime: 4 * 60 * 60 * 1000, // 4 hours - external API is slow, cache invalidated on vouch
     placeholderData: keepPreviousData, // Show stale data while fetching new data
   });
-
-  // Fetch XP data for Trust Health section
-  const { data: xpData } = useXp(address);
 
   // Fetch GoodDollar identity status
   const { data: gdIdentity } = useQuery<IdentityStatus>({
