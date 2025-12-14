@@ -236,18 +236,19 @@ export default function AiChat() {
   }
 
   return (
-    <div className="h-screen bg-background overflow-hidden">
+    <div 
+      className="bg-background flex flex-col"
+      style={{ 
+        height: 'calc(100dvh - 8rem)',
+        marginTop: 'calc(4rem + env(safe-area-inset-top))',
+      }}
+    >
       <div 
-        className={`fixed top-0 left-0 right-0 bg-background border-b border-foreground/10 transition-transform duration-300 ${
-          headerVisible ? 'translate-y-0' : '-translate-y-full'
+        className={`flex-shrink-0 bg-background border-b border-foreground/10 transition-all duration-300 overflow-hidden ${
+          headerVisible ? 'max-h-14 opacity-100' : 'max-h-0 opacity-0'
         }`}
-        style={{ 
-          paddingTop: 'env(safe-area-inset-top)',
-          height: 'calc(4rem + env(safe-area-inset-top))',
-          zIndex: 50
-        }}
       >
-        <div className="flex items-center justify-between px-4 h-16">
+        <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-[#0055FF]" />
             <span className="font-mono font-semibold text-sm uppercase tracking-wider">AI CHAT</span>
@@ -279,11 +280,7 @@ export default function AiChat() {
       <div 
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="h-full overflow-y-auto px-4"
-        style={{ 
-          paddingTop: 'calc(4rem + env(safe-area-inset-top) + 1rem)',
-          paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))'
-        }}
+        className="flex-1 overflow-y-auto px-4 min-h-0"
       >
         <div className="max-w-md mx-auto space-y-4">
           {messages.length === 0 && (
@@ -344,14 +341,8 @@ export default function AiChat() {
         </div>
       </div>
 
-      <div 
-        className="fixed bottom-0 left-0 right-0 bg-background border-t border-foreground/10"
-        style={{ 
-          paddingBottom: 'env(safe-area-inset-bottom)',
-          zIndex: 50
-        }}
-      >
-        <div className="flex items-center px-4 h-16">
+      <div className="flex-shrink-0 bg-background border-t border-foreground/10">
+        <div className="flex items-center px-4 h-14">
           <div className="max-w-md mx-auto w-full flex gap-2">
             <Input
               value={inputValue}
