@@ -2,9 +2,11 @@ import { useEffect, useRef } from 'react';
 import { useRoute } from 'wouter';
 
 const STELLAR_WALLET_URL = import.meta.env.VITE_STELLAR_WALLET_URL || 'https://nanopaystellar.replit.app';
-const WALLET_SESSION_PREFIX = 'wallet_session_';
+const WALLET_SESSION_PREFIX = 'nanopay_bridge_';
 
-// Allowed key prefixes for multi-wallet support (stellar, evm, solana, etc.)
+// Allowed key prefixes for multi-wallet session bridge
+// Each wallet uses: ${walletType}_session with combined {dek, expiry} payload
+// Examples: stellar_session, evm_session, solana_session
 const ALLOWED_KEY_PREFIXES = ['stellar_', 'evm_', 'solana_', 'wallet_'];
 
 export default function StellarEmbed() {
@@ -35,7 +37,7 @@ export default function StellarEmbed() {
       
       switch (type) {
         case 'storeSession':
-          // Store session data from iframe
+          // Store session payload from iframe (typically {dek, expiry} object)
           if (value !== undefined) {
             try {
               sessionStorage.setItem(storageKey, JSON.stringify(value));
@@ -47,7 +49,8 @@ export default function StellarEmbed() {
           break;
           
         case 'requestSession':
-          // Return stored session data to iframe
+          // Return stored session payload to iframe
+          // Iframe is responsible for validating expiry before using DEK
           try {
             const stored = sessionStorage.getItem(storageKey);
             const parsedValue = stored ? JSON.parse(stored) : null;
@@ -65,7 +68,7 @@ export default function StellarEmbed() {
           break;
           
         case 'clearSession':
-          // Clear specific session data
+          // Clear session data (on logout/lock)
           try {
             sessionStorage.removeItem(storageKey);
             console.log('[WalletBridge] Cleared session for key:', key);
