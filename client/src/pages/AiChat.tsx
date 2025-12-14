@@ -53,16 +53,20 @@ export default function AiChat() {
     const currentScrollTop = container.scrollTop;
     const scrollDiff = currentScrollTop - lastScrollTop.current;
     
-    if (Math.abs(scrollDiff) < 5) return;
+    // Ignore very small movements (momentum, layout shifts)
+    if (Math.abs(scrollDiff) < 8) return;
     
-    if (scrollDiff > 0 && currentScrollTop > 50) {
+    // Hide header: scrolling down significantly AND past threshold AND currently visible
+    if (scrollDiff > 8 && currentScrollTop > 64 && headerVisible) {
       setHeaderVisible(false);
-    } else if (scrollDiff < 0) {
+    } 
+    // Show header: scrolling up significantly OR near top of content
+    else if ((scrollDiff < -8 || currentScrollTop <= 64) && !headerVisible) {
       setHeaderVisible(true);
     }
     
     lastScrollTop.current = currentScrollTop;
-  }, []);
+  }, [headerVisible]);
   
   useEffect(() => {
     async function loadWallet() {
