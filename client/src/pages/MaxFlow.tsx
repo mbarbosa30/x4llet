@@ -23,26 +23,12 @@ import { getSenadorBalance, type SenadorBalance } from '@/lib/gooddollar';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getAddress, type Address } from 'viem';
 import { useToast } from '@/hooks/use-toast';
+import { useXp } from '@/hooks/useXp';
+import { formatTimeRemaining } from '@/lib/formatTime';
 
 // Lazy load QR scanner to reduce initial bundle size
 const QRScanner = lazy(() => import('@/components/QRScanner'));
 import { apiRequest } from '@/lib/queryClient';
-
-interface XpData {
-  totalXp: number;
-  claimCount: number;
-  lastClaimTime: string | null;
-  canClaim: boolean;
-  nextClaimTime: string | null;
-  timeUntilNextClaim: number | null;
-}
-
-function formatTimeRemaining(ms: number): string {
-  const hours = Math.floor(ms / (1000 * 60 * 60));
-  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((ms % (1000 * 60)) / 1000);
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-}
 
 export default function MaxFlow() {
   const [, setLocation] = useLocation();
@@ -85,10 +71,7 @@ export default function MaxFlow() {
     staleTime: 4 * 60 * 60 * 1000, // 4 hours - score rarely changes, external API is slow
   });
 
-  const { data: xpData, isLoading: isLoadingXp, isFetching: isFetchingXp } = useQuery<XpData>({
-    queryKey: ['/api/xp', address],
-    enabled: !!address,
-  });
+  const { data: xpData, isLoading: isLoadingXp, isFetching: isFetchingXp } = useXp(address);
 
   useEffect(() => {
     if (xpData?.timeUntilNextClaim && xpData.timeUntilNextClaim > 0) {

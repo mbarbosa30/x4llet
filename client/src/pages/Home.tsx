@@ -21,6 +21,9 @@ import { vouchFor, getMaxFlowScore, type MaxFlowScore } from '@/lib/maxflow';
 import { getIdentityStatus, getClaimStatus, type IdentityStatus, type ClaimStatus } from '@/lib/gooddollar';
 import { useToast } from '@/hooks/use-toast';
 import type { BalanceResponse, Transaction as SchemaTransaction, UserPreferences } from '@shared/schema';
+import { useXp } from '@/hooks/useXp';
+import { useExchangeRate } from '@/hooks/useExchangeRate';
+import { formatTimeRemaining } from '@/lib/formatTime';
 
 interface AaveBalanceResponse {
   totalAUsdcBalance: string;
@@ -30,22 +33,6 @@ interface AaveBalanceResponse {
     gnosis: { chainId: number; aUsdcBalance: string; apy: number };
     arbitrum: { chainId: number; aUsdcBalance: string; apy: number };
   };
-}
-
-interface XpData {
-  totalXp: number;
-  claimCount: number;
-  lastClaimTime: string | null;
-  canClaim: boolean;
-  nextClaimTime: string | null;
-  timeUntilNextClaim: number | null;
-}
-
-function formatTimeRemaining(ms: number): string {
-  const hours = Math.floor(ms / (1000 * 60 * 60));
-  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((ms % (1000 * 60)) / 1000);
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
 
 export default function Home() {
@@ -129,11 +116,7 @@ export default function Home() {
     },
   });
 
-  const { data: exchangeRate } = useQuery<{ currency: string; rate: number }>({
-    queryKey: ['/api/exchange-rate', currency],
-    enabled: !!currency,
-    staleTime: 15 * 60 * 1000, // 15 minutes - exchange rates change slowly
-  });
+  const { data: exchangeRate } = useExchangeRate(currency, { skipUsd: false });
 
   // Fetch Aave balance when earn mode is enabled (no polling)
   const { data: aaveBalance } = useQuery<AaveBalanceResponse>({
@@ -156,11 +139,7 @@ export default function Home() {
   });
 
   // Fetch XP data for Trust Health section
-  const { data: xpData } = useQuery<XpData>({
-    queryKey: ['/api/xp', address],
-    enabled: !!address,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+  const { data: xpData } = useXp(address);
 
   // Fetch GoodDollar identity status
   const { data: gdIdentity } = useQuery<IdentityStatus>({

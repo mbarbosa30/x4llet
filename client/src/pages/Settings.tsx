@@ -9,6 +9,7 @@ import InstallPrompt from '@/components/InstallPrompt';
 import { getWallet, getPreferences, savePreferences, getPrivateKey, lockWallet, enrollWalletPasskey, removeWalletPasskey, canUsePasskey, setAutoLockMinutes, getAutoLockMinutes } from '@/lib/wallet';
 import { getPasskeySupportStatus, hasPasskeyEnrolled, getPasskeyInfo, type PasskeySupportStatus } from '@/lib/webauthn';
 import { useToast } from '@/hooks/use-toast';
+import { useExchangeRate } from '@/hooks/useExchangeRate';
 import {
   Dialog,
   DialogContent,
@@ -27,11 +28,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-
-interface ExchangeRateData {
-  currency: string;
-  rate: number;
-}
 
 interface InflationData {
   currency: string;
@@ -356,16 +352,7 @@ export default function Settings() {
     }
   };
 
-  const { data: exchangeRate } = useQuery<ExchangeRateData>({
-    queryKey: ['/api/exchange-rate', currency],
-    enabled: currency !== 'USD',
-    staleTime: 15 * 60 * 1000, // 15 minutes - exchange rates change slowly
-    queryFn: async () => {
-      const res = await fetch(`/api/exchange-rate/${currency}`);
-      if (!res.ok) throw new Error('Failed to fetch exchange rate');
-      return res.json();
-    },
-  });
+  const { data: exchangeRate } = useExchangeRate(currency);
 
   const { data: inflationData } = useQuery<InflationData>({
     queryKey: ['/api/inflation-rate', currency],

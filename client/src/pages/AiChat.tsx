@@ -8,19 +8,13 @@ import { Bot, Send, Loader2, Zap, User, AlertCircle, Trash2 } from 'lucide-react
 import { getWallet } from '@/lib/wallet';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { useXp } from '@/hooks/useXp';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
-}
-
-interface XpBalanceResponse {
-  walletAddress: string;
-  totalXp: number;
-  lastClaimTime: string | null;
-  claimCount: number;
 }
 
 interface ChatResponse {
@@ -117,11 +111,7 @@ export default function AiChat() {
     }
   }, [conversationData, conversationLoaded]);
 
-  const { data: xpData, isLoading: xpLoading } = useQuery<XpBalanceResponse>({
-    queryKey: ['/api/xp', walletAddress],
-    enabled: !!walletAddress,
-    staleTime: 0, // Always fresh - XP is spent during chat
-  });
+  const { data: xpData, isLoading: xpLoading } = useXp(walletAddress, { staleTime: 0 });
 
   const xpBalance = xpData?.totalXp ?? 0;
 

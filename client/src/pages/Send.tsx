@@ -12,6 +12,7 @@ import { getWallet, getPrivateKey, getPreferences } from '@/lib/wallet';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getAddress } from 'viem';
 import { useToast } from '@/hooks/use-toast';
+import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { apiRequest } from '@/lib/queryClient';
 import { getNetworkConfig } from '@shared/networks';
 import type { TransferRequest, TransferResponse, PaymentRequest, AuthorizationQR, BalanceResponse } from '@shared/schema';
@@ -148,11 +149,7 @@ export default function Send() {
     hasAutoSelectedRef.current = true; // Mark as auto-selected, won't run again
   }, [balanceData?.chains]);
 
-  const { data: exchangeRate } = useQuery<{ currency: string; rate: number }>({
-    queryKey: ['/api/exchange-rate', currency],
-    enabled: !!currency && currency !== 'USD',
-    staleTime: 15 * 60 * 1000, // 15 minutes - exchange rates change slowly
-  });
+  const { data: exchangeRate } = useExchangeRate(currency);
 
   // Fetch Aave balance when earn mode is enabled
   const { data: aaveBalance } = useQuery<{ totalAUsdcBalance: string; chains: any }>({
