@@ -235,6 +235,7 @@ export default function Earn() {
 
   const { data: aaveApyBase, isLoading: isApyBaseLoading } = useQuery<AaveApyData>({
     queryKey: ['/api/aave/apy', 8453],
+    staleTime: 30 * 60 * 1000, // 30 minutes - APY changes slowly
     queryFn: async () => {
       const res = await fetch('/api/aave/apy/8453');
       if (!res.ok) throw new Error('Failed to fetch APY');
@@ -244,6 +245,7 @@ export default function Earn() {
 
   const { data: aaveApyCelo, isLoading: isApyCeloLoading } = useQuery<AaveApyData>({
     queryKey: ['/api/aave/apy', 42220],
+    staleTime: 30 * 60 * 1000, // 30 minutes - APY changes slowly
     queryFn: async () => {
       const res = await fetch('/api/aave/apy/42220');
       if (!res.ok) throw new Error('Failed to fetch APY');
@@ -253,6 +255,7 @@ export default function Earn() {
 
   const { data: aaveApyGnosis, isLoading: isApyGnosisLoading } = useQuery<AaveApyData>({
     queryKey: ['/api/aave/apy', 100],
+    staleTime: 30 * 60 * 1000, // 30 minutes - APY changes slowly
     queryFn: async () => {
       const res = await fetch('/api/aave/apy/100');
       if (!res.ok) throw new Error('Failed to fetch APY');
@@ -262,6 +265,7 @@ export default function Earn() {
 
   const { data: aaveApyArbitrum, isLoading: isApyArbitrumLoading } = useQuery<AaveApyData>({
     queryKey: ['/api/aave/apy', 42161],
+    staleTime: 30 * 60 * 1000, // 30 minutes - APY changes slowly
     queryFn: async () => {
       const res = await fetch('/api/aave/apy/42161');
       if (!res.ok) throw new Error('Failed to fetch APY');
@@ -272,6 +276,7 @@ export default function Earn() {
   const { data: aaveBalanceBase, isLoading: isAaveBalanceBaseLoading, isFetching: isRefreshingBase, refetch: refetchBase } = useQuery<{ aUsdcBalance: string; apy: number }>({
     queryKey: ['/api/aave/balance', address, 8453],
     enabled: !!address,
+    staleTime: 2 * 60 * 1000, // 2 minutes
     queryFn: async () => {
       const res = await fetch(`/api/aave/balance/${address}?chainId=8453`);
       if (!res.ok) throw new Error('Failed to fetch Aave balance');
@@ -282,6 +287,7 @@ export default function Earn() {
   const { data: aaveBalanceCelo, isLoading: isAaveBalanceCeloLoading, isFetching: isRefreshingCelo, refetch: refetchCelo } = useQuery<{ aUsdcBalance: string; apy: number }>({
     queryKey: ['/api/aave/balance', address, 42220],
     enabled: !!address,
+    staleTime: 2 * 60 * 1000, // 2 minutes
     queryFn: async () => {
       const res = await fetch(`/api/aave/balance/${address}?chainId=42220`);
       if (!res.ok) throw new Error('Failed to fetch Aave balance');
@@ -292,6 +298,7 @@ export default function Earn() {
   const { data: aaveBalanceGnosis, isLoading: isAaveBalanceGnosisLoading, isFetching: isRefreshingGnosis, refetch: refetchGnosis } = useQuery<{ aUsdcBalance: string; apy: number }>({
     queryKey: ['/api/aave/balance', address, 100],
     enabled: !!address,
+    staleTime: 2 * 60 * 1000, // 2 minutes
     queryFn: async () => {
       const res = await fetch(`/api/aave/balance/${address}?chainId=100`);
       if (!res.ok) throw new Error('Failed to fetch Aave balance');
@@ -302,6 +309,7 @@ export default function Earn() {
   const { data: aaveBalanceArbitrum, isLoading: isAaveBalanceArbitrumLoading, isFetching: isRefreshingArbitrum, refetch: refetchArbitrum } = useQuery<{ aUsdcBalance: string; apy: number }>({
     queryKey: ['/api/aave/balance', address, 42161],
     enabled: !!address,
+    staleTime: 2 * 60 * 1000, // 2 minutes
     queryFn: async () => {
       const res = await fetch(`/api/aave/balance/${address}?chainId=42161`);
       if (!res.ok) throw new Error('Failed to fetch Aave balance');
@@ -327,6 +335,7 @@ export default function Earn() {
   const { data: interestEarnedData } = useQuery<{ chains: InterestChainData[]; totalInterestEarnedMicro: string }>({
     queryKey: ['/api/aave/interest-earned', address],
     enabled: !!address,
+    staleTime: 5 * 60 * 1000, // 5 minutes
     queryFn: async () => {
       const res = await fetch(`/api/aave/interest-earned/${address}`);
       if (!res.ok) throw new Error('Failed to fetch interest earned');
@@ -361,7 +370,7 @@ export default function Earn() {
       return res.json();
     },
     enabled: !!address,
-    staleTime: 60 * 1000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   useEffect(() => {
@@ -609,6 +618,7 @@ export default function Earn() {
   const { data: liquidBalanceBase } = useQuery<{ balance: string; balanceMicro: string }>({
     queryKey: ['/api/balance', address, 8453],
     enabled: !!address,
+    staleTime: 2 * 60 * 1000, // 2 minutes
     queryFn: async () => {
       const res = await fetch(`/api/balance/${address}?chainId=8453`);
       if (!res.ok) throw new Error('Failed to fetch balance');
@@ -619,6 +629,7 @@ export default function Earn() {
   const { data: liquidBalanceCelo } = useQuery<{ balance: string; balanceMicro: string }>({
     queryKey: ['/api/balance', address, 42220],
     enabled: !!address,
+    staleTime: 2 * 60 * 1000, // 2 minutes
     queryFn: async () => {
       const res = await fetch(`/api/balance/${address}?chainId=42220`);
       if (!res.ok) throw new Error('Failed to fetch balance');
@@ -629,6 +640,7 @@ export default function Earn() {
   const { data: liquidBalanceGnosis } = useQuery<{ balance: string; balanceMicro: string }>({
     queryKey: ['/api/balance', address, 100],
     enabled: !!address,
+    staleTime: 2 * 60 * 1000, // 2 minutes
     queryFn: async () => {
       const res = await fetch(`/api/balance/${address}?chainId=100`);
       if (!res.ok) throw new Error('Failed to fetch balance');
@@ -639,6 +651,7 @@ export default function Earn() {
   const { data: liquidBalanceArbitrum } = useQuery<{ balance: string; balanceMicro: string }>({
     queryKey: ['/api/balance', address, 42161],
     enabled: !!address,
+    staleTime: 2 * 60 * 1000, // 2 minutes
     queryFn: async () => {
       const res = await fetch(`/api/balance/${address}?chainId=42161`);
       if (!res.ok) throw new Error('Failed to fetch balance');

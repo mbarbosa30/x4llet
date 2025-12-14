@@ -249,6 +249,7 @@ export default function Pool() {
   const { data: poolStatus, isLoading: isLoadingStatus, isFetching: isRefreshingPool, refetch: refetchPoolStatus } = useQuery<PoolStatus>({
     queryKey: ["/api/pool/status", address],
     enabled: !!address,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const handleRefreshPool = async () => {
@@ -260,12 +261,14 @@ export default function Pool() {
   const { data: historyData, isLoading: isLoadingHistory } = useQuery<DrawHistory>({
     queryKey: ["/api/pool/history"],
     enabled: !!address,
+    staleTime: 10 * 60 * 1000, // 10 minutes - draw history rarely changes
   });
 
   // Fetch Celo APY for yield estimates
   const { data: celoApyData } = useQuery<{ apy: number }>({
     queryKey: ["/api/aave/apy", 42220],
     enabled: !!address,
+    staleTime: 30 * 60 * 1000, // 30 minutes - APY changes slowly
   });
 
   // Animate the prize pool amount (aUSDC earning interest in real-time)

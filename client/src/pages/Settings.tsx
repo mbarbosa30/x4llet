@@ -359,6 +359,7 @@ export default function Settings() {
   const { data: exchangeRate } = useQuery<ExchangeRateData>({
     queryKey: ['/api/exchange-rate', currency],
     enabled: currency !== 'USD',
+    staleTime: 15 * 60 * 1000, // 15 minutes - exchange rates change slowly
     queryFn: async () => {
       const res = await fetch(`/api/exchange-rate/${currency}`);
       if (!res.ok) throw new Error('Failed to fetch exchange rate');
@@ -369,6 +370,7 @@ export default function Settings() {
   const { data: inflationData } = useQuery<InflationData>({
     queryKey: ['/api/inflation-rate', currency],
     enabled: currency !== 'USD',
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours - inflation rates rarely change
     queryFn: async () => {
       const res = await fetch(`/api/inflation-rate/${currency}`);
       if (!res.ok) throw new Error('Failed to fetch inflation rate');

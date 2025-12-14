@@ -132,12 +132,14 @@ export default function Home() {
   const { data: exchangeRate } = useQuery<{ currency: string; rate: number }>({
     queryKey: ['/api/exchange-rate', currency],
     enabled: !!currency,
+    staleTime: 15 * 60 * 1000, // 15 minutes - exchange rates change slowly
   });
 
   // Fetch Aave balance when earn mode is enabled (no polling)
   const { data: aaveBalance } = useQuery<AaveBalanceResponse>({
     queryKey: ['/api/aave/balance', address],
     enabled: !!address && earnMode,
+    staleTime: 2 * 60 * 1000, // 2 minutes
     queryFn: async () => {
       const res = await fetch(`/api/aave/balance/${address}`);
       if (!res.ok) throw new Error('Failed to fetch Aave balance');
@@ -150,13 +152,14 @@ export default function Home() {
     queryKey: ['/maxflow/score', address],
     queryFn: () => getMaxFlowScore(address!),
     enabled: !!address,
-    staleTime: 30 * 1000, // 30 seconds - enables faster updates after receiving vouches
+    staleTime: 4 * 60 * 60 * 1000, // 4 hours - external API is slow, cache invalidated on vouch
   });
 
   // Fetch XP data for Trust Health section
   const { data: xpData } = useQuery<XpData>({
     queryKey: ['/api/xp', address],
     enabled: !!address,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Fetch GoodDollar identity status

@@ -151,12 +151,14 @@ export default function Send() {
   const { data: exchangeRate } = useQuery<{ currency: string; rate: number }>({
     queryKey: ['/api/exchange-rate', currency],
     enabled: !!currency && currency !== 'USD',
+    staleTime: 15 * 60 * 1000, // 15 minutes - exchange rates change slowly
   });
 
   // Fetch Aave balance when earn mode is enabled
   const { data: aaveBalance } = useQuery<{ totalAUsdcBalance: string; chains: any }>({
     queryKey: ['/api/aave/balance', address],
     enabled: !!address && earnMode,
+    staleTime: 2 * 60 * 1000, // 2 minutes
     queryFn: async () => {
       const res = await fetch(`/api/aave/balance/${address}`);
       if (!res.ok) throw new Error('Failed to fetch Aave balance');

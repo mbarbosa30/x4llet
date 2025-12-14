@@ -826,7 +826,7 @@ export default function Landing() {
       if (!res.ok) throw new Error('Failed to fetch APY');
       return res.json();
     },
-    staleTime: 60000,
+    staleTime: 30 * 60 * 1000, // 30 minutes - APY changes slowly
   });
 
   const { data: aaveApyCelo } = useQuery<AaveApyData>({
@@ -836,12 +836,12 @@ export default function Landing() {
       if (!res.ok) throw new Error('Failed to fetch APY');
       return res.json();
     },
-    staleTime: 60000,
+    staleTime: 30 * 60 * 1000, // 30 minutes - APY changes slowly
   });
 
   const { data: globalStats } = useQuery<GlobalStats>({
     queryKey: ['/api/stats/global'],
-    staleTime: 60000,
+    staleTime: 30 * 60 * 1000, // 30 minutes
   });
 
   const stellarApy = globalStats?.stellar?.currentApy || 0;

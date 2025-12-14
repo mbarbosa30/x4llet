@@ -120,7 +120,7 @@ export default function AiChat() {
   const { data: xpData, isLoading: xpLoading } = useQuery<XpBalanceResponse>({
     queryKey: ['/api/xp', walletAddress],
     enabled: !!walletAddress,
-    staleTime: 0,
+    staleTime: 0, // Always fresh - XP is spent during chat
   });
 
   const xpBalance = xpData?.totalXp ?? 0;
