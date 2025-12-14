@@ -6216,6 +6216,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================
+  // AI CHAT ENDPOINT
+  // ============================================
+  
+  const XP_COST_PER_MESSAGE = 100; // 1.00 XP per AI message (stored as centi-XP)
+  
+  app.post('/api/ai/chat', async (req, res) => {
+    try {
+      const { message, walletAddress, conversationHistory } = req.body;
+      
+      if (!message || typeof message !== 'string') {
+        return res.status(400).json({ error: 'Message is required' });
+      }
+      
+      if (!walletAddress || typeof walletAddress !== 'string') {
+        return res.status(400).json({ error: 'Wallet address is required' });
+      }
+      
+      // Check XP balance
+      const xpBalance = await storage.getXpBalance(walletAddress);
+      const currentXp = xpBalance?.totalXp ?? 0;
+      
+      if (currentXp < XP_COST_PER_MESSAGE) {
+        return res.status(402).json({ 
+          error: 'Insufficient XP balance',
+          required: XP_COST_PER_MESSAGE / 100,
+          current: currentXp / 100,
+        });
+      }
+      
+      // Deduct XP before making the API call
+      const deductResult = await storage.deductXp(walletAddress, XP_COST_PER_MESSAGE);
+      
+      if (!deductResult.success) {
+        return res.status(402).json({ 
+          error: 'Failed to deduct XP',
+          required: XP_COST_PER_MESSAGE / 100,
+          current: currentXp / 100,
+        });
+      }
+      
+      // Call OpenAI API via Replit AI Integrations
+      const openaiBaseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+      const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+      
+      if (!openaiBaseUrl || !openaiApiKey) {
+        // Refund XP if API not configured
+        await storage.refundXp(walletAddress, XP_COST_PER_MESSAGE);
+        return res.status(500).json({ error: 'AI service not configured' });
+      }
+      
+      // Build messages array with system prompt and conversation history
+      const systemPrompt = `You are a helpful AI assistant for nanoPay, a lightweight crypto wallet app. You help users understand cryptocurrency, their wallet features, and answer general questions. Be concise and friendly. Key features of nanoPay include:
+- Gasless USDC transfers on Base, Celo, Gnosis, and Arbitrum
+- Aave yield earning on savings
+- MaxFlow signal scoring for identity verification
+- GoodDollar UBI claims
+- XP rewards system`;
+
+      const messages: Array<{ role: string; content: string }> = [
+        { role: 'system', content: systemPrompt },
+      ];
+      
+      // Add conversation history if provided
+      if (Array.isArray(conversationHistory)) {
+        for (const msg of conversationHistory.slice(-10)) { // Last 10 messages for context
+          if (msg.role && msg.content) {
+            messages.push({ role: msg.role, content: msg.content });
+          }
+        }
+      }
+      
+      // Add current user message
+      messages.push({ role: 'user', content: message });
+      
+      try {
+        const openaiResponse = await fetch(`${openaiBaseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${openaiApiKey}`,
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages,
+            max_tokens: 500,
+            temperature: 0.7,
+          }),
+        });
+        
+        if (!openaiResponse.ok) {
+          const errorText = await openaiResponse.text();
+          console.error('[AI Chat] OpenAI API error:', openaiResponse.status, errorText);
+          // Refund XP on API error
+          await storage.refundXp(walletAddress, XP_COST_PER_MESSAGE);
+          return res.status(500).json({ error: 'AI service error' });
+        }
+        
+        const data = await openaiResponse.json();
+        const assistantMessage = data.choices?.[0]?.message?.content || 'Sorry, I could not generate a response.';
+        
+        console.log(`[AI Chat] Successful response for ${walletAddress.slice(0, 10)}... (${XP_COST_PER_MESSAGE / 100} XP deducted)`);
+        
+        res.json({
+          message: assistantMessage,
+          xpDeducted: XP_COST_PER_MESSAGE / 100,
+          newBalance: deductResult.newBalance / 100,
+        });
+      } catch (apiError) {
+        console.error('[AI Chat] Fetch error:', apiError);
+        // Refund XP on network error
+        await storage.refundXp(walletAddress, XP_COST_PER_MESSAGE);
+        return res.status(500).json({ error: 'Failed to reach AI service' });
+      }
+    } catch (error) {
+      console.error('[AI Chat] Error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

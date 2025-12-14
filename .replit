@@ -43,3 +43,6 @@ waitForPort = 5000
 
 [userenv.shared]
 VITE_STELLAR_WALLET_URL = "https://nanopaystellar.replit.app"
+
+[agent]
+integrations = ["javascript_openai_ai_integrations:1.0.0"]

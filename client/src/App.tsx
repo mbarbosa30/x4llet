@@ -30,6 +30,7 @@ const RestoreWallet = lazy(() => import("@/pages/RestoreWallet"));
 // Secondary features
 const Earn = lazy(() => import("@/pages/Earn"));
 const Pool = lazy(() => import("@/pages/Pool"));
+const AiChat = lazy(() => import("@/pages/AiChat"));
 // Public/admin pages
 const Admin = lazy(() => import("@/pages/Admin"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
@@ -236,6 +237,13 @@ function Router() {
           </Suspense>
         </ProtectedRoute>
       </Route>
+      <Route path="/ai">
+        <ProtectedRoute>
+          <Suspense fallback={<LazyLoadFallback />}>
+            <AiChat />
+          </Suspense>
+        </ProtectedRoute>
+      </Route>
       <Route path="/admin">
         <Suspense fallback={<LazyLoadFallback />}>
           <Admin />
@@ -349,7 +357,7 @@ function App() {
   }
 
   // Only show header and bottom nav on protected routes
-  const protectedRoutes = ['/home', '/send', '/receive', '/settings', '/claim', '/maxflow', '/earn', '/pool'];
+  const protectedRoutes = ['/home', '/send', '/receive', '/settings', '/claim', '/maxflow', '/earn', '/pool', '/ai'];
   const showLayout = protectedRoutes.includes(location);
 
   return (

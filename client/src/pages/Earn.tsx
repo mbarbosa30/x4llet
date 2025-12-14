@@ -1563,6 +1563,27 @@ export default function Earn() {
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
+
+            <Card 
+              className="p-4 hover-elevate cursor-pointer" 
+              onClick={() => setLocation('/pool')}
+              data-testid="card-pool-link"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#0055FF]/10 flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="h-5 w-5 text-[#0055FF]" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-medium text-foreground/80">Prize Pool</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Win weekly prizes from savings yield
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </Card>
           </TabsContent>
 
           <TabsContent value="allocation" className="mt-4 space-y-4">

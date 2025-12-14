@@ -1,5 +1,5 @@
 import { useLocation } from 'wouter';
-import { Wallet, TrendingUp, Sparkles } from 'lucide-react';
+import { Wallet, TrendingUp, Bot } from 'lucide-react';
 
 export default function BottomNav() {
   const [location, setLocation] = useLocation();
@@ -42,15 +42,15 @@ export default function BottomNav() {
         </button>
 
         <button
-          onClick={() => setLocation('/pool')}
+          onClick={() => setLocation('/ai')}
           className={`relative flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-[10px] font-mono font-semibold uppercase tracking-widest transition-colors ${
-            isActive('/pool') ? 'text-[#0055FF]' : 'text-foreground/60'
+            isActive('/ai') ? 'text-[#0055FF]' : 'text-foreground/60'
           }`}
-          data-testid="nav-pool"
+          data-testid="nav-ai"
         >
-          <Sparkles className="h-5 w-5" strokeWidth={2} />
-          <span>POOL</span>
-          {isActive('/pool') && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#0055FF]" />}
+          <Bot className="h-5 w-5" strokeWidth={2} />
+          <span>AI</span>
+          {isActive('/ai') && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#0055FF]" />}
         </button>
       </div>
     </nav>
