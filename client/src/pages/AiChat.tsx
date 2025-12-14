@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -39,9 +39,30 @@ export default function AiChat() {
   const [inputValue, setInputValue] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
   const [conversationLoaded, setConversationLoaded] = useState(false);
+  const [headerVisible, setHeaderVisible] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const lastScrollTop = useRef(0);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const handleScroll = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    const currentScrollTop = container.scrollTop;
+    const scrollDiff = currentScrollTop - lastScrollTop.current;
+    
+    if (Math.abs(scrollDiff) < 5) return;
+    
+    if (scrollDiff > 0 && currentScrollTop > 50) {
+      setHeaderVisible(false);
+    } else if (scrollDiff < 0) {
+      setHeaderVisible(true);
+    }
+    
+    lastScrollTop.current = currentScrollTop;
+  }, []);
   
   useEffect(() => {
     async function loadWallet() {
@@ -215,9 +236,18 @@ export default function AiChat() {
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden" style={{ paddingBottom: '80px', paddingTop: '56px' }}>
-      <div className="flex-shrink-0 p-3 border-b border-foreground/10">
-        <div className="max-w-md mx-auto flex items-center justify-between">
+    <div className="h-screen bg-background overflow-hidden">
+      <div 
+        className={`fixed top-0 left-0 right-0 bg-background border-b border-foreground/10 transition-transform duration-300 ${
+          headerVisible ? 'translate-y-0' : '-translate-y-full'
+        }`}
+        style={{ 
+          paddingTop: 'env(safe-area-inset-top)',
+          height: 'calc(4rem + env(safe-area-inset-top))',
+          zIndex: 50
+        }}
+      >
+        <div className="flex items-center justify-between px-4 h-16">
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-[#0055FF]" />
             <span className="font-mono font-semibold text-sm uppercase tracking-wider">AI CHAT</span>
@@ -229,7 +259,6 @@ export default function AiChat() {
                 size="icon"
                 onClick={handleClearConversation}
                 disabled={clearConversationMutation.isPending}
-                className="h-8 w-8"
                 data-testid="button-clear-conversation"
               >
                 {clearConversationMutation.isPending ? (
@@ -247,7 +276,15 @@ export default function AiChat() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3">
+      <div 
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="h-full overflow-y-auto px-4"
+        style={{ 
+          paddingTop: 'calc(4rem + env(safe-area-inset-top) + 1rem)',
+          paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))'
+        }}
+      >
         <div className="max-w-md mx-auto space-y-4">
           {messages.length === 0 && (
             <div className="text-center py-4">
@@ -307,33 +344,40 @@ export default function AiChat() {
         </div>
       </div>
 
-      <div className="flex-shrink-0 py-3 px-4 border-t border-foreground/10 bg-background">
-        <div className="max-w-md mx-auto flex gap-2">
-          <Input
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Ask anything..."
-            disabled={chatMutation.isPending || xpBalance < 1}
-            className="flex-1 font-mono text-sm"
-            data-testid="input-chat-message"
-          />
-          <Button
-            onClick={handleSend}
-            disabled={!inputValue.trim() || chatMutation.isPending || xpBalance < 1}
-            size="icon"
-            className="bg-[#0055FF] hover:bg-[#0044CC]"
-            data-testid="button-send-message"
-          >
-            {chatMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </Button>
+      <div 
+        className="fixed bottom-0 left-0 right-0 bg-background border-t border-foreground/10"
+        style={{ 
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          zIndex: 50
+        }}
+      >
+        <div className="flex items-center px-4 h-16">
+          <div className="max-w-md mx-auto w-full flex gap-2">
+            <Input
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Ask anything..."
+              disabled={chatMutation.isPending || xpBalance < 1}
+              className="flex-1 font-mono text-sm"
+              data-testid="input-chat-message"
+            />
+            <Button
+              onClick={handleSend}
+              disabled={!inputValue.trim() || chatMutation.isPending || xpBalance < 1}
+              size="icon"
+              data-testid="button-send-message"
+            >
+              {chatMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
         </div>
         {xpBalance < 1 && (
-          <p className="text-xs text-destructive text-center mt-2 mb-0 font-mono">
+          <p className="text-xs text-destructive text-center pb-2 font-mono">
             Insufficient XP. Claim more through MaxFlow.
           </p>
         )}
