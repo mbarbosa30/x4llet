@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Scan, CircleDot, Loader2, ExternalLink, UserPlus, Coins, Heart, HeartOff, Send, RefreshCw, Gift, Sparkles, CheckCircle, Clock, AlertCircle, ChevronDown, MessageCircle, Users, Share2 } from 'lucide-react';
-import { getWallet, getPrivateKey } from '@/lib/wallet';
+import { getPrivateKey } from '@/lib/wallet';
+import { useWallet } from '@/hooks/useWallet';
 import { 
   getCirclesAvatar, 
   getCirclesBalance, 
@@ -104,8 +105,8 @@ export default function Claim() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { address, isLoading: isLoadingWallet } = useWallet();
   
-  const [address, setAddress] = useState<string | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [activeTab, setActiveTab] = useState<string>(() => getCachedTab());
   
@@ -139,25 +140,6 @@ export default function Claim() {
     }
   }, []);
 
-  useEffect(() => {
-    const loadWallet = async () => {
-      try {
-        const wallet = await getWallet();
-        if (!wallet) {
-          setLocation('/');
-          return;
-        }
-        setAddress(wallet.address);
-      } catch (error: any) {
-        if (error.message === 'RECOVERY_CODE_REQUIRED') {
-          setLocation('/unlock');
-        } else {
-          setLocation('/');
-        }
-      }
-    };
-    loadWallet();
-  }, [setLocation]);
 
   const { data: circlesAvatar, isLoading: isLoadingCircles } = useQuery<CirclesAvatar>({
     queryKey: ['/circles/avatar', address],

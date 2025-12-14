@@ -15,7 +15,7 @@ import BalanceCard from '@/components/BalanceCard';
 import TransactionList from '@/components/TransactionList';
 import AddressDisplay from '@/components/AddressDisplay';
 import VouchConfirmation from '@/components/VouchConfirmation';
-import { getWallet, getPreferences } from '@/lib/wallet';
+import { useWallet } from '@/hooks/useWallet';
 import { formatAmount } from '@/lib/formatAmount';
 import { vouchFor, getMaxFlowScore, type MaxFlowScore } from '@/lib/maxflow';
 import { getIdentityStatus, getClaimStatus, type IdentityStatus, type ClaimStatus } from '@/lib/gooddollar';
@@ -38,10 +38,7 @@ interface AaveBalanceResponse {
 export default function Home() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [address, setAddress] = useState<string | null>(null);
-  const [currency, setCurrency] = useState('USD');
-  const [earnMode, setEarnMode] = useState(false);
-  const [isLoadingWallet, setIsLoadingWallet] = useState(true);
+  const { address, currency, earnMode, isLoading: isLoadingWallet } = useWallet({ loadPreferences: true });
   const [selectedTransaction, setSelectedTransaction] = useState<SchemaTransaction | null>(null);
   const [copiedHash, setCopiedHash] = useState(false);
   const [pendingReferral, setPendingReferral] = useState<string | null>(null);
@@ -57,37 +54,14 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const loadWallet = async () => {
-      try {
-        const wallet = await getWallet();
-        if (!wallet) {
-          setLocation('/');
-          return;
-        }
-        setAddress(wallet.address);
-        
-        const prefs = await getPreferences();
-        setCurrency(prefs.currency);
-        setEarnMode(prefs.earnMode || false);
-        
-        // Check for pending referral
-        const storedReferral = sessionStorage.getItem('pending_referral');
-        if (storedReferral && storedReferral.toLowerCase() !== wallet.address.toLowerCase()) {
-          setPendingReferral(storedReferral);
-          setShowVouchConfirmation(true);
-        }
-      } catch (error: any) {
-        if (error.message === 'RECOVERY_CODE_REQUIRED') {
-          setLocation('/unlock');
-        } else {
-          setLocation('/');
-        }
-      } finally {
-        setIsLoadingWallet(false);
+    if (!isLoadingWallet && address) {
+      const storedReferral = sessionStorage.getItem('pending_referral');
+      if (storedReferral && storedReferral.toLowerCase() !== address.toLowerCase()) {
+        setPendingReferral(storedReferral);
+        setShowVouchConfirmation(true);
       }
-    };
-    loadWallet();
-  }, [setLocation]);
+    }
+  }, [isLoadingWallet, address]);
 
   // Fetch aggregated balance from all chains (no polling - manual refresh only)
   const { data: balanceData, isLoading, isFetching: isRefreshingBalance, refetch: refetchBalance } = useQuery<BalanceResponse & { chains?: any }>({

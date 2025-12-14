@@ -6,7 +6,8 @@ import { ChevronRight, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette,
 import { queryClient } from '@/lib/queryClient';
 import { Card } from '@/components/ui/card';
 import InstallPrompt from '@/components/InstallPrompt';
-import { getWallet, getPreferences, savePreferences, getPrivateKey, lockWallet, enrollWalletPasskey, removeWalletPasskey, canUsePasskey, setAutoLockMinutes, getAutoLockMinutes } from '@/lib/wallet';
+import { getPreferences, savePreferences, getPrivateKey, lockWallet, enrollWalletPasskey, removeWalletPasskey, canUsePasskey, setAutoLockMinutes, getAutoLockMinutes } from '@/lib/wallet';
+import { useWallet } from '@/hooks/useWallet';
 import { getPasskeySupportStatus, hasPasskeyEnrolled, getPasskeyInfo, type PasskeySupportStatus } from '@/lib/webauthn';
 import { useToast } from '@/hooks/use-toast';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
@@ -39,7 +40,7 @@ interface InflationData {
 export default function Settings() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [address, setAddress] = useState<string | null>(null);
+  const { address, currency: initialCurrency, isLoading: isLoadingWallet } = useWallet({ redirectOnMissing: false, loadPreferences: true });
   const [currency, setCurrency] = useState('USD');
   const [language, setLanguage] = useState('en');
   const [showExportPrivateKey, setShowExportPrivateKey] = useState(false);
@@ -63,15 +64,14 @@ export default function Settings() {
   const [sessionPersistence, setSessionPersistence] = useState(true);
 
   useEffect(() => {
+    if (isLoadingWallet) return;
+    setCurrency(initialCurrency);
+  }, [isLoadingWallet, initialCurrency]);
+
+  useEffect(() => {
     const loadPreferences = async () => {
       try {
-        const wallet = await getWallet();
-        if (wallet) {
-          setAddress(wallet.address);
-        }
-        
         const prefs = await getPreferences();
-        setCurrency(prefs.currency);
         setLanguage(prefs.language);
         
         const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
@@ -92,12 +92,10 @@ export default function Settings() {
           setPasskeyEnrolled(enrolled);
         }
         
-        // Load auto-lock preference
-        // -1 means session persistence is OFF (password required every refresh)
         const currentAutoLock = prefs.autoLockMinutes ?? 15;
         if (currentAutoLock === -1) {
           setSessionPersistence(false);
-          setAutoLock(15); // Default timer when persistence is re-enabled
+          setAutoLock(15);
         } else {
           setSessionPersistence(true);
           setAutoLock(currentAutoLock);

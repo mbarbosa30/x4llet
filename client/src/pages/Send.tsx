@@ -8,7 +8,8 @@ import QRCodeDisplay from '@/components/QRCodeDisplay';
 
 // Lazy load QR scanner to reduce initial bundle size
 const QRScanner = lazy(() => import('@/components/QRScanner'));
-import { getWallet, getPrivateKey, getPreferences } from '@/lib/wallet';
+import { getPrivateKey } from '@/lib/wallet';
+import { useWallet } from '@/hooks/useWallet';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getAddress } from 'viem';
 import { useToast } from '@/hooks/use-toast';
@@ -28,22 +29,19 @@ export default function Send() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { address, currency, earnMode, isLoading: isLoadingWallet } = useWallet({ loadPreferences: true });
   
   const [step, setStep] = useState<'input' | 'confirm' | 'qr'>('input');
   const [recipient, setRecipient] = useState('');
   const [inputValue, setInputValue] = useState(''); // User's editing buffer in current currency
   const [usdcAmount, setUsdcAmount] = useState(''); // Canonical USDC amount (always in USDC)
-  const [address, setAddress] = useState<string | null>(null);
   const [network, setNetwork] = useState<'base' | 'celo' | 'gnosis' | 'arbitrum'>('celo');
   const [chainId, setChainId] = useState(42220);
-  const [currency, setCurrency] = useState('USD');
   const [displayCurrency, setDisplayCurrency] = useState<'USDC' | 'fiat'>('USDC');
   const [showScanner, setShowScanner] = useState(false);
   const [paymentRequest, setPaymentRequest] = useState<PaymentRequest | null>(null);
   const [authorizationQR, setAuthorizationQR] = useState<AuthorizationQR | null>(null);
   const [paymentLink, setPaymentLink] = useState<string | null>(null);
-  const [isLoadingWallet, setIsLoadingWallet] = useState(true);
-  const [earnMode, setEarnMode] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showChainSelector, setShowChainSelector] = useState(false);
   const isTogglingRef = useRef(false);
@@ -68,52 +66,29 @@ export default function Send() {
   }, [step]);
 
   useEffect(() => {
-    const loadWallet = async () => {
+    if (isLoadingWallet) return;
+    
+    const storedRequest = sessionStorage.getItem('payment_request');
+    if (storedRequest) {
       try {
-        const wallet = await getWallet();
-        if (!wallet) {
-          setLocation('/');
-          return;
-        }
-        setAddress(wallet.address);
+        const request: PaymentRequest = JSON.parse(storedRequest);
+        const requestNetwork = request.chainId === 42220 ? 'celo' : request.chainId === 100 ? 'gnosis' : request.chainId === 42161 ? 'arbitrum' : 'base';
+        const requestChainId = request.chainId;
         
-        const prefs = await getPreferences();
-        setCurrency(prefs.currency);
-        setEarnMode(prefs.earnMode || false);
-        
-        const storedRequest = sessionStorage.getItem('payment_request');
-        if (storedRequest) {
-          try {
-            const request: PaymentRequest = JSON.parse(storedRequest);
-            const requestNetwork = request.chainId === 42220 ? 'celo' : request.chainId === 100 ? 'gnosis' : request.chainId === 42161 ? 'arbitrum' : 'base';
-            const requestChainId = request.chainId;
-            
-            // Set network to match payment request
-            setNetwork(requestNetwork);
-            setChainId(requestChainId);
-            setPaymentRequest(request);
-            setRecipient(request.to);
-            const usdcValue = (parseInt(request.amount) / 1000000).toFixed(6);
-            setUsdcAmount(usdcValue);
-            setInputValue(usdcValue);
-            setStep('input');
-            sessionStorage.removeItem('payment_request');
-          } catch (error) {
-            console.error('Failed to parse payment request:', error);
-          }
-        }
-      } catch (error: any) {
-        if (error.message === 'RECOVERY_CODE_REQUIRED') {
-          setLocation('/unlock');
-        } else {
-          setLocation('/');
-        }
-      } finally {
-        setIsLoadingWallet(false);
+        setNetwork(requestNetwork);
+        setChainId(requestChainId);
+        setPaymentRequest(request);
+        setRecipient(request.to);
+        const usdcValue = (parseInt(request.amount) / 1000000).toFixed(6);
+        setUsdcAmount(usdcValue);
+        setInputValue(usdcValue);
+        setStep('input');
+        sessionStorage.removeItem('payment_request');
+      } catch (error) {
+        console.error('Failed to parse payment request:', error);
       }
-    };
-    loadWallet();
-  }, [setLocation, toast]);
+    }
+  }, [isLoadingWallet]);
 
   // Fetch aggregated balance from all chains (no polling - fetched once on mount)
   const { data: balanceData } = useQuery<BalanceResponse & { chains?: any }>({

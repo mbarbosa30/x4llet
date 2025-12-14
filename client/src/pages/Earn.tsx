@@ -56,7 +56,8 @@ import {
 } from '@/components/ui/accordion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
-import { getWallet, getPreferences, savePreferences, getPrivateKey } from '@/lib/wallet';
+import { getPreferences, savePreferences, getPrivateKey } from '@/lib/wallet';
+import { useWallet } from '@/hooks/useWallet';
 import { useToast } from '@/hooks/use-toast';
 import { NETWORKS, getNetworkByChainId } from '@shared/networks';
 import { supplyToAave, withdrawFromAave, parseAmountToMicroUsdc } from '@/lib/aave';
@@ -167,7 +168,7 @@ function setCachedEarnTab(tab: string) {
 export default function Earn() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [address, setAddress] = useState<string | null>(null);
+  const { address, earnMode: initialEarnMode, isLoading: isLoadingWallet } = useWallet({ redirectOnMissing: false, loadPreferences: true });
   const [earnMode, setEarnMode] = useState(false);
   const [earnModeLoading, setEarnModeLoading] = useState(false);
   const [showAaveDeposit, setShowAaveDeposit] = useState(false);
@@ -188,21 +189,10 @@ export default function Earn() {
   });
 
   useEffect(() => {
-    const loadPreferences = async () => {
-      try {
-        const wallet = await getWallet();
-        if (wallet) {
-          setAddress(wallet.address);
-        }
-        
-        const prefs = await getPreferences();
-        setEarnMode(prefs.earnMode || false);
-      } catch (error) {
-        console.error('Failed to load preferences:', error);
-      }
-    };
-    loadPreferences();
-  }, []);
+    if (!isLoadingWallet) {
+      setEarnMode(initialEarnMode);
+    }
+  }, [isLoadingWallet, initialEarnMode]);
 
   useEffect(() => {
     setDepositAmount('');

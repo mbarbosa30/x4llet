@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Bot, Send, Loader2, Zap, User, AlertCircle, Trash2 } from 'lucide-react';
-import { getWallet } from '@/lib/wallet';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useXp } from '@/hooks/useXp';
+import { useWallet } from '@/hooks/useWallet';
 
 interface Message {
   id: string;
@@ -29,9 +29,9 @@ interface ConversationResponse {
 }
 
 export default function AiChat() {
+  const { address: walletAddress } = useWallet({ redirectOnMissing: false });
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [walletAddress, setWalletAddress] = useState('');
   const [conversationLoaded, setConversationLoaded] = useState(false);
   const [headerVisible, setHeaderVisible] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -76,15 +76,6 @@ export default function AiChat() {
     }
   }, [headerVisible]);
   
-  useEffect(() => {
-    async function loadWallet() {
-      const wallet = await getWallet();
-      if (wallet?.address) {
-        setWalletAddress(wallet.address);
-      }
-    }
-    loadWallet();
-  }, []);
 
   const { data: conversationData, isLoading: conversationLoading } = useQuery<ConversationResponse>({
     queryKey: ['/api/ai/conversation', walletAddress],

@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useToast } from "@/hooks/use-toast";
 import { useEarningAnimation } from "@/hooks/use-earning-animation";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { getWallet, getPrivateKey } from "@/lib/wallet";
+import { getPrivateKey } from "@/lib/wallet";
+import { useWallet } from "@/hooks/useWallet";
 import { privateKeyToAccount } from 'viem/accounts';
 import { 
   Trophy, 
@@ -178,8 +179,7 @@ export default function Pool() {
   const [, setLocation] = useLocation();
   const search = useSearch();
   const { toast } = useToast();
-  const [address, setAddress] = useState<string | null>(null);
-  const [isLoadingWallet, setIsLoadingWallet] = useState(true);
+  const { address, isLoading: isLoadingWallet } = useWallet({ redirectOnMissing: false });
   const [optInPercent, setOptInPercent] = useState<number>(50); // Default to 50% for intro
   const [hasInitializedOptIn, setHasInitializedOptIn] = useState(false);
   // Cached view state - prevents flash between intro and main views on navigation
@@ -221,20 +221,6 @@ export default function Pool() {
     message?: string;
   } | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
-
-  useEffect(() => {
-    const loadAddress = async () => {
-      try {
-        const wallet = await getWallet();
-        if (wallet?.address) {
-          setAddress(wallet.address);
-        }
-      } finally {
-        setIsLoadingWallet(false);
-      }
-    };
-    loadAddress();
-  }, []);
 
   // Check for referral code in URL
   useEffect(() => {
