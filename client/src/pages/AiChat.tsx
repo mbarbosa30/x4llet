@@ -250,8 +250,8 @@ export default function AiChat() {
       <div className="flex-1 overflow-y-auto p-4">
         <div className="max-w-md mx-auto space-y-4">
           {messages.length === 0 && (
-            <div className="text-center py-12">
-              <Bot className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
+            <div className="text-center py-6">
+              <Bot className="h-12 w-12 mx-auto mb-3 text-muted-foreground/30" />
               <h3 className="font-mono text-sm font-semibold uppercase tracking-wider mb-2">
                 Your Gateway to Knowledge
               </h3>
@@ -307,7 +307,7 @@ export default function AiChat() {
         </div>
       </div>
 
-      <div className="flex-shrink-0 p-4 border-t border-foreground/10 bg-background">
+      <div className="flex-shrink-0 py-3 px-4 border-t border-foreground/10 bg-background">
         <div className="max-w-md mx-auto flex gap-2">
           <Input
             value={inputValue}
@@ -333,7 +333,7 @@ export default function AiChat() {
           </Button>
         </div>
         {xpBalance < 1 && (
-          <p className="text-xs text-destructive text-center mt-2 font-mono">
+          <p className="text-xs text-destructive text-center mt-2 mb-0 font-mono">
             Insufficient XP. Claim more through MaxFlow.
           </p>
         )}
