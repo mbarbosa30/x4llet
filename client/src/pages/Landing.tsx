@@ -729,6 +729,10 @@ function DesktopLanding({
               <div className="w-3 h-3 rounded-full bg-[#28A0F0]" />
               <span className="text-sm font-mono uppercase">Arbitrum</span>
             </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-[#000000]" />
+              <span className="text-sm font-mono uppercase">Stellar</span>
+            </div>
           </div>
         </div>
       </section>
