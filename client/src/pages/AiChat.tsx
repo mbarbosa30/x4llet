@@ -67,6 +67,13 @@ export default function AiChat() {
     
     lastScrollTop.current = currentScrollTop;
   }, [headerVisible]);
+
+  // Reset scroll baseline when header visibility changes to prevent stale deltas
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      lastScrollTop.current = scrollContainerRef.current.scrollTop;
+    }
+  }, [headerVisible]);
   
   useEffect(() => {
     async function loadWallet() {
@@ -241,15 +248,15 @@ export default function AiChat() {
 
   return (
     <div 
-      className="bg-background flex flex-col"
+      className="bg-background flex flex-col relative"
       style={{ 
         height: 'calc(100dvh - 8rem)',
         marginTop: 'calc(4rem + env(safe-area-inset-top))',
       }}
     >
       <div 
-        className={`flex-shrink-0 bg-background border-b border-foreground/10 transition-all duration-300 overflow-hidden ${
-          headerVisible ? 'max-h-14 opacity-100' : 'max-h-0 opacity-0'
+        className={`absolute top-0 left-0 right-0 h-14 bg-background border-b border-foreground/10 transition-transform duration-300 z-10 ${
+          headerVisible ? 'translate-y-0' : '-translate-y-full'
         }`}
       >
         <div className="flex items-center justify-between px-4 h-14">
@@ -284,7 +291,7 @@ export default function AiChat() {
       <div 
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 min-h-0"
+        className="flex-1 overflow-y-auto px-4 min-h-0 pt-14"
       >
         <div className="max-w-md mx-auto space-y-4">
           {messages.length === 0 && (
