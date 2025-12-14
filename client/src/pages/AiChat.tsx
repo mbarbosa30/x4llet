@@ -215,8 +215,8 @@ export default function AiChat() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pb-20 pt-16">
-      <div className="flex-shrink-0 p-4 border-b border-foreground/10">
+    <div className="h-screen bg-background flex flex-col overflow-hidden" style={{ paddingBottom: '80px', paddingTop: '56px' }}>
+      <div className="flex-shrink-0 p-3 border-b border-foreground/10">
         <div className="max-w-md mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-[#0055FF]" />
@@ -247,18 +247,18 @@ export default function AiChat() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-3">
         <div className="max-w-md mx-auto space-y-4">
           {messages.length === 0 && (
-            <div className="text-center py-6">
-              <Bot className="h-12 w-12 mx-auto mb-3 text-muted-foreground/30" />
-              <h3 className="font-mono text-sm font-semibold uppercase tracking-wider mb-2">
+            <div className="text-center py-4">
+              <Bot className="h-10 w-10 mx-auto mb-2 text-muted-foreground/30" />
+              <h3 className="font-mono text-sm font-semibold uppercase tracking-wider mb-1">
                 Your Gateway to Knowledge
               </h3>
-              <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                Ask anything. Learn something new. Education, skills, health, business, science, or just curiosity - I'm here to help you grow.
+              <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                Ask anything. Learn something new. Education, skills, health, business, science, or curiosity.
               </p>
-              <p className="text-xs text-muted-foreground mt-4 font-mono">
+              <p className="text-xs text-muted-foreground mt-2 font-mono">
                 1 XP per question
               </p>
             </div>
