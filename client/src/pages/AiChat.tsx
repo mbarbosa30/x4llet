@@ -307,7 +307,7 @@ export default function AiChat() {
               <h3 className="font-mono text-sm font-semibold uppercase tracking-wider mb-1">
                 Your Gateway to Knowledge
               </h3>
-              <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+              <p className="text-sm text-muted-foreground max-w-xs mx-auto">
                 Ask anything. Learn something new. Education, skills, health, business, science, or curiosity.
               </p>
               <p className="text-xs text-muted-foreground mt-2 font-mono">
