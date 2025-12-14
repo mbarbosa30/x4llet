@@ -665,8 +665,65 @@ function DesktopLanding({
         </div>
       </section>
 
-      {/* Setup Section */}
+      {/* AI Knowledge Access Section */}
       <section className="py-20 px-8">
+        <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
+          <div className="flex justify-center">
+            <Card className="p-6 max-w-sm shadow-[8px_8px_0px_0px_rgb(0,0,0)]">
+              <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-4">AI Assistant</div>
+              <div className="space-y-4">
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 bg-[#0055FF] flex items-center justify-center flex-shrink-0">
+                    <Cpu className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="bg-foreground/5 p-3 text-sm flex-1">
+                    How do I start a small business?
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 bg-foreground/10 flex items-center justify-center flex-shrink-0">
+                    <Cpu className="h-4 w-4" />
+                  </div>
+                  <div className="bg-[#0055FF]/10 p-3 text-sm flex-1">
+                    Great question! Here are the key steps to start your business...
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-foreground/10 text-center">
+                <span className="text-xs font-mono text-muted-foreground">1 XP per question</span>
+              </div>
+            </Card>
+          </div>
+          <div className="space-y-6">
+            <h2 className="text-4xl font-black uppercase tracking-tight">
+              Knowledge Without<br />Barriers.
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              Access to AI shouldn't be a privilege. Ask anything - education, health, business, skills, science. Learn, grow, and unlock opportunities that were once out of reach.
+            </p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-[#0055FF]" />
+                <span className="font-medium">Education for everyone, everywhere</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-[#0055FF]" />
+                <span className="font-medium">Practical skills & real-world knowledge</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-[#0055FF]" />
+                <span className="font-medium">Democratizing intelligence & curiosity</span>
+              </div>
+            </div>
+            <Button size="lg" variant="outline" onClick={() => setLocation('/create')}>
+              Start Learning <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Setup Section */}
+      <section className="py-20 px-8 bg-white">
         <div className="max-w-4xl mx-auto text-center mb-16">
           <h2 className="text-4xl font-black uppercase tracking-tight mb-4">
             Setup in Seconds

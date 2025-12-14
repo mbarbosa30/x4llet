@@ -154,13 +154,13 @@ export default function AiChat() {
             <div className="text-center py-12">
               <Bot className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
               <h3 className="font-mono text-sm font-semibold uppercase tracking-wider mb-2">
-                nanoPay AI Assistant
+                Your Gateway to Knowledge
               </h3>
               <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                Ask me anything about crypto, your wallet, or how to use nanoPay features.
+                Ask anything. Learn something new. Education, skills, health, business, science, or just curiosity - I'm here to help you grow.
               </p>
               <p className="text-xs text-muted-foreground mt-4 font-mono">
-                1 XP per message
+                1 XP per question
               </p>
             </div>
           )}
