@@ -32,7 +32,7 @@ export default function AppHeader() {
     loadWallet();
   }, []);
 
-  const { data: scoreData } = useQuery({
+  const { data: scoreData, isLoading: isScoreLoading } = useQuery({
     queryKey: ['/maxflow/score', address],
     queryFn: () => getMaxFlowScore(address!),
     enabled: !!address,
@@ -107,7 +107,13 @@ export default function AppHeader() {
           title="Your MaxFlow trust score"
         >
           <Shield className="h-3 w-3" />
-          <span className="font-mono">{Math.round(score)}</span>
+          <span className="font-mono">
+            {isScoreLoading ? (
+              <span className="inline-block w-4 h-3 bg-foreground/20 animate-pulse" />
+            ) : (
+              Math.round(score)
+            )}
+          </span>
         </button>
       </div>
       <div className="flex gap-2">

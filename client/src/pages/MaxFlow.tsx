@@ -82,7 +82,7 @@ export default function MaxFlow() {
     queryKey: ['/maxflow/score', address],
     queryFn: () => getMaxFlowScore(address!),
     enabled: !!address,
-    staleTime: 30 * 1000, // 30 seconds - enables faster updates after receiving vouches
+    staleTime: 4 * 60 * 60 * 1000, // 4 hours - score rarely changes, external API is slow
   });
 
   const { data: xpData, isLoading: isLoadingXp, isFetching: isFetchingXp } = useQuery<XpData>({
