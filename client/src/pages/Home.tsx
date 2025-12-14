@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users, Clock, Share2, Waypoints, CheckCircle2, Circle, ChevronRight } from 'lucide-react';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
@@ -74,11 +74,14 @@ export default function Home() {
   const { data: aaveBalance } = useAaveBalance(address, earnMode);
 
   // Fetch MaxFlow score for Trust Health section
+  // Uses placeholderData to show cached data immediately while refreshing in background
+  // This prevents 10-12 second loading states when the slow MaxFlow API is called
   const { data: maxflowScore } = useQuery<MaxFlowScore>({
     queryKey: ['/maxflow/score', address],
     queryFn: () => getMaxFlowScore(address!),
     enabled: !!address,
     staleTime: 4 * 60 * 60 * 1000, // 4 hours - external API is slow, cache invalidated on vouch
+    placeholderData: keepPreviousData, // Show stale data while fetching new data
   });
 
   // Fetch XP data for Trust Health section

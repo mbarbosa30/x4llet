@@ -1,6 +1,6 @@
 import { useState, useEffect, lazy, Suspense, useCallback } from 'react';
 import { useLocation, Link } from 'wouter';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -45,11 +45,14 @@ export default function MaxFlow() {
   const [showSenadorConfirm, setShowSenadorConfirm] = useState(false);
   const [senadorAmount, setSenadorAmount] = useState('');
 
+  // Uses placeholderData to show cached data immediately while refreshing in background
+  // This prevents 10-12 second loading states when the slow MaxFlow API is called
   const { data: scoreData, isLoading: isLoadingMaxFlow } = useQuery({
     queryKey: ['/maxflow/score', address],
     queryFn: () => getMaxFlowScore(address!),
     enabled: !!address,
     staleTime: 4 * 60 * 60 * 1000, // 4 hours - score rarely changes, external API is slow
+    placeholderData: keepPreviousData, // Show stale data while fetching new data
   });
 
   const { data: xpData, isLoading: isLoadingXp, isFetching: isFetchingXp } = useXp(address);
