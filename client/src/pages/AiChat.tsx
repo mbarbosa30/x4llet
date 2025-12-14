@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Bot, Send, Loader2, Zap, User, AlertCircle } from 'lucide-react';
+import { Bot, Send, Loader2, Zap, User, AlertCircle, Trash2 } from 'lucide-react';
 import { getWallet } from '@/lib/wallet';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
@@ -13,7 +13,7 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  timestamp: Date;
+  timestamp: string;
 }
 
 interface XpBalanceResponse {
@@ -29,10 +29,16 @@ interface ChatResponse {
   newBalance: number;
 }
 
+interface ConversationResponse {
+  messages: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>;
+  updatedAt?: string;
+}
+
 export default function AiChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
+  const [conversationLoaded, setConversationLoaded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -47,6 +53,29 @@ export default function AiChat() {
     loadWallet();
   }, []);
 
+  const { data: conversationData, isLoading: conversationLoading } = useQuery<ConversationResponse>({
+    queryKey: ['/api/ai/conversation', walletAddress],
+    queryFn: async () => {
+      const response = await fetch(`/api/ai/conversation/${walletAddress}`);
+      if (!response.ok) throw new Error('Failed to load conversation');
+      return response.json();
+    },
+    enabled: !!walletAddress && !conversationLoaded,
+  });
+
+  useEffect(() => {
+    if (conversationData && !conversationLoaded) {
+      const loadedMessages: Message[] = conversationData.messages.map((msg, idx) => ({
+        id: `loaded-${idx}-${Date.now()}`,
+        role: msg.role,
+        content: msg.content,
+        timestamp: msg.timestamp,
+      }));
+      setMessages(loadedMessages);
+      setConversationLoaded(true);
+    }
+  }, [conversationData, conversationLoaded]);
+
   const { data: xpData, isLoading: xpLoading } = useQuery<XpBalanceResponse>({
     queryKey: ['/api/xp', walletAddress],
     enabled: !!walletAddress,
@@ -54,6 +83,35 @@ export default function AiChat() {
   });
 
   const xpBalance = xpData?.totalXp ?? 0;
+
+  const saveConversationMutation = useMutation({
+    mutationFn: async (msgs: Message[]) => {
+      const messagesToSave = msgs.map(m => ({
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp,
+      }));
+      
+      await apiRequest('POST', '/api/ai/conversation', {
+        walletAddress,
+        messages: messagesToSave,
+      });
+    },
+  });
+
+  const clearConversationMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest('DELETE', `/api/ai/conversation/${walletAddress}`);
+    },
+    onSuccess: () => {
+      setMessages([]);
+      queryClient.invalidateQueries({ queryKey: ['/api/ai/conversation', walletAddress] });
+      toast({
+        title: 'Conversation cleared',
+        description: 'Your chat history has been deleted.',
+      });
+    },
+  });
 
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
@@ -70,14 +128,20 @@ export default function AiChat() {
       
       return response.json() as Promise<ChatResponse>;
     },
-    onSuccess: (data) => {
+    onSuccess: (data, userMessageContent) => {
       const assistantMessage: Message = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
         content: data.message,
-        timestamp: new Date(),
+        timestamp: new Date().toISOString(),
       };
-      setMessages(prev => [...prev, assistantMessage]);
+      
+      setMessages(prev => {
+        const updatedMessages = [...prev, assistantMessage];
+        saveConversationMutation.mutate(updatedMessages);
+        return updatedMessages;
+      });
+      
       queryClient.invalidateQueries({ queryKey: ['/api/xp', walletAddress] });
     },
     onError: (error: any) => {
@@ -104,7 +168,7 @@ export default function AiChat() {
       id: `user-${Date.now()}`,
       role: 'user',
       content: inputValue.trim(),
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     };
     
     setMessages(prev => [...prev, userMessage]);
@@ -116,6 +180,12 @@ export default function AiChat() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+  };
+
+  const handleClearConversation = () => {
+    if (messages.length > 0) {
+      clearConversationMutation.mutate();
     }
   };
 
@@ -134,6 +204,14 @@ export default function AiChat() {
     );
   }
 
+  if (conversationLoading && !conversationLoaded) {
+    return (
+      <div className="min-h-screen bg-background p-4 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col pb-20 pt-16">
       <div className="flex-shrink-0 p-4 border-b border-foreground/10">
@@ -142,10 +220,28 @@ export default function AiChat() {
             <Bot className="h-5 w-5 text-[#0055FF]" />
             <span className="font-mono font-semibold text-sm uppercase tracking-wider">AI CHAT</span>
           </div>
-          <Badge variant="outline" className="font-mono text-xs" data-testid="xp-balance-badge">
-            <Zap className="h-3 w-3 mr-1" />
-            {xpLoading ? '...' : `${xpBalance.toFixed(2)} XP`}
-          </Badge>
+          <div className="flex items-center gap-2">
+            {messages.length > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleClearConversation}
+                disabled={clearConversationMutation.isPending}
+                className="h-8 w-8"
+                data-testid="button-clear-conversation"
+              >
+                {clearConversationMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+            <Badge variant="outline" className="font-mono text-xs" data-testid="xp-balance-badge">
+              <Zap className="h-3 w-3 mr-1" />
+              {xpLoading ? '...' : `${xpBalance.toFixed(2)} XP`}
+            </Badge>
+          </div>
         </div>
       </div>
 

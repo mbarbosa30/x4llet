@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, globalSettings } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, type AiConversation, type AiMessage, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, globalSettings, aiConversations } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo, gnosis, arbitrum } from 'viem/chains';
@@ -411,6 +411,11 @@ export interface IStorage {
   refundXp(walletAddress: string, xpAmount: number): Promise<{ success: boolean; newBalance: number }>;
   creditXpFromGdExchange(walletAddress: string, xpAmountCenti: number, gdAmount: string): Promise<{ success: boolean; newBalance: number }>;
   getXpClaimHistory(walletAddress: string, limit?: number): Promise<XpClaim[]>;
+  
+  // AI Conversation methods
+  getAiConversation(walletAddress: string): Promise<AiConversation | null>;
+  saveAiConversation(walletAddress: string, messages: AiMessage[]): Promise<void>;
+  clearAiConversation(walletAddress: string): Promise<void>;
 }
 
 export interface GasDrip {
@@ -929,6 +934,18 @@ export class MemStorage implements IStorage {
 
   async getXpClaimHistory(walletAddress: string, limit?: number): Promise<XpClaim[]> {
     return [];
+  }
+
+  async getAiConversation(walletAddress: string): Promise<AiConversation | null> {
+    return null;
+  }
+
+  async saveAiConversation(walletAddress: string, messages: AiMessage[]): Promise<void> {
+    // MemStorage stub - no-op
+  }
+
+  async clearAiConversation(walletAddress: string): Promise<void> {
+    // MemStorage stub - no-op
   }
 }
 
@@ -4221,6 +4238,55 @@ export class DbStorage extends MemStorage {
     } catch (error) {
       console.error('[Settings] Error getting global setting:', error);
       return null;
+    }
+  }
+
+  async getAiConversation(walletAddress: string): Promise<AiConversation | null> {
+    try {
+      const normalized = walletAddress.toLowerCase();
+      const [conversation] = await db
+        .select()
+        .from(aiConversations)
+        .where(eq(aiConversations.walletAddress, normalized))
+        .limit(1);
+      return conversation || null;
+    } catch (error) {
+      console.error('[AI] Error getting conversation:', error);
+      return null;
+    }
+  }
+
+  async saveAiConversation(walletAddress: string, messages: AiMessage[]): Promise<void> {
+    try {
+      const normalized = walletAddress.toLowerCase();
+      const messagesJson = JSON.stringify(messages);
+      const now = new Date();
+      
+      await db.insert(aiConversations).values({
+        walletAddress: normalized,
+        messages: messagesJson,
+        createdAt: now,
+        updatedAt: now,
+      }).onConflictDoUpdate({
+        target: aiConversations.walletAddress,
+        set: {
+          messages: messagesJson,
+          updatedAt: now,
+        },
+      });
+    } catch (error) {
+      console.error('[AI] Error saving conversation:', error);
+      throw error;
+    }
+  }
+
+  async clearAiConversation(walletAddress: string): Promise<void> {
+    try {
+      const normalized = walletAddress.toLowerCase();
+      await db.delete(aiConversations).where(eq(aiConversations.walletAddress, normalized));
+    } catch (error) {
+      console.error('[AI] Error clearing conversation:', error);
+      throw error;
     }
   }
 }

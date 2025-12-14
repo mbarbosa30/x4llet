@@ -6349,6 +6349,70 @@ You are accessed through nanoPay, a crypto wallet app, but your purpose extends 
     }
   });
 
+  // Get saved AI conversation
+  app.get('/api/ai/conversation/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      
+      if (!address) {
+        return res.status(400).json({ error: 'Address is required' });
+      }
+      
+      const conversation = await storage.getAiConversation(address);
+      
+      if (!conversation) {
+        return res.json({ messages: [] });
+      }
+      
+      const messages = JSON.parse(conversation.messages);
+      res.json({ 
+        messages,
+        updatedAt: conversation.updatedAt.toISOString(),
+      });
+    } catch (error) {
+      console.error('[AI Conversation] Error getting conversation:', error);
+      res.status(500).json({ error: 'Failed to get conversation' });
+    }
+  });
+
+  // Save AI conversation
+  app.post('/api/ai/conversation', async (req, res) => {
+    try {
+      const { walletAddress, messages } = req.body;
+      
+      if (!walletAddress || typeof walletAddress !== 'string') {
+        return res.status(400).json({ error: 'Wallet address is required' });
+      }
+      
+      if (!Array.isArray(messages)) {
+        return res.status(400).json({ error: 'Messages must be an array' });
+      }
+      
+      await storage.saveAiConversation(walletAddress, messages);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('[AI Conversation] Error saving conversation:', error);
+      res.status(500).json({ error: 'Failed to save conversation' });
+    }
+  });
+
+  // Clear AI conversation
+  app.delete('/api/ai/conversation/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      
+      if (!address) {
+        return res.status(400).json({ error: 'Address is required' });
+      }
+      
+      await storage.clearAiConversation(address);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('[AI Conversation] Error clearing conversation:', error);
+      res.status(500).json({ error: 'Failed to clear conversation' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
