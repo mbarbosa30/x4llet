@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useLocation } from 'wouter';
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Scan, Clipboard, Repeat, Loader2, MessageSquare, ChevronDown, Check } from 'lucide-react';
 import NumericKeypad from '@/components/NumericKeypad';
@@ -10,13 +10,15 @@ import QRCodeDisplay from '@/components/QRCodeDisplay';
 const QRScanner = lazy(() => import('@/components/QRScanner'));
 import { getPrivateKey } from '@/lib/wallet';
 import { useWallet } from '@/hooks/useWallet';
+import { useBalance } from '@/hooks/useBalance';
+import { useAaveBalance } from '@/hooks/useAaveBalance';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getAddress } from 'viem';
 import { useToast } from '@/hooks/use-toast';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { apiRequest } from '@/lib/queryClient';
 import { getNetworkConfig } from '@shared/networks';
-import type { TransferRequest, TransferResponse, PaymentRequest, AuthorizationQR, BalanceResponse } from '@shared/schema';
+import type { TransferRequest, TransferResponse, PaymentRequest, AuthorizationQR } from '@shared/schema';
 
 // UTF-8 safe base64 encoding
 function encodeBase64(str: string): string {
@@ -91,15 +93,7 @@ export default function Send() {
   }, [isLoadingWallet]);
 
   // Fetch aggregated balance from all chains (no polling - fetched once on mount)
-  const { data: balanceData } = useQuery<BalanceResponse & { chains?: any }>({
-    queryKey: ['/api/balance', address],
-    enabled: !!address,
-    queryFn: async () => {
-      const res = await fetch(`/api/balance/${address}`);
-      if (!res.ok) throw new Error('Failed to fetch balance');
-      return res.json();
-    },
-  });
+  const { data: balanceData } = useBalance(address);
 
   // Auto-select chain with highest balance only once on first load
   useEffect(() => {
@@ -127,16 +121,7 @@ export default function Send() {
   const { data: exchangeRate } = useExchangeRate(currency);
 
   // Fetch Aave balance when earn mode is enabled
-  const { data: aaveBalance } = useQuery<{ totalAUsdcBalance: string; chains: any }>({
-    queryKey: ['/api/aave/balance', address],
-    enabled: !!address && earnMode,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    queryFn: async () => {
-      const res = await fetch(`/api/aave/balance/${address}`);
-      if (!res.ok) throw new Error('Failed to fetch Aave balance');
-      return res.json();
-    },
-  });
+  const { data: aaveBalance } = useAaveBalance(address, earnMode);
 
   // Get balance for selected chain
   const selectedChainBalance = balanceData?.chains 

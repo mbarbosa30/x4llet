@@ -16,24 +16,16 @@ import TransactionList from '@/components/TransactionList';
 import AddressDisplay from '@/components/AddressDisplay';
 import VouchConfirmation from '@/components/VouchConfirmation';
 import { useWallet } from '@/hooks/useWallet';
+import { useBalance } from '@/hooks/useBalance';
+import { useAaveBalance } from '@/hooks/useAaveBalance';
 import { formatAmount } from '@/lib/formatAmount';
 import { vouchFor, getMaxFlowScore, type MaxFlowScore } from '@/lib/maxflow';
 import { getIdentityStatus, getClaimStatus, type IdentityStatus, type ClaimStatus } from '@/lib/gooddollar';
 import { useToast } from '@/hooks/use-toast';
-import type { BalanceResponse, Transaction as SchemaTransaction, UserPreferences } from '@shared/schema';
+import type { Transaction as SchemaTransaction } from '@shared/schema';
 import { useXp } from '@/hooks/useXp';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { formatTimeRemaining } from '@/lib/formatTime';
-
-interface AaveBalanceResponse {
-  totalAUsdcBalance: string;
-  chains: {
-    base: { chainId: number; aUsdcBalance: string; apy: number };
-    celo: { chainId: number; aUsdcBalance: string; apy: number };
-    gnosis: { chainId: number; aUsdcBalance: string; apy: number };
-    arbitrum: { chainId: number; aUsdcBalance: string; apy: number };
-  };
-}
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -64,16 +56,7 @@ export default function Home() {
   }, [isLoadingWallet, address]);
 
   // Fetch aggregated balance from all chains (no polling - manual refresh only)
-  const { data: balanceData, isLoading, isFetching: isRefreshingBalance, refetch: refetchBalance } = useQuery<BalanceResponse & { chains?: any }>({
-    queryKey: ['/api/balance', address],
-    enabled: !!address,
-    staleTime: 30 * 1000, // 30 seconds - allows background refresh after transactions
-    queryFn: async () => {
-      const res = await fetch(`/api/balance/${address}`);
-      if (!res.ok) throw new Error('Failed to fetch balance');
-      return res.json();
-    },
-  });
+  const { data: balanceData, isLoading, isFetching: isRefreshingBalance, refetch: refetchBalance } = useBalance(address);
 
   const handleRefreshBalance = async () => {
     await refetchBalance();
@@ -93,16 +76,7 @@ export default function Home() {
   const { data: exchangeRate } = useExchangeRate(currency, { skipUsd: false });
 
   // Fetch Aave balance when earn mode is enabled (no polling)
-  const { data: aaveBalance } = useQuery<AaveBalanceResponse>({
-    queryKey: ['/api/aave/balance', address],
-    enabled: !!address && earnMode,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    queryFn: async () => {
-      const res = await fetch(`/api/aave/balance/${address}`);
-      if (!res.ok) throw new Error('Failed to fetch Aave balance');
-      return res.json();
-    },
-  });
+  const { data: aaveBalance } = useAaveBalance(address, earnMode);
 
   // Fetch MaxFlow score for Trust Health section
   const { data: maxflowScore } = useQuery<MaxFlowScore>({

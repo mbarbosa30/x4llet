@@ -58,6 +58,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
 import { getPreferences, savePreferences, getPrivateKey } from '@/lib/wallet';
 import { useWallet } from '@/hooks/useWallet';
+import { useBalance } from '@/hooks/useBalance';
 import { useToast } from '@/hooks/use-toast';
 import { NETWORKS, getNetworkByChainId } from '@shared/networks';
 import { supplyToAave, withdrawFromAave, parseAmountToMicroUsdc } from '@/lib/aave';
@@ -605,49 +606,14 @@ export default function Earn() {
     return combinedChartData.some(p => p.isProjected);
   }, [combinedChartData]);
 
-  const { data: liquidBalanceBase } = useQuery<{ balance: string; balanceMicro: string }>({
-    queryKey: ['/api/balance', address, 8453],
-    enabled: !!address,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    queryFn: async () => {
-      const res = await fetch(`/api/balance/${address}?chainId=8453`);
-      if (!res.ok) throw new Error('Failed to fetch balance');
-      return res.json();
-    },
-  });
-
-  const { data: liquidBalanceCelo } = useQuery<{ balance: string; balanceMicro: string }>({
-    queryKey: ['/api/balance', address, 42220],
-    enabled: !!address,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    queryFn: async () => {
-      const res = await fetch(`/api/balance/${address}?chainId=42220`);
-      if (!res.ok) throw new Error('Failed to fetch balance');
-      return res.json();
-    },
-  });
-
-  const { data: liquidBalanceGnosis } = useQuery<{ balance: string; balanceMicro: string }>({
-    queryKey: ['/api/balance', address, 100],
-    enabled: !!address,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    queryFn: async () => {
-      const res = await fetch(`/api/balance/${address}?chainId=100`);
-      if (!res.ok) throw new Error('Failed to fetch balance');
-      return res.json();
-    },
-  });
-
-  const { data: liquidBalanceArbitrum } = useQuery<{ balance: string; balanceMicro: string }>({
-    queryKey: ['/api/balance', address, 42161],
-    enabled: !!address,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    queryFn: async () => {
-      const res = await fetch(`/api/balance/${address}?chainId=42161`);
-      if (!res.ok) throw new Error('Failed to fetch balance');
-      return res.json();
-    },
-  });
+  // Fetch aggregated balance from all chains
+  const { data: balanceData } = useBalance(address);
+  
+  // Extract per-chain liquid balances from aggregated data
+  const liquidBalanceBase = balanceData?.chains?.base;
+  const liquidBalanceCelo = balanceData?.chains?.celo;
+  const liquidBalanceGnosis = balanceData?.chains?.gnosis;
+  const liquidBalanceArbitrum = balanceData?.chains?.arbitrum;
 
   // Auto-select first chain with USDC balance when deposit dialog opens
   useEffect(() => {
