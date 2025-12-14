@@ -17,12 +17,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { getWallet, getPrivateKey } from '@/lib/wallet';
+import { getPrivateKey } from '@/lib/wallet';
 import { getMaxFlowScore, getVouchNonce, submitVouch, type MaxFlowScore } from '@/lib/maxflow';
 import { getSenadorBalance, type SenadorBalance } from '@/lib/gooddollar';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getAddress, type Address } from 'viem';
 import { useToast } from '@/hooks/use-toast';
+import { useWallet } from '@/hooks/useWallet';
 import { useXp } from '@/hooks/useXp';
 import { formatTimeRemaining } from '@/lib/formatTime';
 
@@ -34,8 +35,8 @@ export default function MaxFlow() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { address } = useWallet();
   
-  const [address, setAddress] = useState<string | null>(null);
   const [showVouchInput, setShowVouchInput] = useState(false);
   const [vouchAddress, setVouchAddress] = useState('');
   const [showScanner, setShowScanner] = useState(false);
@@ -43,26 +44,6 @@ export default function MaxFlow() {
   const [showRedeemConfirm, setShowRedeemConfirm] = useState(false);
   const [showSenadorConfirm, setShowSenadorConfirm] = useState(false);
   const [senadorAmount, setSenadorAmount] = useState('');
-
-  useEffect(() => {
-    const loadWallet = async () => {
-      try {
-        const wallet = await getWallet();
-        if (!wallet) {
-          setLocation('/');
-          return;
-        }
-        setAddress(wallet.address);
-      } catch (error: any) {
-        if (error.message === 'RECOVERY_CODE_REQUIRED') {
-          setLocation('/unlock');
-        } else {
-          setLocation('/');
-        }
-      }
-    };
-    loadWallet();
-  }, [setLocation]);
 
   const { data: scoreData, isLoading: isLoadingMaxFlow } = useQuery({
     queryKey: ['/maxflow/score', address],

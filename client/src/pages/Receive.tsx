@@ -1,42 +1,17 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'wouter';
 import { Share2, Copy, Check, Loader2 } from 'lucide-react';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
-import { getWallet } from '@/lib/wallet';
+import { useWallet } from '@/hooks/useWallet';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Receive() {
-  const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [address, setAddress] = useState<string | null>(null);
-  const [isLoadingWallet, setIsLoadingWallet] = useState(true);
+  const { address, isLoading: isLoadingWallet } = useWallet();
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
-
-  useEffect(() => {
-    const loadWallet = async () => {
-      try {
-        const wallet = await getWallet();
-        if (!wallet) {
-          setLocation('/');
-          return;
-        }
-        setAddress(wallet.address);
-      } catch (error: any) {
-        if (error.message === 'RECOVERY_CODE_REQUIRED') {
-          setLocation('/unlock');
-        } else {
-          setLocation('/');
-        }
-      } finally {
-        setIsLoadingWallet(false);
-      }
-    };
-    loadWallet();
-  }, [setLocation]);
 
   const handleCopy = async () => {
     if (!address) return;
