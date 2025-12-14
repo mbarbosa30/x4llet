@@ -445,3 +445,20 @@ export const globalSettings = pgTable("global_settings", {
 });
 
 export type GlobalSetting = typeof globalSettings.$inferSelect;
+
+// AI Chat Conversations table
+export const aiConversations = pgTable("ai_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: text("wallet_address").notNull().unique(),
+  messages: text("messages").notNull().default('[]'), // JSON array of {role, content, timestamp}
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type AiConversation = typeof aiConversations.$inferSelect;
+
+export interface AiMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+}
