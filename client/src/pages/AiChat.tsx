@@ -53,7 +53,7 @@ export default function AiChat() {
     staleTime: 0,
   });
 
-  const xpBalance = xpData?.totalXp ? xpData.totalXp / 100 : 0;
+  const xpBalance = xpData?.totalXp ?? 0;
 
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
