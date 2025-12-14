@@ -51,17 +51,24 @@ export default function AiChat() {
     if (!container) return;
     
     const currentScrollTop = container.scrollTop;
+    const maxScroll = container.scrollHeight - container.clientHeight;
     const scrollDiff = currentScrollTop - lastScrollTop.current;
     
+    // Ignore scroll events at boundaries (bounce effect on iOS/mobile)
+    if (currentScrollTop <= 5 || currentScrollTop >= maxScroll - 5) {
+      lastScrollTop.current = currentScrollTop;
+      return;
+    }
+    
     // Ignore very small movements (momentum, layout shifts)
-    if (Math.abs(scrollDiff) < 8) return;
+    if (Math.abs(scrollDiff) < 12) return;
     
     // Hide header: scrolling down significantly AND past threshold AND currently visible
-    if (scrollDiff > 8 && currentScrollTop > 64 && headerVisible) {
+    if (scrollDiff > 12 && currentScrollTop > 80 && headerVisible) {
       setHeaderVisible(false);
     } 
-    // Show header: scrolling up significantly OR near top of content
-    else if ((scrollDiff < -8 || currentScrollTop <= 64) && !headerVisible) {
+    // Show header: only on STRONG intentional scroll up (larger threshold)
+    else if (scrollDiff < -25 && !headerVisible) {
       setHeaderVisible(true);
     }
     
