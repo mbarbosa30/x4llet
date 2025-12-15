@@ -4270,6 +4270,56 @@ export class DbStorage extends MemStorage {
       throw error;
     }
   }
+
+  async getEligibleAirdropWallets(): Promise<Array<{
+    address: string;
+    lastSeen: string;
+    totalBalance: string;
+  }>> {
+    try {
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+      const recentWallets = await db
+        .select()
+        .from(wallets)
+        .where(gte(wallets.lastSeen, oneWeekAgo))
+        .orderBy(desc(wallets.lastSeen));
+
+      const allBalances = await db.select().from(cachedBalances);
+
+      const balanceByAddress = new Map<string, bigint>();
+      for (const b of allBalances) {
+        const addr = b.address.toLowerCase();
+        const current = balanceByAddress.get(addr) || BigInt(0);
+        try {
+          const balanceStr = b.balance || '0';
+          // Balances are stored as micro-USDC strings (e.g., "1000000" = 1 USDC)
+          // Parse directly as BigInt without decimal handling
+          const amount = BigInt(balanceStr);
+          balanceByAddress.set(addr, current + amount);
+        } catch {
+          // Skip invalid balances
+        }
+      }
+
+      const eligibleWallets = recentWallets
+        .filter(w => {
+          const balance = balanceByAddress.get(w.address.toLowerCase()) || BigInt(0);
+          return balance === BigInt(0);
+        })
+        .map(w => ({
+          address: w.address,
+          lastSeen: w.lastSeen.toISOString(),
+          totalBalance: '0',
+        }));
+
+      return eligibleWallets;
+    } catch (error) {
+      console.error('[Airdrop] Error getting eligible wallets:', error);
+      throw error;
+    }
+  }
 }
 
 export const storage = new DbStorage();

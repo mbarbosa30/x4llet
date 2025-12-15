@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock, Users, ArrowUpDown, ChevronDown, ChevronUp, Network, UserCheck, PiggyBank, Coins, Shield, Settings, BarChart3, Clock, DollarSign, Wallet, Gift, RefreshCw, HandHeart } from 'lucide-react';
+import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock, Users, ArrowUpDown, ChevronDown, ChevronUp, Network, UserCheck, PiggyBank, Coins, Shield, Settings, BarChart3, Clock, DollarSign, Wallet, Gift, RefreshCw, HandHeart, Check } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { formatAmount } from '@/lib/formatAmount';
 
@@ -259,6 +259,13 @@ export default function Admin() {
   const [syncClaimsAddress, setSyncClaimsAddress] = useState('');
   const [isSyncingClaims, setIsSyncingClaims] = useState(false);
   const [syncClaimsResult, setSyncClaimsResult] = useState<{ inserted: number; skipped: number; claims: Array<{ txHash: string; amountFormatted: string; claimedDay: number }> } | null>(null);
+
+  // Airdrop state
+  const [airdropAmount, setAirdropAmount] = useState('0.05');
+  const [airdropPreview, setAirdropPreview] = useState<{ count: number; wallets: Array<{ address: string; lastSeen: string }> } | null>(null);
+  const [isLoadingAirdropPreview, setIsLoadingAirdropPreview] = useState(false);
+  const [isExecutingAirdrop, setIsExecutingAirdrop] = useState(false);
+  const [airdropResult, setAirdropResult] = useState<{ sent: number; failed: number; totalSent: number; results: Array<{ address: string; txHash?: string; error?: string }> } | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -834,6 +841,85 @@ export default function Admin() {
       });
     } finally {
       setIsMigrating(false);
+    }
+  };
+
+  const handleAirdropPreview = async () => {
+    setIsLoadingAirdropPreview(true);
+    setAirdropPreview(null);
+    setAirdropResult(null);
+    try {
+      const res = await authenticatedRequest('GET', '/api/admin/airdrop/preview', authHeader);
+      const data = await res.json();
+      setAirdropPreview(data);
+    } catch (error: any) {
+      toast({
+        title: 'Preview Failed',
+        description: error.message || 'Failed to load eligible wallets',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingAirdropPreview(false);
+    }
+  };
+
+  const handleAirdropExecute = async () => {
+    const amount = parseFloat(airdropAmount);
+    if (!amount || amount <= 0) {
+      toast({
+        title: 'Invalid Amount',
+        description: 'Please enter a valid USDC amount',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!airdropPreview || airdropPreview.count === 0) {
+      toast({
+        title: 'No Eligible Wallets',
+        description: 'Run preview first to find eligible wallets',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const totalCost = amount * airdropPreview.count;
+    if (!confirm(`Send ${amount} USDC to ${airdropPreview.count} wallets?\n\nTotal: ${totalCost.toFixed(2)} USDC\n\nThis cannot be undone.`)) {
+      return;
+    }
+
+    setIsExecutingAirdrop(true);
+    try {
+      const res = await fetch('/api/admin/airdrop/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authHeader,
+        },
+        body: JSON.stringify({ amountUsdc: amount, chainId: 8453 }),
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Request failed' }));
+        throw new Error(errorData.error || `Request failed with status ${res.status}`);
+      }
+      
+      const result = await res.json();
+      setAirdropResult(result);
+      setAirdropPreview(null);
+
+      toast({
+        title: 'Airdrop Complete',
+        description: `Sent ${result.amountPerWallet} USDC to ${result.sent} wallets. ${result.failed} failed.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Airdrop Failed',
+        description: error.message || 'Failed to execute airdrop',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExecutingAirdrop(false);
     }
   };
 
@@ -1893,6 +1979,118 @@ export default function Admin() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Airdrop Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Gift className="h-5 w-5" />
+                  Airdrop USDC to New Users
+                </CardTitle>
+                <CardDescription>
+                  Send USDC to wallets with 0 balance that were active in the last 7 days
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-4 items-end">
+                  <div className="flex-1">
+                    <Label htmlFor="airdrop-amount">Amount per wallet (USDC)</Label>
+                    <Input
+                      id="airdrop-amount"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={airdropAmount}
+                      onChange={(e) => setAirdropAmount(e.target.value)}
+                      placeholder="0.05"
+                      data-testid="input-airdrop-amount"
+                    />
+                  </div>
+                  <Button
+                    onClick={handleAirdropPreview}
+                    disabled={isLoadingAirdropPreview}
+                    variant="outline"
+                    data-testid="button-airdrop-preview"
+                  >
+                    {isLoadingAirdropPreview && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Preview
+                  </Button>
+                </div>
+
+                {airdropPreview && (
+                  <div className="border p-4 space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Eligible wallets:</span>
+                      <span className="font-bold">{airdropPreview.count}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Amount per wallet:</span>
+                      <span className="font-bold">{airdropAmount} USDC</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Total cost:</span>
+                      <span className="font-bold">{(parseFloat(airdropAmount) * airdropPreview.count).toFixed(2)} USDC</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Network:</span>
+                      <span className="font-bold">Base</span>
+                    </div>
+                    
+                    {airdropPreview.count > 0 && (
+                      <>
+                        <div className="text-xs text-muted-foreground pt-2 border-t">
+                          First {Math.min(5, airdropPreview.wallets.length)} wallets:
+                        </div>
+                        <div className="space-y-1 max-h-32 overflow-y-auto">
+                          {airdropPreview.wallets.slice(0, 5).map((w) => (
+                            <div key={w.address} className="text-xs font-mono bg-muted p-1">
+                              {w.address.slice(0, 10)}...{w.address.slice(-8)}
+                            </div>
+                          ))}
+                          {airdropPreview.wallets.length > 5 && (
+                            <div className="text-xs text-muted-foreground">
+                              ...and {airdropPreview.wallets.length - 5} more
+                            </div>
+                          )}
+                        </div>
+
+                        <Button
+                          onClick={handleAirdropExecute}
+                          disabled={isExecutingAirdrop}
+                          className="w-full"
+                          data-testid="button-airdrop-execute"
+                        >
+                          {isExecutingAirdrop && <Loader2 className="h-4 w-4 animate-spin" />}
+                          Confirm Airdrop
+                        </Button>
+                      </>
+                    )}
+                    
+                    {airdropPreview.count === 0 && (
+                      <div className="text-sm text-muted-foreground text-center py-2">
+                        No eligible wallets found
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {airdropResult && (
+                  <div className="border border-green-500/30 bg-green-500/10 p-4 space-y-2">
+                    <div className="flex items-center gap-2 text-green-600 font-medium">
+                      <Check className="h-4 w-4" />
+                      Airdrop Complete
+                    </div>
+                    <div className="text-sm space-y-1">
+                      <div>Sent: {airdropResult.sent} wallets</div>
+                      {airdropResult.failed > 0 && (
+                        <div className="text-destructive">Failed: {airdropResult.failed} wallets</div>
+                      )}
+                      <div>Total sent: {airdropResult.totalSent.toFixed(2)} USDC</div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Maintenance Section */}
             <div className="grid md:grid-cols-2 gap-4">

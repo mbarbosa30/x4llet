@@ -3126,6 +3126,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Airdrop Preview - Get eligible wallets (0 balance, lastSeen < 7 days)
+  app.get('/api/admin/airdrop/preview', adminAuthMiddleware, async (req, res) => {
+    try {
+      const eligibleWallets = await storage.getEligibleAirdropWallets();
+      
+      res.json({
+        count: eligibleWallets.length,
+        wallets: eligibleWallets,
+      });
+    } catch (error) {
+      console.error('Error previewing airdrop:', error);
+      res.status(500).json({ error: 'Failed to preview airdrop' });
+    }
+  });
+
+  // Airdrop Execute - Send USDC from facilitator to eligible wallets
+  app.post('/api/admin/airdrop/execute', adminAuthMiddleware, async (req, res) => {
+    try {
+      const { amountUsdc, chainId = 8453 } = req.body;
+      
+      if (!amountUsdc || isNaN(parseFloat(amountUsdc)) || parseFloat(amountUsdc) <= 0) {
+        return res.status(400).json({ error: 'Invalid amount. Must be a positive number.' });
+      }
+      
+      // Parse amount with precision - convert string to micro-USDC using string manipulation
+      // to avoid floating point precision issues (e.g., "0.1" -> "100000")
+      const amountStr = String(amountUsdc);
+      
+      // Reject scientific notation (e.g., 7e-7) - must be standard decimal format
+      if (amountStr.includes('e') || amountStr.includes('E')) {
+        return res.status(400).json({ error: 'Amount must be in standard decimal format (not scientific notation).' });
+      }
+      
+      const [intPart, decPart = ''] = amountStr.split('.');
+      
+      // Validate integer and decimal parts are numeric
+      if (!/^\d+$/.test(intPart) || (decPart && !/^\d+$/.test(decPart))) {
+        return res.status(400).json({ error: 'Invalid amount format.' });
+      }
+      
+      // Reject amounts with more than 6 decimal places
+      if (decPart.length > 6) {
+        return res.status(400).json({ error: 'Amount cannot have more than 6 decimal places.' });
+      }
+      
+      const paddedDecimal = decPart.padEnd(6, '0');
+      const amountMicroUsdc = BigInt(intPart + paddedDecimal);
+      const amount = Number(amountMicroUsdc) / 1000000; // For display purposes only
+      
+      const eligibleWallets = await storage.getEligibleAirdropWallets();
+      
+      if (eligibleWallets.length === 0) {
+        return res.json({ 
+          success: true, 
+          message: 'No eligible wallets found',
+          sent: 0,
+          failed: 0,
+          results: [] 
+        });
+      }
+      
+      const facilitatorAccount = getFacilitatorAccount();
+      const chainInfo = resolveChain(chainId);
+      
+      if (!chainInfo) {
+        return res.status(400).json({ error: 'Invalid chain ID' });
+      }
+      
+      const chain = chainInfo.viemChain;
+      const networkConfig = getNetworkConfig(chainInfo.networkKey);
+      
+      const walletClient = createWalletClient({
+        account: facilitatorAccount,
+        chain,
+        transport: http(networkConfig.rpcUrl),
+      });
+      
+      const ERC20_TRANSFER_ABI = [
+        {
+          name: 'transfer',
+          type: 'function',
+          stateMutability: 'nonpayable',
+          inputs: [
+            { name: 'to', type: 'address' },
+            { name: 'amount', type: 'uint256' },
+          ],
+          outputs: [{ name: '', type: 'bool' }],
+        },
+      ] as const;
+      
+      const results: Array<{ address: string; txHash?: string; error?: string }> = [];
+      let sent = 0;
+      let failed = 0;
+      
+      for (const wallet of eligibleWallets) {
+        try {
+          const txHash = await walletClient.writeContract({
+            address: networkConfig.usdcAddress as Address,
+            abi: ERC20_TRANSFER_ABI,
+            functionName: 'transfer',
+            args: [wallet.address as Address, amountMicroUsdc],
+          });
+          
+          results.push({ address: wallet.address, txHash });
+          sent++;
+          
+          console.log(`[Airdrop] Sent ${amount} USDC to ${wallet.address}: ${txHash}`);
+        } catch (error: any) {
+          results.push({ address: wallet.address, error: error.message });
+          failed++;
+          console.error(`[Airdrop] Failed to send to ${wallet.address}:`, error.message);
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: `Airdrop complete. Sent to ${sent} wallets, ${failed} failed.`,
+        sent,
+        failed,
+        amountPerWallet: amount,
+        totalSent: sent * amount,
+        chainId,
+        results,
+      });
+    } catch (error) {
+      console.error('Error executing airdrop:', error);
+      res.status(500).json({ error: 'Failed to execute airdrop' });
+    }
+  });
+
   app.get('/api/admin/stats', adminAuthMiddleware, async (req, res) => {
     try {
       const stats = await storage.getAdminStats();
