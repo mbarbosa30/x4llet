@@ -522,7 +522,7 @@ function DesktopLanding({
               </div>
             </div>
             <p className="text-lg font-semibold">
-              Humans vouch for humans. Math does the rest.
+              Humans vouch for humans. <a href="https://maxflow.one" target="_blank" rel="noopener noreferrer" className="text-[#0055FF] hover:underline">MaxFlow</a>'s math does the rest.
             </p>
           </div>
           <div className="flex justify-center lg:justify-end">
