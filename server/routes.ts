@@ -3144,7 +3144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Airdrop Execute - Send USDC from facilitator to eligible wallets
   app.post('/api/admin/airdrop/execute', adminAuthMiddleware, async (req, res) => {
     try {
-      const { amountUsdc, chainId = 8453 } = req.body;
+      const { amountUsdc, chainId = 42220 } = req.body; // Default to Celo
       
       if (!amountUsdc || isNaN(parseFloat(amountUsdc)) || parseFloat(amountUsdc) <= 0) {
         return res.status(400).json({ error: 'Invalid amount. Must be a positive number.' });

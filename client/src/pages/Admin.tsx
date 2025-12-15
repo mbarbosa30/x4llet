@@ -896,7 +896,7 @@ export default function Admin() {
           'Content-Type': 'application/json',
           'Authorization': authHeader,
         },
-        body: JSON.stringify({ amountUsdc: amount, chainId: 8453 }),
+        body: JSON.stringify({ amountUsdc: amount, chainId: 42220 }), // Celo
       });
       
       if (!res.ok) {
