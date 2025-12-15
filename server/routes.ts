@@ -3196,6 +3196,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const chain = chainInfo.viemChain;
       const networkConfig = getNetworkConfig(chainInfo.networkKey);
       
+      const publicClient = createPublicClient({
+        chain,
+        transport: http(networkConfig.rpcUrl),
+      });
+      
       const walletClient = createWalletClient({
         account: facilitatorAccount,
         chain,
@@ -3228,10 +3233,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             args: [wallet.address as Address, amountMicroUsdc],
           });
           
+          console.log(`[Airdrop] Sent ${amount} USDC to ${wallet.address}: ${txHash}`);
+          
+          // Wait for transaction confirmation before sending next one to prevent nonce conflicts
+          await publicClient.waitForTransactionReceipt({ hash: txHash, confirmations: 1 });
+          
           results.push({ address: wallet.address, txHash });
           sent++;
           
-          console.log(`[Airdrop] Sent ${amount} USDC to ${wallet.address}: ${txHash}`);
+          console.log(`[Airdrop] Confirmed: ${txHash}`);
         } catch (error: any) {
           results.push({ address: wallet.address, error: error.message });
           failed++;
