@@ -2927,7 +2927,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const authHeader = req.headers.authorization;
     
     if (!authHeader || !authHeader.startsWith('Basic ')) {
-      res.setHeader('WWW-Authenticate', 'Basic realm="Admin Area"');
+      // Don't send WWW-Authenticate header - let the frontend custom login form handle auth
       return res.status(401).json({ error: 'Authentication required' });
     }
 
@@ -2944,7 +2944,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     if (username !== expectedUsername || password !== expectedPassword) {
-      res.setHeader('WWW-Authenticate', 'Basic realm="Admin Area"');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
