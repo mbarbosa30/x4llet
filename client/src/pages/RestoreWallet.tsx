@@ -2,13 +2,21 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Shield, Eye, EyeOff, Key, FileText } from 'lucide-react';
+import { Shield, Eye, EyeOff, Key, FileText, AlertTriangle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { importFromPrivateKey, restoreFromMnemonic, detectCurrencyFromLocale, savePreferences, getPreferences, validatePrivateKey, validateMnemonic } from '@/lib/wallet';
+import { importFromPrivateKey, restoreFromMnemonic, detectCurrencyFromLocale, savePreferences, getPreferences, validatePrivateKey, validateMnemonic, hasWallet } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 import { vouchFor } from '@/lib/maxflow';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 type RestoreMode = 'phrase' | 'privateKey';
 
@@ -26,6 +34,16 @@ export default function RestoreWallet() {
   const [passwordError, setPasswordError] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
+  const [existingWalletDetected, setExistingWalletDetected] = useState(false);
+
+  useEffect(() => {
+    const checkExistingWallet = async () => {
+      const exists = await hasWallet();
+      setExistingWalletDetected(exists);
+    };
+    checkExistingWallet();
+  }, []);
   
   const handleMnemonicChange = (value: string) => {
     setMnemonic(value);
@@ -67,13 +85,24 @@ export default function RestoreWallet() {
     }
   };
 
-  const handleImport = async () => {
+  const handleImportClick = async () => {
     const validation = validatePassword(newPassword);
     if (validation) {
       setPasswordError(validation);
       return;
     }
 
+    if (existingWalletDetected) {
+      setShowOverwriteConfirm(true);
+      return;
+    }
+
+    await performImport();
+  };
+
+  const performImport = async () => {
+    setShowOverwriteConfirm(false);
+    
     try {
       setIsImporting(true);
       
@@ -264,7 +293,7 @@ export default function RestoreWallet() {
           </div>
 
           <Button 
-            onClick={handleImport}
+            onClick={handleImportClick}
             disabled={!isValid || !newPassword || !!passwordError || isImporting}
             className="w-full"
             size="lg"
@@ -284,6 +313,39 @@ export default function RestoreWallet() {
           </button>
         </div>
       </div>
+
+      <Dialog open={showOverwriteConfirm} onOpenChange={setShowOverwriteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Replace Existing Wallet?
+            </DialogTitle>
+            <DialogDescription>
+              You already have a wallet on this device. Recovering a new wallet will replace it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            <div className="text-sm text-destructive/90 bg-destructive/10 p-3 border border-destructive/20">
+              <p className="font-medium mb-1">Make sure you have a backup!</p>
+              <p className="text-xs">If you don't have the recovery phrase or private key for your current wallet, you will lose access to it forever.</p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowOverwriteConfirm(false)} data-testid="button-cancel-overwrite">
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={performImport}
+              disabled={isImporting}
+              data-testid="button-confirm-overwrite"
+            >
+              {isImporting ? 'Recovering...' : 'Replace Wallet'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

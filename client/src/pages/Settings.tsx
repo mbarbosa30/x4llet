@@ -67,8 +67,6 @@ export default function Settings() {
   const [showRecoveryPhraseWords, setShowRecoveryPhraseWords] = useState(false);
   const [copiedPhrase, setCopiedPhrase] = useState(false);
   const [hasMnemonic, setHasMnemonic] = useState(false);
-  const [phrasePassword, setPhrasePassword] = useState('');
-  const [showPhrasePassword, setShowPhrasePassword] = useState(false);
 
   useEffect(() => {
     if (isLoadingWallet) return;
@@ -294,7 +292,6 @@ export default function Settings() {
     const phrase = await getMnemonic();
     if (phrase) {
       setRecoveryPhrase(phrase);
-      setPhrasePassword('');
     } else {
       toast({
         title: "Unable to retrieve",
@@ -321,8 +318,6 @@ export default function Settings() {
   const handleCloseRecoveryPhraseDialog = () => {
     setShowRecoveryPhrase(false);
     setRecoveryPhrase('');
-    setPhrasePassword('');
-    setShowPhrasePassword(false);
     setShowRecoveryPhraseWords(false);
     setCopiedPhrase(false);
   };

@@ -636,7 +636,10 @@ export async function createMnemonicWallet(password: string): Promise<{ wallet: 
   const mnemonic = generateMnemonic(english);
   const account = mnemonicToAccount(mnemonic);
   const privateKey = account.getHdKey().privateKey;
-  const privateKeyHex = `0x${Array.from(privateKey!).map(b => b.toString(16).padStart(2, '0')).join('')}` as `0x${string}`;
+  if (!privateKey) {
+    throw new Error('Failed to derive private key from mnemonic');
+  }
+  const privateKeyHex = `0x${Array.from(privateKey).map(b => b.toString(16).padStart(2, '0')).join('')}` as `0x${string}`;
   
   const dek = generateDek();
   const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -686,7 +689,10 @@ export async function restoreFromMnemonic(mnemonic: string, password: string): P
   
   const account = mnemonicToAccount(normalizedMnemonic);
   const privateKey = account.getHdKey().privateKey;
-  const privateKeyHex = `0x${Array.from(privateKey!).map(b => b.toString(16).padStart(2, '0')).join('')}` as `0x${string}`;
+  if (!privateKey) {
+    throw new Error('Failed to derive private key from recovery phrase');
+  }
+  const privateKeyHex = `0x${Array.from(privateKey).map(b => b.toString(16).padStart(2, '0')).join('')}` as `0x${string}`;
   
   const dek = generateDek();
   const salt = crypto.getRandomValues(new Uint8Array(16));
