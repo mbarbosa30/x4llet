@@ -696,7 +696,7 @@ function DesktopLanding({
           </div>
           <div className="space-y-6">
             <h2 className="text-4xl font-black uppercase tracking-tight">
-              Knowledge Without<br />Barriers.
+              AI, Without<br />Barriers.
             </h2>
             <p className="text-muted-foreground text-lg">
               Access to AI shouldn't be a privilege. Ask anything - education, health, business, skills, science. Learn, grow, and unlock opportunities that were once out of reach.
