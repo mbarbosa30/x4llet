@@ -636,7 +636,7 @@ export async function createMnemonicWallet(password: string): Promise<{ wallet: 
   const mnemonic = generateMnemonic(english);
   const account = mnemonicToAccount(mnemonic);
   const privateKey = account.getHdKey().privateKey;
-  const privateKeyHex = `0x${Buffer.from(privateKey!).toString('hex')}` as `0x${string}`;
+  const privateKeyHex = `0x${Array.from(privateKey!).map(b => b.toString(16).padStart(2, '0')).join('')}` as `0x${string}`;
   
   const dek = generateDek();
   const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -686,7 +686,7 @@ export async function restoreFromMnemonic(mnemonic: string, password: string): P
   
   const account = mnemonicToAccount(normalizedMnemonic);
   const privateKey = account.getHdKey().privateKey;
-  const privateKeyHex = `0x${Buffer.from(privateKey!).toString('hex')}` as `0x${string}`;
+  const privateKeyHex = `0x${Array.from(privateKey!).map(b => b.toString(16).padStart(2, '0')).join('')}` as `0x${string}`;
   
   const dek = generateDek();
   const salt = crypto.getRandomValues(new Uint8Array(16));
