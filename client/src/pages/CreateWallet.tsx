@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Shield, Eye, EyeOff, Copy, Check, AlertTriangle } from 'lucide-react';
-import { createWallet, detectCurrencyFromLocale, savePreferences, getPreferences } from '@/lib/wallet';
+import { createMnemonicWallet, detectCurrencyFromLocale, savePreferences, getPreferences } from '@/lib/wallet';
 import { useToast } from '@/hooks/use-toast';
 import { vouchFor } from '@/lib/maxflow';
 import Footer from '@/components/Footer';
@@ -21,7 +21,7 @@ export default function CreateWallet() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [step, setStep] = useState<'password' | 'backup'>('password');
-  const [privateKey, setPrivateKey] = useState('');
+  const [mnemonic, setMnemonic] = useState('');
   const [backupConfirmed, setBackupConfirmed] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -63,10 +63,10 @@ export default function CreateWallet() {
 
     try {
       setIsCreating(true);
-      const { wallet, privateKey: pk } = await createWallet(password);
+      const { wallet, mnemonic: words } = await createMnemonicWallet(password);
       console.log('Wallet created:', wallet.address);
       
-      setPrivateKey(pk);
+      setMnemonic(words);
       setStep('backup');
     } catch (error) {
       console.error('Failed to create wallet:', error);
@@ -80,13 +80,13 @@ export default function CreateWallet() {
     }
   };
 
-  const handleCopyPrivateKey = async () => {
+  const handleCopyMnemonic = async () => {
     try {
-      await navigator.clipboard.writeText(privateKey);
+      await navigator.clipboard.writeText(mnemonic);
       setCopied(true);
       toast({
         title: "Copied!",
-        description: "Private key copied to clipboard",
+        description: "Recovery phrase copied to clipboard",
       });
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -150,16 +150,18 @@ export default function CreateWallet() {
 
   const isPasswordValid = validatePassword() === null;
 
+  const mnemonicWords = mnemonic.split(' ');
+
   if (step === 'backup') {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <div className="flex-1 flex items-center justify-center p-4 pb-24">
-          <div className="w-full max-w-md space-y-8">
+          <div className="w-full max-w-md space-y-6">
             <div className="text-center">
               <Shield className="h-16 w-16 mx-auto mb-4 text-primary" />
-              <h1 className="text-2xl text-section mb-2">Backup Your Wallet</h1>
+              <h1 className="text-2xl text-section mb-2">Your Recovery Phrase</h1>
               <p className="font-mono text-xs text-muted-foreground uppercase tracking-wide">
-                Save your private key to recover your wallet if needed
+                Write down these 12 words in order
               </p>
             </div>
 
@@ -167,49 +169,56 @@ export default function CreateWallet() {
               <div className="flex gap-3">
                 <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <h3 className="font-label text-destructive">Critical: Save This Key</h3>
+                  <h3 className="font-label text-destructive">Critical: Save These Words</h3>
                   <p className="font-mono text-xs text-muted-foreground uppercase tracking-wide">
-                    This is your master backup key. If you lose your password, you can use this private key to recover your wallet and set a new password. Without it, lost passwords cannot be recovered.
+                    This is your master recovery phrase. If you lose your password, you can use these 12 words to recover your wallet. Without them, lost passwords cannot be recovered.
                   </p>
                 </div>
               </div>
             </Card>
 
             <Card className="p-6 space-y-4">
-              <div className="space-y-2">
-                <Label className="font-label">Your Private Key</Label>
-                <div className="space-y-2">
-                  <div className="font-mono text-xs break-all bg-muted p-3 border" data-testid="text-private-key">
-                    {privateKey}
-                  </div>
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={handleCopyPrivateKey}
-                    data-testid="button-copy-private-key"
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="h-4 w-4" />
-                        Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-4 w-4" />
-                        Copy Private Key
-                      </>
-                    )}
-                  </Button>
+              <div className="space-y-3">
+                <Label className="font-label">Your 12-Word Recovery Phrase</Label>
+                <div className="grid grid-cols-3 gap-2" data-testid="text-mnemonic">
+                  {mnemonicWords.map((word, index) => (
+                    <div 
+                      key={index} 
+                      className="bg-muted p-2 border text-center"
+                      data-testid={`word-${index + 1}`}
+                    >
+                      <span className="font-mono text-xs text-muted-foreground">{index + 1}. </span>
+                      <span className="font-mono text-sm">{word}</span>
+                    </div>
+                  ))}
                 </div>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleCopyMnemonic}
+                  data-testid="button-copy-mnemonic"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4" />
+                      Copy Recovery Phrase
+                    </>
+                  )}
+                </Button>
               </div>
 
               <div className="pt-2 space-y-2 text-xs text-muted-foreground">
-                <p className="font-label text-muted-foreground">How to Save Your Private Key</p>
+                <p className="font-label text-muted-foreground">How to Save Your Recovery Phrase</p>
                 <ul className="space-y-1 list-disc list-inside font-mono text-xs uppercase tracking-wide">
-                  <li>Write it down on paper and store securely</li>
-                  <li>Save it in a password manager</li>
-                  <li>Never share it with anyone</li>
-                  <li>Keep it separate from your password</li>
+                  <li>Write the words on paper in numbered order</li>
+                  <li>Store in a safe, private location</li>
+                  <li>Never share with anyone or enter online</li>
+                  <li>Consider making a second backup copy</li>
                 </ul>
               </div>
             </Card>
@@ -227,7 +236,7 @@ export default function CreateWallet() {
                   htmlFor="backup-confirmed"
                   className="font-label cursor-pointer space-y-1"
                 >
-                  <span className="block">I have saved my private key</span>
+                  <span className="block">I have saved my recovery phrase</span>
                   <span className="block text-muted-foreground font-mono text-xs tracking-wide">
                     WITHOUT IT, LOST PASSWORDS CANNOT BE RECOVERED
                   </span>
@@ -343,7 +352,7 @@ export default function CreateWallet() {
           <Card className="p-4">
             <p className="font-mono text-xs text-muted-foreground uppercase tracking-wide">
               <strong className="font-label text-foreground block mb-1">How Security Works</strong>
-              Your password encrypts your wallet locally on this device. You'll see your private key backup next - that's your master recovery key if you lose your password or switch devices.
+              Your password encrypts your wallet locally on this device. You'll see your 12-word recovery phrase next - that's your master backup if you lose your password or switch devices.
             </p>
           </Card>
 

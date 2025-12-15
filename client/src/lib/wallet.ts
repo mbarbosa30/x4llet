@@ -1,5 +1,5 @@
 import { get, set, del } from 'idb-keyval';
-import { privateKeyToAccount } from 'viem/accounts';
+import { privateKeyToAccount, generateMnemonic, mnemonicToAccount, english } from 'viem/accounts';
 import { generatePrivateKey } from 'viem/accounts';
 import type { Wallet, UserPreferences } from '@shared/schema';
 import { 
@@ -13,6 +13,7 @@ import { walletStore } from './walletStore';
 
 const WALLET_KEY = 'wallet_encrypted_key';
 const WALLET_V2_KEY = 'wallet_v2';
+const WALLET_V3_KEY = 'wallet_v3';
 const PREFERENCES_KEY = 'user_preferences';
 
 interface WalletV2Data {
@@ -20,6 +21,13 @@ interface WalletV2Data {
   dekWrappedByPassword: string;
   salt: string;
   version: 2;
+}
+
+interface WalletV3Data {
+  encryptedMnemonic: string;
+  dekWrappedByPassword: string;
+  salt: string;
+  version: 3;
 }
 
 let memoryPassword: string | null = null;
@@ -602,9 +610,144 @@ export async function importFromPrivateKey(privateKey: string, newPassword: stri
   };
 }
 
+export function validateMnemonic(words: string): { valid: boolean; error?: string } {
+  const trimmed = words.trim().toLowerCase();
+  const wordList = trimmed.split(/\s+/);
+  
+  if (wordList.length !== 12) {
+    return { valid: false, error: `Expected 12 words, got ${wordList.length}` };
+  }
+  
+  for (const word of wordList) {
+    if (!english.includes(word)) {
+      return { valid: false, error: `"${word}" is not a valid recovery word` };
+    }
+  }
+  
+  try {
+    mnemonicToAccount(trimmed);
+    return { valid: true };
+  } catch {
+    return { valid: false, error: 'Invalid recovery phrase checksum' };
+  }
+}
+
+export async function createMnemonicWallet(password: string): Promise<{ wallet: Wallet; mnemonic: string; privateKey: string }> {
+  const mnemonic = generateMnemonic(english);
+  const account = mnemonicToAccount(mnemonic);
+  const privateKey = account.getHdKey().privateKey;
+  const privateKeyHex = `0x${Buffer.from(privateKey!).toString('hex')}` as `0x${string}`;
+  
+  const dek = generateDek();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  
+  const encryptedMnemonic = await encryptWithDek(mnemonic, dek);
+  const dekWrappedByPassword = await wrapDekWithPassword(dek, password, salt);
+  
+  const v3Data: WalletV3Data = {
+    encryptedMnemonic,
+    dekWrappedByPassword,
+    salt: btoa(String.fromCharCode(...salt)),
+    version: 3,
+  };
+  
+  await set(WALLET_V3_KEY, v3Data);
+  
+  const encryptedPrivateKey = await encryptWithDek(privateKeyHex, dek);
+  const v2Data: WalletV2Data = {
+    encryptedPrivateKey,
+    dekWrappedByPassword,
+    salt: btoa(String.fromCharCode(...salt)),
+    version: 2,
+  };
+  await set(WALLET_V2_KEY, v2Data);
+  
+  const legacyEncrypted = await encryptPrivateKey(privateKeyHex, password);
+  await set(WALLET_KEY, legacyEncrypted);
+  
+  await setSessionDek(dek);
+  setSessionRecoveryCode(password);
+  
+  const wallet: Wallet = {
+    address: account.address,
+    publicKey: account.address,
+    createdAt: new Date().toISOString(),
+  };
+  
+  return { wallet, mnemonic, privateKey: privateKeyHex };
+}
+
+export async function restoreFromMnemonic(mnemonic: string, password: string): Promise<Wallet> {
+  const normalizedMnemonic = mnemonic.trim().toLowerCase();
+  const validation = validateMnemonic(normalizedMnemonic);
+  if (!validation.valid) {
+    throw new Error(validation.error || 'Invalid mnemonic');
+  }
+  
+  const account = mnemonicToAccount(normalizedMnemonic);
+  const privateKey = account.getHdKey().privateKey;
+  const privateKeyHex = `0x${Buffer.from(privateKey!).toString('hex')}` as `0x${string}`;
+  
+  const dek = generateDek();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  
+  const encryptedMnemonic = await encryptWithDek(normalizedMnemonic, dek);
+  const dekWrappedByPassword = await wrapDekWithPassword(dek, password, salt);
+  
+  const v3Data: WalletV3Data = {
+    encryptedMnemonic,
+    dekWrappedByPassword,
+    salt: btoa(String.fromCharCode(...salt)),
+    version: 3,
+  };
+  
+  await set(WALLET_V3_KEY, v3Data);
+  
+  const encryptedPrivateKey = await encryptWithDek(privateKeyHex, dek);
+  const v2Data: WalletV2Data = {
+    encryptedPrivateKey,
+    dekWrappedByPassword,
+    salt: btoa(String.fromCharCode(...salt)),
+    version: 2,
+  };
+  await set(WALLET_V2_KEY, v2Data);
+  
+  const legacyEncrypted = await encryptPrivateKey(privateKeyHex, password);
+  await set(WALLET_KEY, legacyEncrypted);
+  
+  await setSessionDek(dek);
+  setSessionRecoveryCode(password);
+  
+  return {
+    address: account.address,
+    publicKey: account.address,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+export async function getMnemonic(): Promise<string | null> {
+  const sessionDek = getSessionDek();
+  if (!sessionDek) return null;
+  
+  const v3Data = await get<WalletV3Data>(WALLET_V3_KEY);
+  if (!v3Data) return null;
+  
+  try {
+    return await decryptWithDek(v3Data.encryptedMnemonic, sessionDek);
+  } catch {
+    return null;
+  }
+}
+
+export async function hasMnemonicWallet(): Promise<boolean> {
+  const v3Data = await get<WalletV3Data>(WALLET_V3_KEY);
+  return v3Data?.version === 3;
+}
+
 export async function deleteWallet(): Promise<void> {
   await del(WALLET_KEY);
   await del(WALLET_V2_KEY);
+  await del(WALLET_V3_KEY);
   await removePasskey();
   clearSessionRecoveryCode();
 }
@@ -637,7 +780,8 @@ export async function getPrivateKey(password?: string): Promise<string | null> {
 export async function hasWallet(): Promise<boolean> {
   const encrypted = await get<string>(WALLET_KEY);
   const v2Data = await get<WalletV2Data>(WALLET_V2_KEY);
-  return !!(encrypted || v2Data);
+  const v3Data = await get<WalletV3Data>(WALLET_V3_KEY);
+  return !!(encrypted || v2Data || v3Data);
 }
 
 export function isWalletUnlocked(): boolean {
