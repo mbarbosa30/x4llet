@@ -260,91 +260,93 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Onboarding Checklist */}
-            {(() => {
-              const walletCreated = true;
-              const isVerified = gdIdentity?.isWhitelisted === true;
-              const isVouched = mfScore > 0;
-              const completedCount = [walletCreated, isVerified, isVouched].filter(Boolean).length;
-              
-              return (
-                <div className="border border-foreground/10 p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Get Started</span>
-                    <span className="text-xs text-muted-foreground font-mono">{completedCount}/3 complete</span>
-                  </div>
-                  
-                  {/* Progress bar */}
-                  <div className="h-1 bg-muted overflow-hidden">
-                    <div 
-                      className="h-full bg-cta transition-all duration-300"
-                      style={{ width: `${(completedCount / 3) * 100}%` }}
-                    />
-                  </div>
-                  
-                  {/* Checklist items */}
+            {/* Earn XP Section */}
+            <div className="border border-foreground/10 p-4 space-y-4">
+              <div className="space-y-1">
+                <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Earn XP</span>
+                <p className="text-sm text-muted-foreground">
+                  Get vouched by someone already using the wallet to earn XP
+                </p>
+              </div>
+
+              {/* XP Benefits */}
+              <div className="bg-muted/30 p-3 space-y-2">
+                <span className="text-xs font-medium text-foreground/80">XP unlocks:</span>
+                <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="space-y-1">
-                    {/* Wallet created - always done */}
-                    <div className="flex items-center gap-3 p-2 bg-muted/20">
-                      <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                      <span className="text-sm text-muted-foreground line-through">Wallet created</span>
-                    </div>
-                    
-                    {/* Face Verification */}
-                    <button
-                      onClick={() => setLocation('/claim')}
-                      className={`flex items-center gap-3 p-2 w-full text-left ${
-                        isVerified 
-                          ? 'bg-muted/20' 
-                          : 'bg-muted/30 border border-foreground/10 hover-elevate'
-                      }`}
-                      data-testid="button-onboard-verify"
-                    >
-                      {isVerified ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                      ) : (
-                        <Circle className="h-4 w-4 text-cta flex-shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className={`text-sm ${isVerified ? 'text-muted-foreground line-through' : 'font-medium'}`}>
-                          Face Verification
-                        </div>
-                        {!isVerified && (
-                          <div className="text-xs text-muted-foreground">Claim daily UBI in G$</div>
-                        )}
-                      </div>
-                      {!isVerified && <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
-                    </button>
-                    
-                    {/* Vouch for someone */}
-                    <button
-                      onClick={() => setLocation('/maxflow')}
-                      className={`flex items-center gap-3 p-2 w-full text-left ${
-                        isVouched 
-                          ? 'bg-muted/20' 
-                          : 'bg-muted/30 border border-foreground/10 hover-elevate'
-                      }`}
-                      data-testid="button-onboard-vouch"
-                    >
-                      {isVouched ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                      ) : (
-                        <Circle className="h-4 w-4 text-cta flex-shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className={`text-sm ${isVouched ? 'text-muted-foreground line-through' : 'font-medium'}`}>
-                          Vouch for someone you know
-                        </div>
-                        {!isVouched && (
-                          <div className="text-xs text-muted-foreground">Build your signal & claim XP daily</div>
-                        )}
-                      </div>
-                      {!isVouched && <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
-                    </button>
+                    <div className="text-lg font-bold text-cta">$</div>
+                    <div className="text-xs text-muted-foreground">Get USDC</div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-lg font-bold text-cta">S</div>
+                    <div className="text-xs text-muted-foreground">SENADOR</div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-lg font-bold text-cta">AI</div>
+                    <div className="text-xs text-muted-foreground">Chat</div>
                   </div>
                 </div>
-              );
-            })()}
+              </div>
+
+              {/* Ways to earn XP */}
+              <div className="space-y-2">
+                {/* Get Vouched - Primary action */}
+                {mfScore === 0 && (
+                  <div className="bg-cta/10 border border-cta/30 p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-cta" />
+                      <span className="text-sm font-medium">Get Vouched</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Share your address with someone who already uses nanoPay. Ask them to vouch for you.
+                    </p>
+                  </div>
+                )}
+
+                {mfScore > 0 && (
+                  <div className="flex items-center gap-3 p-2 bg-muted/20">
+                    <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                    <span className="text-sm text-muted-foreground">You have {mfScore} trust signal</span>
+                  </div>
+                )}
+
+                {/* GoodDollar Alternative */}
+                <button
+                  onClick={() => setLocation('/claim')}
+                  className={`flex items-center gap-3 p-3 w-full text-left ${
+                    gdIdentity?.isWhitelisted 
+                      ? 'bg-muted/20' 
+                      : 'bg-muted/30 border border-foreground/10 hover-elevate'
+                  }`}
+                  data-testid="button-onboard-verify"
+                >
+                  {gdIdentity?.isWhitelisted ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                  ) : (
+                    <Circle className="h-4 w-4 text-cta flex-shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-sm ${gdIdentity?.isWhitelisted ? 'text-muted-foreground line-through' : 'font-medium'}`}>
+                      Verify with GoodDollar
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {gdIdentity?.isWhitelisted 
+                        ? 'Claim G$ daily and convert to XP' 
+                        : 'Face verification to claim G$ and earn XP'}
+                    </div>
+                  </div>
+                  {!gdIdentity?.isWhitelisted && <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
+                </button>
+
+                {/* XP Status */}
+                {xpData && xpData.totalXp > 0 && (
+                  <div className="flex items-center justify-between p-2 bg-cta/10 border border-cta/30">
+                    <span className="text-sm font-medium">Your XP</span>
+                    <span className="text-sm font-bold text-cta">{(xpData.totalXp / 100).toFixed(2)} XP</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </>
         ) : (
           <>
