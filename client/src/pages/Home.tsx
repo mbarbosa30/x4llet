@@ -312,7 +312,7 @@ export default function Home() {
                   </AccordionTrigger>
                   <AccordionContent className="px-3 pb-3">
                     <p className="text-sm text-muted-foreground">
-                      Earn USDC rewards by building trust in the network. The more connected you are, the more opportunities to receive airdrops and referral bonuses from verified users.
+                      Redeem 100 XP for 1 USDC, deposited directly to your Aave savings on Celo. Starts earning yield immediately.
                     </p>
                   </AccordionContent>
                 </AccordionItem>
@@ -323,12 +323,12 @@ export default function Home() {
                       <div className="w-8 h-8 bg-cta/20 flex items-center justify-center flex-shrink-0">
                         <span className="text-sm font-bold text-cta">S</span>
                       </div>
-                      <span className="text-sm font-medium">Buy SENADOR tokens</span>
+                      <span className="text-sm font-medium">Get SENADOR tokens</span>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="px-3 pb-3">
                     <p className="text-sm text-muted-foreground">
-                      SENADOR is a governance token for the nanoPay community. XP holders can participate in token sales and exclusive community events.
+                      Exchange XP for SENADOR at 1:1 ratio (1 XP = 1 SENADOR). Experimental token on Celo. High-risk, not investment advice.
                     </p>
                   </AccordionContent>
                 </AccordionItem>
@@ -339,12 +339,12 @@ export default function Home() {
                       <div className="w-8 h-8 bg-cta/20 flex items-center justify-center flex-shrink-0">
                         <span className="text-sm font-bold text-cta">AI</span>
                       </div>
-                      <span className="text-sm font-medium">Access AI chat assistant</span>
+                      <span className="text-sm font-medium">AI Chat Assistant</span>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="px-3 pb-3">
                     <p className="text-sm text-muted-foreground">
-                      Get personalized help with crypto, DeFi, and financial questions from an AI assistant. Available for verified users with XP.
+                      Ask questions about crypto, DeFi, and finances. Costs 1 XP per message.
                     </p>
                   </AccordionContent>
                 </AccordionItem>
