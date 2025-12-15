@@ -436,24 +436,6 @@ export const xpClaims = pgTable("xp_claims", {
 export type XpBalance = typeof xpBalances.$inferSelect;
 export type XpClaim = typeof xpClaims.$inferSelect;
 
-// Vouching System - users vouch for each other to grant XP
-export const vouches = pgTable("vouches", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  voucherAddress: text("voucher_address").notNull(), // Who gave the vouch
-  voucheeAddress: text("vouchee_address").notNull(), // Who received the vouch
-  xpGranted: integer("xp_granted").notNull().default(10), // XP given for this vouch
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-}, (table) => ({
-  voucherVoucheeUnique: unique().on(table.voucherAddress, table.voucheeAddress),
-}));
-
-export type Vouch = typeof vouches.$inferSelect;
-
-export const insertVouchSchema = createInsertSchema(vouches).omit({
-  id: true,
-  createdAt: true,
-});
-export type InsertVouch = z.infer<typeof insertVouchSchema>;
 
 // Global Settings table for cached metrics and configuration
 export const globalSettings = pgTable("global_settings", {
