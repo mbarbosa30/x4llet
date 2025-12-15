@@ -260,128 +260,96 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Earn XP Section */}
+            {/* How to Earn XP */}
             <div className="border border-foreground/10 p-4 space-y-4">
-              <div className="space-y-1">
-                <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Earn XP</span>
-                <p className="text-sm text-muted-foreground">
-                  Get vouched by someone already using the wallet to earn XP
-                </p>
-              </div>
-
-              {/* XP Benefits */}
-              <div className="bg-muted/30 p-3 space-y-2">
-                <span className="text-xs font-medium text-foreground/80">XP unlocks:</span>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="space-y-1">
-                    <div className="text-lg font-bold text-cta">$</div>
-                    <div className="text-xs text-muted-foreground">Get USDC</div>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-lg font-bold text-cta">S</div>
-                    <div className="text-xs text-muted-foreground">SENADOR</div>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-lg font-bold text-cta">AI</div>
-                    <div className="text-xs text-muted-foreground">Chat</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Ways to earn XP */}
-              <div className="space-y-2">
-                {/* Get Vouched - Primary action */}
-                {mfScore === 0 && (
-                  <div className="bg-cta/10 border border-cta/30 p-3 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-cta" />
-                      <span className="text-sm font-medium">Get Vouched</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Share your address with someone who already uses nanoPay. Ask them to vouch for you.
-                    </p>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        className="flex-1"
-                        onClick={async () => {
-                          const vouchUrl = `https://nanopay.me/${address}`;
-                          if (navigator.share) {
-                            try {
-                              await navigator.share({
-                                title: 'Vouch for me on nanoPay',
-                                text: `Please vouch for me: ${address}`,
-                                url: vouchUrl
-                              });
-                            } catch (err) {
-                              // User cancelled
-                            }
-                          } else {
-                            navigator.clipboard.writeText(vouchUrl);
-                            toast({ title: 'Link copied', description: 'Share it to request a vouch' });
-                          }
-                        }}
-                        data-testid="button-request-vouch"
-                      >
-                        <Share2 className="h-3 w-3" />
-                        Request Vouch
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setLocation('/maxflow')}
-                        data-testid="button-learn-vouching"
-                      >
-                        <Waypoints className="h-3 w-3" />
-                        Learn More
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {mfScore > 0 && (
-                  <div className="flex items-center gap-3 p-2 bg-muted/20">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                    <span className="text-sm text-muted-foreground">You have {mfScore} trust signal</span>
-                  </div>
-                )}
-
-                {/* GoodDollar Alternative */}
+              <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">How to Earn XP</span>
+              
+              <div className="space-y-3">
+                {/* Option 1: Get Vouched */}
                 <button
-                  onClick={() => setLocation('/claim')}
-                  className={`flex items-center gap-3 p-3 w-full text-left ${
-                    gdIdentity?.isWhitelisted 
-                      ? 'bg-muted/20' 
-                      : 'bg-muted/30 border border-foreground/10 hover-elevate'
-                  }`}
-                  data-testid="button-onboard-verify"
+                  onClick={() => setLocation('/maxflow')}
+                  className="flex items-start gap-3 p-3 w-full text-left bg-muted/30 border border-foreground/10 hover-elevate"
+                  data-testid="button-earn-vouch"
                 >
-                  {gdIdentity?.isWhitelisted ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                  ) : (
-                    <Circle className="h-4 w-4 text-cta flex-shrink-0" />
-                  )}
+                  <Users className="h-5 w-5 text-cta flex-shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
-                    <div className={`text-sm ${gdIdentity?.isWhitelisted ? 'text-muted-foreground line-through' : 'font-medium'}`}>
-                      Verify with GoodDollar
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {gdIdentity?.isWhitelisted 
-                        ? 'Claim G$ daily and convert to XP' 
-                        : 'Face verification to claim G$ and earn XP'}
-                    </div>
+                    <div className="text-sm font-medium">Get vouched by existing users</div>
+                    <div className="text-xs text-muted-foreground">Share your address, ask them to vouch for you</div>
                   </div>
-                  {!gdIdentity?.isWhitelisted && <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
+                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                 </button>
 
-                {/* XP Status */}
-                {xpData && xpData.totalXp > 0 && (
-                  <div className="flex items-center justify-between p-2 bg-cta/10 border border-cta/30">
-                    <span className="text-sm font-medium">Your XP</span>
-                    <span className="text-sm font-bold text-cta">{(xpData.totalXp / 100).toFixed(2)} XP</span>
+                {/* Option 2: GoodDollar */}
+                <button
+                  onClick={() => setLocation('/claim')}
+                  className="flex items-start gap-3 p-3 w-full text-left bg-muted/30 border border-foreground/10 hover-elevate"
+                  data-testid="button-earn-gooddollar"
+                >
+                  <Shield className="h-5 w-5 text-cta flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium">Verify with GoodDollar</div>
+                    <div className="text-xs text-muted-foreground">Claim G$ daily → convert G$ to XP</div>
                   </div>
-                )}
+                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                </button>
               </div>
+            </div>
+
+            {/* What XP Unlocks */}
+            <div className="border border-foreground/10 p-4 space-y-4">
+              <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">What XP Unlocks</span>
+              
+              <div className="space-y-3">
+                <button
+                  onClick={() => setLocation('/earn')}
+                  className="flex items-center gap-3 p-3 w-full text-left bg-muted/30 border border-foreground/10 hover-elevate"
+                  data-testid="button-unlock-usdc"
+                >
+                  <div className="w-8 h-8 bg-cta/20 flex items-center justify-center flex-shrink-0">
+                    <span className="text-sm font-bold text-cta">$</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium">Get USDC</div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                </button>
+
+                <button
+                  onClick={() => setLocation('/earn')}
+                  className="flex items-center gap-3 p-3 w-full text-left bg-muted/30 border border-foreground/10 hover-elevate"
+                  data-testid="button-unlock-senador"
+                >
+                  <div className="w-8 h-8 bg-cta/20 flex items-center justify-center flex-shrink-0">
+                    <span className="text-sm font-bold text-cta">S</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium">Buy SENADOR tokens</div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                </button>
+
+                <button
+                  onClick={() => setLocation('/ai')}
+                  className="flex items-center gap-3 p-3 w-full text-left bg-muted/30 border border-foreground/10 hover-elevate"
+                  data-testid="button-unlock-ai"
+                >
+                  <div className="w-8 h-8 bg-cta/20 flex items-center justify-center flex-shrink-0">
+                    <span className="text-sm font-bold text-cta">AI</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium">Access AI chat assistant</div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                </button>
+              </div>
+
+              {/* XP Status if they have any */}
+              {xpData && xpData.totalXp > 0 && (
+                <div className="flex items-center justify-between p-3 bg-cta/10 border border-cta/30">
+                  <span className="text-sm font-medium">Your XP Balance</span>
+                  <span className="text-sm font-bold text-cta">{(xpData.totalXp / 100).toFixed(2)} XP</span>
+                </div>
+              )}
             </div>
           </>
         ) : (
