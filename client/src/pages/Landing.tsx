@@ -266,7 +266,7 @@ function MobileLanding({
                 <p className="text-2xl font-bold tabular-nums" data-testid="text-global-transfers">
                   {globalStats.totalTransfers.toLocaleString()}
                 </p>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Transfers</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Transactions</p>
               </div>
               <div>
                 <div className="flex items-center justify-center gap-1.5 mb-1">
@@ -371,7 +371,7 @@ function DesktopLanding({
       {/* Live Stats Ticker */}
       <Marquee speed={40}>
         <MarqueeItem>{globalStats?.totalUsers || 0} Users</MarqueeItem>
-        <MarqueeItem>{globalStats?.totalTransfers || 0} Transfers</MarqueeItem>
+        <MarqueeItem>{globalStats?.totalTransfers || 0} Transactions</MarqueeItem>
         <MarqueeItem>{apyDisplay || '3.1%'} APY on Savings</MarqueeItem>
         <MarqueeItem>Gasless on Base</MarqueeItem>
         <MarqueeItem>Gasless on Celo</MarqueeItem>

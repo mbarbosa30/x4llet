@@ -4150,8 +4150,19 @@ export class DbStorage extends MemStorage {
   }> {
     try {
       const [walletsResult] = await db.select({ count: count() }).from(wallets);
-      const [transactionsResult] = await db.select({ count: count() }).from(cachedTransactions);
       const [xpResult] = await db.select({ total: sum(xpBalances.totalXp) }).from(xpBalances);
+      
+      // Count ALL transaction types for comprehensive "Transactions" metric
+      const [usdcTxResult] = await db.select({ count: count() }).from(cachedTransactions);
+      const [gasDripResult] = await db.select({ count: count() }).from(gasDrips);
+      const [aaveOpsResult] = await db.select({ count: count() }).from(aaveOperations);
+      const [gdClaimsResult] = await db.select({ count: count() }).from(gooddollarClaims);
+      
+      const totalTransactions = 
+        (usdcTxResult?.count || 0) + 
+        (gasDripResult?.count || 0) + 
+        (aaveOpsResult?.count || 0) + 
+        (gdClaimsResult?.count || 0);
 
       // Count connections (vouches) by parsing all MaxFlow score data
       let totalConnections = 0;
@@ -4185,7 +4196,7 @@ export class DbStorage extends MemStorage {
       const totalXpCenti = Number(xpResult?.total) || 0;
       return {
         totalUsers: walletsResult?.count || 0,
-        totalTransfers: transactionsResult?.count || 0,
+        totalTransfers: totalTransactions,
         totalXp: Math.round(totalXpCenti) / 100,
         totalConnections,
         gasSponsoredUsd,
