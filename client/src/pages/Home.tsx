@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users, Clock, Share2, Waypoints, CheckCircle2, Circle, ChevronRight } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users, Clock, Share2, Waypoints, CheckCircle2, Circle, ChevronRight, HelpCircle } from 'lucide-react';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import {
   Dialog,
@@ -299,49 +300,55 @@ export default function Home() {
             <div className="border border-foreground/10 p-4 space-y-4">
               <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">What XP Unlocks</span>
               
-              <div className="space-y-3">
-                <button
-                  onClick={() => setLocation('/earn')}
-                  className="flex items-center gap-3 p-3 w-full text-left bg-muted/30 border border-foreground/10 hover-elevate"
-                  data-testid="button-unlock-usdc"
-                >
-                  <div className="w-8 h-8 bg-cta/20 flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-bold text-cta">$</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium">Get USDC</div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                </button>
+              <Accordion type="single" collapsible className="w-full space-y-2">
+                <AccordionItem value="usdc" className="border border-foreground/10 bg-muted/30">
+                  <AccordionTrigger className="px-3 py-3 hover:no-underline" data-testid="accordion-unlock-usdc">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-cta/20 flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-bold text-cta">$</span>
+                      </div>
+                      <span className="text-sm font-medium">Get USDC</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-3">
+                    <p className="text-sm text-muted-foreground">
+                      Earn USDC rewards by building trust in the network. The more connected you are, the more opportunities to receive airdrops and referral bonuses from verified users.
+                    </p>
+                  </AccordionContent>
+                </AccordionItem>
 
-                <button
-                  onClick={() => setLocation('/earn')}
-                  className="flex items-center gap-3 p-3 w-full text-left bg-muted/30 border border-foreground/10 hover-elevate"
-                  data-testid="button-unlock-senador"
-                >
-                  <div className="w-8 h-8 bg-cta/20 flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-bold text-cta">S</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium">Buy SENADOR tokens</div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                </button>
+                <AccordionItem value="senador" className="border border-foreground/10 bg-muted/30">
+                  <AccordionTrigger className="px-3 py-3 hover:no-underline" data-testid="accordion-unlock-senador">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-cta/20 flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-bold text-cta">S</span>
+                      </div>
+                      <span className="text-sm font-medium">Buy SENADOR tokens</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-3">
+                    <p className="text-sm text-muted-foreground">
+                      SENADOR is a governance token for the nanoPay community. XP holders can participate in token sales and exclusive community events.
+                    </p>
+                  </AccordionContent>
+                </AccordionItem>
 
-                <button
-                  onClick={() => setLocation('/ai')}
-                  className="flex items-center gap-3 p-3 w-full text-left bg-muted/30 border border-foreground/10 hover-elevate"
-                  data-testid="button-unlock-ai"
-                >
-                  <div className="w-8 h-8 bg-cta/20 flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-bold text-cta">AI</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium">Access AI chat assistant</div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                </button>
-              </div>
+                <AccordionItem value="ai" className="border border-foreground/10 bg-muted/30">
+                  <AccordionTrigger className="px-3 py-3 hover:no-underline" data-testid="accordion-unlock-ai">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-cta/20 flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-bold text-cta">AI</span>
+                      </div>
+                      <span className="text-sm font-medium">Access AI chat assistant</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-3">
+                    <p className="text-sm text-muted-foreground">
+                      Get personalized help with crypto, DeFi, and financial questions from an AI assistant. Available for verified users with XP.
+                    </p>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
 
               {/* XP Status if they have any */}
               {xpData && xpData.totalXp > 0 && (
@@ -350,6 +357,16 @@ export default function Home() {
                   <span className="text-sm font-bold text-cta">{(xpData.totalXp / 100).toFixed(2)} XP</span>
                 </div>
               )}
+
+              {/* FAQ Link */}
+              <button
+                onClick={() => setLocation('/faqs')}
+                className="flex items-center gap-3 p-3 w-full text-left bg-muted/30 border border-foreground/10 hover-elevate"
+                data-testid="button-faq"
+              >
+                <HelpCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                <span className="text-sm text-muted-foreground">Have questions? Check the FAQs</span>
+              </button>
             </div>
           </>
         ) : (
