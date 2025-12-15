@@ -292,7 +292,7 @@ export default function Home() {
               <div className="space-y-2">
                 {/* Get Vouched - Primary action */}
                 {mfScore === 0 && (
-                  <div className="bg-cta/10 border border-cta/30 p-3 space-y-2">
+                  <div className="bg-cta/10 border border-cta/30 p-3 space-y-3">
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4 text-cta" />
                       <span className="text-sm font-medium">Get Vouched</span>
@@ -300,6 +300,42 @@ export default function Home() {
                     <p className="text-xs text-muted-foreground">
                       Share your address with someone who already uses nanoPay. Ask them to vouch for you.
                     </p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        onClick={async () => {
+                          const vouchUrl = `https://nanopay.me/${address}`;
+                          if (navigator.share) {
+                            try {
+                              await navigator.share({
+                                title: 'Vouch for me on nanoPay',
+                                text: `Please vouch for me: ${address}`,
+                                url: vouchUrl
+                              });
+                            } catch (err) {
+                              // User cancelled
+                            }
+                          } else {
+                            navigator.clipboard.writeText(vouchUrl);
+                            toast({ title: 'Link copied', description: 'Share it to request a vouch' });
+                          }
+                        }}
+                        data-testid="button-request-vouch"
+                      >
+                        <Share2 className="h-3 w-3" />
+                        Request Vouch
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setLocation('/maxflow')}
+                        data-testid="button-learn-vouching"
+                      >
+                        <Waypoints className="h-3 w-3" />
+                        Learn More
+                      </Button>
+                    </div>
                   </div>
                 )}
 
