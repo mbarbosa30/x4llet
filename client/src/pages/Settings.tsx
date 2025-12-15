@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette, BookOpen, HelpCircle, MessageCircleQuestion, TrendingDown, TrendingUp, RotateCcw, Loader2, AlertTriangle, Fingerprint, Trash2, Timer, Shield } from 'lucide-react';
+import { ChevronRight, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette, BookOpen, HelpCircle, MessageCircleQuestion, TrendingDown, TrendingUp, RotateCcw, Loader2, AlertTriangle, Fingerprint, Trash2, Timer, Shield, FileText } from 'lucide-react';
 import { queryClient } from '@/lib/queryClient';
 import { Card } from '@/components/ui/card';
 import InstallPrompt from '@/components/InstallPrompt';
-import { getPreferences, savePreferences, getPrivateKey, lockWallet, enrollWalletPasskey, removeWalletPasskey, canUsePasskey, setAutoLockMinutes, getAutoLockMinutes } from '@/lib/wallet';
+import { getPreferences, savePreferences, getPrivateKey, lockWallet, enrollWalletPasskey, removeWalletPasskey, canUsePasskey, setAutoLockMinutes, getAutoLockMinutes, getMnemonic, hasMnemonicWallet } from '@/lib/wallet';
 import { useWallet } from '@/hooks/useWallet';
 import { getPasskeySupportStatus, hasPasskeyEnrolled, getPasskeyInfo, type PasskeySupportStatus } from '@/lib/webauthn';
 import { useToast } from '@/hooks/use-toast';
@@ -62,6 +62,13 @@ export default function Settings() {
   const [autoLock, setAutoLock] = useState(15);
   const [showAutoLock, setShowAutoLock] = useState(false);
   const [sessionPersistence, setSessionPersistence] = useState(true);
+  const [showRecoveryPhrase, setShowRecoveryPhrase] = useState(false);
+  const [recoveryPhrase, setRecoveryPhrase] = useState('');
+  const [showRecoveryPhraseWords, setShowRecoveryPhraseWords] = useState(false);
+  const [copiedPhrase, setCopiedPhrase] = useState(false);
+  const [hasMnemonic, setHasMnemonic] = useState(false);
+  const [phrasePassword, setPhrasePassword] = useState('');
+  const [showPhrasePassword, setShowPhrasePassword] = useState(false);
 
   useEffect(() => {
     if (isLoadingWallet) return;
@@ -91,6 +98,9 @@ export default function Settings() {
           const enrolled = await hasPasskeyEnrolled();
           setPasskeyEnrolled(enrolled);
         }
+        
+        const mnemonicExists = await hasMnemonicWallet();
+        setHasMnemonic(mnemonicExists);
         
         const currentAutoLock = prefs.autoLockMinutes ?? 15;
         if (currentAutoLock === -1) {
@@ -280,6 +290,43 @@ export default function Settings() {
     setCopied(false);
   };
 
+  const handleViewRecoveryPhrase = async () => {
+    const phrase = await getMnemonic();
+    if (phrase) {
+      setRecoveryPhrase(phrase);
+      setPhrasePassword('');
+    } else {
+      toast({
+        title: "Unable to retrieve",
+        description: "Wallet must be unlocked to view recovery phrase",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCopyRecoveryPhrase = async () => {
+    try {
+      await navigator.clipboard.writeText(recoveryPhrase);
+      setCopiedPhrase(true);
+      toast({
+        title: "Recovery phrase copied",
+        description: "Your recovery phrase has been copied to clipboard",
+      });
+      setTimeout(() => setCopiedPhrase(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const handleCloseRecoveryPhraseDialog = () => {
+    setShowRecoveryPhrase(false);
+    setRecoveryPhrase('');
+    setPhrasePassword('');
+    setShowPhrasePassword(false);
+    setShowRecoveryPhraseWords(false);
+    setCopiedPhrase(false);
+  };
+
   const handleLockWallet = () => {
     lockWallet();
     toast({
@@ -407,6 +454,19 @@ export default function Settings() {
                 <AlertTriangle className="h-5 w-5 text-muted-foreground/50" />
               )}
             </button>
+            {hasMnemonic && (
+              <button
+                onClick={() => setShowRecoveryPhrase(true)}
+                className="w-full flex items-center justify-between p-4 hover-elevate"
+                data-testid="button-view-recovery-phrase"
+              >
+                <div className="flex items-center gap-3">
+                  <FileText className="h-5 w-5 text-muted-foreground" />
+                  <span className="font-label text-foreground">View Recovery Phrase</span>
+                </div>
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              </button>
+            )}
             <button
               onClick={() => setShowExportPrivateKey(true)}
               className="w-full flex items-center justify-between p-4 hover-elevate"
@@ -1000,6 +1060,94 @@ export default function Settings() {
               </>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showRecoveryPhrase} onOpenChange={handleCloseRecoveryPhraseDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Recovery Phrase</DialogTitle>
+            <DialogDescription>
+              {!recoveryPhrase ? (
+                "Click below to view your 12-word recovery phrase"
+              ) : (
+                "Your recovery phrase gives full access to your wallet. Never share it with anyone."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {!recoveryPhrase ? (
+            <div className="space-y-4 py-4">
+              <Button onClick={handleViewRecoveryPhrase} className="w-full" data-testid="button-reveal-phrase">
+                <Eye className="h-4 w-4" />
+                Reveal Recovery Phrase
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Your 12-Word Recovery Phrase</Label>
+                <div className="space-y-2">
+                  <div className="relative">
+                    {showRecoveryPhraseWords ? (
+                      <div className="grid grid-cols-3 gap-2 bg-muted p-3 border" data-testid="text-recovery-phrase">
+                        {recoveryPhrase.split(' ').map((word, index) => (
+                          <div key={index} className="font-mono text-xs">
+                            <span className="text-muted-foreground">{index + 1}.</span> {word}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="font-mono text-xs break-all bg-muted p-3 border" data-testid="text-recovery-phrase-hidden">
+                        {'••••••••  '.repeat(12).trim()}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowRecoveryPhraseWords(!showRecoveryPhraseWords)}
+                      className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+                      data-testid="button-toggle-phrase-visibility"
+                    >
+                      {showRecoveryPhraseWords ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleCopyRecoveryPhrase}
+                    data-testid="button-copy-recovery-phrase"
+                  >
+                    {copiedPhrase ? (
+                      <>
+                        <Check className="h-4 w-4" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4" />
+                        Copy Recovery Phrase
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="pt-2 space-y-2 text-xs text-muted-foreground bg-destructive/10 p-3 border border-destructive/20">
+                <p className="font-medium text-destructive">Security Warning</p>
+                <ul className="space-y-1 list-disc list-inside">
+                  <li>Anyone with these words can access your funds</li>
+                  <li>Never share them with anyone</li>
+                  <li>Store them in a secure location</li>
+                </ul>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCloseRecoveryPhraseDialog} data-testid="button-close-recovery-phrase">
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
