@@ -6,7 +6,7 @@ import { ChevronRight, DollarSign, Key, Copy, Check, Eye, EyeOff, Lock, Palette,
 import { queryClient } from '@/lib/queryClient';
 import { Card } from '@/components/ui/card';
 import InstallPrompt from '@/components/InstallPrompt';
-import { getPreferences, savePreferences, getPrivateKey, lockWallet, enrollWalletPasskey, removeWalletPasskey, canUsePasskey, setAutoLockMinutes, getAutoLockMinutes, getMnemonic, hasMnemonicWallet } from '@/lib/wallet';
+import { getPreferences, savePreferences, getPrivateKey, lockWallet, enrollWalletPasskey, removeWalletPasskey, canUsePasskey, setAutoLockMinutes, getAutoLockMinutes, getMnemonic, getMnemonicWithPassword, hasMnemonicWallet } from '@/lib/wallet';
 import { useWallet } from '@/hooks/useWallet';
 import { getPasskeySupportStatus, hasPasskeyEnrolled, getPasskeyInfo, type PasskeySupportStatus } from '@/lib/webauthn';
 import { useToast } from '@/hooks/use-toast';
@@ -67,6 +67,8 @@ export default function Settings() {
   const [showRecoveryPhraseWords, setShowRecoveryPhraseWords] = useState(false);
   const [copiedPhrase, setCopiedPhrase] = useState(false);
   const [hasMnemonic, setHasMnemonic] = useState(false);
+  const [recoveryPhrasePassword, setRecoveryPhrasePassword] = useState('');
+  const [showRecoveryPhrasePassword, setShowRecoveryPhrasePassword] = useState(false);
 
   useEffect(() => {
     if (isLoadingWallet) return;
@@ -289,13 +291,27 @@ export default function Settings() {
   };
 
   const handleViewRecoveryPhrase = async () => {
-    const phrase = await getMnemonic();
+    let phrase = await getMnemonic();
+    
+    if (!phrase && recoveryPhrasePassword) {
+      if (recoveryPhrasePassword.length < 6) {
+        toast({
+          title: "Invalid Password",
+          description: "Please enter your recovery code",
+          variant: "destructive",
+        });
+        return;
+      }
+      phrase = await getMnemonicWithPassword(recoveryPhrasePassword);
+    }
+    
     if (phrase) {
       setRecoveryPhrase(phrase);
+      setRecoveryPhrasePassword('');
     } else {
       toast({
-        title: "Unable to retrieve",
-        description: "Wallet must be unlocked to view recovery phrase",
+        title: "Invalid recovery code",
+        description: "Please check your recovery code and try again",
         variant: "destructive",
       });
     }
@@ -320,6 +336,8 @@ export default function Settings() {
     setRecoveryPhrase('');
     setShowRecoveryPhraseWords(false);
     setCopiedPhrase(false);
+    setRecoveryPhrasePassword('');
+    setShowRecoveryPhrasePassword(false);
   };
 
   const handleLockWallet = () => {
@@ -1064,7 +1082,7 @@ export default function Settings() {
             <DialogTitle>Recovery Phrase</DialogTitle>
             <DialogDescription>
               {!recoveryPhrase ? (
-                "Click below to view your 12-word recovery phrase"
+                "Enter your recovery code to view your 12-word phrase"
               ) : (
                 "Your recovery phrase gives full access to your wallet. Never share it with anyone."
               )}
@@ -1073,9 +1091,31 @@ export default function Settings() {
           
           {!recoveryPhrase ? (
             <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="recovery-phrase-password">Recovery Code</Label>
+                <div className="relative">
+                  <Input
+                    id="recovery-phrase-password"
+                    type={showRecoveryPhrasePassword ? 'text' : 'password'}
+                    placeholder="Enter your recovery code"
+                    value={recoveryPhrasePassword}
+                    onChange={(e) => setRecoveryPhrasePassword(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleViewRecoveryPhrase()}
+                    data-testid="input-recovery-phrase-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowRecoveryPhrasePassword(!showRecoveryPhrasePassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    data-testid="button-toggle-recovery-phrase-password"
+                  >
+                    {showRecoveryPhrasePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
               <Button onClick={handleViewRecoveryPhrase} className="w-full" data-testid="button-reveal-phrase">
                 <Eye className="h-4 w-4" />
-                Reveal Recovery Phrase
+                View Recovery Phrase
               </Button>
             </div>
           ) : (

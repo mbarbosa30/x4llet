@@ -745,6 +745,25 @@ export async function getMnemonic(): Promise<string | null> {
   }
 }
 
+export async function getMnemonicWithPassword(password: string): Promise<string | null> {
+  const sessionDek = getSessionDek();
+  if (sessionDek) {
+    const mnemonic = await getMnemonic();
+    if (mnemonic) return mnemonic;
+  }
+  
+  const v3Data = await get<WalletV3Data>(WALLET_V3_KEY);
+  if (!v3Data) return null;
+  
+  try {
+    const salt = Uint8Array.from(atob(v3Data.salt), c => c.charCodeAt(0));
+    const dek = await unwrapDekWithPassword(v3Data.dekWrappedByPassword, password, salt);
+    return await decryptWithDek(v3Data.encryptedMnemonic, dek);
+  } catch {
+    return null;
+  }
+}
+
 export async function hasMnemonicWallet(): Promise<boolean> {
   const v3Data = await get<WalletV3Data>(WALLET_V3_KEY);
   return v3Data?.version === 3;
