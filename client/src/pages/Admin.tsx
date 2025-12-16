@@ -151,6 +151,8 @@ interface FlaggedWallet {
   clusterSize: number;
   isExempt: boolean;
   exemptReason: string | null;
+  isFaceChecked: boolean;
+  faceCheckedAt: string | null;
 }
 
 interface StorageTokenPattern {
@@ -2567,17 +2569,18 @@ function SybilDetectionPanel({ authHeader }: { authHeader: string | null }) {
                     <span>Small Cluster (≤3)</span>
                   </div>
                 </div>
-                <div className="grid grid-cols-5 gap-2 px-2 py-1 border-b text-xs font-medium text-muted-foreground">
+                <div className="grid grid-cols-6 gap-2 px-2 py-1 border-b text-xs font-medium text-muted-foreground">
                   <div>Wallet</div>
                   <div>Score</div>
                   <div>Cluster</div>
                   <div>Status</div>
+                  <div>Face Check</div>
                   <div>Signals</div>
                 </div>
                 {flaggedWallets.map((item) => (
                   <div
                     key={item.wallet}
-                    className={`grid grid-cols-5 gap-2 p-2 cursor-pointer hover-elevate ${
+                    className={`grid grid-cols-6 gap-2 p-2 cursor-pointer hover-elevate ${
                       item.isExempt 
                         ? item.exemptReason === 'gooddollar_verified' 
                           ? 'bg-green-500/10 border-l-2 border-green-500' 
@@ -2599,6 +2602,13 @@ function SybilDetectionPanel({ authHeader }: { authHeader: string | null }) {
                         </span>
                       ) : (
                         <span className="text-amber-600 font-semibold">FLAGGED</span>
+                      )}
+                    </div>
+                    <div className="text-xs">
+                      {item.isFaceChecked ? (
+                        <span className="text-violet-600">✓ {item.faceCheckedAt ? new Date(item.faceCheckedAt).toLocaleDateString() : ''}</span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
                       )}
                     </div>
                     <div className="flex flex-wrap gap-1">

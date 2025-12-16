@@ -2102,6 +2102,8 @@ export class DbStorage extends MemStorage {
     isGoodDollarVerified: boolean;
     gdBalance: string;
     gdBalanceFormatted: string;
+    isFaceChecked: boolean;
+    faceCheckedAt: string | null;
   }>> {
     try {
       const allWallets = await db.select().from(wallets).orderBy(desc(wallets.lastSeen));
@@ -2204,6 +2206,17 @@ export class DbStorage extends MemStorage {
         const gdBalance = gdBalanceData[0]?.balance || '0';
         const gdBalanceFormatted = gdBalanceData[0]?.balanceFormatted || '0.00';
         
+        // Check Face Verification status
+        const faceVerificationData = await db
+          .select()
+          .from(faceVerifications)
+          .where(sql`LOWER(${faceVerifications.walletAddress}) = ${normalizedAddress} AND ${faceVerifications.status} = 'verified'`)
+          .orderBy(desc(faceVerifications.createdAt))
+          .limit(1);
+        
+        const isFaceChecked = faceVerificationData.length > 0;
+        const faceCheckedAt = faceVerificationData[0]?.createdAt ? faceVerificationData[0].createdAt.toISOString() : null;
+        
         return {
           address: wallet.address,
           createdAt: wallet.createdAt.toISOString(),
@@ -2221,6 +2234,8 @@ export class DbStorage extends MemStorage {
           isGoodDollarVerified,
           gdBalance,
           gdBalanceFormatted,
+          isFaceChecked,
+          faceCheckedAt,
         };
       }));
       
@@ -4857,6 +4872,8 @@ export class DbStorage extends MemStorage {
     clusterSize: number;
     isExempt: boolean;
     exemptReason: string | null;
+    isFaceChecked: boolean;
+    faceCheckedAt: string | null;
   }>> {
     try {
       // Get all wallets and their highest matching scores
@@ -4942,11 +4959,17 @@ export class DbStorage extends MemStorage {
             WHEN gd.wallet_address IS NOT NULL THEN 'gooddollar_verified'
             WHEN wf.storage_token IS NOT NULL AND COALESCE(dc.cluster_size, 1) <= 3 THEN 'small_cluster'
             ELSE NULL 
-          END as exempt_reason
+          END as exempt_reason,
+          fv.created_at as face_checked_at
         FROM flagged_raw f
         JOIN wallet_fingerprints wf ON f.wallet = wf.wallet_address
         LEFT JOIN device_clusters dc ON wf.storage_token = dc.storage_token
         LEFT JOIN gooddollar_verified gd ON LOWER(f.wallet) = gd.wallet_address
+        LEFT JOIN LATERAL (
+          SELECT created_at FROM face_verifications 
+          WHERE LOWER(wallet_address) = LOWER(f.wallet) AND status = 'verified'
+          ORDER BY created_at DESC LIMIT 1
+        ) fv ON true
         ORDER BY 
           is_exempt ASC,  -- Non-exempt (flagged) first
           f.max_score DESC, 
@@ -4962,6 +4985,8 @@ export class DbStorage extends MemStorage {
         clusterSize: parseInt(row.cluster_size),
         isExempt: row.is_exempt,
         exemptReason: row.exempt_reason,
+        isFaceChecked: !!row.face_checked_at,
+        faceCheckedAt: row.face_checked_at ? new Date(row.face_checked_at).toISOString() : null,
       }));
     } catch (error) {
       console.error('[Sybil] Error getting flagged wallets with scores:', error);

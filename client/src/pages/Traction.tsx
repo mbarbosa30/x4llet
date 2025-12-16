@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Users, DollarSign, Network, Sparkles, PiggyBank, Gift, Trophy, Search, ArrowUpDown, RefreshCw, Copy } from 'lucide-react';
+import { Loader2, Users, DollarSign, Network, Sparkles, PiggyBank, Gift, Trophy, Search, ArrowUpDown, RefreshCw, Copy, ScanFace } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 
@@ -28,6 +28,8 @@ interface TractionUser {
   gdBalanceFormatted: string;
   xpBalance: number;
   xpClaimCount: number;
+  isFaceChecked: boolean;
+  faceCheckedAt: string | null;
 }
 
 interface TractionResponse {
@@ -79,6 +81,7 @@ export default function Traction() {
   const [filterHasSavings, setFilterHasSavings] = useState<string>('all');
   const [filterInPool, setFilterInPool] = useState<string>('all');
   const [filterHasXp, setFilterHasXp] = useState<string>('all');
+  const [filterFaceChecked, setFilterFaceChecked] = useState<string>('all');
 
   const { data, isLoading, error, refetch } = useQuery<TractionResponse>({
     queryKey: ['/api/traction/users'],
@@ -158,6 +161,12 @@ export default function Traction() {
       );
     }
     
+    if (filterFaceChecked !== 'all') {
+      users = users.filter(u => 
+        filterFaceChecked === 'yes' ? u.isFaceChecked : !u.isFaceChecked
+      );
+    }
+    
     users.sort((a, b) => {
       let comparison = 0;
       switch (sortField) {
@@ -184,7 +193,7 @@ export default function Traction() {
     });
     
     return users;
-  }, [data?.users, searchQuery, sortField, sortDirection, filterVouched, filterGoodDollar, filterHasUsdc, filterHasGd, filterHasSavings, filterInPool, filterHasXp]);
+  }, [data?.users, searchQuery, sortField, sortDirection, filterVouched, filterGoodDollar, filterHasUsdc, filterHasGd, filterHasSavings, filterInPool, filterHasXp, filterFaceChecked]);
 
   const stats = useMemo(() => {
     if (!data?.users) return null;
@@ -198,6 +207,7 @@ export default function Traction() {
       withSavings: users.filter(u => BigInt(u.aUsdcBalance) > 0n).length,
       inPool: users.filter(u => u.poolOptInPercent > 0).length,
       withXp: users.filter(u => u.xpBalance > 0).length,
+      faceChecked: users.filter(u => u.isFaceChecked).length,
       filteredCount: filteredAndSortedUsers.length,
     };
   }, [data?.users, filteredAndSortedUsers.length]);
@@ -266,7 +276,7 @@ export default function Traction() {
 
       <main className="max-w-7xl mx-auto p-4 space-y-6">
         {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2">
             <StatCard icon={Users} label="Total Users" value={stats.total} testId="stat-total" />
             <StatCard icon={Network} label="Vouched" value={stats.withVouch} testId="stat-vouched" />
             <StatCard icon={Gift} label="G$ Verified" value={stats.goodDollarVerified} testId="stat-gooddollar" />
@@ -275,6 +285,7 @@ export default function Traction() {
             <StatCard icon={PiggyBank} label="Has Savings" value={stats.withSavings} testId="stat-savings" />
             <StatCard icon={Trophy} label="In Pool" value={stats.inPool} testId="stat-pool" />
             <StatCard icon={Sparkles} label="Has XP" value={stats.withXp} testId="stat-xp" />
+            <StatCard icon={ScanFace} label="Face Check" value={stats.faceChecked} testId="stat-facecheck" />
           </div>
         )}
 
@@ -299,6 +310,7 @@ export default function Traction() {
                 <FilterSelect label="Savings" value={filterHasSavings} onChange={setFilterHasSavings} testId="filter-savings" />
                 <FilterSelect label="In Pool" value={filterInPool} onChange={setFilterInPool} testId="filter-pool" />
                 <FilterSelect label="Has XP" value={filterHasXp} onChange={setFilterHasXp} testId="filter-xp" />
+                <FilterSelect label="Face Check" value={filterFaceChecked} onChange={setFilterFaceChecked} testId="filter-facecheck" />
               </div>
             </div>
             {stats && (
@@ -321,6 +333,7 @@ export default function Traction() {
                     <th className="text-left p-3 font-mono text-xs uppercase tracking-wider">Savings</th>
                     <th className="text-left p-3 font-mono text-xs uppercase tracking-wider">Pool</th>
                     <SortableHeader label="XP" field="xpBalance" currentField={sortField} direction={sortDirection} onSort={toggleSort} />
+                    <th className="text-left p-3 font-mono text-xs uppercase tracking-wider">Face</th>
                     <SortableHeader label="Txns" field="transferCount" currentField={sortField} direction={sortDirection} onSort={toggleSort} />
                   </tr>
                 </thead>
@@ -387,12 +400,19 @@ export default function Traction() {
                       <td className="p-3 font-mono text-xs">
                         {user.xpBalance > 0 ? (user.xpBalance / 100).toFixed(2) : '-'}
                       </td>
+                      <td className="p-3 text-xs">
+                        {user.isFaceChecked ? (
+                          <span className="text-violet-600">✓</span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </td>
                       <td className="p-3 font-mono text-xs">{user.transferCount || '-'}</td>
                     </tr>
                   ))}
                   {filteredAndSortedUsers.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="p-8 text-center text-muted-foreground">
+                      <td colSpan={11} className="p-8 text-center text-muted-foreground">
                         No users match the current filters
                       </td>
                     </tr>
