@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Marquee, MarqueeItem } from '@/components/ui/marquee';
 import { WifiOff, Wifi, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap, Users, ArrowRightLeft, ArrowRight, Shield, Coins, TrendingUp, Wallet, ScanFace, Fingerprint, CircleDollarSign, Cpu, Clock, Rocket, Stamp, Fuel } from 'lucide-react';
+import { SiTelegram } from 'react-icons/si';
 import { hasWallet, isWalletUnlocked } from '@/lib/wallet';
 import Footer from '@/components/Footer';
 import stellarLogo from '@assets/200-2004304_9-stellar-logo-new-stellar-png-icon-clipart_1765646675902.png';
@@ -801,10 +802,20 @@ function DesktopLanding({
             <div className="w-3 h-3 bg-[#0055FF]" />
             <span className="text-sm font-bold uppercase">nanoPay</span>
           </div>
-          <div className="flex gap-8">
+          <div className="flex gap-8 items-center">
             <Link href="/how-it-works" className="text-sm text-muted-foreground hover:text-foreground">How It Works</Link>
             <Link href="/faqs" className="text-sm text-muted-foreground hover:text-foreground">FAQs</Link>
             <Link href="/context" className="text-sm text-muted-foreground hover:text-foreground">Context</Link>
+            <a 
+              href="https://t.me/+zWefAe1jX9FhODU0" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
+              data-testid="link-telegram-landing"
+            >
+              <SiTelegram className="h-4 w-4" />
+              Community
+            </a>
           </div>
           <div className="text-sm text-muted-foreground">
             built by <a href="https://x.com/mbarrbosa" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Marco</a>
