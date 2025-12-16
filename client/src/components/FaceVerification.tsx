@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, Camera, Check, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Loader2, Camera, Check, AlertTriangle, RefreshCw, Eye, ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFingerprint } from '@/lib/fingerprint';
 import { apiRequest } from '@/lib/queryClient';
+import { Progress } from '@/components/ui/progress';
 
 interface FaceLandmarkerResult {
   faceLandmarks: Array<Array<{ x: number; y: number; z: number }>>;
@@ -24,6 +25,19 @@ const CHALLENGES: ChallengeState[] = [
   { type: 'turn_left', label: 'Turn head left', completed: false, progress: 0 },
   { type: 'turn_right', label: 'Turn head right', completed: false, progress: 0 },
 ];
+
+const getChallengeIcon = (type: Challenge, className: string = "h-5 w-5") => {
+  switch (type) {
+    case 'blink':
+      return <Eye className={className} />;
+    case 'turn_left':
+      return <ArrowLeft className={className} />;
+    case 'turn_right':
+      return <ArrowRight className={className} />;
+    default:
+      return <Camera className={className} />;
+  }
+};
 
 interface FaceVerificationProps {
   walletAddress: string;
@@ -392,11 +406,30 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
     }
   }, [status, startDetection]);
 
+  const currentChallenge = challenges[currentChallengeIndex];
+  const completedCount = challenges.filter(c => c.completed).length;
+
   return (
     <div className="space-y-4">
+      {/* Title and reward badge - ABOVE camera */}
+      <div className="text-center space-y-2">
+        <div className="flex items-center justify-center gap-2">
+          <Camera className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold text-lg">Face Check</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Complete 3 quick challenges to verify you're human
+        </p>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-full">
+          <Sparkles className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+          <span className="text-xs font-medium text-amber-700 dark:text-amber-300">+50 XP reward</span>
+        </div>
+      </div>
+
+      {/* Camera container - FULL WIDTH with face guide */}
       <div 
-        className="relative bg-black rounded-md overflow-hidden mx-auto w-full max-w-[280px]"
-        style={{ aspectRatio: videoAspect }}
+        className="relative bg-black rounded-lg overflow-hidden w-full"
+        style={{ aspectRatio: '3/4', maxHeight: '400px' }}
       >
         <video
           ref={videoRef}
@@ -411,108 +444,143 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
           style={{ transform: 'scaleX(-1)' }}
         />
         
+        {/* Face guide oval overlay */}
+        {(status === 'ready' || status === 'detecting' || status === 'challenges') && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div 
+              className={`w-[55%] h-[70%] rounded-[50%] border-4 transition-all duration-300 ${
+                faceDetected 
+                  ? 'border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]' 
+                  : 'border-white/40'
+              }`}
+              style={{
+                boxShadow: faceDetected 
+                  ? '0 0 0 3000px rgba(0,0,0,0.3), inset 0 0 30px rgba(16,185,129,0.2)' 
+                  : '0 0 0 3000px rgba(0,0,0,0.4)'
+              }}
+            />
+          </div>
+        )}
+        
         {status === 'loading' && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/70">
-            <div className="text-center text-white space-y-2">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-              <p>Loading face detection...</p>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+            <div className="text-center text-white space-y-3">
+              <Loader2 className="h-10 w-10 animate-spin mx-auto" />
+              <p className="text-sm">Initializing camera...</p>
             </div>
           </div>
         )}
         
         {status === 'error' && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/70">
-            <div className="text-center text-white space-y-2 p-4">
-              <AlertTriangle className="h-8 w-8 mx-auto text-destructive" />
-              <p className="text-sm">{error}</p>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+            <div className="text-center text-white space-y-3 p-6">
+              <AlertTriangle className="h-10 w-10 mx-auto text-red-400" />
+              <p className="text-sm max-w-[200px]">{error}</p>
             </div>
           </div>
         )}
 
         {(status === 'detecting' || status === 'ready') && !faceDetected && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center text-white bg-black/50 p-4">
-              <Camera className="h-8 w-8 mx-auto mb-2" />
-              <p>Position your face in the frame</p>
+          <div className="absolute inset-x-0 bottom-8 flex justify-center">
+            <div className="text-center text-white bg-black/60 backdrop-blur-sm px-4 py-2 rounded-full">
+              <p className="text-sm">Position your face in the oval</p>
             </div>
           </div>
         )}
 
         {status === 'processing' && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/70">
-            <div className="text-center text-white space-y-2">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-              <p>Processing verification...</p>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+            <div className="text-center text-white space-y-3">
+              <Loader2 className="h-10 w-10 animate-spin mx-auto" />
+              <p className="text-sm">Verifying...</p>
             </div>
           </div>
         )}
 
         {status === 'complete' && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/70">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+            <div className="text-center text-white space-y-3">
+              <div className="h-16 w-16 rounded-full bg-emerald-500 flex items-center justify-center mx-auto">
+                <Check className="h-10 w-10" />
+              </div>
+              <p className="font-semibold text-lg">Verified!</p>
+            </div>
+          </div>
+        )}
+
+        {/* Challenge instruction overlay - inside camera */}
+        {status === 'challenges' && currentChallenge && (
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-12 pb-4 px-4">
             <div className="text-center text-white space-y-2">
-              <Check className="h-12 w-12 mx-auto text-green-500" />
-              <p className="font-semibold">Verification Complete!</p>
+              <div className="flex items-center justify-center gap-2">
+                {getChallengeIcon(currentChallenge.type, "h-6 w-6")}
+                <span className="text-lg font-semibold">{currentChallenge.label}</span>
+              </div>
+              <div className="text-xs text-white/70">
+                Step {currentChallengeIndex + 1} of {challenges.length}
+              </div>
             </div>
           </div>
         )}
       </div>
 
+      {/* Challenge progress indicators - BELOW camera */}
       {status === 'challenges' && (
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-center">
-            {challenges[currentChallengeIndex]?.label}
-          </p>
+        <div className="space-y-3">
+          {/* Progress bar for current challenge */}
+          <div className="space-y-1">
+            <Progress value={currentChallenge?.progress || 0} className="h-2" />
+          </div>
+
+          {/* Step indicators */}
           <div className="flex gap-2 justify-center">
             {challenges.map((challenge, i) => (
               <div
                 key={challenge.type}
-                className={`flex items-center gap-1 px-2 py-1 text-xs ${
+                className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 ${
                   challenge.completed
-                    ? 'bg-green-500/20 text-green-500'
+                    ? 'bg-emerald-500 text-white'
                     : i === currentChallengeIndex
-                    ? 'bg-primary/20 text-primary'
+                    ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background'
                     : 'bg-muted text-muted-foreground'
                 }`}
               >
                 {challenge.completed ? (
-                  <Check className="h-3 w-3" />
-                ) : i === currentChallengeIndex ? (
-                  <span>{Math.round(challenge.progress)}%</span>
-                ) : null}
-                <span>{challenge.label}</span>
+                  <Check className="h-5 w-5" />
+                ) : (
+                  getChallengeIcon(challenge.type, "h-5 w-5")
+                )}
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Title and description below camera */}
-      <div className="text-center space-y-1">
-        <h3 className="font-semibold text-lg">Face Check</h3>
-        <p className="text-sm text-muted-foreground">
-          Complete blink and head turn challenges to prove you're human. Earn 50 XP as a reward.
-        </p>
-      </div>
-
+      {/* Action buttons */}
       <div className="flex gap-3 justify-center flex-wrap">
         {status === 'error' && (
           <>
-            <Button size="default" onClick={handleRetry} data-testid="button-retry-face-verification">
-              <RefreshCw className="h-4 w-4" />
-              <span className="ml-2">Retry</span>
+            <Button onClick={handleRetry} data-testid="button-retry-face-verification">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Try Again
             </Button>
             {onReset && (
-              <Button size="default" variant="outline" onClick={onReset} data-testid="button-reset-face-verification">
-                <span>Reset Camera</span>
+              <Button variant="outline" onClick={onReset} data-testid="button-reset-face-verification">
+                Reset Camera
               </Button>
             )}
           </>
         )}
         
         {(status === 'ready' || status === 'detecting') && faceDetected && (
-          <Button size="default" onClick={startChallenges} data-testid="button-start-challenges">
-            <Camera className="h-4 w-4" />
-            <span className="ml-2">Start Verification</span>
+          <Button 
+            size="lg" 
+            onClick={startChallenges} 
+            data-testid="button-start-challenges"
+            className="px-8"
+          >
+            <Camera className="h-4 w-4 mr-2" />
+            Start Verification
           </Button>
         )}
       </div>
