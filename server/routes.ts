@@ -6900,7 +6900,7 @@ You are accessed through nanoPay, a crypto wallet app, but your purpose extends 
 
   // Cache for flagged wallets (updated every 5 minutes)
   let flaggedWalletsCache: {
-    data: Array<{ wallet: string; score: number; matchCount: number; signals: string[] }>;
+    data: Array<{ wallet: string; score: number; matchCount: number; signals: string[]; clusterSize: number; isExempt: boolean; exemptReason: string | null }>;
     generatedAt: Date;
   } | null = null;
   const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -6967,19 +6967,26 @@ You are accessed through nanoPay, a crypto wallet app, but your purpose extends 
         res.setHeader('X-RateLimit-Reset', Math.ceil(resetAt / 1000).toString());
         res.setHeader('Cache-Control', 'public, max-age=300'); // 5 minutes
         
-        console.log(`[Public API] Flagged wallets requested by ${clientIp} (cached), returning ${flaggedWalletsCache.data.length} wallets`);
+        // Filter to only non-exempt wallets for the public API
+        const actuallyFlagged = flaggedWalletsCache.data.filter(w => !w.isExempt);
+        console.log(`[Public API] Flagged wallets requested by ${clientIp} (cached), returning ${actuallyFlagged.length} wallets`);
         
         return res.json({
-          flagged: flaggedWalletsCache.data.map(w => ({
+          flagged: actuallyFlagged.map(w => ({
             address: w.wallet,
             score: w.score,
             signals: w.signals,
-            matchCount: w.matchCount
+            matchCount: w.matchCount,
+            clusterSize: w.clusterSize
           })),
-          total: flaggedWalletsCache.data.length,
+          total: actuallyFlagged.length,
           threshold: 4,
           generatedAt: flaggedWalletsCache.generatedAt.toISOString(),
-          cached: true
+          cached: true,
+          exemptionRules: {
+            gooddollarVerified: 'Wallets with GoodDollar face verification are exempt',
+            smallCluster: 'Wallets in clusters of 3 or fewer are exempt (allows for lost wallet recovery)'
+          }
         });
       }
 
@@ -6999,19 +7006,26 @@ You are accessed through nanoPay, a crypto wallet app, but your purpose extends 
       res.setHeader('X-RateLimit-Reset', Math.ceil(resetAtFresh / 1000).toString());
       res.setHeader('Cache-Control', 'public, max-age=300');
 
-      console.log(`[Public API] Flagged wallets requested by ${clientIp}, returning ${flagged.length} wallets`);
+      // Filter to only non-exempt wallets for the public API
+      const actuallyFlagged = flagged.filter(w => !w.isExempt);
+      console.log(`[Public API] Flagged wallets requested by ${clientIp}, returning ${actuallyFlagged.length} wallets (${flagged.length - actuallyFlagged.length} exempt)`);
 
       res.json({
-        flagged: flagged.map(w => ({
+        flagged: actuallyFlagged.map(w => ({
           address: w.wallet,
           score: w.score,
           signals: w.signals,
-          matchCount: w.matchCount
+          matchCount: w.matchCount,
+          clusterSize: w.clusterSize
         })),
-        total: flagged.length,
+        total: actuallyFlagged.length,
         threshold: 4,
         generatedAt: flaggedWalletsCache.generatedAt.toISOString(),
-        cached: false
+        cached: false,
+        exemptionRules: {
+          gooddollarVerified: 'Wallets with GoodDollar face verification are exempt',
+          smallCluster: 'Wallets in clusters of 3 or fewer are exempt (allows for lost wallet recovery)'
+        }
       });
     } catch (error) {
       console.error('[Public API] Error getting flagged wallets:', error);

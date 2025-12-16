@@ -148,6 +148,9 @@ interface FlaggedWallet {
   score: number;
   matchCount: number;
   signals: string[];
+  clusterSize: number;
+  isExempt: boolean;
+  exemptReason: string | null;
 }
 
 interface StorageTokenPattern {
@@ -2489,9 +2492,11 @@ function SybilDetectionPanel({ authHeader }: { authHeader: string | null }) {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Flagged Wallets</CardDescription>
-            <CardTitle className="text-2xl text-amber-600" data-testid="text-sybil-suspicious">
-              {flaggedWallets.length}
+            <CardDescription>Flagged / Exempt</CardDescription>
+            <CardTitle className="text-2xl" data-testid="text-sybil-suspicious">
+              <span className="text-amber-600">{flaggedWallets.filter(w => !w.isExempt).length}</span>
+              <span className="text-muted-foreground"> / </span>
+              <span className="text-green-600">{flaggedWallets.filter(w => w.isExempt).length}</span>
             </CardTitle>
           </CardHeader>
         </Card>
@@ -2541,28 +2546,61 @@ function SybilDetectionPanel({ authHeader }: { authHeader: string | null }) {
               Flagged Wallets by Score
             </CardTitle>
             <CardDescription>
-              Wallets with weighted fingerprint score ≥3 (click to view details)
+              Wallets with weighted fingerprint score ≥4. Exempt wallets shown separately.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {flaggedWallets.length > 0 ? (
-              <div className="space-y-2">
-                <div className="grid grid-cols-4 gap-2 px-2 py-1 border-b text-xs font-medium text-muted-foreground">
+              <div className="space-y-4">
+                {/* Exemption Legend */}
+                <div className="flex flex-wrap gap-3 text-xs">
+                  <div className="flex items-center gap-1">
+                    <span className="w-3 h-3 bg-amber-500"></span>
+                    <span>Flagged</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="w-3 h-3 bg-green-500"></span>
+                    <span>GoodDollar Verified</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="w-3 h-3 bg-blue-500"></span>
+                    <span>Small Cluster (≤3)</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-5 gap-2 px-2 py-1 border-b text-xs font-medium text-muted-foreground">
                   <div>Wallet</div>
                   <div>Score</div>
-                  <div>Matches</div>
+                  <div>Cluster</div>
+                  <div>Status</div>
                   <div>Signals</div>
                 </div>
                 {flaggedWallets.map((item) => (
                   <div
                     key={item.wallet}
-                    className="grid grid-cols-4 gap-2 p-2 bg-muted cursor-pointer hover-elevate"
+                    className={`grid grid-cols-5 gap-2 p-2 cursor-pointer hover-elevate ${
+                      item.isExempt 
+                        ? item.exemptReason === 'gooddollar_verified' 
+                          ? 'bg-green-500/10 border-l-2 border-green-500' 
+                          : 'bg-blue-500/10 border-l-2 border-blue-500'
+                        : 'bg-amber-500/10 border-l-2 border-amber-500'
+                    }`}
                     onClick={() => loadWalletFingerprint(item.wallet)}
                     data-testid={`row-flagged-wallet-${item.wallet.slice(0, 8)}`}
                   >
                     <div className="font-mono text-xs truncate">{item.wallet}</div>
-                    <div className="font-semibold text-amber-600">{item.score.toFixed(1)}</div>
-                    <div>{item.matchCount}</div>
+                    <div className={`font-semibold ${item.isExempt ? 'text-muted-foreground' : 'text-amber-600'}`}>
+                      {item.score.toFixed(1)}
+                    </div>
+                    <div className="text-xs">{item.clusterSize} wallet{item.clusterSize !== 1 ? 's' : ''}</div>
+                    <div className="text-xs">
+                      {item.isExempt ? (
+                        <span className={item.exemptReason === 'gooddollar_verified' ? 'text-green-600' : 'text-blue-600'}>
+                          {item.exemptReason === 'gooddollar_verified' ? 'Verified' : 'Small cluster'}
+                        </span>
+                      ) : (
+                        <span className="text-amber-600 font-semibold">FLAGGED</span>
+                      )}
+                    </div>
                     <div className="flex flex-wrap gap-1">
                       {item.signals.map((sig) => (
                         <span key={sig} className="px-1 py-0.5 bg-background text-xs">
@@ -2831,6 +2869,14 @@ function SybilDetectionPanel({ authHeader }: { authHeader: string | null }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
+          {/* Exemption Rules */}
+          <div className="p-3 bg-green-500/10 border border-green-500/30 space-y-2">
+            <div className="font-semibold text-green-700 dark:text-green-400">Automatic Exemptions (not flagged to MaxFlow):</div>
+            <ul className="space-y-1 text-xs">
+              <li><strong className="text-green-600">GoodDollar Verified:</strong> Wallets with face verification are trusted humans</li>
+              <li><strong className="text-blue-600">Small Cluster (≤3 wallets):</strong> Users often lose wallets or try multiple addresses</li>
+            </ul>
+          </div>
           <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <div className="font-semibold text-foreground">Investigation Steps:</div>
@@ -2844,15 +2890,15 @@ function SybilDetectionPanel({ authHeader }: { authHeader: string | null }) {
             <div className="space-y-2">
               <div className="font-semibold text-foreground">Possible Actions:</div>
               <ul className="space-y-1">
-                <li><strong>Low risk (score 3-4):</strong> Monitor but no action needed yet</li>
-                <li><strong>Medium risk (score 5-6):</strong> Contact vouchers to investigate</li>
-                <li><strong>High risk (score 7+):</strong> Consider excluding from pools/airdrops</li>
+                <li><strong>Score 4-5:</strong> Monitor but likely legitimate</li>
+                <li><strong>Score 5-6:</strong> Contact vouchers to investigate</li>
+                <li><strong>Score 7+:</strong> Consider excluding from pools/airdrops</li>
                 <li><strong>Confirmed sybil:</strong> Revoke claims, notify vouch network</li>
               </ul>
             </div>
           </div>
           <div className="p-2 bg-background text-xs">
-            <strong>Note:</strong> False positives can occur with families sharing devices, internet cafes, or VPN users. 
+            <strong>Note:</strong> Exempt wallets still appear in the list for visibility but are NOT sent to the public MaxFlow API. 
             Always investigate before taking action. The weighted scoring system is designed to minimize these cases.
           </div>
         </CardContent>

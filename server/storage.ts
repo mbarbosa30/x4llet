@@ -4808,9 +4808,14 @@ export class DbStorage extends MemStorage {
     score: number;
     matchCount: number;
     signals: string[];
+    clusterSize: number;
+    isExempt: boolean;
+    exemptReason: string | null;
   }>> {
     try {
       // Get all wallets and their highest matching scores
+      // With exemptions: GoodDollar verified wallets and small clusters (≤3 wallets) are not flagged
+      // Small cluster exemption only applies when wallet has a known storage_token
       const results = await db.execute(sql`
         WITH wallet_fingerprints AS (
           SELECT DISTINCT ON (wallet_address)
@@ -4819,6 +4824,21 @@ export class DbStorage extends MemStorage {
             hardware_concurrency, device_memory, timezone, language, platform
           FROM ip_events
           ORDER BY wallet_address, created_at DESC
+        ),
+        -- Calculate cluster sizes based on storage_token (primary device identifier)
+        device_clusters AS (
+          SELECT 
+            storage_token,
+            COUNT(DISTINCT wallet_address) as cluster_size
+          FROM wallet_fingerprints
+          WHERE storage_token IS NOT NULL
+          GROUP BY storage_token
+        ),
+        -- Get GoodDollar verified wallets
+        gooddollar_verified AS (
+          SELECT LOWER(wallet_address) as wallet_address
+          FROM gooddollar_identities
+          WHERE is_whitelisted = true AND is_expired = false
         ),
         scored_pairs AS (
           SELECT 
@@ -4846,19 +4866,45 @@ export class DbStorage extends MemStorage {
           FROM wallet_fingerprints w1
           CROSS JOIN wallet_fingerprints w2
           WHERE w1.wallet_address < w2.wallet_address
+        ),
+        flagged_raw AS (
+          SELECT 
+            wallet,
+            MAX(score) as max_score,
+            COUNT(*) as match_count,
+            ARRAY_AGG(DISTINCT signal) as all_signals
+          FROM (
+            SELECT wallet1 as wallet, score, UNNEST(matching_signals) as signal FROM scored_pairs WHERE score >= 4
+            UNION ALL
+            SELECT wallet2 as wallet, score, UNNEST(matching_signals) as signal FROM scored_pairs WHERE score >= 4
+          ) flagged
+          GROUP BY wallet
         )
         SELECT 
-          wallet,
-          MAX(score) as max_score,
-          COUNT(*) as match_count,
-          ARRAY_AGG(DISTINCT signal) as all_signals
-        FROM (
-          SELECT wallet1 as wallet, score, UNNEST(matching_signals) as signal FROM scored_pairs WHERE score >= 4
-          UNION ALL
-          SELECT wallet2 as wallet, score, UNNEST(matching_signals) as signal FROM scored_pairs WHERE score >= 4
-        ) flagged
-        GROUP BY wallet
-        ORDER BY max_score DESC, match_count DESC
+          f.wallet,
+          f.max_score,
+          f.match_count,
+          f.all_signals,
+          wf.storage_token,
+          COALESCE(dc.cluster_size, 1) as cluster_size,
+          CASE 
+            WHEN gd.wallet_address IS NOT NULL THEN true
+            WHEN wf.storage_token IS NOT NULL AND COALESCE(dc.cluster_size, 1) <= 3 THEN true
+            ELSE false 
+          END as is_exempt,
+          CASE 
+            WHEN gd.wallet_address IS NOT NULL THEN 'gooddollar_verified'
+            WHEN wf.storage_token IS NOT NULL AND COALESCE(dc.cluster_size, 1) <= 3 THEN 'small_cluster'
+            ELSE NULL 
+          END as exempt_reason
+        FROM flagged_raw f
+        JOIN wallet_fingerprints wf ON f.wallet = wf.wallet_address
+        LEFT JOIN device_clusters dc ON wf.storage_token = dc.storage_token
+        LEFT JOIN gooddollar_verified gd ON LOWER(f.wallet) = gd.wallet_address
+        ORDER BY 
+          is_exempt ASC,  -- Non-exempt (flagged) first
+          f.max_score DESC, 
+          f.match_count DESC
         LIMIT 200
       `);
 
@@ -4867,6 +4913,9 @@ export class DbStorage extends MemStorage {
         score: parseFloat(row.max_score),
         matchCount: parseInt(row.match_count),
         signals: row.all_signals || [],
+        clusterSize: parseInt(row.cluster_size),
+        isExempt: row.is_exempt,
+        exemptReason: row.exempt_reason,
       }));
     } catch (error) {
       console.error('[Sybil] Error getting flagged wallets with scores:', error);
