@@ -490,3 +490,25 @@ export const insertIpEventSchema = createInsertSchema(ipEvents).omit({
   createdAt: true,
 });
 export type InsertIpEvent = z.infer<typeof insertIpEventSchema>;
+
+// Face Verification table for liveness check and sybil detection
+export const faceVerifications = pgTable("face_verifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: text("wallet_address").notNull(),
+  embeddingHash: text("embedding_hash").notNull(), // SHA-256 hash of face embedding for privacy
+  storageToken: text("storage_token"), // Device fingerprint token
+  challengesPassed: text("challenges_passed").notNull(), // JSON array of passed challenges
+  status: text("status").notNull().default('verified'), // 'verified', 'duplicate', 'failed'
+  duplicateOf: text("duplicate_of"), // If this face matches another wallet, store it here
+  ipHash: text("ip_hash"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at"), // Optional expiration for re-verification
+});
+
+export type FaceVerification = typeof faceVerifications.$inferSelect;
+
+export const insertFaceVerificationSchema = createInsertSchema(faceVerifications).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertFaceVerification = z.infer<typeof insertFaceVerificationSchema>;
