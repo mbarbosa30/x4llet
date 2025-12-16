@@ -939,7 +939,7 @@ export default function MaxFlow() {
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
               </Card>
-            ) : faceVerificationData?.isDuplicate ? (
+            ) : (faceVerificationData?.isDuplicate && !isGdVerified) ? (
               <Card className="p-4 border-amber-500">
                 <div className="text-center space-y-3 py-4">
                   <div className="h-16 w-16 rounded-full bg-amber-100 dark:bg-amber-950/50 flex items-center justify-center mx-auto">
