@@ -420,7 +420,7 @@ export interface IStorage {
   // Face Verification methods
   getFaceVerification(walletAddress: string): Promise<FaceVerification | null>;
   findDuplicateFace(embeddingHash: string, excludeWallet?: string): Promise<FaceVerification | null>;
-  findSimilarFace(embedding: number[], excludeWallet?: string, threshold?: number): Promise<{ match: FaceVerification; similarity: number } | null>;
+  findSimilarFace(embedding: number[], excludeWallet?: string, threshold?: number, requestStartTime?: Date): Promise<{ match: FaceVerification; similarity: number } | null>;
   createFaceVerification(data: {
     walletAddress: string;
     embeddingHash: string;
@@ -977,7 +977,7 @@ export class MemStorage implements IStorage {
     return null;
   }
 
-  async findSimilarFace(embedding: number[], excludeWallet?: string, threshold?: number): Promise<{ match: FaceVerification; similarity: number } | null> {
+  async findSimilarFace(embedding: number[], excludeWallet?: string, threshold?: number, requestStartTime?: Date): Promise<{ match: FaceVerification; similarity: number } | null> {
     return null;
   }
 
@@ -5109,17 +5109,25 @@ export class DbStorage extends MemStorage {
     return dotProduct;
   }
 
-  async findSimilarFace(embedding: number[], excludeWallet?: string, threshold: number = 0.75): Promise<{ match: FaceVerification; similarity: number } | null> {
+  async findSimilarFace(embedding: number[], excludeWallet?: string, threshold: number = 0.75, requestStartTime?: Date): Promise<{ match: FaceVerification; similarity: number } | null> {
     try {
       // Get all verified face verifications with embeddings
+      // Filter out records created after requestStartTime to prevent self-race conditions
+      const whereConditions = [
+        eq(faceVerifications.status, 'verified'),
+        sql`${faceVerifications.embedding} IS NOT NULL`
+      ];
+      
+      // Add time filter to prevent matching against records created during this request
+      if (requestStartTime) {
+        whereConditions.push(sql`${faceVerifications.createdAt} < ${requestStartTime}`);
+      }
+      
       const allVerifications = await db.select()
         .from(faceVerifications)
-        .where(and(
-          eq(faceVerifications.status, 'verified'),
-          sql`${faceVerifications.embedding} IS NOT NULL`
-        ));
+        .where(and(...whereConditions));
       
-      console.log(`[FaceVerification] Checking against ${allVerifications.length} verified faces (threshold: ${threshold})`);
+      console.log(`[FaceVerification] Checking against ${allVerifications.length} verified faces (threshold: ${threshold}, before: ${requestStartTime?.toISOString() || 'none'})`);
       
       let bestMatch: { match: FaceVerification; similarity: number } | null = null;
       const allScores: { wallet: string; similarity: number }[] = [];

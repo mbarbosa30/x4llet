@@ -2931,7 +2931,14 @@ function FaceVerificationManagement({ authHeader }: { authHeader: string | null 
   const [isDeletingAll, setIsDeletingAll] = useState(false);
 
   const deleteLegacyRecords = async () => {
-    if (!authHeader) return;
+    if (!authHeader) {
+      toast({
+        title: 'Not Authenticated',
+        description: 'Please log in as admin first',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsDeletingLegacy(true);
     try {
       const response = await fetch('/api/admin/face-verifications/without-embeddings', {
@@ -2943,6 +2950,12 @@ function FaceVerificationManagement({ authHeader }: { authHeader: string | null 
         toast({
           title: 'Legacy Records Deleted',
           description: `Removed ${data.deleted} face verification records without embeddings`,
+        });
+      } else if (response.status === 401) {
+        toast({
+          title: 'Session Expired',
+          description: 'Please log in again',
+          variant: 'destructive',
         });
       } else {
         throw new Error(data.error || 'Failed to delete');
@@ -2959,7 +2972,14 @@ function FaceVerificationManagement({ authHeader }: { authHeader: string | null 
   };
 
   const deleteAllRecords = async () => {
-    if (!authHeader) return;
+    if (!authHeader) {
+      toast({
+        title: 'Not Authenticated',
+        description: 'Please log in as admin first',
+        variant: 'destructive',
+      });
+      return;
+    }
     if (!window.confirm('Are you sure you want to delete ALL face verification records? This cannot be undone.')) {
       return;
     }
@@ -2974,6 +2994,12 @@ function FaceVerificationManagement({ authHeader }: { authHeader: string | null 
         toast({
           title: 'All Records Deleted',
           description: `Removed all ${data.deleted} face verification records`,
+        });
+      } else if (response.status === 401) {
+        toast({
+          title: 'Session Expired',
+          description: 'Please log in again',
+          variant: 'destructive',
         });
       } else {
         throw new Error(data.error || 'Failed to delete');
