@@ -46,6 +46,7 @@ export default function FaceVerification({ walletAddress, onComplete, onCancel }
   const [currentChallengeIndex, setCurrentChallengeIndex] = useState(0);
   const [faceDetected, setFaceDetected] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [videoAspect, setVideoAspect] = useState<number>(3/4); // Default portrait ratio
   
   const blinkCountRef = useRef(0);
   const lastBlinkStateRef = useRef(false);
@@ -104,8 +105,8 @@ export default function FaceVerification({ walletAddress, onComplete, onCancel }
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { 
           facingMode: 'user',
-          width: { ideal: 640 },
-          height: { ideal: 480 }
+          width: { ideal: 480 },
+          height: { ideal: 640 }
         }
       });
       
@@ -113,6 +114,20 @@ export default function FaceVerification({ walletAddress, onComplete, onCancel }
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        await new Promise<void>((resolve) => {
+          videoRef.current!.onloadedmetadata = () => {
+            // Set canvas dimensions to match actual video dimensions
+            if (canvasRef.current && videoRef.current) {
+              const vw = videoRef.current.videoWidth;
+              const vh = videoRef.current.videoHeight;
+              canvasRef.current.width = vw;
+              canvasRef.current.height = vh;
+              // Update container aspect ratio to match video
+              setVideoAspect(vw / vh);
+            }
+            resolve();
+          };
+        });
         await videoRef.current.play();
       }
     } catch (err) {
@@ -344,7 +359,10 @@ export default function FaceVerification({ walletAddress, onComplete, onCancel }
         <p className="text-sm text-muted-foreground">Complete the liveness check to verify you're human</p>
       </div>
 
-      <div className="relative aspect-[4/3] bg-black overflow-hidden">
+      <div 
+        className="relative bg-black rounded-md overflow-hidden mx-auto w-full max-w-[280px]"
+        style={{ aspectRatio: videoAspect }}
+      >
         <video
           ref={videoRef}
           className="absolute inset-0 w-full h-full object-cover"
@@ -354,8 +372,6 @@ export default function FaceVerification({ walletAddress, onComplete, onCancel }
         />
         <canvas
           ref={canvasRef}
-          width={640}
-          height={480}
           className="absolute inset-0 w-full h-full object-cover"
           style={{ transform: 'scaleX(-1)' }}
         />
@@ -435,32 +451,32 @@ export default function FaceVerification({ walletAddress, onComplete, onCancel }
         </div>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex gap-3 justify-center">
         <Button
           variant="outline"
+          size="default"
           onClick={() => {
             cleanup();
             onCancel();
           }}
-          className="flex-1"
           disabled={isSubmitting}
           data-testid="button-cancel-face-verification"
         >
-          <X className="h-4 w-4 mr-2" />
-          Cancel
+          <X className="h-4 w-4" />
+          <span className="ml-2">Cancel</span>
         </Button>
         
         {status === 'error' && (
-          <Button onClick={handleRetry} className="flex-1" data-testid="button-retry-face-verification">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Retry
+          <Button size="default" onClick={handleRetry} data-testid="button-retry-face-verification">
+            <RefreshCw className="h-4 w-4" />
+            <span className="ml-2">Retry</span>
           </Button>
         )}
         
         {(status === 'ready' || status === 'detecting') && faceDetected && (
-          <Button onClick={startChallenges} className="flex-1" data-testid="button-start-challenges">
-            <Camera className="h-4 w-4 mr-2" />
-            Start Verification
+          <Button size="default" onClick={startChallenges} data-testid="button-start-challenges">
+            <Camera className="h-4 w-4" />
+            <span className="ml-2">Start</span>
           </Button>
         )}
       </div>
