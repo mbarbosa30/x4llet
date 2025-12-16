@@ -1105,6 +1105,10 @@ export default function MaxFlow() {
                 </div>
               </div>
 
+              <p className="text-xs text-muted-foreground">
+                Experimental token on Celo. 1 XP = 1 SENADOR. Not financial advice.
+              </p>
+
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Input
