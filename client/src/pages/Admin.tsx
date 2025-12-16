@@ -2426,7 +2426,7 @@ function SybilDetectionPanel({ authHeader }: { authHeader: string | null }) {
         {showScoringGuide && (
           <div className="p-4 pt-0 space-y-4">
             <div className="p-3 bg-foreground text-background text-sm font-bold">
-              THRESHOLD: Wallets scoring ≥3 points are flagged as suspicious
+              THRESHOLD: Wallets scoring ≥4 points are flagged as suspicious
             </div>
             <div className="grid md:grid-cols-3 gap-4 text-sm">
               <div className="bg-foreground text-background p-3">
@@ -2454,8 +2454,8 @@ function SybilDetectionPanel({ authHeader }: { authHeader: string | null }) {
               </div>
             </div>
             <div className="p-3 bg-muted text-xs">
-              <strong>Why ≥3?</strong> Requires strong signal + weak signals, or multiple medium signals. 
-              Reduces false positives from shared networks (cafes, offices).
+              <strong>Why ≥4?</strong> Requires 2 strong signals, or 1 strong + 2 medium signals. 
+              Reduces false positives from users on shared networks with common devices.
             </div>
           </div>
         )}
@@ -2760,10 +2760,10 @@ function SybilDetectionPanel({ authHeader }: { authHeader: string | null }) {
                   </div>
                 </div>
 
-                {walletFingerprint.totalScore >= 3 && (
+                {walletFingerprint.totalScore >= 4 && (
                   <div className="p-3 bg-amber-100 dark:bg-amber-900/30 border border-amber-500">
                     <div className="text-sm font-semibold text-amber-700 dark:text-amber-400 mb-2">
-                      Suspicious Score: {walletFingerprint.totalScore.toFixed(1)} (threshold: 3)
+                      Suspicious Score: {walletFingerprint.totalScore.toFixed(1)} (threshold: 4)
                     </div>
                     <div className="text-xs text-muted-foreground mb-2">
                       Matching {walletFingerprint.matchingWallets.length} other wallet(s):

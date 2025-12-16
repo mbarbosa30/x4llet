@@ -4533,7 +4533,7 @@ export class DbStorage extends MemStorage {
         )
         SELECT wallet_address, score
         FROM scored
-        WHERE score >= 3.0
+        WHERE score >= 4.0
         ORDER BY score DESC
         LIMIT 10
       `);
@@ -4741,7 +4741,7 @@ export class DbStorage extends MemStorage {
         ];
         
         const walletTotal = scores.reduce((sum, s) => sum + s.points, 0);
-        if (walletTotal >= 3) {
+        if (walletTotal >= 4) {
           matchingWallets.add(wallet);
           for (const s of scores) {
             if (s.points > 0) {
@@ -4853,9 +4853,9 @@ export class DbStorage extends MemStorage {
           COUNT(*) as match_count,
           ARRAY_AGG(DISTINCT signal) as all_signals
         FROM (
-          SELECT wallet1 as wallet, score, UNNEST(matching_signals) as signal FROM scored_pairs WHERE score >= 3
+          SELECT wallet1 as wallet, score, UNNEST(matching_signals) as signal FROM scored_pairs WHERE score >= 4
           UNION ALL
-          SELECT wallet2 as wallet, score, UNNEST(matching_signals) as signal FROM scored_pairs WHERE score >= 3
+          SELECT wallet2 as wallet, score, UNNEST(matching_signals) as signal FROM scored_pairs WHERE score >= 4
         ) flagged
         GROUP BY wallet
         ORDER BY max_score DESC, match_count DESC

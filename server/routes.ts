@@ -6977,7 +6977,7 @@ You are accessed through nanoPay, a crypto wallet app, but your purpose extends 
             matchCount: w.matchCount
           })),
           total: flaggedWalletsCache.data.length,
-          threshold: 3,
+          threshold: 4,
           generatedAt: flaggedWalletsCache.generatedAt.toISOString(),
           cached: true
         });
@@ -7009,7 +7009,7 @@ You are accessed through nanoPay, a crypto wallet app, but your purpose extends 
           matchCount: w.matchCount
         })),
         total: flagged.length,
-        threshold: 3,
+        threshold: 4,
         generatedAt: flaggedWalletsCache.generatedAt.toISOString(),
         cached: false
       });
