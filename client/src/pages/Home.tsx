@@ -117,19 +117,14 @@ export default function Home() {
   // Fetch face verification status to hide option if already completed
   const { data: faceVerificationStatus } = useQuery<{ verified: boolean; verifiedAt?: string }>({
     queryKey: ['/api/face-verification', address],
+    queryFn: async () => {
+      const res = await fetch(`/api/face-verification/${address}`);
+      if (!res.ok) return { verified: false };
+      return res.json();
+    },
     enabled: !!address,
     staleTime: 5 * 60 * 1000,
   });
-
-  // Determine if user has any funds (USDC or Aave savings)
-  const hasFunds = parseFloat(balance || '0') > 0 || (aaveBalance?.totalUsd ?? 0) > 0;
-  const hasTransactions = transactions.length > 0;
-  
-  // Show onboarding if: data is loaded AND user has no funds AND no transactions
-  // Show wallet view if: data is loaded AND (user has funds OR has transactions)
-  // Show loading if: still fetching data
-  const isDataReady = !isLoadingWallet && !isLoading;
-  const showOnboarding = isDataReady && !hasFunds && !hasTransactions;
 
   // Derive MaxFlow tile CTA
   const mfScore = maxflowScore?.local_health ?? 0;
@@ -168,6 +163,16 @@ export default function Home() {
     : balance;
 
   const transactions = allTransactions || [];
+
+  // Determine if user has any funds (USDC or Aave savings)
+  const hasFunds = parseFloat(balance || '0') > 0 || parseFloat(aaveBalance?.totalAUsdcBalance ?? '0') > 0;
+  const hasTransactions = transactions.length > 0;
+  
+  // Show onboarding if: data is loaded AND user has no funds AND no transactions
+  // Show wallet view if: data is loaded AND (user has funds OR has transactions)
+  // Show loading if: still fetching data
+  const isDataReady = !isLoadingWallet && !isLoading;
+  const showOnboarding = isDataReady && !hasFunds && !hasTransactions;
   
   const getExplorerUrl = (txHash: string, txChainId?: number) => {
     // Use transaction's chainId to determine explorer
@@ -302,8 +307,13 @@ export default function Home() {
           </div>
         )}
 
-        {/* Empty state: no balance and no transactions */}
-        {!isLoadingWallet && !isLoading && parseFloat(balance || '0') === 0 && transactions.length === 0 ? (
+        {/* Loading state - show spinner until we know what to display */}
+        {!isDataReady ? (
+          <div className="flex flex-col items-center justify-center py-16 space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Loading your wallet...</p>
+          </div>
+        ) : showOnboarding ? (
           <>
             {/* QR Code focused empty state */}
             <div className="border border-foreground/10 p-6 text-center space-y-4">
@@ -360,19 +370,21 @@ export default function Home() {
                   <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                 </button>
 
-                {/* Option 2: Face Check */}
-                <button
-                  onClick={() => setLocation('/maxflow?tab=trust')}
-                  className="flex items-start gap-3 p-3 w-full text-left bg-muted/30 border border-foreground/10 hover-elevate"
-                  data-testid="button-earn-facecheck"
-                >
-                  <Camera className="h-5 w-5 text-violet-500 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium">Complete Face Check</div>
-                    <div className="text-xs text-muted-foreground">Prove you're human → earn 50 XP instantly</div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                </button>
+                {/* Option 2: Face Check - only show if not already verified */}
+                {!faceVerificationStatus?.verified && (
+                  <button
+                    onClick={() => setLocation('/maxflow?tab=trust')}
+                    className="flex items-start gap-3 p-3 w-full text-left bg-muted/30 border border-foreground/10 hover-elevate"
+                    data-testid="button-earn-facecheck"
+                  >
+                    <Camera className="h-5 w-5 text-violet-500 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium">Complete Face Check</div>
+                      <div className="text-xs text-muted-foreground">Prove you're human → earn 50 XP instantly</div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  </button>
+                )}
 
                 {/* Option 3: GoodDollar */}
                 <button
