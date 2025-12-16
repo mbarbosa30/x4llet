@@ -468,8 +468,14 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   };
 
   // Start button handler - only request camera when user explicitly clicks
+  // Use setTimeout to let the loading UI render before starting heavy work
   const handleStartVerification = () => {
-    loadModels();
+    setStatus('loading');
+    setLoadingMessage('Initializing...');
+    // Small delay to let React render the loading screen before blocking with model loads
+    setTimeout(() => {
+      loadModels();
+    }, 50);
   };
 
   useEffect(() => {
