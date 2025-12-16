@@ -245,9 +245,9 @@ export default function Home() {
             <div className="flex items-start gap-2 pr-4">
               <Eye className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
               <div className="text-xs text-amber-800 dark:text-amber-200 space-y-1">
-                <p className="font-medium">Activity is monitored for sybil detection.</p>
+                <p className="font-medium">This wallet was flagged for suspicious sybil activity.</p>
                 <p className="text-amber-700/80 dark:text-amber-300/80">
-                  Suspicious accounts may have funds and rewards locked.{' '}
+                  Your funds and rewards may be locked.{' '}
                   <button 
                     onClick={() => setLocation('/claim')}
                     className="underline font-medium hover:text-amber-900 dark:hover:text-amber-100"
