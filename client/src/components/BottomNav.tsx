@@ -1,5 +1,5 @@
 import { useLocation } from 'wouter';
-import { Wallet, TrendingUp, Bot, Gift } from 'lucide-react';
+import { Wallet, TrendingUp, Bot, HandCoins } from 'lucide-react';
 
 export default function BottomNav() {
   const [location, setLocation] = useLocation();
@@ -18,6 +18,18 @@ export default function BottomNav() {
     >
       <div className="max-w-md mx-auto h-16 flex items-center">
         <button
+          onClick={() => setLocation('/maxflow')}
+          className={`relative flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-[10px] font-mono font-semibold uppercase tracking-widest transition-colors ${
+            isActive('/maxflow') ? 'text-[#0055FF]' : 'text-foreground/60'
+          }`}
+          data-testid="nav-claim"
+        >
+          <HandCoins className="h-5 w-5" strokeWidth={2} />
+          <span>CLAIM</span>
+          {isActive('/maxflow') && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#0055FF]" />}
+        </button>
+
+        <button
           onClick={() => setLocation('/home')}
           className={`relative flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-[10px] font-mono font-semibold uppercase tracking-widest transition-colors ${
             isActive('/home') ? 'text-[#0055FF]' : 'text-foreground/60'
@@ -27,18 +39,6 @@ export default function BottomNav() {
           <Wallet className="h-5 w-5" strokeWidth={2} />
           <span>WALLET</span>
           {isActive('/home') && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#0055FF]" />}
-        </button>
-
-        <button
-          onClick={() => setLocation('/maxflow')}
-          className={`relative flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-[10px] font-mono font-semibold uppercase tracking-widest transition-colors ${
-            isActive('/maxflow') ? 'text-[#0055FF]' : 'text-foreground/60'
-          }`}
-          data-testid="nav-claim"
-        >
-          <Gift className="h-5 w-5" strokeWidth={2} />
-          <span>CLAIM</span>
-          {isActive('/maxflow') && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#0055FF]" />}
         </button>
 
         <button
