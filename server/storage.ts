@@ -5076,22 +5076,36 @@ export class DbStorage extends MemStorage {
     }
   }
 
-  // Cosine similarity for face embedding comparison
-  private cosineSimilarity(a: number[], b: number[]): number {
-    if (a.length !== b.length) return 0;
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-    for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
+  // Normalize embedding to unit length for better cosine similarity
+  private normalizeEmbedding(embedding: number[]): number[] {
+    let norm = 0;
+    for (let i = 0; i < embedding.length; i++) {
+      norm += embedding[i] * embedding[i];
     }
-    if (normA === 0 || normB === 0) return 0;
-    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+    norm = Math.sqrt(norm);
+    if (norm === 0) return embedding;
+    return embedding.map(v => v / norm);
   }
 
-  async findSimilarFace(embedding: number[], excludeWallet?: string, threshold: number = 0.88): Promise<{ match: FaceVerification; similarity: number } | null> {
+  // Cosine similarity for face embedding comparison (expects normalized vectors)
+  private cosineSimilarity(a: number[], b: number[]): number {
+    if (a.length !== b.length) {
+      console.warn(`[FaceVerification] Embedding length mismatch: ${a.length} vs ${b.length}`);
+      return 0;
+    }
+    // Normalize both vectors first for consistent comparison
+    const normA = this.normalizeEmbedding(a);
+    const normB = this.normalizeEmbedding(b);
+    
+    let dotProduct = 0;
+    for (let i = 0; i < normA.length; i++) {
+      dotProduct += normA[i] * normB[i];
+    }
+    // For unit vectors, cosine similarity is just the dot product
+    return dotProduct;
+  }
+
+  async findSimilarFace(embedding: number[], excludeWallet?: string, threshold: number = 0.75): Promise<{ match: FaceVerification; similarity: number } | null> {
     try {
       // Get all verified face verifications with embeddings
       const allVerifications = await db.select()
@@ -5101,7 +5115,10 @@ export class DbStorage extends MemStorage {
           sql`${faceVerifications.embedding} IS NOT NULL`
         ));
       
+      console.log(`[FaceVerification] Checking against ${allVerifications.length} verified faces (threshold: ${threshold})`);
+      
       let bestMatch: { match: FaceVerification; similarity: number } | null = null;
+      const allScores: { wallet: string; similarity: number }[] = [];
       
       for (const verification of allVerifications) {
         // Skip the wallet we're checking
@@ -5113,13 +5130,18 @@ export class DbStorage extends MemStorage {
         let storedEmbedding: number[];
         try {
           storedEmbedding = JSON.parse(verification.embedding!);
-          if (!Array.isArray(storedEmbedding)) continue;
+          if (!Array.isArray(storedEmbedding)) {
+            console.warn(`[FaceVerification] Invalid embedding format for ${verification.walletAddress}`);
+            continue;
+          }
         } catch {
+          console.warn(`[FaceVerification] Failed to parse embedding for ${verification.walletAddress}`);
           continue;
         }
         
         // Calculate similarity
         const similarity = this.cosineSimilarity(embedding, storedEmbedding);
+        allScores.push({ wallet: verification.walletAddress.slice(0, 8), similarity });
         
         // Check if this is a match above threshold
         if (similarity >= threshold) {
@@ -5129,8 +5151,16 @@ export class DbStorage extends MemStorage {
         }
       }
       
+      // Log all similarity scores for debugging
+      if (allScores.length > 0) {
+        const sortedScores = allScores.sort((a, b) => b.similarity - a.similarity).slice(0, 5);
+        console.log(`[FaceVerification] Top similarity scores: ${sortedScores.map(s => `${s.wallet}:${(s.similarity * 100).toFixed(1)}%`).join(', ')}`);
+      }
+      
       if (bestMatch) {
-        console.log(`[FaceVerification] Found similar face with ${(bestMatch.similarity * 100).toFixed(1)}% similarity to ${bestMatch.match.walletAddress}`);
+        console.log(`[FaceVerification] DUPLICATE DETECTED with ${(bestMatch.similarity * 100).toFixed(1)}% similarity to ${bestMatch.match.walletAddress}`);
+      } else {
+        console.log(`[FaceVerification] No duplicates found above threshold ${threshold * 100}%`);
       }
       
       return bestMatch;
