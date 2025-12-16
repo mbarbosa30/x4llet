@@ -126,9 +126,17 @@ export default function Home() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // User is GoodDollar verified if they're whitelisted OR connected to a whitelisted root
+  const isGdVerified = gdIdentity?.isWhitelisted || 
+    (gdIdentity?.whitelistedRoot && gdIdentity.whitelistedRoot !== '0x0000000000000000000000000000000000000000');
+
   // Auto-redirect to Face Check if not verified (once per session per address)
+  // Skip if user is already GoodDollar verified (they don't need our Face Check)
   useEffect(() => {
     if (!address || isLoadingFaceVerification || !faceVerificationStatus) return;
+    
+    // Skip Face Check prompt if user is already GoodDollar verified
+    if (isGdVerified) return;
     
     // Check if already prompted this session for this address
     const promptKey = `faceCheckPrompted_${address}`;
@@ -140,7 +148,7 @@ export default function Home() {
       // Navigate to MaxFlow with face check auto-open
       setLocation('/maxflow?tab=trust&faceCheck=1');
     }
-  }, [address, faceVerificationStatus, isLoadingFaceVerification, setLocation]);
+  }, [address, faceVerificationStatus, isLoadingFaceVerification, setLocation, isGdVerified]);
 
   // Derive MaxFlow tile CTA
   const mfScore = maxflowScore?.local_health ?? 0;
@@ -386,8 +394,8 @@ export default function Home() {
                   <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                 </button>
 
-                {/* Option 2: Face Check - only show if not already verified */}
-                {!faceVerificationStatus?.verified && (
+                {/* Option 2: Face Check - only show if not already verified (or GD verified) */}
+                {!faceVerificationStatus?.verified && !isGdVerified && (
                   <button
                     onClick={() => setLocation('/maxflow?tab=trust')}
                     className="flex items-start gap-3 p-3 w-full text-left bg-muted/30 border border-foreground/10 hover-elevate"
@@ -396,7 +404,7 @@ export default function Home() {
                     <Camera className="h-5 w-5 text-violet-500 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium">Complete Face Check</div>
-                      <div className="text-xs text-muted-foreground">Prove you're human → earn 50 XP instantly</div>
+                      <div className="text-xs text-muted-foreground">Prove you're human → earn 120 XP instantly</div>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                   </button>

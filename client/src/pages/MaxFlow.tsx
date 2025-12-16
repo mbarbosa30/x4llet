@@ -20,7 +20,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { getPrivateKey } from '@/lib/wallet';
 import { getMaxFlowScore, getVouchNonce, submitVouch, type MaxFlowScore } from '@/lib/maxflow';
-import { getSenadorBalance, type SenadorBalance } from '@/lib/gooddollar';
+import { getSenadorBalance, getIdentityStatus, type SenadorBalance, type IdentityStatus } from '@/lib/gooddollar';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getAddress, type Address } from 'viem';
 import { useToast } from '@/hooks/use-toast';
@@ -100,6 +100,18 @@ export default function MaxFlow() {
     queryFn: () => fetch(`/api/face-verification/${address}`).then(res => res.json()),
     enabled: !!address,
   });
+
+  // GoodDollar identity status - used to auto-approve Face Check for verified users
+  const { data: gdIdentity, isLoading: isLoadingGdIdentity } = useQuery<IdentityStatus>({
+    queryKey: ['/api/gooddollar/identity', address],
+    queryFn: () => getIdentityStatus(address as Address),
+    enabled: !!address,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // User is GoodDollar verified if they're whitelisted OR connected to a whitelisted root
+  const isGdVerified = gdIdentity?.isWhitelisted || 
+    (gdIdentity?.whitelistedRoot && gdIdentity.whitelistedRoot !== '0x0000000000000000000000000000000000000000');
 
   // Uses placeholderData to show cached data immediately while refreshing in background
   // This prevents 10-12 second loading states when the slow MaxFlow API is called
@@ -406,11 +418,26 @@ export default function MaxFlow() {
 
           {/* TRUST TAB - Face Check + MaxFlow Signal + Vouch */}
           <TabsContent value="trust" className="space-y-4 mt-4">
-            {/* Face Verification Section - Always visible */}
+            {/* Face Verification Section - Auto-approved for GoodDollar verified users */}
             <Card className="p-4">
-              {isLoadingFaceVerification ? (
+              {(isLoadingFaceVerification || isLoadingGdIdentity) ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : isGdVerified ? (
+                <div className="text-center space-y-3 py-4">
+                  <div className="h-16 w-16 rounded-full bg-emerald-100 dark:bg-emerald-950/50 flex items-center justify-center mx-auto">
+                    <Check className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg">Face Check Complete</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Verified via GoodDollar
+                    </p>
+                  </div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md">
+                    <span className="text-emerald-700 dark:text-emerald-300 text-sm font-medium">GoodDollar Verified</span>
+                  </div>
                 </div>
               ) : faceVerificationData?.verified ? (
                 <div className="text-center space-y-3 py-4">
@@ -424,7 +451,7 @@ export default function MaxFlow() {
                     </p>
                   </div>
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md">
-                    <span className="text-emerald-700 dark:text-emerald-300 text-sm font-medium">+50 XP earned</span>
+                    <span className="text-emerald-700 dark:text-emerald-300 text-sm font-medium">+120 XP earned</span>
                   </div>
                   {faceVerificationData.isDuplicate && (
                     <p className="text-xs text-amber-600 dark:text-amber-400">
