@@ -185,10 +185,14 @@ export default function Claim() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Check eligibility: direct whitelist OR connected to a whitelisted root account
+  const isGdEligible = Boolean(gdIdentity?.isWhitelisted) || 
+    Boolean(gdIdentity?.whitelistedRoot && gdIdentity.whitelistedRoot !== '0x0000000000000000000000000000000000000000');
+
   const { data: gdClaimStatus, isLoading: isLoadingGdClaim, refetch: refetchGdClaim } = useQuery<ClaimStatus>({
     queryKey: ['/gooddollar/claim', address],
     queryFn: () => getClaimStatus(address! as `0x${string}`),
-    enabled: !!address && gdIdentity?.isWhitelisted,
+    enabled: !!address && isGdEligible,
     staleTime: 60 * 1000,
   });
 
@@ -1280,7 +1284,7 @@ export default function Claim() {
                     </p>
                   </div>
                 </div>
-              ) : gdIdentity?.isWhitelisted ? (
+              ) : isGdEligible ? (
                 <div className="space-y-6">
                   <div className="flex items-center gap-3">
                     <Gift className="h-10 w-10 text-[#03B2CB] shrink-0" />
@@ -1308,7 +1312,7 @@ export default function Claim() {
                     ))}
                   </div>
 
-                  {gdIdentity.daysUntilExpiry !== null && gdIdentity.daysUntilExpiry <= 30 && (
+                  {gdIdentity?.daysUntilExpiry !== null && gdIdentity?.daysUntilExpiry !== undefined && gdIdentity.daysUntilExpiry <= 30 && (
                     <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1">
                       <AlertCircle className="h-3 w-3" />
                       Verification expires in {gdIdentity.daysUntilExpiry} days
@@ -1471,7 +1475,7 @@ export default function Claim() {
               )}
             </Card>
 
-            {gdIdentity?.isWhitelisted && (
+            {isGdEligible && (
               <Card className="p-4 mt-4">
                 <div className="space-y-3">
                   <h3 className="text-xs font-semibold text-foreground/80">About GoodDollar</h3>

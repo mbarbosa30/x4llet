@@ -347,15 +347,28 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
       
       const result = await response.json();
       
+      // Check if this was an error response (duplicate face)
+      if (!response.ok) {
+        cleanup();
+        setStatus('error');
+        setError(result.error || 'Verification failed');
+        setIsSubmitting(false);
+        toast({
+          title: 'Verification Failed',
+          description: result.error || 'This face has already been verified with another wallet.',
+          variant: 'destructive',
+        });
+        // Notify parent that verification failed (duplicate)
+        onComplete(false, { isDuplicate: true, ...result });
+        return;
+      }
+      
       cleanup();
       setStatus('complete');
       
       toast({
-        title: result.isDuplicate ? 'Verification Complete (Duplicate Detected)' : 'Verification Complete!',
-        description: result.isDuplicate 
-          ? 'Your face matches another wallet. This has been recorded.'
-          : 'Face verification successful! +50 XP earned.',
-        variant: result.isDuplicate ? 'destructive' : 'default',
+        title: 'Verification Complete!',
+        description: 'Face verification successful! +120 XP earned.',
       });
       
       onComplete(true, result);
@@ -422,7 +435,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
         </p>
         <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-full">
           <Sparkles className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-          <span className="text-xs font-medium text-amber-700 dark:text-amber-300">+50 XP reward</span>
+          <span className="text-xs font-medium text-amber-700 dark:text-amber-300">+120 XP reward</span>
         </div>
       </div>
 

@@ -6410,41 +6410,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check for duplicate face (same face, different wallet)
       const duplicateFace = await storage.findDuplicateFace(embeddingHash, normalizedAddress);
-      const isDuplicate = !!duplicateFace;
       
       // Get IP hash for sybil tracking
       const ipHash = getClientIp(req);
       
-      // Create verification record
+      // If duplicate face detected, reject with error - no XP awarded
+      if (duplicateFace) {
+        // Still save the record for sybil tracking
+        await storage.createFaceVerification({
+          walletAddress: normalizedAddress,
+          embeddingHash,
+          storageToken: storageToken || undefined,
+          challengesPassed,
+          ipHash: ipHash ? await hashIp(ipHash) : undefined,
+          status: 'duplicate',
+          duplicateOf: duplicateFace.walletAddress,
+        });
+        
+        console.warn(`[FaceVerification] Duplicate face rejected: ${normalizedAddress} matches ${duplicateFace.walletAddress}`);
+        
+        return res.status(409).json({
+          error: 'This face has already been verified with another wallet',
+          isDuplicate: true,
+          duplicateOf: duplicateFace.walletAddress.slice(0, 6) + '...' + duplicateFace.walletAddress.slice(-4),
+        });
+      }
+      
+      // Create verification record for unique face
       const verification = await storage.createFaceVerification({
         walletAddress: normalizedAddress,
         embeddingHash,
         storageToken: storageToken || undefined,
         challengesPassed,
         ipHash: ipHash ? await hashIp(ipHash) : undefined,
-        status: isDuplicate ? 'duplicate' : 'verified',
-        duplicateOf: isDuplicate ? duplicateFace.walletAddress : undefined,
+        status: 'verified',
       });
       
-      // Award XP for successful verification (50 XP = 5000 centi-XP)
-      if (!isDuplicate) {
-        try {
-          await storage.claimXp(normalizedAddress, 5000, 0); // 50 XP bonus
-          console.log(`[FaceVerification] Awarded 50 XP to ${normalizedAddress}`);
-        } catch (xpError) {
-          console.error('[FaceVerification] Error awarding XP:', xpError);
-        }
-      } else {
-        console.warn(`[FaceVerification] Duplicate face detected: ${normalizedAddress} matches ${duplicateFace.walletAddress}`);
+      // Award XP for successful verification (120 XP = 12000 centi-XP)
+      try {
+        await storage.claimXp(normalizedAddress, 12000, 0); // 120 XP bonus
+        console.log(`[FaceVerification] Awarded 120 XP to ${normalizedAddress}`);
+      } catch (xpError) {
+        console.error('[FaceVerification] Error awarding XP:', xpError);
       }
       
       res.json({
         success: true,
         verified: true,
-        isDuplicate,
-        duplicateOf: isDuplicate ? duplicateFace.walletAddress : null,
+        isDuplicate: false,
         status: verification.status,
-        xpAwarded: isDuplicate ? 0 : 50,
+        xpAwarded: 120,
       });
     } catch (error) {
       console.error('[FaceVerification] Error submitting:', error);
