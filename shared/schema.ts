@@ -464,14 +464,22 @@ export interface AiMessage {
   timestamp: string;
 }
 
-// Sybil Detection - IP Events Table
+// Sybil Detection - IP Events Table with Browser Fingerprinting
 export const ipEvents = pgTable("ip_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   walletAddress: text("wallet_address").notNull(),
-  ipHash: text("ip_hash").notNull(), // SHA-256 hash of IP + daily salt
+  ipHash: text("ip_hash").notNull(), // SHA-256 hash of IP + stable salt
   networkPrefix: text("network_prefix"), // /24 network for geo patterns (e.g., "192.168.1")
   eventType: text("event_type").notNull(), // 'first_seen', 'xp_claim', 'usdc_redemption', 'airdrop'
-  userAgent: text("user_agent"), // Browser/device fingerprint
+  // Browser fingerprint signals
+  userAgent: text("user_agent"), // Full browser User-Agent string
+  screenResolution: text("screen_resolution"), // e.g., "1920x1080@2" (width x height @ pixel ratio)
+  timezone: text("timezone"), // e.g., "America/New_York"
+  language: text("language"), // e.g., "en-US"
+  platform: text("platform"), // e.g., "MacIntel", "Win32", "Linux x86_64"
+  hardwareConcurrency: integer("hardware_concurrency"), // CPU core count
+  deviceMemory: integer("device_memory"), // RAM in GB (if available)
+  storageToken: text("storage_token"), // Persistent UUID stored in IndexedDB
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
