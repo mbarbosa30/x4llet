@@ -435,7 +435,7 @@ export default function Home() {
                 {/* Option 2: Face Check - only show if not already verified (or GD verified) */}
                 {!faceVerificationStatus?.verified && !isGdVerified && (
                   <button
-                    onClick={() => setLocation('/maxflow?tab=trust')}
+                    onClick={() => setLocation('/maxflow?tab=maxflow')}
                     className="flex items-start gap-3 p-3 w-full text-left bg-muted/30 border border-foreground/10 hover-elevate"
                     data-testid="button-earn-facecheck"
                   >
@@ -450,7 +450,7 @@ export default function Home() {
 
                 {/* Option 3: GoodDollar */}
                 <button
-                  onClick={() => setLocation('/claim')}
+                  onClick={() => setLocation('/maxflow?tab=gooddollar')}
                   className="flex items-start gap-3 p-3 w-full text-left bg-muted/30 border border-foreground/10 hover-elevate"
                   data-testid="button-earn-gooddollar"
                 >
@@ -616,7 +616,7 @@ export default function Home() {
                   </div>
                 </button>
                 <button 
-                  onClick={() => setLocation('/claim')}
+                  onClick={() => setLocation('/maxflow?tab=gooddollar')}
                   className="flex items-center gap-3 px-4 py-3 hover-elevate"
                   data-testid="button-trust-gooddollar"
                 >

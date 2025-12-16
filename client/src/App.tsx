@@ -15,7 +15,6 @@ import Send from "@/pages/Send";
 import Receive from "@/pages/Receive";
 import Pay from "@/pages/Pay";
 import Settings from "@/pages/Settings";
-import Claim from "@/pages/Claim";
 import MaxFlow from "@/pages/MaxFlow";
 import NotFound from "@/pages/not-found";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -213,11 +212,6 @@ function Router() {
           <Settings />
         </ProtectedRoute>
       </Route>
-      <Route path="/claim">
-        <ProtectedRoute>
-          <Claim />
-        </ProtectedRoute>
-      </Route>
       <Route path="/maxflow">
         <ProtectedRoute>
           <MaxFlow />
@@ -357,7 +351,7 @@ function App() {
   }
 
   // Only show header and bottom nav on protected routes
-  const protectedRoutes = ['/home', '/send', '/receive', '/settings', '/claim', '/maxflow', '/earn', '/pool', '/ai'];
+  const protectedRoutes = ['/home', '/send', '/receive', '/settings', '/maxflow', '/earn', '/pool', '/ai'];
   const showLayout = protectedRoutes.includes(location);
 
   return (

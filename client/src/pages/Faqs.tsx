@@ -678,6 +678,14 @@ export default function Faqs() {
                       Community social money on Gnosis. Register your avatar, claim 1 CRC per hour (up to 24/day), and trust friends to let CRC flow between you. 
                       ~7% yearly demurrage keeps it circulating.
                     </p>
+                    <a 
+                      href="https://circles.garden" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 mt-2 text-sm text-primary hover:underline"
+                    >
+                      Visit circles.garden
+                    </a>
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
