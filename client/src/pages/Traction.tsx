@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Users, DollarSign, Network, Sparkles, PiggyBank, Gift, Trophy, Search, ArrowUpDown, RefreshCw, Copy, ScanFace } from 'lucide-react';
+import { Loader2, Users, DollarSign, Network, Sparkles, PiggyBank, Gift, Trophy, Search, ArrowUpDown, RefreshCw, Copy, ScanFace, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 
@@ -30,6 +30,7 @@ interface TractionUser {
   xpClaimCount: number;
   isFaceChecked: boolean;
   faceCheckedAt: string | null;
+  faceCheckStatus: 'verified' | 'duplicate' | 'failed' | null;
 }
 
 interface TractionResponse {
@@ -410,8 +411,12 @@ export default function Traction() {
                         {user.xpBalance > 0 ? (user.xpBalance / 100).toFixed(2) : '-'}
                       </td>
                       <td className="p-3 text-xs">
-                        {user.isFaceChecked ? (
-                          <span className="text-violet-600">✓</span>
+                        {user.faceCheckStatus === 'verified' ? (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        ) : user.faceCheckStatus === 'duplicate' ? (
+                          <XCircle className="h-4 w-4 text-red-600" />
+                        ) : user.faceCheckStatus === 'failed' ? (
+                          <AlertTriangle className="h-4 w-4 text-amber-600" />
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}

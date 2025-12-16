@@ -2113,6 +2113,7 @@ export class DbStorage extends MemStorage {
     gdBalanceFormatted: string;
     isFaceChecked: boolean;
     faceCheckedAt: string | null;
+    faceCheckStatus: 'verified' | 'duplicate' | 'failed' | null;
   }>> {
     try {
       const allWallets = await db.select().from(wallets).orderBy(desc(wallets.lastSeen));
@@ -2215,16 +2216,18 @@ export class DbStorage extends MemStorage {
         const gdBalance = gdBalanceData[0]?.balance || '0';
         const gdBalanceFormatted = gdBalanceData[0]?.balanceFormatted || '0.00';
         
-        // Check Face Verification status
+        // Check Face Verification status - get latest verification for this wallet
         const faceVerificationData = await db
           .select()
           .from(faceVerifications)
-          .where(sql`LOWER(${faceVerifications.walletAddress}) = ${normalizedAddress} AND ${faceVerifications.status} = 'verified'`)
+          .where(sql`LOWER(${faceVerifications.walletAddress}) = ${normalizedAddress}`)
           .orderBy(desc(faceVerifications.createdAt))
           .limit(1);
         
-        const isFaceChecked = faceVerificationData.length > 0;
-        const faceCheckedAt = faceVerificationData[0]?.createdAt ? faceVerificationData[0].createdAt.toISOString() : null;
+        const faceVerification = faceVerificationData[0];
+        const isFaceChecked = faceVerification?.status === 'verified';
+        const faceCheckedAt = faceVerification?.createdAt ? faceVerification.createdAt.toISOString() : null;
+        const faceCheckStatus = faceVerification?.status as 'verified' | 'duplicate' | 'failed' | null ?? null;
         
         return {
           address: wallet.address,
@@ -2245,6 +2248,7 @@ export class DbStorage extends MemStorage {
           gdBalanceFormatted,
           isFaceChecked,
           faceCheckedAt,
+          faceCheckStatus,
         };
       }));
       
@@ -5201,6 +5205,31 @@ export class DbStorage extends MemStorage {
         duplicatesDetected: 0,
         recentVerifications: [],
       };
+    }
+  }
+
+  async deleteFaceVerificationsWithoutEmbeddings(): Promise<{ deleted: number }> {
+    try {
+      const result = await db.delete(faceVerifications)
+        .where(sql`${faceVerifications.embedding} IS NULL`)
+        .returning();
+      
+      console.log(`[FaceVerification] Deleted ${result.length} records without embeddings`);
+      return { deleted: result.length };
+    } catch (error) {
+      console.error('[FaceVerification] Error deleting verifications without embeddings:', error);
+      throw error;
+    }
+  }
+
+  async deleteAllFaceVerifications(): Promise<{ deleted: number }> {
+    try {
+      const result = await db.delete(faceVerifications).returning();
+      console.log(`[FaceVerification] Deleted all ${result.length} face verification records`);
+      return { deleted: result.length };
+    } catch (error) {
+      console.error('[FaceVerification] Error deleting all verifications:', error);
+      throw error;
     }
   }
 }

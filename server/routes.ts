@@ -6672,6 +6672,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== DELETE FACE VERIFICATIONS WITHOUT EMBEDDINGS (ADMIN) =====
+  app.delete('/api/admin/face-verifications/without-embeddings', adminAuthMiddleware, async (_req, res) => {
+    try {
+      const result = await storage.deleteFaceVerificationsWithoutEmbeddings();
+      res.json({ 
+        success: true, 
+        deleted: result.deleted,
+        message: `Deleted ${result.deleted} face verification records without embeddings`
+      });
+    } catch (error) {
+      console.error('[Admin] Error deleting face verifications without embeddings:', error);
+      res.status(500).json({ error: 'Failed to delete face verifications' });
+    }
+  });
+
+  // ===== DELETE ALL FACE VERIFICATIONS (ADMIN) =====
+  app.delete('/api/admin/face-verifications/all', adminAuthMiddleware, async (_req, res) => {
+    try {
+      const result = await storage.deleteAllFaceVerifications();
+      res.json({ 
+        success: true, 
+        deleted: result.deleted,
+        message: `Deleted all ${result.deleted} face verification records`
+      });
+    } catch (error) {
+      console.error('[Admin] Error deleting all face verifications:', error);
+      res.status(500).json({ error: 'Failed to delete face verifications' });
+    }
+  });
+
   // ===== TRACTION DASHBOARD ENDPOINT (PUBLIC) =====
   app.get('/api/traction/users', async (_req, res) => {
     try {

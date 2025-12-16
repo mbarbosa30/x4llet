@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock, Users, ArrowUpDown, ChevronDown, ChevronUp, Network, UserCheck, PiggyBank, Coins, Shield, Settings, BarChart3, Clock, DollarSign, Wallet, Gift, RefreshCw, HandHeart, Check, Info } from 'lucide-react';
+import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock, Users, ArrowUpDown, ChevronDown, ChevronUp, Network, UserCheck, PiggyBank, Coins, Shield, Settings, BarChart3, Clock, DollarSign, Wallet, Gift, RefreshCw, HandHeart, Check, Info, ScanFace } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { formatAmount } from '@/lib/formatAmount';
 
@@ -2504,6 +2504,9 @@ function SybilDetectionPanel({ authHeader }: { authHeader: string | null }) {
         </Card>
       </div>
 
+      {/* Face Verification Management */}
+      <FaceVerificationManagement authHeader={authHeader} />
+
       {/* View Toggle with Descriptions */}
       <div className="space-y-3">
         <div className="flex flex-wrap gap-2">
@@ -2919,5 +2922,118 @@ function SybilDetectionPanel({ authHeader }: { authHeader: string | null }) {
         Refresh Sybil Analytics
       </Button>
     </div>
+  );
+}
+
+function FaceVerificationManagement({ authHeader }: { authHeader: string | null }) {
+  const { toast } = useToast();
+  const [isDeletingLegacy, setIsDeletingLegacy] = useState(false);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
+
+  const deleteLegacyRecords = async () => {
+    if (!authHeader) return;
+    setIsDeletingLegacy(true);
+    try {
+      const response = await fetch('/api/admin/face-verifications/without-embeddings', {
+        method: 'DELETE',
+        headers: { 'Authorization': authHeader },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast({
+          title: 'Legacy Records Deleted',
+          description: `Removed ${data.deleted} face verification records without embeddings`,
+        });
+      } else {
+        throw new Error(data.error || 'Failed to delete');
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete legacy records',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeletingLegacy(false);
+    }
+  };
+
+  const deleteAllRecords = async () => {
+    if (!authHeader) return;
+    if (!window.confirm('Are you sure you want to delete ALL face verification records? This cannot be undone.')) {
+      return;
+    }
+    setIsDeletingAll(true);
+    try {
+      const response = await fetch('/api/admin/face-verifications/all', {
+        method: 'DELETE',
+        headers: { 'Authorization': authHeader },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast({
+          title: 'All Records Deleted',
+          description: `Removed all ${data.deleted} face verification records`,
+        });
+      } else {
+        throw new Error(data.error || 'Failed to delete');
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete all records',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeletingAll(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <ScanFace className="h-5 w-5" />
+          Face Verification Management
+        </CardTitle>
+        <CardDescription>
+          Clean up legacy face verification records that don't have embeddings for proper matching
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap gap-3">
+          <Button
+            variant="outline"
+            onClick={deleteLegacyRecords}
+            disabled={isDeletingLegacy || !authHeader}
+            data-testid="button-delete-legacy-face"
+          >
+            {isDeletingLegacy ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4 mr-2" />
+            )}
+            Delete Records Without Embeddings
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={deleteAllRecords}
+            disabled={isDeletingAll || !authHeader}
+            data-testid="button-delete-all-face"
+          >
+            {isDeletingAll ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4 mr-2" />
+            )}
+            Delete All Face Verifications
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Legacy records (created before the embedding system) can only match by exact hash. 
+          Deleting them allows users to re-verify with the improved fuzzy matching system.
+        </p>
+      </CardContent>
+    </Card>
   );
 }
