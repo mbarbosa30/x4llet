@@ -53,7 +53,11 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   const animationFrameRef = useRef<number | null>(null);
   const faceLandmarkerRef = useRef<any>(null);
   
+  console.log('[FaceVerification] Component rendering');
+  
   const [status, setStatus] = useState<'intro' | 'loading' | 'ready' | 'detecting' | 'challenges' | 'processing' | 'complete' | 'error'>('intro');
+  
+  console.log('[FaceVerification] Current status:', status);
   const [error, setError] = useState<string | null>(null);
   const [challenges, setChallenges] = useState<ChallengeState[]>(CHALLENGES.map(c => ({ ...c })));
   const [currentChallengeIndex, setCurrentChallengeIndex] = useState(0);
@@ -100,6 +104,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   }, [status]);
 
   const loadMediaPipe = useCallback(async () => {
+    console.log('[FaceVerification] loadMediaPipe called - about to request camera');
     try {
       setStatus('loading');
       setError(null);
@@ -411,6 +416,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
 
   // Start button handler - only request camera when user explicitly clicks
   const handleStartVerification = () => {
+    console.log('[FaceVerification] handleStartVerification clicked by user');
     loadMediaPipe();
   };
 
