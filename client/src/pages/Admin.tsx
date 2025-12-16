@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock, Users, ArrowUpDown, ChevronDown, ChevronUp, Network, UserCheck, PiggyBank, Coins, Shield, Settings, BarChart3, Clock, DollarSign, Wallet, Gift, RefreshCw, HandHeart, Check } from 'lucide-react';
+import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock, Users, ArrowUpDown, ChevronDown, ChevronUp, Network, UserCheck, PiggyBank, Coins, Shield, Settings, BarChart3, Clock, DollarSign, Wallet, Gift, RefreshCw, HandHeart, Check, Info } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { formatAmount } from '@/lib/formatAmount';
 
@@ -2376,8 +2376,91 @@ function SybilDetectionPanel({ authHeader }: { authHeader: string | null }) {
     'Plat': 'Same Platform (0.5pt)',
   };
 
+  const [showScoringGuide, setShowScoringGuide] = useState(false);
+
   return (
     <div className="space-y-6">
+      {/* Introduction Section */}
+      <Card className="bg-muted/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            What is Sybil Detection?
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>
+            <strong>Sybil attacks</strong> occur when one person creates multiple fake identities to abuse trust systems, 
+            claim rewards multiple times, or manipulate voting/reputation. In nanoPay, this undermines the integrity of 
+            MaxFlow vouching, GoodDollar claims, and pool participation.
+          </p>
+          <p>
+            This system uses <strong>browser fingerprinting</strong> to detect when multiple wallets are operated from 
+            the same device or network. Each wallet session collects signals like IP address, screen resolution, 
+            browser type, and a persistent device token stored in IndexedDB.
+          </p>
+          <p>
+            <strong>Social pressure mechanism:</strong> Flagged wallets are warned that suspicious activity affects not 
+            just them, but everyone who vouched for them. This creates accountability through the vouch network.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Scoring Guide */}
+      <div className="border-2 border-foreground bg-background">
+        <div 
+          className="p-4 cursor-pointer hover-elevate flex items-center justify-between" 
+          onClick={() => setShowScoringGuide(!showScoringGuide)}
+        >
+          <div>
+            <div className="font-bold flex items-center gap-2">
+              <Info className="h-5 w-5" />
+              How Scoring Works
+            </div>
+            <div className="text-sm text-muted-foreground">
+              Weighted scoring combines multiple signals to reduce false positives
+            </div>
+          </div>
+          <ChevronDown className={`h-4 w-4 transition-transform ${showScoringGuide ? 'rotate-180' : ''}`} />
+        </div>
+        {showScoringGuide && (
+          <div className="p-4 pt-0 space-y-4">
+            <div className="p-3 bg-foreground text-background text-sm font-bold">
+              THRESHOLD: Wallets scoring ≥3 points are flagged as suspicious
+            </div>
+            <div className="grid md:grid-cols-3 gap-4 text-sm">
+              <div className="bg-foreground text-background p-3">
+                <div className="font-bold mb-2 uppercase text-xs tracking-wide">Strong (2 pts)</div>
+                <ul className="space-y-1 text-background/80 text-xs">
+                  <li><strong>IP:</strong> Same network</li>
+                  <li><strong>Token:</strong> Browser storage ID</li>
+                  <li><strong>UA:</strong> Browser fingerprint</li>
+                </ul>
+              </div>
+              <div className="border-2 border-foreground p-3">
+                <div className="font-bold mb-2 uppercase text-xs tracking-wide">Medium (1 pt)</div>
+                <ul className="space-y-1 text-muted-foreground text-xs">
+                  <li><strong>Screen:</strong> Resolution + ratio</li>
+                  <li><strong>Hardware:</strong> CPU + RAM</li>
+                </ul>
+              </div>
+              <div className="border border-foreground/50 p-3">
+                <div className="font-bold mb-2 uppercase text-xs tracking-wide">Weak (0.5 pts)</div>
+                <ul className="space-y-1 text-muted-foreground text-xs">
+                  <li><strong>Timezone</strong></li>
+                  <li><strong>Language</strong></li>
+                  <li><strong>Platform</strong></li>
+                </ul>
+              </div>
+            </div>
+            <div className="p-3 bg-muted text-xs">
+              <strong>Why ≥3?</strong> Requires strong signal + weak signals, or multiple medium signals. 
+              Reduces false positives from shared networks (cafes, offices).
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Summary Cards */}
       <div className="grid md:grid-cols-4 gap-4">
         <Card>
@@ -2414,32 +2497,39 @@ function SybilDetectionPanel({ authHeader }: { authHeader: string | null }) {
         </Card>
       </div>
 
-      {/* View Toggle */}
-      <div className="flex gap-2">
-        <Button
-          variant={activeView === 'scored' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setActiveView('scored')}
-          data-testid="button-view-scored"
-        >
-          Weighted Scores
-        </Button>
-        <Button
-          variant={activeView === 'ip' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setActiveView('ip')}
-          data-testid="button-view-ip"
-        >
-          By IP
-        </Button>
-        <Button
-          variant={activeView === 'token' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setActiveView('token')}
-          data-testid="button-view-token"
-        >
-          By Device Token
-        </Button>
+      {/* View Toggle with Descriptions */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={activeView === 'scored' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('scored')}
+            data-testid="button-view-scored"
+          >
+            Weighted Scores
+          </Button>
+          <Button
+            variant={activeView === 'ip' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('ip')}
+            data-testid="button-view-ip"
+          >
+            By IP
+          </Button>
+          <Button
+            variant={activeView === 'token' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('token')}
+            data-testid="button-view-token"
+          >
+            By Device Token
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {activeView === 'scored' && 'Shows wallets ranked by total fingerprint similarity score. Higher scores indicate stronger evidence of sybil behavior.'}
+          {activeView === 'ip' && 'Groups wallets by shared IP address. Useful for finding clusters from the same network (could be VPN, office, or home).'}
+          {activeView === 'token' && 'Groups wallets by device token (persistent browser ID). This is the strongest signal - same token means same browser instance.'}
+        </p>
       </div>
 
       {/* Weighted Scores View */}
@@ -2731,6 +2821,42 @@ function SybilDetectionPanel({ authHeader }: { authHeader: string | null }) {
           </CardContent>
         </Card>
       )}
+
+      {/* Actionable Guidance */}
+      <Card className="bg-muted/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <CheckCircle2 className="h-5 w-5" />
+            What To Do With Flagged Wallets
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <div className="font-semibold text-foreground">Investigation Steps:</div>
+              <ol className="list-decimal list-inside space-y-1">
+                <li>Check their <strong>MaxFlow vouch network</strong> - who vouched for them?</li>
+                <li>Review <strong>GoodDollar claim history</strong> - multiple claims from same device?</li>
+                <li>Look at <strong>Pool participation</strong> - are they gaming referral bonuses?</li>
+                <li>Compare <strong>transaction patterns</strong> - do flagged wallets send to each other?</li>
+              </ol>
+            </div>
+            <div className="space-y-2">
+              <div className="font-semibold text-foreground">Possible Actions:</div>
+              <ul className="space-y-1">
+                <li><strong>Low risk (score 3-4):</strong> Monitor but no action needed yet</li>
+                <li><strong>Medium risk (score 5-6):</strong> Contact vouchers to investigate</li>
+                <li><strong>High risk (score 7+):</strong> Consider excluding from pools/airdrops</li>
+                <li><strong>Confirmed sybil:</strong> Revoke claims, notify vouch network</li>
+              </ul>
+            </div>
+          </div>
+          <div className="p-2 bg-background text-xs">
+            <strong>Note:</strong> False positives can occur with families sharing devices, internet cafes, or VPN users. 
+            Always investigate before taking action. The weighted scoring system is designed to minimize these cases.
+          </div>
+        </CardContent>
+      </Card>
 
       <Button onClick={loadSybilData} variant="outline" className="w-full" disabled={isLoading} data-testid="button-refresh-sybil">
         <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
