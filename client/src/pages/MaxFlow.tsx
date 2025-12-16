@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense, useCallback } from 'react';
+import { useState, useEffect, lazy, Suspense, useCallback, useRef } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Scan, Shield, Loader2, Sparkles, Clock, ChevronDown, Coins, Info, Camera, Check, Users, Gift, AlertTriangle } from 'lucide-react';
+import { Scan, Shield, Loader2, Sparkles, Clock, ChevronDown, Coins, Info, Camera, Check, Users, Gift, AlertTriangle, ExternalLink, AlertCircle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,10 +17,34 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { getPrivateKey } from '@/lib/wallet';
 import { getMaxFlowScore, getVouchNonce, submitVouch, type MaxFlowScore } from '@/lib/maxflow';
-import { getSenadorBalance, getIdentityStatus, type SenadorBalance, type IdentityStatus } from '@/lib/gooddollar';
+import { 
+  getSenadorBalance, 
+  getIdentityStatus, 
+  getClaimStatus,
+  getGoodDollarBalance,
+  getGoodDollarPrice,
+  generateFVLink,
+  parseFVCallback,
+  claimGoodDollarWithWallet,
+  exchangeGdForXp,
+  type SenadorBalance, 
+  type IdentityStatus,
+  type ClaimStatus,
+  type GoodDollarBalance,
+  type GoodDollarPrice,
+  type ClaimResult,
+} from '@/lib/gooddollar';
+import { createWalletClient, http } from 'viem';
+import { celo } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getAddress, type Address } from 'viem';
 import { useToast } from '@/hooks/use-toast';
@@ -28,11 +52,32 @@ import { useWallet } from '@/hooks/useWallet';
 import { useXp } from '@/hooks/useXp';
 import { formatTimeRemaining } from '@/lib/formatTime';
 import { useCountdown } from '@/hooks/useCountdown';
+import { apiRequest } from '@/lib/queryClient';
 
-// Lazy load QR scanner and FaceVerification to reduce initial bundle size
 const QRScanner = lazy(() => import('@/components/QRScanner'));
 const FaceVerification = lazy(() => import('@/components/FaceVerification'));
-import { apiRequest } from '@/lib/queryClient';
+
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelayMs: number = 1000
+): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (attempt < maxRetries - 1) {
+        const delay = baseDelayMs * Math.pow(2, attempt);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError || new Error('All retry attempts failed');
+}
 
 export default function MaxFlow() {
   const [currentPath, setLocation] = useLocation();
@@ -46,48 +91,58 @@ export default function MaxFlow() {
   const [showRedeemConfirm, setShowRedeemConfirm] = useState(false);
   const [showSenadorConfirm, setShowSenadorConfirm] = useState(false);
   const [senadorAmount, setSenadorAmount] = useState('');
-  const [activeTab, setActiveTab] = useState('trust');
+  const [activeTab, setActiveTab] = useState('maxflow');
   const [faceVerificationKey, setFaceVerificationKey] = useState(0);
   const [autoFaceCheck, setAutoFaceCheck] = useState(false);
+  
+  const [isVerifyingFace, setIsVerifyingFace] = useState(false);
+  const [showGdExchangeDialog, setShowGdExchangeDialog] = useState(false);
+  const [gdExchangeAmount, setGdExchangeAmount] = useState('10');
+  const [isRefreshingIdentity, setIsRefreshingIdentity] = useState(false);
+  const [pendingFvResult, setPendingFvResult] = useState<{ isVerified: boolean; reason?: string } | null>(null);
+  
+  const optimisticClaimDayRef = useRef<number | null>(null);
 
-  // Sync tab state with URL on mount and navigation
+  useEffect(() => {
+    const fvResult = parseFVCallback();
+    if (fvResult) {
+      setPendingFvResult(fvResult);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get('tab');
       const faceCheckParam = params.get('faceCheck');
       
-      // Handle auto face check param
       if (faceCheckParam === '1') {
         setAutoFaceCheck(true);
-        // Clear the URL param to avoid re-triggering on navigation
         const newUrl = tabParam ? `/maxflow?tab=${tabParam}` : '/maxflow';
         window.history.replaceState(null, '', newUrl);
       }
       
-      if (tabParam === 'trust' || tabParam === 'claim') {
+      if (tabParam === 'maxflow' || tabParam === 'gooddollar') {
         setActiveTab(tabParam);
         return;
       }
-      // Fall back to localStorage if no URL param
       const savedTab = localStorage.getItem('maxflow_tab');
-      if (savedTab === 'trust' || savedTab === 'claim') {
+      if (savedTab === 'maxflow' || savedTab === 'gooddollar') {
         setActiveTab(savedTab);
       }
     } catch {}
-  }, [currentPath]); // Re-run when wouter path changes
+  }, [currentPath]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     try {
       localStorage.setItem('maxflow_tab', tab);
     } catch {}
-    // Update URL to reflect tab state for shareable links (use replace to avoid history spam)
-    const newUrl = `/maxflow${tab !== 'trust' ? `?tab=${tab}` : ''}`;
+    const newUrl = `/maxflow${tab !== 'maxflow' ? `?tab=${tab}` : ''}`;
     window.history.replaceState(null, '', newUrl);
   };
 
-  // Face verification status query
   const { data: faceVerificationData, isLoading: isLoadingFaceVerification } = useQuery<{
     verified: boolean;
     status: string | null;
@@ -101,36 +156,322 @@ export default function MaxFlow() {
     enabled: !!address,
   });
 
-  // GoodDollar identity status - used to auto-approve Face Check for verified users
   const { data: gdIdentity, isLoading: isLoadingGdIdentity } = useQuery<IdentityStatus>({
     queryKey: ['/api/gooddollar/identity', address],
     queryFn: () => getIdentityStatus(address as Address),
     enabled: !!address,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
-  // User is GoodDollar verified if they're whitelisted OR connected to a whitelisted root
   const isGdVerified = gdIdentity?.isWhitelisted || 
     (gdIdentity?.whitelistedRoot && gdIdentity.whitelistedRoot !== '0x0000000000000000000000000000000000000000');
 
-  // Uses placeholderData to show cached data immediately while refreshing in background
-  // This prevents 10-12 second loading states when the slow MaxFlow API is called
+  const isGdEligible = Boolean(gdIdentity?.isWhitelisted) || 
+    Boolean(gdIdentity?.whitelistedRoot && gdIdentity.whitelistedRoot !== '0x0000000000000000000000000000000000000000');
+
+  const { data: gdClaimStatus, isLoading: isLoadingGdClaim, refetch: refetchGdClaim } = useQuery<ClaimStatus>({
+    queryKey: ['/gooddollar/claim', address],
+    queryFn: () => getClaimStatus(address! as `0x${string}`),
+    enabled: !!address && isGdEligible,
+    staleTime: 60 * 1000,
+  });
+
+  const { data: gdBalance, refetch: refetchGdBalance } = useQuery<GoodDollarBalance>({
+    queryKey: ['/gooddollar/balance', address],
+    queryFn: () => getGoodDollarBalance(address! as `0x${string}`),
+    enabled: !!address,
+    staleTime: 60 * 1000,
+  });
+
+  const { data: gdPrice } = useQuery<GoodDollarPrice>({
+    queryKey: ['/gooddollar/price'],
+    queryFn: () => getGoodDollarPrice(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (!pendingFvResult || !address) return;
+
+    const processFvResult = async () => {
+      if (pendingFvResult.isVerified) {
+        setIsRefreshingIdentity(true);
+        toast({
+          title: "Face Verified",
+          description: "Refreshing your identity status...",
+        });
+        
+        try {
+          await queryClient.invalidateQueries({ queryKey: ['/api/gooddollar/identity', address] });
+          await queryClient.invalidateQueries({ queryKey: ['/gooddollar/claim', address] });
+          await queryClient.refetchQueries({ queryKey: ['/api/gooddollar/identity', address] });
+          await queryClient.refetchQueries({ queryKey: ['/gooddollar/claim', address] });
+          
+          const freshIdentity = await getIdentityStatus(address as `0x${string}`);
+          if (freshIdentity) {
+            try {
+              await apiRequest('POST', '/api/gooddollar/sync-identity', {
+                walletAddress: address,
+                isWhitelisted: freshIdentity.isWhitelisted,
+                whitelistedRoot: freshIdentity.whitelistedRoot,
+                lastAuthenticated: freshIdentity.lastAuthenticated?.toISOString(),
+                authenticationPeriod: freshIdentity.authenticationPeriod,
+                expiresAt: freshIdentity.expiresAt?.toISOString(),
+                isExpired: freshIdentity.isExpired,
+                daysUntilExpiry: freshIdentity.daysUntilExpiry,
+              });
+            } catch (syncError) {
+              console.error('[GoodDollar] Failed to sync identity to backend:', syncError);
+            }
+          }
+          
+          toast({
+            title: "Ready to Claim",
+            description: "Your identity is verified. You can now claim G$ daily.",
+          });
+        } catch (error) {
+          console.error('Error refreshing identity status:', error);
+          toast({
+            title: "Verification Complete",
+            description: "Your identity is verified. Please refresh if claim status doesn't update.",
+          });
+        } finally {
+          setIsRefreshingIdentity(false);
+        }
+      } else {
+        toast({
+          title: "Verification Failed",
+          description: pendingFvResult.reason || "Face verification was not successful. Please try again.",
+          variant: "destructive",
+        });
+      }
+      setPendingFvResult(null);
+    };
+
+    processFvResult();
+  }, [pendingFvResult, address, queryClient, toast]);
+
+  const handleGdCountdownComplete = useCallback(() => {
+    refetchGdClaim();
+  }, [refetchGdClaim]);
+
+  const { formatted: gdCountdown } = useCountdown(
+    gdClaimStatus?.nextClaimTime,
+    { 
+      enabled: !gdClaimStatus?.canClaim && !!gdClaimStatus?.nextClaimTime,
+      onComplete: handleGdCountdownComplete
+    }
+  );
+
+  const handleFaceVerification = async () => {
+    if (!address) return;
+    
+    setIsVerifyingFace(true);
+    try {
+      const privateKey = await getPrivateKey();
+      if (!privateKey) {
+        throw new Error('Failed to get wallet key');
+      }
+      
+      const account = privateKeyToAccount(privateKey as `0x${string}`);
+      const walletClient = createWalletClient({
+        account,
+        chain: celo,
+        transport: http(),
+      });
+
+      const signMessage = async (message: string): Promise<string> => {
+        return walletClient.signMessage({ message });
+      };
+
+      const callbackUrl = `${window.location.origin}/maxflow?tab=gooddollar`;
+      const fvLink = await generateFVLink({
+        address: address as `0x${string}`,
+        signMessage,
+        callbackUrl,
+        popupMode: false,
+        chainId: 42220,
+      });
+
+      window.location.href = fvLink;
+    } catch (error) {
+      console.error('Face verification error:', error);
+      toast({
+        title: "Verification Error",
+        description: error instanceof Error ? error.message : "Failed to start face verification",
+        variant: "destructive",
+      });
+      setIsVerifyingFace(false);
+    }
+  };
+
+  const claimGdMutation = useMutation<ClaimResult, Error>({
+    mutationFn: async () => {
+      if (!address) throw new Error('No wallet found');
+      
+      const privateKey = await getPrivateKey();
+      if (!privateKey) throw new Error('No private key found');
+      
+      return claimGoodDollarWithWallet(address as `0x${string}`, privateKey as `0x${string}`);
+    },
+    onSuccess: async (result) => {
+      if (result.success) {
+        toast({ 
+          title: "G$ Claimed!", 
+          description: `Successfully claimed ${result.amountClaimed} G$` 
+        });
+        
+        const currentDay = gdClaimStatus?.currentDay ?? 0;
+        optimisticClaimDayRef.current = currentDay;
+        
+        queryClient.setQueryData(['/gooddollar/claim', address], (oldData: ClaimStatus | undefined) => {
+          if (!oldData) return oldData;
+          const now = new Date();
+          const nextClaimTime = new Date(now);
+          nextClaimTime.setUTCHours(12, 0, 0, 0);
+          if (nextClaimTime <= now) {
+            nextClaimTime.setDate(nextClaimTime.getDate() + 1);
+          }
+          return {
+            ...oldData,
+            canClaim: false,
+            entitlement: 0n,
+            entitlementFormatted: '0',
+            nextClaimTime,
+            lastClaimedDay: oldData.currentDay,
+            daysSinceLastClaim: 0,
+          };
+        });
+        
+        queryClient.invalidateQueries({ queryKey: ['/gooddollar/balance', address] });
+        
+        if (result.amountClaimed && gdClaimStatus?.currentDay) {
+          try {
+            await retryWithBackoff(
+              () => apiRequest('POST', '/api/gooddollar/record-claim', {
+                walletAddress: address,
+                txHash: result.txHash || null,
+                amount: result.amountClaimed,
+                amountFormatted: result.amountClaimed,
+                claimedDay: gdClaimStatus.currentDay,
+                gasDripTxHash: result.gasDripTxHash,
+              }),
+              3,
+              1000
+            );
+          } catch (recordError) {
+            console.error('[GoodDollar] Failed to record claim to backend after retries:', recordError);
+            toast({
+              title: "Claim recorded on blockchain",
+              description: "Your G$ claim succeeded but couldn't be saved to our records. An admin can sync it later.",
+              variant: "default",
+            });
+          }
+        }
+        
+        const pollForFreshData = async (attempt = 0) => {
+          if (attempt >= 3) {
+            optimisticClaimDayRef.current = null;
+            return;
+          }
+          const delay = 2000 * Math.pow(2, attempt);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          const result = await refetchGdClaim();
+          
+          const claimDay = optimisticClaimDayRef.current;
+          if (result.data && claimDay !== null) {
+            if (result.data.lastClaimedDay >= claimDay) {
+              optimisticClaimDayRef.current = null;
+            } else if (result.data.canClaim) {
+              queryClient.setQueryData(['/gooddollar/claim', address], (oldData: ClaimStatus | undefined) => {
+                if (!oldData) return oldData;
+                const now = new Date();
+                const nextClaimTime = new Date(now);
+                nextClaimTime.setUTCHours(12, 0, 0, 0);
+                if (nextClaimTime <= now) {
+                  nextClaimTime.setDate(nextClaimTime.getDate() + 1);
+                }
+                return {
+                  ...oldData,
+                  canClaim: false,
+                  entitlement: 0n,
+                  entitlementFormatted: '0',
+                  nextClaimTime,
+                  lastClaimedDay: claimDay,
+                  daysSinceLastClaim: 0,
+                };
+              });
+              pollForFreshData(attempt + 1);
+            }
+          }
+        };
+        pollForFreshData();
+      } else {
+        toast({
+          title: "Claim Failed",
+          description: result.error || "Failed to claim G$",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Claim Failed",
+        description: error.message || "Failed to claim G$",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const exchangeGdMutation = useMutation({
+    mutationFn: async (amount: string) => {
+      if (!address) throw new Error('No wallet found');
+      
+      const privateKey = await getPrivateKey();
+      if (!privateKey) throw new Error('No private key found');
+      
+      return exchangeGdForXp(address as `0x${string}`, privateKey as `0x${string}`, amount);
+    },
+    onSuccess: (result) => {
+      if (result.success) {
+        toast({
+          title: "Exchange Complete!",
+          description: `Exchanged ${result.gdExchanged} G$ for ${result.xpReceived} XP`,
+        });
+        setShowGdExchangeDialog(false);
+        setGdExchangeAmount('10');
+        queryClient.invalidateQueries({ queryKey: ['/gooddollar/balance', address] });
+        queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
+      } else {
+        toast({
+          title: "Exchange Failed",
+          description: result.error || "Failed to exchange G$ for XP",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Exchange Failed",
+        description: error instanceof Error ? error.message : "Failed to exchange G$ for XP",
+        variant: "destructive",
+      });
+    },
+  });
+
   const { data: scoreData, isLoading: isLoadingMaxFlow } = useQuery({
     queryKey: ['/maxflow/score', address],
     queryFn: () => getMaxFlowScore(address!),
     enabled: !!address,
-    staleTime: 4 * 60 * 60 * 1000, // 4 hours - score rarely changes, external API is slow
-    placeholderData: keepPreviousData, // Show stale data while fetching new data
+    staleTime: 4 * 60 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   const { data: xpData, isLoading: isLoadingXp, isFetching: isFetchingXp } = useXp(address);
 
-  // Memoize onComplete callback to prevent useCountdown from resetting interval on every render
   const handleXpCountdownComplete = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
   }, [queryClient, address]);
 
-  // Countdown timer for XP claim cooldown using centralized hook
   const { timeRemaining } = useCountdown(
     xpData?.nextClaimTime,
     { onComplete: handleXpCountdownComplete }
@@ -169,9 +510,7 @@ export default function MaxFlow() {
         description: `1 USDC has been deposited to your savings on Celo.`,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
-      // Wait for the Aave balance to be refetched before navigating
       await queryClient.refetchQueries({ queryKey: ['/api/aave/balance'] });
-      // Navigate to Earn page with fresh data
       setLocation('/earn');
     },
     onError: (error: any) => {
@@ -179,7 +518,6 @@ export default function MaxFlow() {
       let errorMessage = "Failed to redeem XP";
       try {
         if (error instanceof Error && error.message) {
-          // apiRequest throws Error with message format "status: json_text"
           const match = error.message.match(/^\d+:\s*(.+)$/);
           if (match) {
             try {
@@ -201,15 +539,13 @@ export default function MaxFlow() {
     },
   });
 
-  // SENADOR balance query
   const { data: senadorData, isLoading: isLoadingSenador } = useQuery({
     queryKey: ['/senador/balance', address],
     queryFn: () => getSenadorBalance(address as Address),
     enabled: !!address,
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: 60 * 1000,
   });
 
-  // SENADOR exchange mutation
   const redeemSenadorMutation = useMutation({
     mutationFn: async (xpAmount: number) => {
       return apiRequest('POST', '/api/xp/redeem-senador', { address, xpAmount });
@@ -264,15 +600,12 @@ export default function MaxFlow() {
       
       const validatedEndorser = getAddress(address);
       
-      // Get epoch and nonce (combined endpoint in v1 API)
       const { epoch, nonce } = await getVouchNonce(validatedEndorser.toLowerCase());
       
-      // Check if endorsee is a Stellar address
       if (isStellarAddress(endorsedAddress)) {
-        // Stellar addresses: no EIP-712 signing needed, use externallyVerified
         return submitVouch({
           endorser: validatedEndorser.toLowerCase(),
-          endorsee: endorsedAddress, // Stellar addresses are case-sensitive
+          endorsee: endorsedAddress,
           epoch: epoch.toString(),
           nonce: nonce.toString(),
           sig: 'externally_verified',
@@ -281,7 +614,6 @@ export default function MaxFlow() {
         });
       }
       
-      // EVM address flow with EIP-712 signing
       const validatedEndorsed = getAddress(endorsedAddress);
       
       const chainId = 42220;
@@ -315,7 +647,6 @@ export default function MaxFlow() {
         message,
       });
 
-      // Submit vouch with flat structure (v1 API)
       return submitVouch({
         endorser: message.endorser,
         endorsee: message.endorsee,
@@ -330,7 +661,6 @@ export default function MaxFlow() {
         title: "Vouch submitted",
         description: `You vouched for ${vouchAddress.slice(0, 6)}...${vouchAddress.slice(-4)}`,
       });
-      // Invalidate both endorser's and vouchee's MaxFlow score cache
       queryClient.invalidateQueries({ queryKey: ['/maxflow/score', address] });
       queryClient.invalidateQueries({ queryKey: ['/maxflow/score', vouchAddress.toLowerCase()] });
       setVouchAddress('');
@@ -352,7 +682,6 @@ export default function MaxFlow() {
 
   const handleScan = (data: string) => {
     const trimmed = data.trim();
-    // Accept EVM addresses (0x...) or Stellar addresses (G...)
     const isEvm = /^0x[a-fA-F0-9]{40}$/.test(trimmed);
     const isStellar = trimmed.startsWith('G') && trimmed.length === 56;
     
@@ -406,78 +735,17 @@ export default function MaxFlow() {
       <main className="max-w-md mx-auto p-4 space-y-4">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="trust" className="flex items-center gap-2" data-testid="tab-trust">
-              <Users className="h-4 w-4" />
-              Trust
+            <TabsTrigger value="maxflow" className="flex items-center gap-2" data-testid="tab-maxflow">
+              <Shield className="h-4 w-4" />
+              MaxFlow
             </TabsTrigger>
-            <TabsTrigger value="claim" className="flex items-center gap-2" data-testid="tab-claim">
+            <TabsTrigger value="gooddollar" className="flex items-center gap-2" data-testid="tab-gooddollar">
               <Gift className="h-4 w-4" />
-              Claim
+              GoodDollar
             </TabsTrigger>
           </TabsList>
 
-          {/* TRUST TAB - Face Check + MaxFlow Signal + Vouch */}
-          <TabsContent value="trust" className="space-y-4 mt-4">
-            {/* Face Verification Section - Only show for unverified users or duplicate detection failures */}
-            {(isLoadingFaceVerification || isLoadingGdIdentity) ? (
-              <Card className="p-4">
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              </Card>
-            ) : faceVerificationData?.isDuplicate ? (
-              // Only show card for duplicate face detection failure
-              <Card className="p-4 border-amber-500">
-                <div className="text-center space-y-3 py-4">
-                  <div className="h-16 w-16 rounded-full bg-amber-100 dark:bg-amber-950/50 flex items-center justify-center mx-auto">
-                    <AlertTriangle className="h-8 w-8 text-amber-600 dark:text-amber-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg text-amber-700 dark:text-amber-400">Duplicate Face Detected</h3>
-                    <p className="text-sm text-muted-foreground">
-                      This face was already verified with another wallet
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            ) : (!isGdVerified && !faceVerificationData?.verified) ? (
-              // Show face verification for users who haven't verified yet
-              <Card className="p-4">
-                <Suspense fallback={
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
-                }>
-                  <FaceVerification
-                    key={faceVerificationKey}
-                    walletAddress={address || ''}
-                    onComplete={(success, data) => {
-                      if (success) {
-                        queryClient.invalidateQueries({ queryKey: ['/api/face-verification', address] });
-                        queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
-                        // Clear the face check prompted flag so it's not set for next session
-                        if (address) {
-                          sessionStorage.removeItem(`faceCheckPrompted_${address}`);
-                        }
-                        setAutoFaceCheck(false);
-                        toast({
-                          title: "Face Verification Complete",
-                          description: data?.xpAwarded ? `You've earned ${data.xpAwarded} XP!` : "Verification successful!",
-                        });
-                        // Switch to Claim tab immediately to show XP actions
-                        handleTabChange('claim');
-                      }
-                    }}
-                    onReset={() => {
-                      // Force remount to re-request camera permissions
-                      setFaceVerificationKey(prev => prev + 1);
-                    }}
-                  />
-                </Suspense>
-              </Card>
-            ) : null}
-
-            {/* MaxFlow Signal + Vouch Section */}
+          <TabsContent value="maxflow" className="space-y-4 mt-4">
             <Card className="p-6 space-y-6">
               {!isLoadingMaxFlow && score === 0 ? (
                 <div className="space-y-4">
@@ -665,30 +933,58 @@ export default function MaxFlow() {
               )}
             </Card>
 
-            <div className="flex justify-center gap-4 pt-2">
-              <a 
-                href="https://maxflow.one" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
-                maxflow.one
-              </a>
-              <a 
-                href="https://maxflow.one/whitepaper" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-xs text-muted-foreground hover:text-foreground"
-                data-testid="link-whitepaper"
-              >
-                whitepaper
-              </a>
-            </div>
-          </TabsContent>
+            {(isLoadingFaceVerification || isLoadingGdIdentity) ? (
+              <Card className="p-4">
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              </Card>
+            ) : faceVerificationData?.isDuplicate ? (
+              <Card className="p-4 border-amber-500">
+                <div className="text-center space-y-3 py-4">
+                  <div className="h-16 w-16 rounded-full bg-amber-100 dark:bg-amber-950/50 flex items-center justify-center mx-auto">
+                    <AlertTriangle className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg text-amber-700 dark:text-amber-400">Duplicate Face Detected</h3>
+                    <p className="text-sm text-muted-foreground">
+                      This face was already verified with another wallet
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            ) : (!isGdVerified && !faceVerificationData?.verified) ? (
+              <Card className="p-4">
+                <Suspense fallback={
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                }>
+                  <FaceVerification
+                    key={faceVerificationKey}
+                    walletAddress={address || ''}
+                    onComplete={(success, data) => {
+                      if (success) {
+                        queryClient.invalidateQueries({ queryKey: ['/api/face-verification', address] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
+                        if (address) {
+                          sessionStorage.removeItem(`faceCheckPrompted_${address}`);
+                        }
+                        setAutoFaceCheck(false);
+                        toast({
+                          title: "Face Verification Complete",
+                          description: data?.xpAwarded ? `You've earned ${data.xpAwarded} XP!` : "Verification successful!",
+                        });
+                      }
+                    }}
+                    onReset={() => {
+                      setFaceVerificationKey(prev => prev + 1);
+                    }}
+                  />
+                </Suspense>
+              </Card>
+            ) : null}
 
-          {/* CLAIM TAB - XP, USDC, SENADOR */}
-          <TabsContent value="claim" className="space-y-4 mt-4">
-            {/* XP Balance & Claim Section */}
             <Card className="p-6 space-y-4">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
@@ -760,18 +1056,9 @@ export default function MaxFlow() {
                   <p className="text-sm text-muted-foreground" data-testid="text-xp-no-signal">
                     Get vouched to earn XP from your signal
                   </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleTabChange('trust')}
-                    className="w-full"
-                  >
-                    <Users className="h-4 w-4 mr-2" />
-                    Go to Trust Tab
-                  </Button>
                 </div>
               )}
               
-              {/* XP Redemption Button - Always visible, disabled when XP < 100 */}
               <Button
                 onClick={() => setShowRedeemConfirm(true)}
                 disabled={(xpData?.totalXp ?? 0) < 100 || redeemXpMutation.isPending}
@@ -794,7 +1081,6 @@ export default function MaxFlow() {
               </Button>
             </Card>
 
-            {/* SENADOR Token Section */}
             <Card className="p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -874,28 +1160,259 @@ export default function MaxFlow() {
               </div>
             </Card>
 
-            {/* Link to GoodDollar claim page */}
-            <Card className="p-4">
-              <Link href="/claim">
-                <button className="w-full flex items-center justify-between group" data-testid="link-gooddollar">
+            <div className="flex justify-center gap-4 pt-2">
+              <a 
+                href="https://maxflow.one" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                maxflow.one
+              </a>
+              <a 
+                href="https://maxflow.one/whitepaper" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-xs text-muted-foreground hover:text-foreground"
+                data-testid="link-whitepaper"
+              >
+                whitepaper
+              </a>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="gooddollar" className="mt-4">
+            <Card className="p-6 space-y-6">
+              {isLoadingGdIdentity || isRefreshingIdentity ? (
+                <div className="text-center space-y-4">
+                  <Gift className="h-12 w-12 mx-auto text-muted-foreground" />
+                  <div>
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {isRefreshingIdentity ? "Verifying your identity..." : "Checking GoodDollar status..."}
+                    </p>
+                  </div>
+                </div>
+              ) : isGdEligible ? (
+                <div className="space-y-6">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shrink-0">
-                      <span className="text-lg font-bold text-white">G$</span>
-                    </div>
-                    <div className="text-left">
-                      <h3 className="text-lg font-semibold">GoodDollar</h3>
-                      <span className="font-label text-muted-foreground text-xs">// CLAIM UBI</span>
+                    <Gift className="h-10 w-10 text-[#03B2CB] shrink-0" />
+                    <div>
+                      <h2 className="text-xl text-section">Daily UBI</h2>
+                      <span className="font-label text-muted-foreground">// CELO</span>
                     </div>
                   </div>
-                  <ChevronDown className="h-5 w-5 text-muted-foreground -rotate-90" />
-                </button>
-              </Link>
+
+                  <div className="text-center py-2">
+                    <h3 className="text-sm text-muted-foreground mb-2">Your G$ Balance</h3>
+                    <div className="text-5xl font-bold tabular-nums text-foreground tracking-tight" data-testid="text-gd-balance">
+                      {gdBalance?.balanceFormatted || '0.00'}
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-center gap-2">
+                    {[...Array(10)].map((_, i) => (
+                      <div
+                        key={i}
+                        className={`h-2 w-2 rounded-full ${
+                          i < Math.min(10, Math.floor(parseFloat(gdBalance?.balanceFormatted || '0') / 100)) ? 'bg-primary' : 'bg-muted'
+                        }`}
+                      />
+                    ))}
+                  </div>
+
+                  {gdIdentity?.daysUntilExpiry !== null && gdIdentity?.daysUntilExpiry !== undefined && gdIdentity.daysUntilExpiry <= 30 && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      Verification expires in {gdIdentity.daysUntilExpiry} days
+                    </p>
+                  )}
+
+                  {gdClaimStatus?.canClaim ? (
+                    <div className="space-y-3 pt-2">
+                      <p className="text-sm text-muted-foreground">
+                        <span className="font-semibold text-primary">{gdClaimStatus.entitlementFormatted} G$</span> available to claim
+                      </p>
+                      <Button
+                        size="lg"
+                        className="w-full"
+                        onClick={() => claimGdMutation.mutate()}
+                        disabled={claimGdMutation.isPending}
+                        data-testid="button-claim-gd"
+                      >
+                        {claimGdMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Claiming...
+                          </>
+                        ) : (
+                          <>
+                            <Coins className="h-4 w-4" />
+                            Claim G$
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="pt-2">
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground mb-1">Next claim in</p>
+                        <p className="text-2xl font-mono font-bold" data-testid="text-gd-countdown">
+                          {gdCountdown || '--:--:--'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {parseFloat((gdBalance?.balanceFormatted || '0').replace(/,/g, '')) >= 10 && (
+                    <div className="pt-3">
+                      <Button
+                        size="lg"
+                        className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                        onClick={() => setShowGdExchangeDialog(true)}
+                        data-testid="button-buy-xp-gd"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        BUY XP WITH G$
+                      </Button>
+                    </div>
+                  )}
+
+                  <div className="pt-4 border-t space-y-2">
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">UBI Stats</h3>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="space-y-1">
+                        <span className="text-xs text-muted-foreground">Your Share</span>
+                        <p className="font-mono font-medium" data-testid="text-gd-daily-ubi">{gdClaimStatus?.dailyUbiFormatted || '0.00'} G$</p>
+                      </div>
+                      {gdPrice?.priceUSD ? (
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">G$ Price</span>
+                          <p className="font-mono font-medium" data-testid="text-gd-price">
+                            ${gdPrice.priceUSD.toFixed(6)}
+                          </p>
+                        </div>
+                      ) : null}
+                      {gdIdentity?.daysUntilExpiry !== null && gdIdentity?.daysUntilExpiry !== undefined && (
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Identity Expires</span>
+                          <p className={`font-mono font-medium ${gdIdentity.daysUntilExpiry <= 14 ? 'text-amber-500' : ''}`} data-testid="text-gd-expiry">
+                            {gdIdentity.daysUntilExpiry} days
+                          </p>
+                        </div>
+                      )}
+                      {gdClaimStatus?.hasActiveStreak && (
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Streak</span>
+                          <p className="font-mono font-medium text-green-500" data-testid="text-gd-streak">Active</p>
+                        </div>
+                      )}
+                    </div>
+                    {gdBalance && gdPrice?.priceUSD ? (
+                      <div className="pt-3 border-t">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Your G$ Value</span>
+                          <span className="font-mono font-medium" data-testid="text-gd-usd-value">
+                            ${(parseFloat(gdBalance.balanceFormatted.replace(/,/g, '')) * gdPrice.priceUSD).toFixed(2)} USD
+                          </span>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3">
+                    <Gift className="h-10 w-10 text-[#03B2CB] shrink-0" />
+                    <div>
+                      <h2 className="text-xl text-section">Daily UBI</h2>
+                      <span className="font-label text-muted-foreground">// CELO</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-center py-2">
+                    <div>
+                      <p className="font-mono text-2xl font-bold">{gdClaimStatus?.dailyUbiFormatted || '~0.5'}</p>
+                      <span className="text-xs text-muted-foreground">G$ daily</span>
+                    </div>
+                    <div>
+                      <p className="font-mono text-2xl font-bold">{gdIdentity?.authenticationPeriod || 180}</p>
+                      <span className="text-xs text-muted-foreground">day validity</span>
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-muted-foreground text-center">
+                    GoodDollar is a free universal basic income token on Celo. Verify your identity once with a quick face scan to claim G$ tokens daily.
+                  </p>
+
+                  <Button
+                    className="w-full"
+                    size="lg"
+                    onClick={handleFaceVerification}
+                    disabled={isVerifyingFace}
+                    data-testid="button-verify-face"
+                  >
+                    {isVerifyingFace ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Signing...
+                      </>
+                    ) : 'Verify Face to Start'}
+                  </Button>
+
+                  <div className="pt-3 border-t mt-4">
+                    <Button
+                      size="lg"
+                      className="w-full bg-orange-500 hover:bg-orange-600 text-white disabled:bg-neutral-300 disabled:text-neutral-700"
+                      onClick={() => setShowGdExchangeDialog(true)}
+                      disabled={parseFloat((gdBalance?.balanceFormatted || '0').replace(/,/g, '')) < 10}
+                      data-testid="button-buy-xp-gd-unverified"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      BUY XP WITH G$
+                    </Button>
+                    {parseFloat((gdBalance?.balanceFormatted || '0').replace(/,/g, '')) < 10 && (
+                      <p className="text-xs text-muted-foreground text-center mt-2">
+                        Need at least 10 G$ to exchange for XP
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </Card>
+
+            {isGdEligible && (
+              <Card className="p-4 mt-4">
+                <div className="space-y-3">
+                  <h3 className="text-xs font-semibold text-foreground/80">About GoodDollar</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    GoodDollar is a non-profit protocol creating free money for everyone. 
+                    It distributes G$ tokens daily to verified humans around the world — 
+                    funded by interest from DeFi and donations.
+                  </p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span>Built on Celo</span>
+                    <span>500k+ members</span>
+                    <span>$2M+ distributed</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => window.open('https://gooddollar.org', '_blank', 'noopener,noreferrer')}
+                    data-testid="button-gd-learn-more"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Learn more at gooddollar.org
+                  </Button>
+                </div>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </main>
 
-      {/* XP Redemption Confirmation Dialog */}
       <AlertDialog open={showRedeemConfirm} onOpenChange={setShowRedeemConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -925,7 +1442,6 @@ export default function MaxFlow() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* SENADOR Exchange Confirmation Dialog */}
       <AlertDialog open={showSenadorConfirm} onOpenChange={setShowSenadorConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -954,6 +1470,82 @@ export default function MaxFlow() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={showGdExchangeDialog} onOpenChange={setShowGdExchangeDialog}>
+        <DialogContent className="max-w-[320px] p-4">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-base">Buy XP with G$</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-3">
+            <div>
+              <div className="relative">
+                <Input
+                  id="gd-amount"
+                  type="number"
+                  inputMode="decimal"
+                  min="10"
+                  step="10"
+                  value={gdExchangeAmount}
+                  onChange={(e) => setGdExchangeAmount(e.target.value)}
+                  placeholder="Amount"
+                  className="text-lg pr-10"
+                  data-testid="input-gd-exchange-amount"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">G$</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Balance: {gdBalance?.balanceFormatted || '0'} G$
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between p-2 border rounded bg-muted/30">
+              <span className="text-sm text-muted-foreground">You get:</span>
+              <span className="font-mono font-bold" data-testid="text-xp-preview">
+                {Math.floor(parseFloat(gdExchangeAmount || '0') / 10)} XP
+              </span>
+            </div>
+
+            {parseFloat(gdExchangeAmount || '0') > parseFloat(gdBalance?.balanceFormatted?.replace(/,/g, '') || '0') && (
+              <p className="text-xs text-destructive">Insufficient balance</p>
+            )}
+
+            {parseFloat(gdExchangeAmount || '0') < 10 && parseFloat(gdExchangeAmount || '0') > 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">Min: 10 G$</p>
+            )}
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => {
+                setShowGdExchangeDialog(false);
+                setGdExchangeAmount('10');
+              }}
+              disabled={exchangeGdMutation.isPending}
+            >
+              Close
+            </Button>
+            <Button
+              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+              onClick={() => exchangeGdMutation.mutate(gdExchangeAmount)}
+              disabled={
+                exchangeGdMutation.isPending ||
+                parseFloat(gdExchangeAmount || '0') < 10 ||
+                parseFloat(gdExchangeAmount || '0') > parseFloat(gdBalance?.balanceFormatted?.replace(/,/g, '') || '0')
+              }
+              data-testid="button-confirm-exchange"
+            >
+              {exchangeGdMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                'Buy'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
