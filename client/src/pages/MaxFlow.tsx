@@ -48,12 +48,23 @@ export default function MaxFlow() {
   const [senadorAmount, setSenadorAmount] = useState('');
   const [activeTab, setActiveTab] = useState('trust');
   const [faceVerificationKey, setFaceVerificationKey] = useState(0);
+  const [autoFaceCheck, setAutoFaceCheck] = useState(false);
 
   // Sync tab state with URL on mount and navigation
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get('tab');
+      const faceCheckParam = params.get('faceCheck');
+      
+      // Handle auto face check param
+      if (faceCheckParam === '1') {
+        setAutoFaceCheck(true);
+        // Clear the URL param to avoid re-triggering on navigation
+        const newUrl = tabParam ? `/maxflow?tab=${tabParam}` : '/maxflow';
+        window.history.replaceState(null, '', newUrl);
+      }
+      
       if (tabParam === 'trust' || tabParam === 'claim') {
         setActiveTab(tabParam);
         return;
@@ -434,6 +445,11 @@ export default function MaxFlow() {
                       if (success) {
                         queryClient.invalidateQueries({ queryKey: ['/api/face-verification', address] });
                         queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
+                        // Clear the face check prompted flag so it's not set for next session
+                        if (address) {
+                          sessionStorage.removeItem(`faceCheckPrompted_${address}`);
+                        }
+                        setAutoFaceCheck(false);
                         toast({
                           title: "Face Verification Complete",
                           description: data?.xpAwarded ? `You've earned ${data.xpAwarded} XP!` : "Verification successful!",

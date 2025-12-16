@@ -115,7 +115,7 @@ export default function Home() {
   });
 
   // Fetch face verification status to hide option if already completed
-  const { data: faceVerificationStatus } = useQuery<{ verified: boolean; verifiedAt?: string }>({
+  const { data: faceVerificationStatus, isLoading: isLoadingFaceVerification } = useQuery<{ verified: boolean; verifiedAt?: string }>({
     queryKey: ['/api/face-verification', address],
     queryFn: async () => {
       const res = await fetch(`/api/face-verification/${address}`);
@@ -125,6 +125,22 @@ export default function Home() {
     enabled: !!address,
     staleTime: 5 * 60 * 1000,
   });
+
+  // Auto-redirect to Face Check if not verified (once per session per address)
+  useEffect(() => {
+    if (!address || isLoadingFaceVerification || !faceVerificationStatus) return;
+    
+    // Check if already prompted this session for this address
+    const promptKey = `faceCheckPrompted_${address}`;
+    const alreadyPrompted = sessionStorage.getItem(promptKey);
+    
+    if (!faceVerificationStatus.verified && !alreadyPrompted) {
+      // Mark as prompted to avoid redirect loops
+      sessionStorage.setItem(promptKey, 'true');
+      // Navigate to MaxFlow with face check auto-open
+      setLocation('/maxflow?tab=trust&faceCheck=1');
+    }
+  }, [address, faceVerificationStatus, isLoadingFaceVerification, setLocation]);
 
   // Derive MaxFlow tile CTA
   const mfScore = maxflowScore?.local_health ?? 0;
