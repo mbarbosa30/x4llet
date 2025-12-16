@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Scan, Shield, Loader2, Sparkles, Clock, ChevronDown, Coins, Info, Camera, Check, Users, Gift } from 'lucide-react';
+import { Scan, Shield, Loader2, Sparkles, Clock, ChevronDown, Coins, Info, Camera, Check, Users, Gift, AlertTriangle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -418,48 +418,31 @@ export default function MaxFlow() {
 
           {/* TRUST TAB - Face Check + MaxFlow Signal + Vouch */}
           <TabsContent value="trust" className="space-y-4 mt-4">
-            {/* Face Verification Section - Auto-approved for GoodDollar verified users */}
-            <Card className="p-4">
-              {(isLoadingFaceVerification || isLoadingGdIdentity) ? (
+            {/* Face Verification Section - Only show for unverified users or duplicate detection failures */}
+            {(isLoadingFaceVerification || isLoadingGdIdentity) ? (
+              <Card className="p-4">
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : isGdVerified ? (
+              </Card>
+            ) : faceVerificationData?.isDuplicate ? (
+              // Only show card for duplicate face detection failure
+              <Card className="p-4 border-amber-500">
                 <div className="text-center space-y-3 py-4">
-                  <div className="h-16 w-16 rounded-full bg-emerald-100 dark:bg-emerald-950/50 flex items-center justify-center mx-auto">
-                    <Check className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                  <div className="h-16 w-16 rounded-full bg-amber-100 dark:bg-amber-950/50 flex items-center justify-center mx-auto">
+                    <AlertTriangle className="h-8 w-8 text-amber-600 dark:text-amber-400" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg">Face Check Complete</h3>
+                    <h3 className="font-semibold text-lg text-amber-700 dark:text-amber-400">Duplicate Face Detected</h3>
                     <p className="text-sm text-muted-foreground">
-                      Verified via GoodDollar
+                      This face was already verified with another wallet
                     </p>
-                  </div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md">
-                    <span className="text-emerald-700 dark:text-emerald-300 text-sm font-medium">GoodDollar Verified</span>
                   </div>
                 </div>
-              ) : faceVerificationData?.verified ? (
-                <div className="text-center space-y-3 py-4">
-                  <div className="h-16 w-16 rounded-full bg-emerald-100 dark:bg-emerald-950/50 flex items-center justify-center mx-auto">
-                    <Check className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg">Face Check Complete</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Verified on {new Date(faceVerificationData.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md">
-                    <span className="text-emerald-700 dark:text-emerald-300 text-sm font-medium">+120 XP earned</span>
-                  </div>
-                  {faceVerificationData.isDuplicate && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400">
-                      Note: Duplicate face detected
-                    </p>
-                  )}
-                </div>
-              ) : (
+              </Card>
+            ) : (!isGdVerified && !faceVerificationData?.verified) ? (
+              // Show face verification for users who haven't verified yet
+              <Card className="p-4">
                 <Suspense fallback={
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -491,8 +474,8 @@ export default function MaxFlow() {
                     }}
                   />
                 </Suspense>
-              )}
-            </Card>
+              </Card>
+            ) : null}
 
             {/* MaxFlow Signal + Vouch Section */}
             <Card className="p-6 space-y-6">
