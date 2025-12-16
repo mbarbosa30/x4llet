@@ -191,12 +191,13 @@ export default function Home() {
   // Determine if user has any funds (USDC or Aave savings)
   const hasFunds = parseFloat(balance || '0') > 0 || parseFloat(aaveBalance?.totalAUsdcBalance ?? '0') > 0;
   const hasTransactions = transactions.length > 0;
+  const isFaceChecked = faceVerificationStatus?.verified || false;
   
-  // Show onboarding if: data is loaded AND user has no funds AND no transactions
-  // Show wallet view if: data is loaded AND (user has funds OR has transactions)
+  // Show onboarding if: data is loaded AND user has no funds AND no transactions AND not face checked
+  // Show wallet view if: data is loaded AND (user has funds OR has transactions OR face checked)
   // Show loading if: still fetching data
-  const isDataReady = !isLoadingWallet && !isLoading;
-  const showOnboarding = isDataReady && !hasFunds && !hasTransactions;
+  const isDataReady = !isLoadingWallet && !isLoading && !isLoadingFaceVerification;
+  const showOnboarding = isDataReady && !hasFunds && !hasTransactions && !isFaceChecked;
   
   const getExplorerUrl = (txHash: string, txChainId?: number) => {
     // Use transaction's chainId to determine explorer
