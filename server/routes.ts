@@ -250,7 +250,7 @@ function isMaxFlowResponseStale(data: any): boolean {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  const BUILD_VERSION = '2025-12-13T20:15:00Z';
+  const BUILD_VERSION = '2025-12-16T14:30:00Z';
   
   app.get('/api/version', (req, res) => {
     res.json({
