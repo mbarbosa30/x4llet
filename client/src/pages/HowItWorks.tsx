@@ -187,7 +187,8 @@ export default function HowItWorks() {
                   "Base — Native USDC, Aave savings",
                   "Celo — Native USDC, GoodDollar",
                   "Gnosis — USDC.e, Circles",
-                  "Arbitrum — Native USDC, Aave"
+                  "Arbitrum — Native USDC, Aave",
+                  "Stellar — XLM staking (coming soon)"
                 ]}
               />
             </div>
@@ -244,11 +245,12 @@ export default function HowItWorks() {
               <FeatureCard 
                 icon={Sparkles}
                 title="XP Rewards"
-                description="Earn Experience Points for network participation, redeemable for real USDC."
+                description="Earn Experience Points for network participation. Spend on USDC savings or AI assistance."
                 items={[
                   "Claim daily from MaxFlow signal",
                   "GoodDollar users: convert G$ to XP",
-                  "Redeem 100 XP for 1 USDC"
+                  "100 XP → 1 USDC savings on Celo",
+                  "1 XP per AI chat message"
                 ]}
               />
             </div>

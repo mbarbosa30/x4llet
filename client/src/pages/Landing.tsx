@@ -805,7 +805,7 @@ function DesktopLanding({
           <div className="flex gap-8 items-center">
             <Link href="/how-it-works" className="text-sm text-muted-foreground hover:text-foreground">How It Works</Link>
             <Link href="/faqs" className="text-sm text-muted-foreground hover:text-foreground">FAQs</Link>
-            <Link href="/context" className="text-sm text-muted-foreground hover:text-foreground">Context</Link>
+            <Link href="/context" className="text-sm text-muted-foreground hover:text-foreground hidden md:block">Context</Link>
             <a 
               href="https://t.me/+zWefAe1jX9FhODU0" 
               target="_blank" 
