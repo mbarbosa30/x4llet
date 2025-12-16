@@ -126,6 +126,23 @@ interface GoodDollarAnalytics {
   activeClaimers: number;
 }
 
+interface SybilAnalytics {
+  totalEvents: number;
+  uniqueIps: number;
+  uniqueWallets: number;
+  suspiciousIps: number;
+  eventsByType: Record<string, number>;
+}
+
+interface SuspiciousIpPattern {
+  ipHash: string;
+  walletCount: number;
+  wallets: string[];
+  eventCount: number;
+  firstSeen: string;
+  lastSeen: string;
+}
+
 interface WalletGrowthPoint {
   date: string;
   count: number;
@@ -993,7 +1010,7 @@ export default function Admin() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-7 mb-6" data-testid="admin-tabs">
+          <TabsList className="grid w-full grid-cols-8 mb-6" data-testid="admin-tabs">
             <TabsTrigger value="overview" className="flex items-center gap-1.5" data-testid="tab-overview">
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Overview</span>
@@ -1013,6 +1030,10 @@ export default function Admin() {
             <TabsTrigger value="gooddollar" className="flex items-center gap-1.5" data-testid="tab-gooddollar">
               <HandHeart className="h-4 w-4" />
               <span className="hidden sm:inline">GoodDollar</span>
+            </TabsTrigger>
+            <TabsTrigger value="sybil" className="flex items-center gap-1.5" data-testid="tab-sybil">
+              <AlertCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Sybil</span>
             </TabsTrigger>
             <TabsTrigger value="wallets" className="flex items-center gap-1.5" data-testid="tab-wallets">
               <Users className="h-4 w-4" />
@@ -1739,6 +1760,11 @@ export default function Admin() {
             )}
           </TabsContent>
 
+          {/* Sybil Detection Tab */}
+          <TabsContent value="sybil" className="space-y-6">
+            <SybilDetectionPanel authHeader={authHeader} />
+          </TabsContent>
+
           {/* Wallets Tab */}
           <TabsContent value="wallets" className="space-y-6">
             <Card>
@@ -2241,6 +2267,224 @@ export default function Admin() {
           </TabsContent>
         </Tabs>
       </div>
+    </div>
+  );
+}
+
+// Sybil Detection Panel Component
+function SybilDetectionPanel({ authHeader }: { authHeader: string | null }) {
+  const [analytics, setAnalytics] = useState<SybilAnalytics | null>(null);
+  const [suspiciousPatterns, setSuspiciousPatterns] = useState<SuspiciousIpPattern[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [expandedIp, setExpandedIp] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const loadSybilData = async () => {
+    if (!authHeader) return;
+    setIsLoading(true);
+    try {
+      const [analyticsRes, patternsRes] = await Promise.all([
+        fetch('/api/admin/analytics/sybil', { headers: { Authorization: authHeader } }),
+        fetch('/api/admin/analytics/sybil/suspicious?minWallets=2', { headers: { Authorization: authHeader } }),
+      ]);
+      
+      if (analyticsRes.ok) {
+        const data = await analyticsRes.json();
+        setAnalytics(data);
+      }
+      if (patternsRes.ok) {
+        const data = await patternsRes.json();
+        setSuspiciousPatterns(data);
+      }
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to load sybil analytics', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (authHeader) {
+      loadSybilData();
+    }
+  }, [authHeader]);
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Total IP Events</CardDescription>
+            <CardTitle className="text-2xl" data-testid="text-sybil-total-events">
+              {analytics?.totalEvents ?? '—'}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Unique IPs</CardDescription>
+            <CardTitle className="text-2xl" data-testid="text-sybil-unique-ips">
+              {analytics?.uniqueIps ?? '—'}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Tracked Wallets</CardDescription>
+            <CardTitle className="text-2xl" data-testid="text-sybil-unique-wallets">
+              {analytics?.uniqueWallets ?? '—'}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Suspicious IPs</CardDescription>
+            <CardTitle className="text-2xl text-amber-600" data-testid="text-sybil-suspicious">
+              {analytics?.suspiciousIps ?? '—'}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+
+      {/* Flagged Wallets - Quick View */}
+      {suspiciousPatterns.length > 0 && (
+        <Card className="border-amber-500/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-amber-600" />
+              Flagged Wallet Addresses
+            </CardTitle>
+            <CardDescription>
+              All wallets detected sharing an IP with other wallets (copy-friendly list)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {(() => {
+                // Flatten all suspicious wallets with their cluster info
+                const flaggedWallets: Array<{ wallet: string; clusterSize: number; ipHash: string }> = [];
+                for (const pattern of suspiciousPatterns) {
+                  for (const wallet of pattern.wallets) {
+                    flaggedWallets.push({
+                      wallet,
+                      clusterSize: pattern.walletCount,
+                      ipHash: pattern.ipHash,
+                    });
+                  }
+                }
+                return flaggedWallets.map((item, idx) => (
+                  <div 
+                    key={idx} 
+                    className="flex items-center justify-between p-2 bg-muted font-mono text-xs"
+                    data-testid={`flagged-wallet-${idx}`}
+                  >
+                    <span className="truncate flex-1">{item.wallet}</span>
+                    <span className="text-amber-600 font-semibold ml-2">
+                      {item.clusterSize} wallets
+                    </span>
+                  </div>
+                ));
+              })()}
+            </div>
+            <div className="mt-3 text-xs text-muted-foreground">
+              Total flagged: {suspiciousPatterns.reduce((sum, p) => sum + p.wallets.length, 0)} wallets in {suspiciousPatterns.length} clusters
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Event Breakdown */}
+      {analytics?.eventsByType && Object.keys(analytics.eventsByType).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Events by Type
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Object.entries(analytics.eventsByType).map(([type, count]) => (
+                <div key={type} className="p-3 bg-muted" data-testid={`stat-event-type-${type}`}>
+                  <div className="text-xs text-muted-foreground capitalize">{type.replace('_', ' ')}</div>
+                  <div className="text-lg font-semibold">{count}</div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Suspicious Patterns */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-amber-600" />
+            Suspicious IP Patterns
+          </CardTitle>
+          <CardDescription>
+            IP addresses with multiple wallets (potential sybil activity)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {suspiciousPatterns.length > 0 ? (
+            <div className="space-y-2">
+              <div className="grid grid-cols-5 gap-2 px-2 py-1 border-b text-xs font-medium text-muted-foreground">
+                <div>IP Hash</div>
+                <div>Wallets</div>
+                <div>Events</div>
+                <div>First Seen</div>
+                <div>Last Seen</div>
+              </div>
+              {suspiciousPatterns.map((pattern) => (
+                <div key={pattern.ipHash} data-testid={`row-suspicious-ip-${pattern.ipHash.slice(0, 8)}`}>
+                  <div 
+                    className="grid grid-cols-5 gap-2 p-2 bg-muted cursor-pointer hover-elevate"
+                    onClick={() => setExpandedIp(expandedIp === pattern.ipHash ? null : pattern.ipHash)}
+                  >
+                    <div className="font-mono text-xs">{pattern.ipHash.slice(0, 12)}...</div>
+                    <div className="font-semibold text-amber-600">{pattern.walletCount}</div>
+                    <div>{pattern.eventCount}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {pattern.firstSeen ? new Date(pattern.firstSeen).toLocaleDateString() : '—'}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {pattern.lastSeen ? new Date(pattern.lastSeen).toLocaleDateString() : '—'}
+                    </div>
+                  </div>
+                  {expandedIp === pattern.ipHash && (
+                    <div className="p-3 bg-muted/50 border-l-2 border-amber-500 ml-2 space-y-1">
+                      <div className="text-xs text-muted-foreground mb-2">Associated Wallets:</div>
+                      {pattern.wallets.map((wallet, idx) => (
+                        <div key={idx} className="font-mono text-xs p-1 bg-background">
+                          {wallet}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-8 text-center text-muted-foreground">
+              {isLoading ? (
+                <div className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading...
+                </div>
+              ) : (
+                'No suspicious patterns detected yet'
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Button onClick={loadSybilData} variant="outline" className="w-full" disabled={isLoading} data-testid="button-refresh-sybil">
+        <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+        Refresh Sybil Analytics
+      </Button>
     </div>
   );
 }

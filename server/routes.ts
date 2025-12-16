@@ -10,26 +10,14 @@ import { getNetworkConfig, getNetworkByChainId } from "@shared/networks";
 // =============================================
 // IP Hashing for Sybil Detection
 // =============================================
-// Salt is rotated daily for privacy while still detecting same-session sybils
-const IP_SALT_SECRET = process.env.IP_SALT_SECRET || 'nanopay-sybil-detection-v1';
-
-function getDailySalt(): string {
-  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-  return `${IP_SALT_SECRET}-${today}`;
-}
+// Uses stable salt to track patterns across time (not daily rotation)
+// This allows detecting repeat offenders who create multiple wallets
+const IP_SALT_SECRET = process.env.IP_SALT_SECRET || 'nanopay-sybil-stable-v1';
 
 function hashIp(ip: string): string {
-  const salt = getDailySalt();
-  return createHash('sha256').update(`${ip}-${salt}`).digest('hex').substring(0, 32);
-}
-
-function extractNetworkPrefix(ip: string): string | null {
-  if (!ip || ip === '127.0.0.1' || ip === '::1') return null;
-  // For IPv4, extract /24 network (e.g., "192.168.1")
-  const ipv4Match = ip.match(/^(\d+\.\d+\.\d+)\.\d+$/);
-  if (ipv4Match) return ipv4Match[1];
-  // For IPv6, return null (could extract /48 but less useful for our case)
-  return null;
+  // Use stable salt so same IP always hashes to same value
+  // This allows cross-session sybil detection
+  return createHash('sha256').update(`${ip}-${IP_SALT_SECRET}`).digest('hex').substring(0, 32);
 }
 
 function getClientIp(req: Request): string {
@@ -55,13 +43,14 @@ async function logIpEvent(
     if (!clientIp || clientIp === 'unknown') return;
     
     const ipHash = hashIp(clientIp);
-    const networkPrefix = extractNetworkPrefix(clientIp);
+    // Note: We intentionally don't store network prefix to protect privacy
+    // Only the hashed IP is stored for sybil detection
     const userAgent = req.headers['user-agent'] || null;
     
     await storage.logIpEvent({
       walletAddress: walletAddress.toLowerCase(),
       ipHash,
-      networkPrefix,
+      networkPrefix: null, // Removed for privacy - raw network prefixes could identify users
       eventType,
       userAgent,
     });
