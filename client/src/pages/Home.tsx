@@ -460,7 +460,7 @@ export default function Home() {
               {xpData && xpData.totalXp > 0 && (
                 <div className="flex items-center justify-between p-3 bg-cta/10 border border-cta/30">
                   <span className="text-sm font-medium">Your XP Balance</span>
-                  <span className="text-sm font-bold text-cta">{(xpData.totalXp / 100).toFixed(2)} XP</span>
+                  <span className="text-sm font-bold text-cta">{xpData.totalXp} XP</span>
                 </div>
               )}
 
