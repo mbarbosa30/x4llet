@@ -321,7 +321,8 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
       
       const embeddingHash = await hashEmbedding(avgEmbedding);
       const fingerprint = await getFingerprint();
-      const passedChallenges = challenges.filter(c => c.completed).map(c => c.type);
+      // Use ref instead of state to get fresh challenge data (avoids stale closure)
+      const passedChallenges = challengesRef.current.filter(c => c.completed).map(c => c.type);
       
       const response = await apiRequest('POST', '/api/face-verification/submit', {
         walletAddress,
