@@ -89,7 +89,11 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   }, []);
 
   useEffect(() => {
-    return cleanup;
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      cleanup();
+    };
   }, [cleanup]);
 
   // Keep refs in sync with state
@@ -411,9 +415,11 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
       // Check if this was an error response (duplicate face)
       if (!response.ok) {
         cleanup();
-        setStatus('error');
-        setError(result.error || 'Verification failed');
-        setIsSubmitting(false);
+        if (isMountedRef.current) {
+          setStatus('error');
+          setError(result.error || 'Verification failed');
+          setIsSubmitting(false);
+        }
         toast({
           title: 'Verification Failed',
           description: result.error || 'This face has already been verified with another wallet.',
@@ -424,20 +430,30 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
         return;
       }
       
+      // Cleanup first, before onComplete triggers query invalidation
       cleanup();
-      setStatus('complete');
       
+      // Show toast before onComplete (which may unmount this component)
       toast({
         title: 'Verification Complete!',
         description: 'Face verification successful! +120 XP earned.',
       });
       
+      // Update state only if still mounted
+      if (isMountedRef.current) {
+        setStatus('complete');
+        setIsSubmitting(false);
+      }
+      
+      // Call onComplete last - this will invalidate queries and may unmount this component
       onComplete(true, result);
     } catch (err) {
       console.error('[FaceVerification] Submit error:', err);
-      setError('Failed to submit verification. Please try again.');
-      setStatus('error');
-      setIsSubmitting(false);
+      if (isMountedRef.current) {
+        setError('Failed to submit verification. Please try again.');
+        setStatus('error');
+        setIsSubmitting(false);
+      }
     }
   };
 
