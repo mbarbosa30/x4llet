@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, type AiConversation, type AiMessage, type IpEvent, type InsertIpEvent, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, globalSettings, aiConversations, ipEvents } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, type AiConversation, type AiMessage, type IpEvent, type InsertIpEvent, type FaceVerification, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, globalSettings, aiConversations, ipEvents, faceVerifications } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo, gnosis, arbitrum } from 'viem/chains';
@@ -416,6 +416,24 @@ export interface IStorage {
   getAiConversation(walletAddress: string): Promise<AiConversation | null>;
   saveAiConversation(walletAddress: string, messages: AiMessage[]): Promise<void>;
   clearAiConversation(walletAddress: string): Promise<void>;
+  
+  // Face Verification methods
+  getFaceVerification(walletAddress: string): Promise<FaceVerification | null>;
+  findDuplicateFace(embeddingHash: string, excludeWallet?: string): Promise<FaceVerification | null>;
+  createFaceVerification(data: {
+    walletAddress: string;
+    embeddingHash: string;
+    storageToken?: string;
+    challengesPassed: string[];
+    ipHash?: string;
+    status?: string;
+    duplicateOf?: string;
+  }): Promise<FaceVerification>;
+  getFaceVerificationStats(): Promise<{
+    totalVerified: number;
+    duplicatesDetected: number;
+    recentVerifications: FaceVerification[];
+  }>;
 }
 
 export interface GasDrip {
@@ -946,6 +964,34 @@ export class MemStorage implements IStorage {
 
   async clearAiConversation(walletAddress: string): Promise<void> {
     // MemStorage stub - no-op
+  }
+
+  async getFaceVerification(walletAddress: string): Promise<FaceVerification | null> {
+    return null;
+  }
+
+  async findDuplicateFace(embeddingHash: string, excludeWallet?: string): Promise<FaceVerification | null> {
+    return null;
+  }
+
+  async createFaceVerification(data: {
+    walletAddress: string;
+    embeddingHash: string;
+    storageToken?: string;
+    challengesPassed: string[];
+    ipHash?: string;
+    status?: string;
+    duplicateOf?: string;
+  }): Promise<FaceVerification> {
+    throw new Error('Face verification not available in MemStorage');
+  }
+
+  async getFaceVerificationStats(): Promise<{
+    totalVerified: number;
+    duplicatesDetected: number;
+    recentVerifications: FaceVerification[];
+  }> {
+    return { totalVerified: 0, duplicatesDetected: 0, recentVerifications: [] };
   }
 }
 
@@ -4920,6 +4966,109 @@ export class DbStorage extends MemStorage {
     } catch (error) {
       console.error('[Sybil] Error getting flagged wallets with scores:', error);
       return [];
+    }
+  }
+
+  // Face Verification methods
+  async getFaceVerification(walletAddress: string): Promise<FaceVerification | null> {
+    try {
+      const result = await db.select()
+        .from(faceVerifications)
+        .where(eq(faceVerifications.walletAddress, walletAddress.toLowerCase()))
+        .orderBy(desc(faceVerifications.createdAt))
+        .limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error('[FaceVerification] Error getting verification:', error);
+      return null;
+    }
+  }
+
+  async findDuplicateFace(embeddingHash: string, excludeWallet?: string): Promise<FaceVerification | null> {
+    try {
+      let query = db.select()
+        .from(faceVerifications)
+        .where(eq(faceVerifications.embeddingHash, embeddingHash))
+        .limit(1);
+      
+      if (excludeWallet) {
+        const results = await db.select()
+          .from(faceVerifications)
+          .where(and(
+            eq(faceVerifications.embeddingHash, embeddingHash),
+            sql`LOWER(${faceVerifications.walletAddress}) != ${excludeWallet.toLowerCase()}`
+          ))
+          .limit(1);
+        return results[0] || null;
+      }
+      
+      const result = await query;
+      return result[0] || null;
+    } catch (error) {
+      console.error('[FaceVerification] Error finding duplicate:', error);
+      return null;
+    }
+  }
+
+  async createFaceVerification(data: {
+    walletAddress: string;
+    embeddingHash: string;
+    storageToken?: string;
+    challengesPassed: string[];
+    ipHash?: string;
+    status?: string;
+    duplicateOf?: string;
+  }): Promise<FaceVerification> {
+    try {
+      const result = await db.insert(faceVerifications)
+        .values({
+          walletAddress: data.walletAddress.toLowerCase(),
+          embeddingHash: data.embeddingHash,
+          storageToken: data.storageToken || null,
+          challengesPassed: JSON.stringify(data.challengesPassed),
+          ipHash: data.ipHash || null,
+          status: data.status || 'verified',
+          duplicateOf: data.duplicateOf || null,
+        })
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error('[FaceVerification] Error creating verification:', error);
+      throw error;
+    }
+  }
+
+  async getFaceVerificationStats(): Promise<{
+    totalVerified: number;
+    duplicatesDetected: number;
+    recentVerifications: FaceVerification[];
+  }> {
+    try {
+      const [totalResult, duplicateResult, recentResult] = await Promise.all([
+        db.select({ count: count() })
+          .from(faceVerifications)
+          .where(eq(faceVerifications.status, 'verified')),
+        db.select({ count: count() })
+          .from(faceVerifications)
+          .where(eq(faceVerifications.status, 'duplicate')),
+        db.select()
+          .from(faceVerifications)
+          .orderBy(desc(faceVerifications.createdAt))
+          .limit(20)
+      ]);
+
+      return {
+        totalVerified: totalResult[0]?.count || 0,
+        duplicatesDetected: duplicateResult[0]?.count || 0,
+        recentVerifications: recentResult,
+      };
+    } catch (error) {
+      console.error('[FaceVerification] Error getting stats:', error);
+      return {
+        totalVerified: 0,
+        duplicatesDetected: 0,
+        recentVerifications: [],
+      };
     }
   }
 }

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Scan, Shield, Loader2, Sparkles, Clock, ChevronDown, Coins, Info } from 'lucide-react';
+import { Scan, Shield, Loader2, Sparkles, Clock, ChevronDown, Coins, Info, Camera, Check } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,8 +28,9 @@ import { useXp } from '@/hooks/useXp';
 import { formatTimeRemaining } from '@/lib/formatTime';
 import { useCountdown } from '@/hooks/useCountdown';
 
-// Lazy load QR scanner to reduce initial bundle size
+// Lazy load QR scanner and FaceVerification to reduce initial bundle size
 const QRScanner = lazy(() => import('@/components/QRScanner'));
+const FaceVerification = lazy(() => import('@/components/FaceVerification'));
 import { apiRequest } from '@/lib/queryClient';
 
 export default function MaxFlow() {
@@ -44,6 +45,21 @@ export default function MaxFlow() {
   const [showRedeemConfirm, setShowRedeemConfirm] = useState(false);
   const [showSenadorConfirm, setShowSenadorConfirm] = useState(false);
   const [senadorAmount, setSenadorAmount] = useState('');
+  const [showFaceVerification, setShowFaceVerification] = useState(false);
+
+  // Face verification status query
+  const { data: faceVerificationData, isLoading: isLoadingFaceVerification } = useQuery<{
+    verified: boolean;
+    status: string | null;
+    isDuplicate: boolean;
+    duplicateOf: string | null;
+    challengesPassed: string[];
+    createdAt: string;
+  }>({
+    queryKey: ['/api/face-verification', address],
+    queryFn: () => fetch(`/api/face-verification/${address}`).then(res => res.json()),
+    enabled: !!address,
+  });
 
   // Uses placeholderData to show cached data immediately while refreshing in background
   // This prevents 10-12 second loading states when the slow MaxFlow API is called
@@ -764,6 +780,87 @@ export default function MaxFlow() {
             )}
           </Card>
         )}
+
+        {/* Face Verification Section */}
+        <Card className="p-4 space-y-4">
+          <button
+            onClick={() => setShowFaceVerification(!showFaceVerification)}
+            className="w-full flex items-center justify-between group"
+            data-testid="button-toggle-face-verification"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0">
+                <Camera className="h-5 w-5 text-white" />
+              </div>
+              <div className="text-left">
+                <h3 className="text-lg font-semibold">Face Check</h3>
+                <span className="font-label text-muted-foreground text-xs">// LIVENESS VERIFICATION</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {isLoadingFaceVerification ? (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              ) : faceVerificationData?.verified ? (
+                <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
+                  <Check className="h-4 w-4" />
+                  Verified
+                </span>
+              ) : (
+                <span className="text-muted-foreground text-sm">+50 XP</span>
+              )}
+              <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${showFaceVerification ? 'rotate-180' : ''}`} />
+            </div>
+          </button>
+
+          {showFaceVerification && (
+            <div className="space-y-4 pt-2">
+              {faceVerificationData?.verified ? (
+                <div className="text-center space-y-2">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md">
+                    <Check className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-emerald-700 dark:text-emerald-300 font-medium">Face verification complete</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Verified on {new Date(faceVerificationData.createdAt).toLocaleDateString()}
+                  </p>
+                  {faceVerificationData.isDuplicate && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      Note: Duplicate face detected
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground text-center">
+                    Complete a simple face check with blink and head turn challenges to prove you're human. Earn 50 XP as a reward.
+                  </p>
+                  <Suspense fallback={
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  }>
+                    <FaceVerification
+                      walletAddress={address || ''}
+                      onComplete={(success, data) => {
+                        if (success) {
+                          queryClient.invalidateQueries({ queryKey: ['/api/face-verification', address] });
+                          queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
+                          toast({
+                            title: "Face Verification Complete",
+                            description: data?.xpAwarded ? `You've earned ${data.xpAwarded} XP!` : "Verification successful!",
+                          });
+                        }
+                      }}
+                      onCancel={() => {
+                        setShowFaceVerification(false);
+                      }}
+                    />
+                  </Suspense>
+                </>
+              )}
+            </div>
+          )}
+        </Card>
 
         <div className="pt-6 space-y-3">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">About</h3>

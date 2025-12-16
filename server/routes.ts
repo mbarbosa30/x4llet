@@ -6345,6 +6345,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== FACE VERIFICATION ENDPOINTS =====
+  
+  // Get face verification status for a wallet
+  app.get('/api/face-verification/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+      
+      const verification = await storage.getFaceVerification(address);
+      
+      if (!verification) {
+        return res.json({ 
+          verified: false,
+          status: null,
+        });
+      }
+      
+      res.json({
+        verified: verification.status === 'verified',
+        status: verification.status,
+        isDuplicate: verification.status === 'duplicate',
+        duplicateOf: verification.duplicateOf,
+        challengesPassed: JSON.parse(verification.challengesPassed || '[]'),
+        createdAt: verification.createdAt,
+      });
+    } catch (error) {
+      console.error('[FaceVerification] Error getting status:', error);
+      res.status(500).json({ error: 'Failed to get verification status' });
+    }
+  });
+
+  // Submit face verification
+  app.post('/api/face-verification/submit', async (req, res) => {
+    try {
+      const { walletAddress, embeddingHash, storageToken, challengesPassed } = req.body;
+      
+      if (!walletAddress || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+      
+      if (!embeddingHash || typeof embeddingHash !== 'string') {
+        return res.status(400).json({ error: 'Invalid embedding hash' });
+      }
+      
+      if (!challengesPassed || !Array.isArray(challengesPassed) || challengesPassed.length === 0) {
+        return res.status(400).json({ error: 'No challenges completed' });
+      }
+      
+      const normalizedAddress = walletAddress.toLowerCase();
+      
+      // Check for existing verification
+      const existingVerification = await storage.getFaceVerification(normalizedAddress);
+      if (existingVerification) {
+        return res.json({
+          success: true,
+          alreadyVerified: true,
+          status: existingVerification.status,
+          isDuplicate: existingVerification.status === 'duplicate',
+        });
+      }
+      
+      // Check for duplicate face (same face, different wallet)
+      const duplicateFace = await storage.findDuplicateFace(embeddingHash, normalizedAddress);
+      const isDuplicate = !!duplicateFace;
+      
+      // Get IP hash for sybil tracking
+      const ipHash = getClientIp(req);
+      
+      // Create verification record
+      const verification = await storage.createFaceVerification({
+        walletAddress: normalizedAddress,
+        embeddingHash,
+        storageToken: storageToken || undefined,
+        challengesPassed,
+        ipHash: ipHash ? await hashIp(ipHash) : undefined,
+        status: isDuplicate ? 'duplicate' : 'verified',
+        duplicateOf: isDuplicate ? duplicateFace.walletAddress : undefined,
+      });
+      
+      // Award XP for successful verification (50 XP = 5000 centi-XP)
+      if (!isDuplicate) {
+        try {
+          await storage.claimXp(normalizedAddress, 5000, 0); // 50 XP bonus
+          console.log(`[FaceVerification] Awarded 50 XP to ${normalizedAddress}`);
+        } catch (xpError) {
+          console.error('[FaceVerification] Error awarding XP:', xpError);
+        }
+      } else {
+        console.warn(`[FaceVerification] Duplicate face detected: ${normalizedAddress} matches ${duplicateFace.walletAddress}`);
+      }
+      
+      res.json({
+        success: true,
+        verified: true,
+        isDuplicate,
+        duplicateOf: isDuplicate ? duplicateFace.walletAddress : null,
+        status: verification.status,
+        xpAwarded: isDuplicate ? 0 : 50,
+      });
+    } catch (error) {
+      console.error('[FaceVerification] Error submitting:', error);
+      res.status(500).json({ error: 'Failed to submit verification' });
+    }
+  });
+
+  // Admin: Get face verification stats
+  app.get('/api/admin/face-verification/stats', adminAuthMiddleware, async (req, res) => {
+    try {
+      const stats = await storage.getFaceVerificationStats();
+      res.json(stats);
+    } catch (error) {
+      console.error('[FaceVerification] Error getting stats:', error);
+      res.status(500).json({ error: 'Failed to get stats' });
+    }
+  });
+
   // ===== STELLAR METRICS HELPER =====
   // Stellar wallet (nanopaystellar.replit.app) is a SEPARATE application with its own database.
   // storage.getGlobalStats() only queries the EVM database (wallets, cachedTransactions tables).
