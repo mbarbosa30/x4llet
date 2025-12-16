@@ -90,8 +90,8 @@ export default function Home() {
   const maxflowScore = dashboardData?.maxflow;
   const sybilStatus = dashboardData?.sybil;
   
-  // Show sybil warning only if wallet is flagged AND user hasn't dismissed it
-  const showSybilWarning = sybilStatus?.suspicious && !sybilWarningDismissed;
+  // Sybil warning flag - resolved after faceVerificationStatus is available
+  const sybilFlagged = sybilStatus?.suspicious && !sybilWarningDismissed;
 
   const { data: exchangeRate } = useExchangeRate(currency, { skipUsd: false });
 
@@ -150,7 +150,7 @@ export default function Home() {
       // Mark as prompted to avoid redirect loops
       sessionStorage.setItem(promptKey, 'true');
       // Navigate to MaxFlow with face check auto-open
-      setLocation('/maxflow?tab=trust&faceCheck=1');
+      setLocation('/maxflow?tab=maxflow&faceCheck=1');
     }
   }, [address, faceVerificationStatus, isLoadingFaceVerification, setLocation, isGdVerified]);
 
@@ -196,6 +196,9 @@ export default function Home() {
   const hasFunds = parseFloat(balance || '0') > 0 || parseFloat(aaveBalanceForOnboarding?.totalAUsdcBalance ?? '0') > 0;
   const hasTransactions = transactions.length > 0;
   const isFaceChecked = faceVerificationStatus?.verified || false;
+  
+  // Show sybil warning only if wallet is flagged AND user hasn't dismissed it AND not face-verified
+  const showSybilWarning = sybilFlagged && !isFaceChecked;
   
   // Face Check is a PREREQUISITE, not a bypass:
   // 1. If NOT face checked → show Face Check prompt
@@ -306,38 +309,50 @@ export default function Home() {
       }}
     >
       <main className="max-w-md mx-auto p-4 space-y-4">
-        {/* Anti-Sybil Warning Banner */}
-        {showSybilWarning && (
-          <div className="relative bg-amber-500/10 border border-amber-500/30 p-3" data-testid="banner-sybil-warning">
-            <button
-              onClick={() => {
-                setSybilWarningDismissed(true);
-                sessionStorage.setItem('sybil_warning_dismissed', 'true');
-              }}
-              className="absolute top-2 right-2 text-amber-600/60 hover:text-amber-600 text-xs"
-              data-testid="button-dismiss-sybil-warning"
-            >
-              ✕
-            </button>
-            <div className="flex items-start gap-2 pr-4">
-              <Eye className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
-              <div className="text-xs text-amber-800 dark:text-amber-200 space-y-1">
-                <p className="font-medium">This wallet was flagged for suspicious sybil activity.</p>
-                <p className="text-amber-700/80 dark:text-amber-300/80">
-                  Your funds and rewards may be locked. Everyone who vouched for you, and everyone you vouched for, will also be affected.{' '}
-                  <button 
-                    onClick={() => setLocation('/maxflow?tab=trust')}
-                    className="underline font-medium hover:text-amber-900 dark:hover:text-amber-100"
-                    data-testid="link-verify-identity"
-                  >
-                    Complete Face Check
-                  </button>
-                  {' '}to ensure uninterrupted access.
-                </p>
+        {/* Anti-Sybil Warning Modal */}
+        <Dialog open={showSybilWarning} onOpenChange={(open) => {
+          if (!open) {
+            setSybilWarningDismissed(true);
+            sessionStorage.setItem('sybil_warning_dismissed', 'true');
+          }
+        }}>
+          <DialogContent className="max-w-sm" data-testid="modal-sybil-warning">
+            <DialogHeader>
+              <div className="flex justify-center mb-4">
+                <div className="h-16 w-16 rounded-full bg-amber-100 dark:bg-amber-950/50 flex items-center justify-center">
+                  <Eye className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+                </div>
               </div>
+              <DialogTitle className="text-center">Suspicious Activity Detected</DialogTitle>
+              <DialogDescription className="text-center space-y-3 pt-2">
+                <p>This wallet was flagged for suspicious sybil activity.</p>
+                <p>Your rewards and everyone who vouched for you, or you vouched for, might be affected. Complete Face Check to ensure uninterrupted access.</p>
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-2 pt-2">
+              <Button 
+                onClick={() => {
+                  setSybilWarningDismissed(true);
+                  sessionStorage.setItem('sybil_warning_dismissed', 'true');
+                  setLocation('/maxflow?tab=maxflow');
+                }}
+                data-testid="button-sybil-face-check"
+              >
+                Complete Face Check
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  setSybilWarningDismissed(true);
+                  sessionStorage.setItem('sybil_warning_dismissed', 'true');
+                }}
+                data-testid="button-dismiss-sybil-warning"
+              >
+                Close
+              </Button>
             </div>
-          </div>
-        )}
+          </DialogContent>
+        </Dialog>
 
         {/* Loading state - show spinner until we know what to display */}
         {!isDataReady ? (
@@ -362,7 +377,7 @@ export default function Home() {
               <Button
                 size="lg"
                 className="w-full"
-                onClick={() => setLocation('/maxflow?tab=trust')}
+                onClick={() => setLocation('/maxflow?tab=maxflow')}
                 data-testid="button-start-facecheck"
               >
                 <Camera className="h-4 w-4" />
