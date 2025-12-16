@@ -5040,6 +5040,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get XP analytics
+  app.get('/api/admin/analytics/xp', adminAuthMiddleware, async (req, res) => {
+    try {
+      const xpAnalytics = await storage.getXpAnalytics();
+      res.json(xpAnalytics);
+    } catch (error) {
+      console.error('[Analytics] Error getting XP analytics:', error);
+      res.status(500).json({ error: 'Failed to get XP analytics' });
+    }
+  });
+
   // Get cumulative wallet growth
   app.get('/api/admin/analytics/cumulative-growth', adminAuthMiddleware, async (req, res) => {
     try {

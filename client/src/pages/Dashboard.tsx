@@ -98,6 +98,19 @@ interface GoodDollarAnalytics {
   activeClaimers: number;
 }
 
+interface XpAnalytics {
+  totalXpDistributed: number;
+  totalXpDistributedFormatted: string;
+  activeXpUsers: number;
+  xpFromMaxFlow: number;
+  xpFromMaxFlowFormatted: string;
+  totalXpClaims: number;
+  aiChatUsers: number;
+  aiChatMessages: number;
+  avgXpPerUser: number;
+  avgXpPerUserFormatted: string;
+}
+
 interface CumulativeGrowth {
   date: string;
   cumulative: number;
@@ -232,6 +245,7 @@ export default function Dashboard() {
   const [facilitatorAnalytics, setFacilitatorAnalytics] = useState<FacilitatorAnalytics | null>(null);
   const [maxflowAnalytics, setMaxflowAnalytics] = useState<MaxFlowAnalytics | null>(null);
   const [gooddollarAnalytics, setGooddollarAnalytics] = useState<GoodDollarAnalytics | null>(null);
+  const [xpAnalytics, setXpAnalytics] = useState<XpAnalytics | null>(null);
 
   const [cumulativeGrowth, setCumulativeGrowth] = useState<CumulativeGrowth[]>([]);
   const [activeInactive, setActiveInactive] = useState<ActiveInactive | null>(null);
@@ -290,6 +304,7 @@ export default function Dashboard() {
         facilitatorRes,
         maxflowRes,
         gooddollarRes,
+        xpRes,
         cumulativeGrowthRes,
         activeInactiveRes,
         transactionTrendsRes,
@@ -309,6 +324,7 @@ export default function Dashboard() {
         authenticatedRequest('GET', '/api/admin/analytics/facilitator', auth),
         authenticatedRequest('GET', '/api/admin/analytics/maxflow', auth),
         authenticatedRequest('GET', '/api/admin/analytics/gooddollar', auth),
+        authenticatedRequest('GET', '/api/admin/analytics/xp', auth),
         authenticatedRequest('GET', `/api/admin/analytics/cumulative-growth?days=${days}`, auth),
         authenticatedRequest('GET', '/api/admin/analytics/active-inactive', auth),
         authenticatedRequest('GET', `/api/admin/analytics/transaction-trends?days=${days}`, auth),
@@ -329,6 +345,7 @@ export default function Dashboard() {
       setFacilitatorAnalytics(await facilitatorRes.json());
       setMaxflowAnalytics(await maxflowRes.json());
       setGooddollarAnalytics(await gooddollarRes.json());
+      setXpAnalytics(await xpRes.json());
       setCumulativeGrowth(await cumulativeGrowthRes.json());
       setActiveInactive(await activeInactiveRes.json());
       setTransactionTrends(await transactionTrendsRes.json());
@@ -684,6 +701,7 @@ export default function Dashboard() {
                 <TabsTrigger value="facilitator" data-testid="tab-facilitator">Facilitator</TabsTrigger>
                 <TabsTrigger value="trust" data-testid="tab-trust">Trust</TabsTrigger>
                 <TabsTrigger value="ubi" data-testid="tab-ubi">UBI</TabsTrigger>
+                <TabsTrigger value="xp" data-testid="tab-xp">XP</TabsTrigger>
               </TabsList>
 
               <TabsContent value="growth" className="space-y-4">
@@ -1808,6 +1826,176 @@ export default function Dashboard() {
                     </CardContent>
                   </Card>
                 </div>
+              </TabsContent>
+
+              <TabsContent value="xp" className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <Card data-testid="card-xp-total">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-purple-100 dark:bg-purple-900">
+                          <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Total XP Distributed</p>
+                          <p className="text-2xl font-bold" data-testid="metric-total-xp">{xpAnalytics?.totalXpDistributedFormatted || '0'}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card data-testid="card-xp-users">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 dark:bg-blue-900">
+                          <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Active XP Users</p>
+                          <p className="text-2xl font-bold" data-testid="metric-xp-users">{xpAnalytics?.activeXpUsers || 0}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card data-testid="card-xp-avg">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-100 dark:bg-green-900">
+                          <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Avg XP per User</p>
+                          <p className="text-2xl font-bold" data-testid="metric-xp-avg">{xpAnalytics?.avgXpPerUserFormatted || '0'}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Zap className="h-5 w-5" />
+                        XP Sources
+                      </CardTitle>
+                      <CardDescription>How users earn XP</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between p-3 bg-muted/50">
+                          <div className="flex items-center gap-3">
+                            <Network className="h-5 w-5 text-blue-500" />
+                            <div>
+                              <p className="font-medium">MaxFlow Vouches</p>
+                              <p className="text-xs text-muted-foreground">Social vouching from trusted users</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold">{xpAnalytics?.xpFromMaxFlowFormatted || '0'} XP</p>
+                            <p className="text-xs text-muted-foreground">{xpAnalytics?.totalXpClaims || 0} claims</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between p-3 bg-muted/50">
+                          <div className="flex items-center gap-3">
+                            <Heart className="h-5 w-5 text-green-500" />
+                            <div>
+                              <p className="font-medium">GoodDollar Exchange</p>
+                              <p className="text-xs text-muted-foreground">G$ converted to XP (1 G$ = 0.01 XP)</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold">
+                              {xpAnalytics ? (Number(xpAnalytics.totalXpDistributed - xpAnalytics.xpFromMaxFlow) / 100).toFixed(2) : '0'} XP
+                            </p>
+                            <p className="text-xs text-muted-foreground">from G$ conversions</p>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Coins className="h-5 w-5" />
+                        XP Usage
+                      </CardTitle>
+                      <CardDescription>How XP can be spent</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between p-3 bg-muted/50">
+                          <div className="flex items-center gap-3">
+                            <DollarSign className="h-5 w-5 text-green-500" />
+                            <div>
+                              <p className="font-medium">USDC Savings</p>
+                              <p className="text-xs text-muted-foreground">100 XP = 1 USDC (Aave on Celo)</p>
+                            </div>
+                          </div>
+                          <Badge variant="secondary">Primary</Badge>
+                        </div>
+                        <div className="flex items-center justify-between p-3 bg-muted/50">
+                          <div className="flex items-center gap-3">
+                            <Gift className="h-5 w-5 text-orange-500" />
+                            <div>
+                              <p className="font-medium">SENADOR Tokens</p>
+                              <p className="text-xs text-muted-foreground">1 XP = 1 SENADOR (high-risk)</p>
+                            </div>
+                          </div>
+                          <Badge variant="outline">Experimental</Badge>
+                        </div>
+                        <div className="flex items-center justify-between p-3 bg-muted/50">
+                          <div className="flex items-center gap-3">
+                            <Sparkles className="h-5 w-5 text-purple-500" />
+                            <div>
+                              <p className="font-medium">AI Chat</p>
+                              <p className="text-xs text-muted-foreground">1 XP per message</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-medium">{xpAnalytics?.aiChatMessages || 0} msgs</p>
+                            <p className="text-xs text-muted-foreground">{xpAnalytics?.aiChatUsers || 0} users</p>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>About XP System</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="p-4 bg-gradient-to-br from-purple-500/10 to-purple-500/5">
+                      <p className="text-sm text-muted-foreground">
+                        XP (Experience Points) is earned through social vouching via MaxFlow or by converting GoodDollar (G$) tokens. 
+                        XP can be used to claim USDC savings, experimental SENADOR tokens, or AI chat messages.
+                        The system incentivizes building trust networks and participating in the GoodDollar UBI ecosystem.
+                      </p>
+                      <div className="grid grid-cols-4 gap-4 mt-4">
+                        <div className="text-center">
+                          <p className="text-lg font-bold">{xpAnalytics?.totalXpDistributedFormatted || '0'}</p>
+                          <p className="text-xs text-muted-foreground">Total XP</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold">{xpAnalytics?.activeXpUsers || 0}</p>
+                          <p className="text-xs text-muted-foreground">XP Holders</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold">{xpAnalytics?.aiChatUsers || 0}</p>
+                          <p className="text-xs text-muted-foreground">AI Users</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold">{xpAnalytics?.aiChatMessages || 0}</p>
+                          <p className="text-xs text-muted-foreground">AI Messages</p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </TabsContent>
             </Tabs>
           </>

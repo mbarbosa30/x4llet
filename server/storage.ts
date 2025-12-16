@@ -2896,7 +2896,18 @@ export class DbStorage extends MemStorage {
   }> {
     try {
       const [walletsResult] = await db.select({ count: sql<number>`count(*)` }).from(wallets);
-      const [txResult] = await db.select({ count: sql<number>`count(*)` }).from(cachedTransactions);
+      
+      // Count ALL transaction types for comprehensive metric
+      const [usdcTxResult] = await db.select({ count: sql<number>`count(*)` }).from(cachedTransactions);
+      const [gasDripResult] = await db.select({ count: sql<number>`count(*)` }).from(gasDrips);
+      const [aaveOpsResult] = await db.select({ count: sql<number>`count(*)` }).from(aaveOperations);
+      const [gdClaimsResult] = await db.select({ count: sql<number>`count(*)` }).from(gooddollarClaims);
+      
+      const totalTransactions = 
+        Number(usdcTxResult?.count || 0) + 
+        Number(gasDripResult?.count || 0) + 
+        Number(aaveOpsResult?.count || 0) + 
+        Number(gdClaimsResult?.count || 0);
       
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -2917,7 +2928,7 @@ export class DbStorage extends MemStorage {
       return {
         totalWallets: Number(walletsResult.count),
         activeWallets: Number(activeResult.count),
-        totalTransactions: Number(txResult.count),
+        totalTransactions,
         totalVolumeUsd: volumeResult[0]?.total || '0',
         poolParticipants: Number(poolResult.count),
         totalYieldCollected: yieldResult[0]?.total || '0',
@@ -2931,6 +2942,85 @@ export class DbStorage extends MemStorage {
         totalVolumeUsd: '0',
         poolParticipants: 0,
         totalYieldCollected: '0',
+      };
+    }
+  }
+
+  async getXpAnalytics(): Promise<{
+    totalXpDistributed: number;
+    totalXpDistributedFormatted: string;
+    activeXpUsers: number;
+    xpFromMaxFlow: number;
+    xpFromMaxFlowFormatted: string;
+    totalXpClaims: number;
+    aiChatUsers: number;
+    aiChatMessages: number;
+    avgXpPerUser: number;
+    avgXpPerUserFormatted: string;
+  }> {
+    try {
+      // Total XP distributed (in centi-XP, divide by 100 for display)
+      const [xpTotalResult] = await db.select({ 
+        total: sql<string>`COALESCE(SUM(total_xp), 0)`,
+        count: sql<number>`count(*)`
+      }).from(xpBalances);
+      
+      const totalXpCenti = Number(xpTotalResult?.total || 0);
+      const activeXpUsers = Number(xpTotalResult?.count || 0);
+      
+      // XP from MaxFlow claims (xpClaims table stores MaxFlow-sourced XP)
+      const [maxflowXpResult] = await db.select({ 
+        total: sql<string>`COALESCE(SUM(xp_amount), 0)`,
+        count: sql<number>`count(*)`
+      }).from(xpClaims);
+      
+      const xpFromMaxFlow = Number(maxflowXpResult?.total || 0);
+      const totalXpClaims = Number(maxflowXpResult?.count || 0);
+      
+      // AI chat usage - count users with conversations and estimate messages
+      const [aiResult] = await db.select({ count: sql<number>`count(*)` }).from(aiConversations);
+      const aiChatUsers = Number(aiResult?.count || 0);
+      
+      // Estimate total AI messages by parsing messages JSON
+      let aiChatMessages = 0;
+      try {
+        const conversations = await db.select({ messages: aiConversations.messages }).from(aiConversations);
+        for (const conv of conversations) {
+          try {
+            const msgs = JSON.parse(conv.messages || '[]');
+            // Count only user messages (each costs 1 XP)
+            aiChatMessages += msgs.filter((m: any) => m.role === 'user').length;
+          } catch {}
+        }
+      } catch {}
+      
+      const avgXpPerUser = activeXpUsers > 0 ? totalXpCenti / activeXpUsers : 0;
+      
+      return {
+        totalXpDistributed: totalXpCenti,
+        totalXpDistributedFormatted: (totalXpCenti / 100).toFixed(2),
+        activeXpUsers,
+        xpFromMaxFlow,
+        xpFromMaxFlowFormatted: (xpFromMaxFlow / 100).toFixed(2),
+        totalXpClaims,
+        aiChatUsers,
+        aiChatMessages,
+        avgXpPerUser: Math.round(avgXpPerUser),
+        avgXpPerUserFormatted: (avgXpPerUser / 100).toFixed(2),
+      };
+    } catch (error) {
+      console.error('[Analytics] Error getting XP analytics:', error);
+      return {
+        totalXpDistributed: 0,
+        totalXpDistributedFormatted: '0.00',
+        activeXpUsers: 0,
+        xpFromMaxFlow: 0,
+        xpFromMaxFlowFormatted: '0.00',
+        totalXpClaims: 0,
+        aiChatUsers: 0,
+        aiChatMessages: 0,
+        avgXpPerUser: 0,
+        avgXpPerUserFormatted: '0.00',
       };
     }
   }
