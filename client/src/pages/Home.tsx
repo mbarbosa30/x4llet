@@ -197,11 +197,14 @@ export default function Home() {
   const hasTransactions = transactions.length > 0;
   const isFaceChecked = faceVerificationStatus?.verified || false;
   
-  // Show onboarding if: data is loaded AND user has no funds AND no transactions AND not face checked
-  // Show wallet view if: data is loaded AND (user has funds OR has transactions OR face checked)
-  // Show loading if: still fetching data (including aUSDC balance for accurate fund check)
+  // Face Check is a PREREQUISITE, not a bypass:
+  // 1. If NOT face checked → show Face Check prompt
+  // 2. If face checked AND no funds → show onboarding (how to get USDC)
+  // 3. If face checked AND has funds → show normal wallet
+  // Note: Transactions don't matter - only current balances determine onboarding vs wallet
   const isDataReady = !isLoadingWallet && !isLoading && !isLoadingFaceVerification && !isLoadingAaveBalance;
-  const showOnboarding = isDataReady && !hasFunds && !hasTransactions && !isFaceChecked;
+  const showFaceCheckPrompt = isDataReady && !isFaceChecked;
+  const showOnboarding = isDataReady && isFaceChecked && !hasFunds;
   
   const getExplorerUrl = (txHash: string, txChainId?: number) => {
     // Use transaction's chainId to determine explorer
@@ -341,6 +344,36 @@ export default function Home() {
           <div className="flex flex-col items-center justify-center py-16 space-y-4">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             <p className="text-sm text-muted-foreground">Loading your wallet...</p>
+          </div>
+        ) : showFaceCheckPrompt ? (
+          <div className="space-y-6">
+            <div className="border border-foreground/10 p-6 text-center space-y-4">
+              <div className="flex justify-center">
+                <div className="w-20 h-20 bg-violet-500/10 flex items-center justify-center border border-violet-500/20">
+                  <Camera className="h-10 w-10 text-violet-500" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-lg font-semibold">Complete Face Check</h2>
+                <p className="text-sm text-muted-foreground">
+                  Verify you're human to unlock your wallet and start earning XP rewards.
+                </p>
+              </div>
+              <Button
+                size="lg"
+                className="w-full"
+                onClick={() => setLocation('/maxflow?tab=trust')}
+                data-testid="button-start-facecheck"
+              >
+                <Camera className="h-4 w-4" />
+                Start Face Check
+              </Button>
+              {isGdVerified && (
+                <p className="text-xs text-green-600 dark:text-green-400">
+                  GoodDollar verified - Face Check will be auto-approved
+                </p>
+              )}
+            </div>
           </div>
         ) : showOnboarding ? (
           <>
