@@ -342,6 +342,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
       const response = await apiRequest('POST', '/api/face-verification/submit', {
         walletAddress,
         embeddingHash,
+        embedding: avgEmbedding,
         storageToken: fingerprint.storageToken,
         challengesPassed: passedChallenges,
       });

@@ -6386,7 +6386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Submit face verification
   app.post('/api/face-verification/submit', async (req, res) => {
     try {
-      const { walletAddress, embeddingHash, storageToken, challengesPassed } = req.body;
+      const { walletAddress, embeddingHash, embedding, storageToken, challengesPassed } = req.body;
       
       // Rate limiting by IP
       const clientIp = getClientIp(req);
@@ -6445,31 +6445,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Check for duplicate face (same face, different wallet)
-      const duplicateFace = await storage.findDuplicateFace(embeddingHash, normalizedAddress);
+      // STEP 1: Fast path - exact hash match (catches identical embeddings)
+      const exactDuplicate = await storage.findDuplicateFace(embeddingHash, normalizedAddress);
       
       // Get IP hash for sybil tracking
       const ipHash = getClientIp(req);
       
-      // If duplicate face detected, reject with error - no XP awarded
-      if (duplicateFace) {
-        // Still save the record for sybil tracking
+      // If exact duplicate found, reject immediately
+      if (exactDuplicate) {
         await storage.createFaceVerification({
           walletAddress: normalizedAddress,
           embeddingHash,
+          embedding: Array.isArray(embedding) ? embedding : undefined,
           storageToken: storageToken || undefined,
           challengesPassed,
           ipHash: ipHash ? await hashIp(ipHash) : undefined,
           status: 'duplicate',
-          duplicateOf: duplicateFace.walletAddress,
+          duplicateOf: exactDuplicate.walletAddress,
+          similarityScore: 1.0,
         });
         
-        console.warn(`[FaceVerification] Duplicate face rejected: ${normalizedAddress} matches ${duplicateFace.walletAddress}`);
+        console.warn(`[FaceVerification] Exact duplicate rejected: ${normalizedAddress} matches ${exactDuplicate.walletAddress}`);
         
         return res.status(409).json({
           error: 'This face has already been verified with another wallet',
           isDuplicate: true,
-          duplicateOf: duplicateFace.walletAddress.slice(0, 6) + '...' + duplicateFace.walletAddress.slice(-4),
+          duplicateOf: exactDuplicate.walletAddress.slice(0, 6) + '...' + exactDuplicate.walletAddress.slice(-4),
+        });
+      }
+      
+      // STEP 2: Fuzzy match - cosine similarity on embeddings (catches same person with variations)
+      let similarFace: { match: any; similarity: number } | null = null;
+      if (Array.isArray(embedding) && embedding.length > 0) {
+        similarFace = await storage.findSimilarFace(embedding, normalizedAddress, 0.88);
+      }
+      
+      if (similarFace) {
+        await storage.createFaceVerification({
+          walletAddress: normalizedAddress,
+          embeddingHash,
+          embedding: embedding,
+          storageToken: storageToken || undefined,
+          challengesPassed,
+          ipHash: ipHash ? await hashIp(ipHash) : undefined,
+          status: 'duplicate',
+          duplicateOf: similarFace.match.walletAddress,
+          similarityScore: similarFace.similarity,
+        });
+        
+        console.warn(`[FaceVerification] Similar face rejected (${(similarFace.similarity * 100).toFixed(1)}%): ${normalizedAddress} matches ${similarFace.match.walletAddress}`);
+        
+        return res.status(409).json({
+          error: 'This face is too similar to one already verified with another wallet',
+          isDuplicate: true,
+          duplicateOf: similarFace.match.walletAddress.slice(0, 6) + '...' + similarFace.match.walletAddress.slice(-4),
+          similarity: Math.round(similarFace.similarity * 100),
         });
       }
       
@@ -6477,6 +6507,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const verification = await storage.createFaceVerification({
         walletAddress: normalizedAddress,
         embeddingHash,
+        embedding: Array.isArray(embedding) ? embedding : undefined,
         storageToken: storageToken || undefined,
         challengesPassed,
         ipHash: ipHash ? await hashIp(ipHash) : undefined,

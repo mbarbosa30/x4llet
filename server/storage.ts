@@ -420,14 +420,17 @@ export interface IStorage {
   // Face Verification methods
   getFaceVerification(walletAddress: string): Promise<FaceVerification | null>;
   findDuplicateFace(embeddingHash: string, excludeWallet?: string): Promise<FaceVerification | null>;
+  findSimilarFace(embedding: number[], excludeWallet?: string, threshold?: number): Promise<{ match: FaceVerification; similarity: number } | null>;
   createFaceVerification(data: {
     walletAddress: string;
     embeddingHash: string;
+    embedding?: number[];
     storageToken?: string;
     challengesPassed: string[];
     ipHash?: string;
     status?: string;
     duplicateOf?: string;
+    similarityScore?: number;
   }): Promise<FaceVerification>;
   getFaceVerificationStats(): Promise<{
     totalVerified: number;
@@ -974,14 +977,20 @@ export class MemStorage implements IStorage {
     return null;
   }
 
+  async findSimilarFace(embedding: number[], excludeWallet?: string, threshold?: number): Promise<{ match: FaceVerification; similarity: number } | null> {
+    return null;
+  }
+
   async createFaceVerification(data: {
     walletAddress: string;
     embeddingHash: string;
+    embedding?: number[];
     storageToken?: string;
     challengesPassed: string[];
     ipHash?: string;
     status?: string;
     duplicateOf?: string;
+    similarityScore?: number;
   }): Promise<FaceVerification> {
     throw new Error('Face verification not available in MemStorage');
   }
@@ -5038,28 +5047,96 @@ export class DbStorage extends MemStorage {
   async createFaceVerification(data: {
     walletAddress: string;
     embeddingHash: string;
+    embedding?: number[];
     storageToken?: string;
     challengesPassed: string[];
     ipHash?: string;
     status?: string;
     duplicateOf?: string;
+    similarityScore?: number;
   }): Promise<FaceVerification> {
     try {
       const result = await db.insert(faceVerifications)
         .values({
           walletAddress: data.walletAddress.toLowerCase(),
           embeddingHash: data.embeddingHash,
+          embedding: data.embedding ? JSON.stringify(data.embedding) : null,
           storageToken: data.storageToken || null,
           challengesPassed: JSON.stringify(data.challengesPassed),
           ipHash: data.ipHash || null,
           status: data.status || 'verified',
           duplicateOf: data.duplicateOf || null,
+          similarityScore: data.similarityScore ? data.similarityScore.toFixed(4) : null,
         })
         .returning();
       return result[0];
     } catch (error) {
       console.error('[FaceVerification] Error creating verification:', error);
       throw error;
+    }
+  }
+
+  // Cosine similarity for face embedding comparison
+  private cosineSimilarity(a: number[], b: number[]): number {
+    if (a.length !== b.length) return 0;
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+    for (let i = 0; i < a.length; i++) {
+      dotProduct += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+    if (normA === 0 || normB === 0) return 0;
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  }
+
+  async findSimilarFace(embedding: number[], excludeWallet?: string, threshold: number = 0.88): Promise<{ match: FaceVerification; similarity: number } | null> {
+    try {
+      // Get all verified face verifications with embeddings
+      const allVerifications = await db.select()
+        .from(faceVerifications)
+        .where(and(
+          eq(faceVerifications.status, 'verified'),
+          sql`${faceVerifications.embedding} IS NOT NULL`
+        ));
+      
+      let bestMatch: { match: FaceVerification; similarity: number } | null = null;
+      
+      for (const verification of allVerifications) {
+        // Skip the wallet we're checking
+        if (excludeWallet && verification.walletAddress.toLowerCase() === excludeWallet.toLowerCase()) {
+          continue;
+        }
+        
+        // Parse stored embedding
+        let storedEmbedding: number[];
+        try {
+          storedEmbedding = JSON.parse(verification.embedding!);
+          if (!Array.isArray(storedEmbedding)) continue;
+        } catch {
+          continue;
+        }
+        
+        // Calculate similarity
+        const similarity = this.cosineSimilarity(embedding, storedEmbedding);
+        
+        // Check if this is a match above threshold
+        if (similarity >= threshold) {
+          if (!bestMatch || similarity > bestMatch.similarity) {
+            bestMatch = { match: verification, similarity };
+          }
+        }
+      }
+      
+      if (bestMatch) {
+        console.log(`[FaceVerification] Found similar face with ${(bestMatch.similarity * 100).toFixed(1)}% similarity to ${bestMatch.match.walletAddress}`);
+      }
+      
+      return bestMatch;
+    } catch (error) {
+      console.error('[FaceVerification] Error finding similar face:', error);
+      return null;
     }
   }
 

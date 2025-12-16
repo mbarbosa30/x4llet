@@ -342,34 +342,38 @@ export default function Home() {
 
         {/* Face Check encouragement banner - dismissable */}
         {showFaceCheckBanner && (
-          <div className="flex items-center justify-between gap-3 p-3 bg-violet-500/10 border border-violet-500/20 mb-4">
-            <div className="flex items-center gap-3">
-              <Camera className="h-5 w-5 text-violet-500 flex-shrink-0" />
-              <div className="text-sm">
-                <span className="font-medium">Complete Face Check</span>
-                <span className="text-muted-foreground"> to earn 120 XP</span>
+          <div className="relative overflow-hidden border-2 border-violet-500/30 bg-gradient-to-r from-violet-500/10 via-violet-500/5 to-violet-500/10 mb-4">
+            <div className="flex items-center gap-4 p-4">
+              <div className="h-12 w-12 rounded-full bg-violet-500/20 flex items-center justify-center flex-shrink-0">
+                <Camera className="h-6 w-6 text-violet-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm">Verify Your Identity</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Quick face scan to prove you're human and earn <span className="text-violet-500 font-medium">+120 XP</span>
+                </p>
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex border-t border-violet-500/20">
               <Button
-                size="sm"
                 variant="ghost"
+                className="flex-1 rounded-none border-r border-violet-500/20 text-violet-500 hover:text-violet-600 hover:bg-violet-500/10"
                 onClick={() => setLocation('/maxflow?tab=maxflow')}
                 data-testid="button-banner-face-check"
               >
-                Start
+                <Camera className="h-4 w-4 mr-2" />
+                Start Face Check
               </Button>
               <Button
-                size="sm"
                 variant="ghost"
+                className="px-4 rounded-none text-muted-foreground hover:text-foreground"
                 onClick={() => {
                   setFaceCheckBannerDismissed(true);
                   sessionStorage.setItem('face_check_banner_dismissed', 'true');
                 }}
-                className="text-muted-foreground"
                 data-testid="button-dismiss-face-check-banner"
               >
-                Dismiss
+                Later
               </Button>
             </div>
           </div>
