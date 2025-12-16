@@ -6475,13 +6475,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // STEP 2: Fuzzy match - cosine similarity on embeddings (catches same person with variations)
-      // Threshold lowered to 0.75 (75%) to catch the same person with lighting/angle variations
+      // Threshold set to 0.85 (85%) - balanced to catch same person while avoiding false positives on different people
+      // Testing showed 0.75 was too aggressive (0.80 similarity between clearly different people)
       // Pass request start time to prevent self-race conditions where a record created during this request matches itself
       const requestStartTime = new Date();
       let similarFace: { match: any; similarity: number } | null = null;
       if (Array.isArray(embedding) && embedding.length > 0) {
         console.log(`[FaceVerification] Checking fuzzy match for ${normalizedAddress}, embedding length: ${embedding.length}`);
-        similarFace = await storage.findSimilarFace(embedding, normalizedAddress, 0.75, requestStartTime);
+        similarFace = await storage.findSimilarFace(embedding, normalizedAddress, 0.85, requestStartTime);
       } else {
         console.warn(`[FaceVerification] No embedding provided for ${normalizedAddress}, skipping fuzzy match`);
       }

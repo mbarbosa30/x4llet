@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Camera, Check, AlertTriangle, RefreshCw, Eye, ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFingerprint } from '@/lib/fingerprint';
-import { apiRequest } from '@/lib/queryClient';
 import { Progress } from '@/components/ui/progress';
 import { Link } from 'wouter';
 
@@ -402,17 +401,33 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
       // Use ref instead of state to get fresh challenge data (avoids stale closure)
       const passedChallenges = challengesRef.current.filter(c => c.completed).map(c => c.type);
       
-      const response = await apiRequest('POST', '/api/face-verification/submit', {
-        walletAddress,
-        embeddingHash,
-        embedding: avgEmbedding,
-        storageToken: fingerprint.storageToken,
-        challengesPassed: passedChallenges,
+      // Use raw fetch instead of apiRequest to handle 409 duplicate responses gracefully
+      // apiRequest throws on non-OK responses, but we need to handle 409 as a valid "duplicate detected" case
+      const response = await fetch('/api/face-verification/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress,
+          embeddingHash,
+          embedding: avgEmbedding,
+          storageToken: fingerprint.storageToken,
+          challengesPassed: passedChallenges,
+        }),
+        credentials: 'include',
       });
       
-      const result = await response.json();
+      // Safely parse JSON response (handle empty or malformed responses)
+      let result: any = {};
+      try {
+        const text = await response.text();
+        if (text) {
+          result = JSON.parse(text);
+        }
+      } catch (parseError) {
+        console.warn('[FaceVerification] Failed to parse response JSON:', parseError);
+      }
       
-      // Check if this was an error response (duplicate face)
+      // Check if this was an error response (duplicate face, validation error, etc.)
       if (!response.ok) {
         cleanup();
         if (isMountedRef.current) {
@@ -448,9 +463,10 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
       // Call onComplete last - this will invalidate queries and may unmount this component
       onComplete(true, result);
     } catch (err) {
-      console.error('[FaceVerification] Submit error:', err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error('[FaceVerification] Submit error:', errorMessage, err);
       if (isMountedRef.current) {
-        setError('Failed to submit verification. Please try again.');
+        setError(errorMessage || 'Failed to submit verification. Please try again.');
         setStatus('error');
         setIsSubmitting(false);
       }
