@@ -83,9 +83,12 @@ export default function Traction() {
   const [filterHasXp, setFilterHasXp] = useState<string>('all');
   const [filterFaceChecked, setFilterFaceChecked] = useState<string>('all');
 
-  const { data, isLoading, error, refetch } = useQuery<TractionResponse>({
+  const { data, isLoading, error, refetch, isFetching } = useQuery<TractionResponse>({
     queryKey: ['/api/traction/users'],
     staleTime: 60000,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+    refetchOnMount: 'always',
   });
 
   const syncGoodDollarMutation = useMutation({
@@ -221,21 +224,26 @@ export default function Traction() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+          <p className="text-sm text-muted-foreground mt-2 font-mono uppercase">Loading users...</p>
+        </div>
       </div>
     );
   }
 
-  if (error) {
+  if (error && !data) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="border-foreground max-w-md">
           <CardContent className="p-6 text-center">
             <p className="text-destructive font-semibold uppercase">Failed to load data</p>
+            <p className="text-sm text-muted-foreground mt-2">Will retry automatically or click below</p>
             <Button onClick={() => refetch()} className="mt-4" data-testid="button-retry">
+              {isFetching ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Retry
             </Button>
           </CardContent>
@@ -267,7 +275,8 @@ export default function Traction() {
               )}
               Sync G$
             </Button>
-            <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-refresh">
+            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} data-testid="button-refresh">
+              {isFetching ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
               Refresh
             </Button>
           </div>
