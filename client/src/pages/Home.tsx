@@ -41,6 +41,9 @@ export default function Home() {
   const [sybilWarningDismissed, setSybilWarningDismissed] = useState(() => {
     return sessionStorage.getItem('sybil_warning_dismissed') === 'true';
   });
+  const [faceCheckBannerDismissed, setFaceCheckBannerDismissed] = useState(() => {
+    return sessionStorage.getItem('face_check_banner_dismissed') === 'true';
+  });
   
   // Force re-render every second for countdown displays
   useTick();
@@ -134,20 +137,8 @@ export default function Home() {
   const isGdVerified = gdIdentity?.isWhitelisted || 
     (gdIdentity?.whitelistedRoot && gdIdentity.whitelistedRoot !== '0x0000000000000000000000000000000000000000');
 
-  // Auto-redirect to Face Check if not verified (on every wallet load: create/unlock/restore)
-  // Skip if user is already GoodDollar verified (they don't need our Face Check)
-  useEffect(() => {
-    if (!address || isLoadingFaceVerification || !faceVerificationStatus) return;
-    
-    // Skip Face Check if user is already GoodDollar verified (proven human via GD's own face verification)
-    if (isGdVerified) return;
-    
-    // Always redirect to Face Check if not verified
-    // This happens on: new wallet creation, wallet unlock, or wallet restore
-    if (!faceVerificationStatus.verified) {
-      setLocation('/maxflow?tab=maxflow&faceCheck=1');
-    }
-  }, [address, faceVerificationStatus, isLoadingFaceVerification, setLocation, isGdVerified]);
+  // Face Check is encouraged but NOT mandatory - users can skip and use wallet
+  // We show a prompt on the Home page instead of forcing a redirect
 
   // Derive MaxFlow tile CTA
   const mfScore = maxflowScore?.local_health ?? 0;
@@ -195,14 +186,14 @@ export default function Home() {
   // Show sybil warning only if wallet is flagged AND user hasn't dismissed it AND not face-verified
   const showSybilWarning = sybilFlagged && !isFaceChecked;
   
-  // Face Check is a PREREQUISITE, not a bypass:
-  // 1. If NOT face checked → show Face Check prompt
-  // 2. If face checked AND no funds → show onboarding (how to get USDC)
-  // 3. If face checked AND has funds → show normal wallet
-  // Note: Transactions don't matter - only current balances determine onboarding vs wallet
+  // Face Check is ENCOURAGED but not mandatory:
+  // 1. Show wallet regardless of face check status
+  // 2. If not face checked, show a dismissable banner encouraging verification
+  // 3. If no funds → show onboarding (how to get USDC)
+  // 4. If has funds → show normal wallet
   const isDataReady = !isLoadingWallet && !isLoading && !isLoadingFaceVerification && !isLoadingAaveBalance;
-  const showFaceCheckPrompt = isDataReady && !isFaceChecked;
-  const showOnboarding = isDataReady && isFaceChecked && !hasFunds;
+  const showFaceCheckBanner = isDataReady && !isFaceChecked && !isGdVerified && !faceCheckBannerDismissed;
+  const showOnboarding = isDataReady && !hasFunds;
   
   const getExplorerUrl = (txHash: string, txChainId?: number) => {
     // Use transaction's chainId to determine explorer
@@ -349,41 +340,46 @@ export default function Home() {
           </DialogContent>
         </Dialog>
 
+        {/* Face Check encouragement banner - dismissable */}
+        {showFaceCheckBanner && (
+          <div className="flex items-center justify-between gap-3 p-3 bg-violet-500/10 border border-violet-500/20 mb-4">
+            <div className="flex items-center gap-3">
+              <Camera className="h-5 w-5 text-violet-500 flex-shrink-0" />
+              <div className="text-sm">
+                <span className="font-medium">Complete Face Check</span>
+                <span className="text-muted-foreground"> to earn 120 XP</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setLocation('/maxflow?tab=maxflow')}
+                data-testid="button-banner-face-check"
+              >
+                Start
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setFaceCheckBannerDismissed(true);
+                  sessionStorage.setItem('face_check_banner_dismissed', 'true');
+                }}
+                className="text-muted-foreground"
+                data-testid="button-dismiss-face-check-banner"
+              >
+                Dismiss
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Loading state - show spinner until we know what to display */}
         {!isDataReady ? (
           <div className="flex flex-col items-center justify-center py-16 space-y-4">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             <p className="text-sm text-muted-foreground">Loading your wallet...</p>
-          </div>
-        ) : showFaceCheckPrompt ? (
-          <div className="space-y-6">
-            <div className="border border-foreground/10 p-6 text-center space-y-4">
-              <div className="flex justify-center">
-                <div className="w-20 h-20 bg-violet-500/10 flex items-center justify-center border border-violet-500/20">
-                  <Camera className="h-10 w-10 text-violet-500" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <h2 className="text-lg font-semibold">Complete Face Check</h2>
-                <p className="text-sm text-muted-foreground">
-                  Verify you're human to unlock your wallet and start earning XP rewards.
-                </p>
-              </div>
-              <Button
-                size="lg"
-                className="w-full"
-                onClick={() => setLocation('/maxflow?tab=maxflow')}
-                data-testid="button-start-facecheck"
-              >
-                <Camera className="h-4 w-4" />
-                Start Face Check
-              </Button>
-              {isGdVerified && (
-                <p className="text-xs text-green-600 dark:text-green-400">
-                  GoodDollar verified - Face Check will be auto-approved
-                </p>
-              )}
-            </div>
           </div>
         ) : showOnboarding ? (
           <>

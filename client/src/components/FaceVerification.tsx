@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getFingerprint } from '@/lib/fingerprint';
 import { apiRequest } from '@/lib/queryClient';
 import { Progress } from '@/components/ui/progress';
+import { Link } from 'wouter';
 
 interface FaceLandmarkerResult {
   faceLandmarks: Array<Array<{ x: number; y: number; z: number }>>;
@@ -53,11 +54,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   const animationFrameRef = useRef<number | null>(null);
   const faceLandmarkerRef = useRef<any>(null);
   
-  console.log('[FaceVerification] Component rendering');
-  
   const [status, setStatus] = useState<'intro' | 'loading' | 'ready' | 'detecting' | 'challenges' | 'processing' | 'complete' | 'error'>('intro');
-  
-  console.log('[FaceVerification] Current status:', status);
   const [error, setError] = useState<string | null>(null);
   const [challenges, setChallenges] = useState<ChallengeState[]>(CHALLENGES.map(c => ({ ...c })));
   const [currentChallengeIndex, setCurrentChallengeIndex] = useState(0);
@@ -104,7 +101,6 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   }, [status]);
 
   const loadMediaPipe = useCallback(async () => {
-    console.log('[FaceVerification] loadMediaPipe called - about to request camera');
     try {
       setStatus('loading');
       setError(null);
@@ -416,7 +412,6 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
 
   // Start button handler - only request camera when user explicitly clicks
   const handleStartVerification = () => {
-    console.log('[FaceVerification] handleStartVerification clicked by user');
     loadMediaPipe();
   };
 
@@ -483,7 +478,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
         </p>
 
         {/* Start button */}
-        <div className="flex justify-center">
+        <div className="flex flex-col items-center gap-3">
           <Button 
             size="lg" 
             onClick={handleStartVerification}
@@ -493,6 +488,11 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
             <Camera className="h-4 w-4 mr-2" />
             Start Liveness Check
           </Button>
+          <Link href="/" data-testid="link-skip-face-check">
+            <span className="text-sm text-muted-foreground hover:text-foreground cursor-pointer">
+              Skip for now
+            </span>
+          </Link>
         </div>
       </div>
     );
