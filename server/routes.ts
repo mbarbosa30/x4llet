@@ -323,8 +323,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid wallet address' });
       }
 
-      // Log IP event for sybil detection (first_seen tracks wallet activity)
-      logIpEvent(req, address, 'first_seen');
+      // Log IP event for sybil detection - only if no events exist yet for this wallet
+      // This backfills old users who created wallets before IP tracking was added
+      const hasExistingEvents = await storage.hasIpEventsForWallet(address);
+      if (!hasExistingEvents) {
+        logIpEvent(req, address, 'first_seen');
+      }
 
       // Fetch all data in parallel (including cached MaxFlow score)
       const [
@@ -594,6 +598,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         value,
         chainId: validatedData.chainId,
       });
+
+      // Log IP event for sybil detection (sender activity)
+      logIpEvent(req, from, 'usdc_redemption');
       
       const chainInfo = resolveChain(validatedData.chainId);
       if (!chainInfo) {
@@ -5766,6 +5773,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const normalizedAddress = address.toLowerCase();
 
+      // Log IP event for sybil detection
+      logIpEvent(req, normalizedAddress, 'usdc_redemption');
+
       // Check XP balance (100 XP = 10000 centi-XP)
       const XP_REQUIRED = 10000; // 100 XP in centi-XP
       const USDC_AMOUNT = '1000000'; // 1 USDC in micro-USDC (6 decimals)
@@ -5919,6 +5929,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
         return res.status(400).json({ error: 'Invalid wallet address' });
       }
+
+      // Log IP event for sybil detection
+      logIpEvent(req, address.toLowerCase(), 'usdc_redemption');
 
       const parsedXp = parseFloat(xpAmount);
       if (isNaN(parsedXp) || parsedXp < 1) {

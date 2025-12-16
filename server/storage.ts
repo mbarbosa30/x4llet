@@ -4454,6 +4454,19 @@ export class DbStorage extends MemStorage {
     }
   }
 
+  async hasIpEventsForWallet(walletAddress: string): Promise<boolean> {
+    try {
+      const result = await db
+        .select({ count: count() })
+        .from(ipEvents)
+        .where(eq(ipEvents.walletAddress, walletAddress.toLowerCase()));
+      return result[0]?.count > 0;
+    } catch (error) {
+      console.error('[Sybil] Error checking IP events:', error);
+      return false; // Assume no events on error to allow logging
+    }
+  }
+
   async getSuspiciousIpPatterns(minWallets: number = 2): Promise<Array<{
     ipHash: string;
     walletCount: number;
