@@ -4434,6 +4434,13 @@ export class DbStorage extends MemStorage {
         networkPrefix: event.networkPrefix,
         eventType: event.eventType,
         userAgent: event.userAgent,
+        screenResolution: event.screenResolution,
+        timezone: event.timezone,
+        language: event.language,
+        platform: event.platform,
+        hardwareConcurrency: event.hardwareConcurrency,
+        deviceMemory: event.deviceMemory,
+        storageToken: event.storageToken,
       });
     } catch (error) {
       console.error('[Sybil] Error logging IP event:', error);
@@ -4467,29 +4474,81 @@ export class DbStorage extends MemStorage {
     }
   }
 
-  async isWalletSuspicious(walletAddress: string): Promise<{ suspicious: boolean; reason?: string }> {
+  async isWalletSuspicious(walletAddress: string): Promise<{ suspicious: boolean; reason?: string; score?: number }> {
     try {
-      // Check if this wallet shares an IP with any other wallets
+      const normalizedAddress = walletAddress.toLowerCase();
+      
+      // Get fingerprint signals for this wallet (most recent event)
+      const walletEvents = await db
+        .select()
+        .from(ipEvents)
+        .where(eq(ipEvents.walletAddress, normalizedAddress))
+        .orderBy(desc(ipEvents.createdAt))
+        .limit(1);
+      
+      if (walletEvents.length === 0) {
+        return { suspicious: false, score: 0 };
+      }
+      
+      const myEvent = walletEvents[0];
+      
+      // Find other wallets with matching signals using weighted scoring
+      // Strong signals (2 points each): IP, storageToken, userAgent
+      // Medium signals (1 point each): screen, hardware (cores+memory)
+      // Weak signals (0.5 points each): timezone, language, platform
       const result = await db.execute(sql`
-        SELECT ip_hash, COUNT(DISTINCT wallet_address) as wallet_count
-        FROM ip_events
-        WHERE ip_hash IN (
-          SELECT ip_hash FROM ip_events WHERE wallet_address = ${walletAddress.toLowerCase()}
+        WITH my_signals AS (
+          SELECT 
+            ip_hash, storage_token, user_agent, screen_resolution,
+            hardware_concurrency, device_memory, timezone, language, platform
+          FROM ip_events
+          WHERE wallet_address = ${normalizedAddress}
+          ORDER BY created_at DESC
+          LIMIT 1
+        ),
+        other_wallets AS (
+          SELECT DISTINCT ON (wallet_address)
+            wallet_address,
+            ip_hash, storage_token, user_agent, screen_resolution,
+            hardware_concurrency, device_memory, timezone, language, platform
+          FROM ip_events
+          WHERE wallet_address != ${normalizedAddress}
+          ORDER BY wallet_address, created_at DESC
+        ),
+        scored AS (
+          SELECT 
+            o.wallet_address,
+            (CASE WHEN o.ip_hash = m.ip_hash AND m.ip_hash IS NOT NULL THEN 2.0 ELSE 0 END) +
+            (CASE WHEN o.storage_token = m.storage_token AND m.storage_token IS NOT NULL THEN 2.0 ELSE 0 END) +
+            (CASE WHEN o.user_agent = m.user_agent AND m.user_agent IS NOT NULL THEN 2.0 ELSE 0 END) +
+            (CASE WHEN o.screen_resolution = m.screen_resolution AND m.screen_resolution IS NOT NULL THEN 1.0 ELSE 0 END) +
+            (CASE WHEN o.hardware_concurrency = m.hardware_concurrency AND o.device_memory = m.device_memory 
+                  AND m.hardware_concurrency IS NOT NULL AND m.device_memory IS NOT NULL THEN 1.0 ELSE 0 END) +
+            (CASE WHEN o.timezone = m.timezone AND m.timezone IS NOT NULL THEN 0.5 ELSE 0 END) +
+            (CASE WHEN o.language = m.language AND m.language IS NOT NULL THEN 0.5 ELSE 0 END) +
+            (CASE WHEN o.platform = m.platform AND m.platform IS NOT NULL THEN 0.5 ELSE 0 END)
+            AS score
+          FROM other_wallets o
+          CROSS JOIN my_signals m
         )
-        GROUP BY ip_hash
-        HAVING COUNT(DISTINCT wallet_address) >= 2
-        LIMIT 1
+        SELECT wallet_address, score
+        FROM scored
+        WHERE score >= 3.0
+        ORDER BY score DESC
+        LIMIT 10
       `);
 
       if (result.rows && result.rows.length > 0) {
-        const row = result.rows[0] as any;
+        const topMatch = result.rows[0] as any;
+        const matchCount = result.rows.length;
         return {
           suspicious: true,
-          reason: `IP shared with ${row.wallet_count} wallets`,
+          reason: `Fingerprint matches ${matchCount} other wallet${matchCount > 1 ? 's' : ''} (score: ${topMatch.score})`,
+          score: parseFloat(topMatch.score),
         };
       }
 
-      return { suspicious: false };
+      return { suspicious: false, score: 0 };
     } catch (error) {
       console.error('[Sybil] Error checking wallet suspicious status:', error);
       return { suspicious: false }; // Fail open to not block legitimate users

@@ -27,6 +27,7 @@ import type { Transaction as SchemaTransaction } from '@shared/schema';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { formatTimeRemaining } from '@/lib/formatTime';
 import { useTick } from '@/hooks/useCountdown';
+import { getFingerprint } from '@/lib/fingerprint';
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -52,6 +53,27 @@ export default function Home() {
       }
     }
   }, [isLoadingWallet, address]);
+
+  // Submit browser fingerprint for sybil detection (once per session)
+  useEffect(() => {
+    if (!address) return;
+    const fingerprintKey = `fingerprint_sent_${address.toLowerCase()}`;
+    if (sessionStorage.getItem(fingerprintKey)) return;
+    
+    (async () => {
+      try {
+        const fingerprint = await getFingerprint();
+        await fetch('/api/sybil/fingerprint', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ walletAddress: address, fingerprint }),
+        });
+        sessionStorage.setItem(fingerprintKey, 'true');
+      } catch (error) {
+        // Silent fail - fingerprint submission should not break main functionality
+      }
+    })();
+  }, [address]);
 
   // Fetch dashboard data (balance, transactions, XP) in a single request
   const { data: dashboardData, isLoading, isFetching: isRefreshingBalance, refetch: refetchDashboard } = useDashboard(address);

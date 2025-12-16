@@ -33,26 +33,44 @@ function getClientIp(req: Request): string {
   return req.socket?.remoteAddress || 'unknown';
 }
 
+interface FingerprintData {
+  userAgent?: string;
+  screenResolution?: string;
+  timezone?: string;
+  language?: string;
+  platform?: string;
+  hardwareConcurrency?: number;
+  deviceMemory?: number;
+  storageToken?: string;
+}
+
 async function logIpEvent(
   req: Request,
   walletAddress: string,
-  eventType: 'first_seen' | 'xp_claim' | 'usdc_redemption' | 'airdrop'
+  eventType: 'first_seen' | 'xp_claim' | 'usdc_redemption' | 'airdrop',
+  fingerprint?: FingerprintData
 ): Promise<void> {
   try {
     const clientIp = getClientIp(req);
     if (!clientIp || clientIp === 'unknown') return;
     
     const ipHash = hashIp(clientIp);
-    // Note: We intentionally don't store network prefix to protect privacy
-    // Only the hashed IP is stored for sybil detection
-    const userAgent = req.headers['user-agent'] || null;
+    // Use fingerprint data from client if provided, fallback to server-side user-agent
+    const userAgent = fingerprint?.userAgent || req.headers['user-agent'] || null;
     
     await storage.logIpEvent({
       walletAddress: walletAddress.toLowerCase(),
       ipHash,
-      networkPrefix: null, // Removed for privacy - raw network prefixes could identify users
+      networkPrefix: null,
       eventType,
       userAgent,
+      screenResolution: fingerprint?.screenResolution || null,
+      timezone: fingerprint?.timezone || null,
+      language: fingerprint?.language || null,
+      platform: fingerprint?.platform || null,
+      hardwareConcurrency: fingerprint?.hardwareConcurrency || null,
+      deviceMemory: fingerprint?.deviceMemory || null,
+      storageToken: fingerprint?.storageToken || null,
     });
   } catch (error) {
     // Silent fail - IP logging should never break main functionality
@@ -311,6 +329,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       maxflowApiBase: 'https://maxflow.one/api/v1',
       timestamp: new Date().toISOString()
     });
+  });
+
+  // Sybil Detection: Submit browser fingerprint data
+  app.post('/api/sybil/fingerprint', async (req, res) => {
+    try {
+      const { walletAddress, fingerprint } = req.body;
+      
+      if (!walletAddress || !/^0x[a-fA-F0-9]{40}$/i.test(walletAddress)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+      
+      // Log fingerprint event (always logs, not just first_seen)
+      await logIpEvent(req, walletAddress, 'first_seen', fingerprint);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('[Sybil] Error logging fingerprint:', error);
+      res.status(500).json({ error: 'Failed to log fingerprint' });
+    }
   });
 
   // Batched dashboard endpoint - combines balance, transactions, and XP into single request
