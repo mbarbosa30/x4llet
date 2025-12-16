@@ -471,17 +471,29 @@ export default function MaxFlow() {
             <Card className="p-6 space-y-6">
               {!isLoadingMaxFlow && score === 0 ? (
                 <div className="space-y-4">
-                  <div className="text-center space-y-2">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-5 w-5 text-[#30A99C] dark:text-[#40C4B5]" />
+                      <span className="font-label text-muted-foreground text-xs">// MAXFLOW</span>
+                    </div>
+                    <Link href="/faqs#maxflow">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" data-testid="button-maxflow-info">
+                        <Info className="h-3 w-3 text-muted-foreground" />
+                      </Button>
+                    </Link>
+                  </div>
+
+                  <div className="text-center space-y-1">
                     <p className="font-mono text-5xl font-bold">0</p>
                     <span className="text-sm text-muted-foreground">Trust Signal</span>
                   </div>
 
                   <p className="text-sm text-muted-foreground text-center">
-                    Get vouched to build your trust signal and unlock XP rewards.
+                    Get vouched to build your signal and unlock XP.
                   </p>
 
                   <div className="text-center py-2 px-3 bg-muted/50 border border-foreground/10" data-testid="text-user-address">
-                    <span className="text-xs text-muted-foreground">Share your address: </span>
+                    <span className="text-xs text-muted-foreground">Share: </span>
                     <span className="font-mono text-sm">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
                   </div>
                 </div>
@@ -668,6 +680,18 @@ export default function MaxFlow() {
           <TabsContent value="claim" className="space-y-4 mt-4">
             {/* XP Balance & Claim Section */}
             <Card className="p-6 space-y-4">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-amber-500" />
+                  <span className="font-label text-muted-foreground text-xs">// XP_REWARDS</span>
+                </div>
+                <Link href="/faqs#experience-points">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" data-testid="button-xp-info">
+                    <Info className="h-3 w-3 text-muted-foreground" />
+                  </Button>
+                </Link>
+              </div>
+
               <div className="text-center space-y-1">
                 {isLoadingXp ? (
                   <p className="font-mono text-5xl font-bold">--</p>
