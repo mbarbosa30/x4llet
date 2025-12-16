@@ -53,6 +53,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const faceLandmarkerRef = useRef<any>(null);
+  const faceApiRef = useRef<any>(null); // face-api.js module for identity embeddings
   
   const [status, setStatus] = useState<'intro' | 'loading' | 'ready' | 'detecting' | 'challenges' | 'processing' | 'complete' | 'error'>('intro');
   const [error, setError] = useState<string | null>(null);
@@ -61,11 +62,12 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   const [faceDetected, setFaceDetected] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [videoAspect, setVideoAspect] = useState<number>(3/4); // Default portrait ratio
+  const [loadingMessage, setLoadingMessage] = useState<string>('Initializing...');
   
   const blinkCountRef = useRef(0);
   const lastBlinkStateRef = useRef(false);
   const headTurnProgressRef = useRef({ left: 0, right: 0 });
-  const faceEmbeddingsRef = useRef<number[][]>([]);
+  const faceEmbeddingsRef = useRef<Float32Array[]>([]); // Store 128D face descriptors
   
   // Refs to mirror state for animation frame loop (avoids stale closures)
   const currentChallengeIndexRef = useRef(0);
@@ -100,11 +102,13 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
     statusRef.current = status;
   }, [status]);
 
-  const loadMediaPipe = useCallback(async () => {
+  const loadModels = useCallback(async () => {
     try {
       setStatus('loading');
       setError(null);
       
+      // Load MediaPipe for liveness detection (blink, head turn)
+      setLoadingMessage('Loading liveness detection...');
       const vision = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm');
       const { FaceLandmarker, FilesetResolver } = vision;
       
@@ -123,10 +127,25 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
         outputFacialTransformationMatrixes: true
       });
       
+      // Load face-api.js for identity embeddings (128D face descriptors)
+      setLoadingMessage('Loading face recognition...');
+      const faceApi = await import('https://cdn.jsdelivr.net/npm/@pluv/face-api@1.0.0/+esm');
+      faceApiRef.current = faceApi;
+      
+      // Load required models from CDN
+      const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@pluv/face-api@1.0.0/weights';
+      await Promise.all([
+        faceApi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        faceApi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        faceApi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+      ]);
+      console.log('[FaceVerification] face-api.js models loaded successfully');
+      
+      setLoadingMessage('Starting camera...');
       await startCamera();
       setStatus('ready');
     } catch (err) {
-      console.error('[FaceVerification] Failed to load MediaPipe:', err);
+      console.error('[FaceVerification] Failed to load models:', err);
       setError('Failed to load face detection. Please try again.');
       setStatus('error');
     }
@@ -209,11 +228,23 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
             
             if (statusRef.current === 'challenges') {
               processChallenge(results);
-            }
-            
-            const embedding = landmarks.slice(0, 68).flatMap(l => [l.x, l.y, l.z]);
-            if (faceEmbeddingsRef.current.length < 5) {
-              faceEmbeddingsRef.current.push(embedding);
+              
+              // Capture face descriptor using face-api.js (only during challenges, max 5 samples)
+              if (faceEmbeddingsRef.current.length < 5 && faceApiRef.current && videoRef.current) {
+                try {
+                  const detection = await faceApiRef.current
+                    .detectSingleFace(videoRef.current, new faceApiRef.current.TinyFaceDetectorOptions())
+                    .withFaceLandmarks()
+                    .withFaceDescriptor();
+                  
+                  if (detection?.descriptor) {
+                    faceEmbeddingsRef.current.push(detection.descriptor);
+                    console.log(`[FaceVerification] Captured face descriptor ${faceEmbeddingsRef.current.length}/5`);
+                  }
+                } catch (faceApiErr) {
+                  // Silently ignore face-api detection errors during sampling
+                }
+              }
             }
           }
         }
@@ -327,12 +358,20 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
     
     try {
       if (faceEmbeddingsRef.current.length === 0) {
-        throw new Error('No face data captured');
+        throw new Error('No face data captured. Please ensure your face is visible during the challenges.');
       }
       
-      const avgEmbedding = faceEmbeddingsRef.current[0].map((_, i) => 
-        faceEmbeddingsRef.current.reduce((sum, emb) => sum + emb[i], 0) / faceEmbeddingsRef.current.length
-      );
+      // Average the 128D face descriptors from face-api.js
+      const numDescriptors = faceEmbeddingsRef.current.length;
+      const avgEmbedding: number[] = new Array(128).fill(0);
+      
+      for (const descriptor of faceEmbeddingsRef.current) {
+        for (let i = 0; i < 128; i++) {
+          avgEmbedding[i] += descriptor[i] / numDescriptors;
+        }
+      }
+      
+      console.log(`[FaceVerification] Averaged ${numDescriptors} face descriptors`);
       
       const embeddingHash = await hashEmbedding(avgEmbedding);
       const fingerprint = await getFingerprint();
@@ -408,12 +447,12 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
     currentChallengeIndexRef.current = 0;
     blinkCountRef.current = 0;
     faceEmbeddingsRef.current = [];
-    loadMediaPipe();
+    loadModels();
   };
 
   // Start button handler - only request camera when user explicitly clicks
   const handleStartVerification = () => {
-    loadMediaPipe();
+    loadModels();
   };
 
   useEffect(() => {
@@ -556,7 +595,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
           <div className="absolute inset-0 flex items-center justify-center bg-black/80">
             <div className="text-center text-white space-y-3">
               <Loader2 className="h-10 w-10 animate-spin mx-auto" />
-              <p className="text-sm">Initializing camera...</p>
+              <p className="text-sm">{loadingMessage}</p>
             </div>
           </div>
         )}
