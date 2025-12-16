@@ -143,6 +143,43 @@ interface SuspiciousIpPattern {
   lastSeen: string;
 }
 
+interface FlaggedWallet {
+  wallet: string;
+  score: number;
+  matchCount: number;
+  signals: string[];
+}
+
+interface StorageTokenPattern {
+  storageToken: string;
+  walletCount: number;
+  wallets: string[];
+  eventCount: number;
+  firstSeen: string;
+  lastSeen: string;
+}
+
+interface WalletFingerprint {
+  fingerprint: {
+    ipHash: string;
+    userAgent: string | null;
+    screenResolution: string | null;
+    timezone: string | null;
+    language: string | null;
+    platform: string | null;
+    hardwareConcurrency: number | null;
+    deviceMemory: number | null;
+    storageToken: string | null;
+  } | null;
+  scoreBreakdown: Array<{
+    wallet: string;
+    signal: string;
+    points: number;
+  }>;
+  totalScore: number;
+  matchingWallets: string[];
+}
+
 interface WalletGrowthPoint {
   date: string;
   count: number;
@@ -2275,31 +2312,50 @@ export default function Admin() {
 function SybilDetectionPanel({ authHeader }: { authHeader: string | null }) {
   const [analytics, setAnalytics] = useState<SybilAnalytics | null>(null);
   const [suspiciousPatterns, setSuspiciousPatterns] = useState<SuspiciousIpPattern[]>([]);
+  const [flaggedWallets, setFlaggedWallets] = useState<FlaggedWallet[]>([]);
+  const [tokenPatterns, setTokenPatterns] = useState<StorageTokenPattern[]>([]);
+  const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
+  const [walletFingerprint, setWalletFingerprint] = useState<WalletFingerprint | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedIp, setExpandedIp] = useState<string | null>(null);
+  const [expandedToken, setExpandedToken] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<'scored' | 'ip' | 'token'>('scored');
   const { toast } = useToast();
 
   const loadSybilData = async () => {
     if (!authHeader) return;
     setIsLoading(true);
     try {
-      const [analyticsRes, patternsRes] = await Promise.all([
+      const [analyticsRes, patternsRes, flaggedRes, tokensRes] = await Promise.all([
         fetch('/api/admin/analytics/sybil', { headers: { Authorization: authHeader } }),
         fetch('/api/admin/analytics/sybil/suspicious?minWallets=2', { headers: { Authorization: authHeader } }),
+        fetch('/api/admin/analytics/sybil/flagged', { headers: { Authorization: authHeader } }),
+        fetch('/api/admin/analytics/sybil/tokens?minWallets=2', { headers: { Authorization: authHeader } }),
       ]);
       
-      if (analyticsRes.ok) {
-        const data = await analyticsRes.json();
-        setAnalytics(data);
-      }
-      if (patternsRes.ok) {
-        const data = await patternsRes.json();
-        setSuspiciousPatterns(data);
-      }
+      if (analyticsRes.ok) setAnalytics(await analyticsRes.json());
+      if (patternsRes.ok) setSuspiciousPatterns(await patternsRes.json());
+      if (flaggedRes.ok) setFlaggedWallets(await flaggedRes.json());
+      if (tokensRes.ok) setTokenPatterns(await tokensRes.json());
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to load sybil analytics', variant: 'destructive' });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadWalletFingerprint = async (wallet: string) => {
+    if (!authHeader) return;
+    setSelectedWallet(wallet);
+    try {
+      const res = await fetch(`/api/admin/analytics/sybil/fingerprint/${wallet}`, {
+        headers: { Authorization: authHeader },
+      });
+      if (res.ok) {
+        setWalletFingerprint(await res.json());
+      }
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to load wallet fingerprint', variant: 'destructive' });
     }
   };
 
@@ -2309,13 +2365,24 @@ function SybilDetectionPanel({ authHeader }: { authHeader: string | null }) {
     }
   }, [authHeader]);
 
+  const signalLabels: Record<string, string> = {
+    'IP': 'Same IP (2pts)',
+    'Token': 'Same Device Token (2pts)',
+    'UA': 'Same Browser (2pts)',
+    'Screen': 'Same Screen (1pt)',
+    'HW': 'Same Hardware (1pt)',
+    'TZ': 'Same Timezone (0.5pt)',
+    'Lang': 'Same Language (0.5pt)',
+    'Plat': 'Same Platform (0.5pt)',
+  };
+
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
       <div className="grid md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Total IP Events</CardDescription>
+            <CardDescription>Fingerprint Events</CardDescription>
             <CardTitle className="text-2xl" data-testid="text-sybil-total-events">
               {analytics?.totalEvents ?? '—'}
             </CardTitle>
@@ -2339,57 +2406,306 @@ function SybilDetectionPanel({ authHeader }: { authHeader: string | null }) {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Suspicious IPs</CardDescription>
+            <CardDescription>Flagged Wallets</CardDescription>
             <CardTitle className="text-2xl text-amber-600" data-testid="text-sybil-suspicious">
-              {analytics?.suspiciousIps ?? '—'}
+              {flaggedWallets.length}
             </CardTitle>
           </CardHeader>
         </Card>
       </div>
 
-      {/* Flagged Wallets - Quick View */}
-      {suspiciousPatterns.length > 0 && (
+      {/* View Toggle */}
+      <div className="flex gap-2">
+        <Button
+          variant={activeView === 'scored' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setActiveView('scored')}
+          data-testid="button-view-scored"
+        >
+          Weighted Scores
+        </Button>
+        <Button
+          variant={activeView === 'ip' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setActiveView('ip')}
+          data-testid="button-view-ip"
+        >
+          By IP
+        </Button>
+        <Button
+          variant={activeView === 'token' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setActiveView('token')}
+          data-testid="button-view-token"
+        >
+          By Device Token
+        </Button>
+      </div>
+
+      {/* Weighted Scores View */}
+      {activeView === 'scored' && (
         <Card className="border-amber-500/50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Wallet className="h-5 w-5 text-amber-600" />
-              Flagged Wallet Addresses
+              <AlertCircle className="h-5 w-5 text-amber-600" />
+              Flagged Wallets by Score
             </CardTitle>
             <CardDescription>
-              All wallets detected sharing an IP with other wallets (copy-friendly list)
+              Wallets with weighted fingerprint score ≥3 (click to view details)
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {(() => {
-                // Flatten all suspicious wallets with their cluster info
-                const flaggedWallets: Array<{ wallet: string; clusterSize: number; ipHash: string }> = [];
-                for (const pattern of suspiciousPatterns) {
-                  for (const wallet of pattern.wallets) {
-                    flaggedWallets.push({
-                      wallet,
-                      clusterSize: pattern.walletCount,
-                      ipHash: pattern.ipHash,
-                    });
-                  }
-                }
-                return flaggedWallets.map((item, idx) => (
-                  <div 
-                    key={idx} 
-                    className="flex items-center justify-between p-2 bg-muted font-mono text-xs"
-                    data-testid={`flagged-wallet-${idx}`}
+            {flaggedWallets.length > 0 ? (
+              <div className="space-y-2">
+                <div className="grid grid-cols-4 gap-2 px-2 py-1 border-b text-xs font-medium text-muted-foreground">
+                  <div>Wallet</div>
+                  <div>Score</div>
+                  <div>Matches</div>
+                  <div>Signals</div>
+                </div>
+                {flaggedWallets.map((item) => (
+                  <div
+                    key={item.wallet}
+                    className="grid grid-cols-4 gap-2 p-2 bg-muted cursor-pointer hover-elevate"
+                    onClick={() => loadWalletFingerprint(item.wallet)}
+                    data-testid={`row-flagged-wallet-${item.wallet.slice(0, 8)}`}
                   >
-                    <span className="truncate flex-1">{item.wallet}</span>
-                    <span className="text-amber-600 font-semibold ml-2">
-                      {item.clusterSize} wallets
-                    </span>
+                    <div className="font-mono text-xs truncate">{item.wallet}</div>
+                    <div className="font-semibold text-amber-600">{item.score.toFixed(1)}</div>
+                    <div>{item.matchCount}</div>
+                    <div className="flex flex-wrap gap-1">
+                      {item.signals.map((sig) => (
+                        <span key={sig} className="px-1 py-0.5 bg-background text-xs">
+                          {sig}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                ));
-              })()}
-            </div>
-            <div className="mt-3 text-xs text-muted-foreground">
-              Total flagged: {suspiciousPatterns.reduce((sum, p) => sum + p.wallets.length, 0)} wallets in {suspiciousPatterns.length} clusters
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-muted-foreground">
+                {isLoading ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading...
+                  </div>
+                ) : (
+                  'No flagged wallets detected'
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* IP Patterns View */}
+      {activeView === 'ip' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-600" />
+              Suspicious IP Patterns
+            </CardTitle>
+            <CardDescription>
+              IP addresses with multiple wallets
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {suspiciousPatterns.length > 0 ? (
+              <div className="space-y-2">
+                <div className="grid grid-cols-5 gap-2 px-2 py-1 border-b text-xs font-medium text-muted-foreground">
+                  <div>IP Hash</div>
+                  <div>Wallets</div>
+                  <div>Events</div>
+                  <div>First Seen</div>
+                  <div>Last Seen</div>
+                </div>
+                {suspiciousPatterns.map((pattern) => (
+                  <div key={pattern.ipHash} data-testid={`row-suspicious-ip-${pattern.ipHash.slice(0, 8)}`}>
+                    <div 
+                      className="grid grid-cols-5 gap-2 p-2 bg-muted cursor-pointer hover-elevate"
+                      onClick={() => setExpandedIp(expandedIp === pattern.ipHash ? null : pattern.ipHash)}
+                    >
+                      <div className="font-mono text-xs">{pattern.ipHash.slice(0, 12)}...</div>
+                      <div className="font-semibold text-amber-600">{pattern.walletCount}</div>
+                      <div>{pattern.eventCount}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {pattern.firstSeen ? new Date(pattern.firstSeen).toLocaleDateString() : '—'}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {pattern.lastSeen ? new Date(pattern.lastSeen).toLocaleDateString() : '—'}
+                      </div>
+                    </div>
+                    {expandedIp === pattern.ipHash && (
+                      <div className="p-3 bg-muted/50 border-l-2 border-amber-500 ml-2 space-y-1">
+                        <div className="text-xs text-muted-foreground mb-2">Associated Wallets:</div>
+                        {pattern.wallets.map((wallet, idx) => (
+                          <div key={idx} className="font-mono text-xs p-1 bg-background cursor-pointer hover-elevate" onClick={() => loadWalletFingerprint(wallet)}>
+                            {wallet}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-muted-foreground">
+                {isLoading ? 'Loading...' : 'No suspicious IP patterns detected'}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Token Patterns View */}
+      {activeView === 'token' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-600" />
+              Suspicious Device Token Patterns
+            </CardTitle>
+            <CardDescription>
+              Storage tokens (persistent device IDs) with multiple wallets
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {tokenPatterns.length > 0 ? (
+              <div className="space-y-2">
+                <div className="grid grid-cols-5 gap-2 px-2 py-1 border-b text-xs font-medium text-muted-foreground">
+                  <div>Token</div>
+                  <div>Wallets</div>
+                  <div>Events</div>
+                  <div>First Seen</div>
+                  <div>Last Seen</div>
+                </div>
+                {tokenPatterns.map((pattern) => (
+                  <div key={pattern.storageToken} data-testid={`row-suspicious-token-${pattern.storageToken.slice(0, 8)}`}>
+                    <div 
+                      className="grid grid-cols-5 gap-2 p-2 bg-muted cursor-pointer hover-elevate"
+                      onClick={() => setExpandedToken(expandedToken === pattern.storageToken ? null : pattern.storageToken)}
+                    >
+                      <div className="font-mono text-xs">{pattern.storageToken.slice(0, 12)}...</div>
+                      <div className="font-semibold text-amber-600">{pattern.walletCount}</div>
+                      <div>{pattern.eventCount}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {pattern.firstSeen ? new Date(pattern.firstSeen).toLocaleDateString() : '—'}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {pattern.lastSeen ? new Date(pattern.lastSeen).toLocaleDateString() : '—'}
+                      </div>
+                    </div>
+                    {expandedToken === pattern.storageToken && (
+                      <div className="p-3 bg-muted/50 border-l-2 border-amber-500 ml-2 space-y-1">
+                        <div className="text-xs text-muted-foreground mb-2">Associated Wallets:</div>
+                        {pattern.wallets.map((wallet, idx) => (
+                          <div key={idx} className="font-mono text-xs p-1 bg-background cursor-pointer hover-elevate" onClick={() => loadWalletFingerprint(wallet)}>
+                            {wallet}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-muted-foreground">
+                {isLoading ? 'Loading...' : 'No suspicious device token patterns detected'}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Wallet Fingerprint Details Modal */}
+      {selectedWallet && walletFingerprint && (
+        <Card className="border-2 border-primary">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <Wallet className="h-5 w-5" />
+                Fingerprint Details
+              </span>
+              <Button size="sm" variant="ghost" onClick={() => setSelectedWallet(null)}>
+                Close
+              </Button>
+            </CardTitle>
+            <CardDescription className="font-mono text-xs break-all">
+              {selectedWallet}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {walletFingerprint.fingerprint ? (
+              <>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2 bg-muted">
+                    <div className="text-muted-foreground">IP Hash</div>
+                    <div className="font-mono truncate">{walletFingerprint.fingerprint.ipHash.slice(0, 16)}...</div>
+                  </div>
+                  <div className="p-2 bg-muted">
+                    <div className="text-muted-foreground">Device Token</div>
+                    <div className="font-mono truncate">{walletFingerprint.fingerprint.storageToken?.slice(0, 16) || 'N/A'}...</div>
+                  </div>
+                  <div className="p-2 bg-muted">
+                    <div className="text-muted-foreground">Screen</div>
+                    <div className="font-mono">{walletFingerprint.fingerprint.screenResolution || 'N/A'}</div>
+                  </div>
+                  <div className="p-2 bg-muted">
+                    <div className="text-muted-foreground">Hardware</div>
+                    <div className="font-mono">{walletFingerprint.fingerprint.hardwareConcurrency || '?'} cores, {walletFingerprint.fingerprint.deviceMemory || '?'}GB</div>
+                  </div>
+                  <div className="p-2 bg-muted">
+                    <div className="text-muted-foreground">Timezone</div>
+                    <div className="font-mono">{walletFingerprint.fingerprint.timezone || 'N/A'}</div>
+                  </div>
+                  <div className="p-2 bg-muted">
+                    <div className="text-muted-foreground">Language</div>
+                    <div className="font-mono">{walletFingerprint.fingerprint.language || 'N/A'}</div>
+                  </div>
+                  <div className="p-2 bg-muted col-span-2">
+                    <div className="text-muted-foreground">User-Agent</div>
+                    <div className="font-mono text-xs truncate">{walletFingerprint.fingerprint.userAgent || 'N/A'}</div>
+                  </div>
+                </div>
+
+                {walletFingerprint.totalScore >= 3 && (
+                  <div className="p-3 bg-amber-100 dark:bg-amber-900/30 border border-amber-500">
+                    <div className="text-sm font-semibold text-amber-700 dark:text-amber-400 mb-2">
+                      Suspicious Score: {walletFingerprint.totalScore.toFixed(1)} (threshold: 3)
+                    </div>
+                    <div className="text-xs text-muted-foreground mb-2">
+                      Matching {walletFingerprint.matchingWallets.length} other wallet(s):
+                    </div>
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                      {walletFingerprint.matchingWallets.map((w) => (
+                        <div key={w} className="font-mono text-xs p-1 bg-background cursor-pointer hover-elevate" onClick={() => loadWalletFingerprint(w)}>
+                          {w}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {walletFingerprint.scoreBreakdown.length > 0 && (
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-2">Signal Breakdown:</div>
+                    <div className="flex flex-wrap gap-1">
+                      {Array.from(new Set(walletFingerprint.scoreBreakdown.map(s => s.signal))).map((sig) => (
+                        <span key={sig} className="px-2 py-1 bg-muted text-xs">
+                          {signalLabels[sig] || sig}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center text-muted-foreground py-4">
+                No fingerprint data collected for this wallet
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -2415,71 +2731,6 @@ function SybilDetectionPanel({ authHeader }: { authHeader: string | null }) {
           </CardContent>
         </Card>
       )}
-
-      {/* Suspicious Patterns */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-amber-600" />
-            Suspicious IP Patterns
-          </CardTitle>
-          <CardDescription>
-            IP addresses with multiple wallets (potential sybil activity)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {suspiciousPatterns.length > 0 ? (
-            <div className="space-y-2">
-              <div className="grid grid-cols-5 gap-2 px-2 py-1 border-b text-xs font-medium text-muted-foreground">
-                <div>IP Hash</div>
-                <div>Wallets</div>
-                <div>Events</div>
-                <div>First Seen</div>
-                <div>Last Seen</div>
-              </div>
-              {suspiciousPatterns.map((pattern) => (
-                <div key={pattern.ipHash} data-testid={`row-suspicious-ip-${pattern.ipHash.slice(0, 8)}`}>
-                  <div 
-                    className="grid grid-cols-5 gap-2 p-2 bg-muted cursor-pointer hover-elevate"
-                    onClick={() => setExpandedIp(expandedIp === pattern.ipHash ? null : pattern.ipHash)}
-                  >
-                    <div className="font-mono text-xs">{pattern.ipHash.slice(0, 12)}...</div>
-                    <div className="font-semibold text-amber-600">{pattern.walletCount}</div>
-                    <div>{pattern.eventCount}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {pattern.firstSeen ? new Date(pattern.firstSeen).toLocaleDateString() : '—'}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {pattern.lastSeen ? new Date(pattern.lastSeen).toLocaleDateString() : '—'}
-                    </div>
-                  </div>
-                  {expandedIp === pattern.ipHash && (
-                    <div className="p-3 bg-muted/50 border-l-2 border-amber-500 ml-2 space-y-1">
-                      <div className="text-xs text-muted-foreground mb-2">Associated Wallets:</div>
-                      {pattern.wallets.map((wallet, idx) => (
-                        <div key={idx} className="font-mono text-xs p-1 bg-background">
-                          {wallet}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-8 text-center text-muted-foreground">
-              {isLoading ? (
-                <div className="flex items-center justify-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading...
-                </div>
-              ) : (
-                'No suspicious patterns detected yet'
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       <Button onClick={loadSybilData} variant="outline" className="w-full" disabled={isLoading} data-testid="button-refresh-sybil">
         <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />

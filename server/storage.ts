@@ -4649,6 +4649,230 @@ export class DbStorage extends MemStorage {
       };
     }
   }
+
+  async getWalletFingerprintDetails(walletAddress: string): Promise<{
+    fingerprint: {
+      ipHash: string;
+      userAgent: string | null;
+      screenResolution: string | null;
+      timezone: string | null;
+      language: string | null;
+      platform: string | null;
+      hardwareConcurrency: number | null;
+      deviceMemory: number | null;
+      storageToken: string | null;
+    } | null;
+    scoreBreakdown: Array<{
+      wallet: string;
+      signal: string;
+      points: number;
+    }>;
+    totalScore: number;
+    matchingWallets: string[];
+  }> {
+    try {
+      const normalizedAddress = walletAddress.toLowerCase();
+      
+      // Get most recent fingerprint for this wallet
+      const events = await db
+        .select()
+        .from(ipEvents)
+        .where(eq(ipEvents.walletAddress, normalizedAddress))
+        .orderBy(desc(ipEvents.createdAt))
+        .limit(1);
+      
+      if (events.length === 0) {
+        return { fingerprint: null, scoreBreakdown: [], totalScore: 0, matchingWallets: [] };
+      }
+      
+      const myEvent = events[0];
+      const fingerprint = {
+        ipHash: myEvent.ipHash,
+        userAgent: myEvent.userAgent,
+        screenResolution: myEvent.screenResolution,
+        timezone: myEvent.timezone,
+        language: myEvent.language,
+        platform: myEvent.platform,
+        hardwareConcurrency: myEvent.hardwareConcurrency,
+        deviceMemory: myEvent.deviceMemory,
+        storageToken: myEvent.storageToken,
+      };
+      
+      // Calculate score breakdown against other wallets
+      const result = await db.execute(sql`
+        WITH other_wallets AS (
+          SELECT DISTINCT ON (wallet_address)
+            wallet_address,
+            ip_hash, storage_token, user_agent, screen_resolution,
+            hardware_concurrency, device_memory, timezone, language, platform
+          FROM ip_events
+          WHERE wallet_address != ${normalizedAddress}
+          ORDER BY wallet_address, created_at DESC
+        )
+        SELECT 
+          wallet_address,
+          CASE WHEN ip_hash = ${myEvent.ipHash} AND ${myEvent.ipHash} IS NOT NULL THEN 2.0 ELSE 0 END as ip_score,
+          CASE WHEN storage_token = ${myEvent.storageToken} AND ${myEvent.storageToken} IS NOT NULL THEN 2.0 ELSE 0 END as token_score,
+          CASE WHEN user_agent = ${myEvent.userAgent} AND ${myEvent.userAgent} IS NOT NULL THEN 2.0 ELSE 0 END as ua_score,
+          CASE WHEN screen_resolution = ${myEvent.screenResolution} AND ${myEvent.screenResolution} IS NOT NULL THEN 1.0 ELSE 0 END as screen_score,
+          CASE WHEN hardware_concurrency = ${myEvent.hardwareConcurrency} AND device_memory = ${myEvent.deviceMemory}
+                AND ${myEvent.hardwareConcurrency} IS NOT NULL AND ${myEvent.deviceMemory} IS NOT NULL THEN 1.0 ELSE 0 END as hardware_score,
+          CASE WHEN timezone = ${myEvent.timezone} AND ${myEvent.timezone} IS NOT NULL THEN 0.5 ELSE 0 END as tz_score,
+          CASE WHEN language = ${myEvent.language} AND ${myEvent.language} IS NOT NULL THEN 0.5 ELSE 0 END as lang_score,
+          CASE WHEN platform = ${myEvent.platform} AND ${myEvent.platform} IS NOT NULL THEN 0.5 ELSE 0 END as platform_score
+        FROM other_wallets
+      `);
+      
+      const scoreBreakdown: Array<{ wallet: string; signal: string; points: number }> = [];
+      const matchingWallets = new Set<string>();
+      let totalScore = 0;
+      
+      for (const row of result.rows as any[]) {
+        const wallet = row.wallet_address;
+        const scores = [
+          { signal: 'IP', points: parseFloat(row.ip_score) },
+          { signal: 'Storage Token', points: parseFloat(row.token_score) },
+          { signal: 'User-Agent', points: parseFloat(row.ua_score) },
+          { signal: 'Screen', points: parseFloat(row.screen_score) },
+          { signal: 'Hardware', points: parseFloat(row.hardware_score) },
+          { signal: 'Timezone', points: parseFloat(row.tz_score) },
+          { signal: 'Language', points: parseFloat(row.lang_score) },
+          { signal: 'Platform', points: parseFloat(row.platform_score) },
+        ];
+        
+        const walletTotal = scores.reduce((sum, s) => sum + s.points, 0);
+        if (walletTotal >= 3) {
+          matchingWallets.add(wallet);
+          for (const s of scores) {
+            if (s.points > 0) {
+              scoreBreakdown.push({ wallet, signal: s.signal, points: s.points });
+            }
+          }
+          if (walletTotal > totalScore) totalScore = walletTotal;
+        }
+      }
+      
+      return {
+        fingerprint,
+        scoreBreakdown,
+        totalScore,
+        matchingWallets: Array.from(matchingWallets),
+      };
+    } catch (error) {
+      console.error('[Sybil] Error getting wallet fingerprint details:', error);
+      return { fingerprint: null, scoreBreakdown: [], totalScore: 0, matchingWallets: [] };
+    }
+  }
+
+  async getSuspiciousStorageTokenPatterns(minWallets: number = 2): Promise<Array<{
+    storageToken: string;
+    walletCount: number;
+    wallets: string[];
+    eventCount: number;
+    firstSeen: string;
+    lastSeen: string;
+  }>> {
+    try {
+      const results = await db.execute(sql`
+        SELECT 
+          storage_token,
+          COUNT(DISTINCT wallet_address) as wallet_count,
+          ARRAY_AGG(DISTINCT wallet_address) as wallets,
+          COUNT(*) as event_count,
+          MIN(created_at) as first_seen,
+          MAX(created_at) as last_seen
+        FROM ip_events
+        WHERE storage_token IS NOT NULL
+        GROUP BY storage_token
+        HAVING COUNT(DISTINCT wallet_address) >= ${minWallets}
+        ORDER BY wallet_count DESC, event_count DESC
+        LIMIT 100
+      `);
+
+      return (results.rows as any[]).map(row => ({
+        storageToken: row.storage_token,
+        walletCount: parseInt(row.wallet_count),
+        wallets: row.wallets || [],
+        eventCount: parseInt(row.event_count),
+        firstSeen: row.first_seen ? new Date(row.first_seen).toISOString() : '',
+        lastSeen: row.last_seen ? new Date(row.last_seen).toISOString() : '',
+      }));
+    } catch (error) {
+      console.error('[Sybil] Error getting suspicious storage token patterns:', error);
+      return [];
+    }
+  }
+
+  async getAllFlaggedWalletsWithScores(): Promise<Array<{
+    wallet: string;
+    score: number;
+    matchCount: number;
+    signals: string[];
+  }>> {
+    try {
+      // Get all wallets and their highest matching scores
+      const results = await db.execute(sql`
+        WITH wallet_fingerprints AS (
+          SELECT DISTINCT ON (wallet_address)
+            wallet_address,
+            ip_hash, storage_token, user_agent, screen_resolution,
+            hardware_concurrency, device_memory, timezone, language, platform
+          FROM ip_events
+          ORDER BY wallet_address, created_at DESC
+        ),
+        scored_pairs AS (
+          SELECT 
+            w1.wallet_address as wallet1,
+            w2.wallet_address as wallet2,
+            (CASE WHEN w1.ip_hash = w2.ip_hash AND w1.ip_hash IS NOT NULL THEN 2.0 ELSE 0 END) +
+            (CASE WHEN w1.storage_token = w2.storage_token AND w1.storage_token IS NOT NULL THEN 2.0 ELSE 0 END) +
+            (CASE WHEN w1.user_agent = w2.user_agent AND w1.user_agent IS NOT NULL THEN 2.0 ELSE 0 END) +
+            (CASE WHEN w1.screen_resolution = w2.screen_resolution AND w1.screen_resolution IS NOT NULL THEN 1.0 ELSE 0 END) +
+            (CASE WHEN w1.hardware_concurrency = w2.hardware_concurrency AND w1.device_memory = w2.device_memory 
+                  AND w1.hardware_concurrency IS NOT NULL AND w1.device_memory IS NOT NULL THEN 1.0 ELSE 0 END) +
+            (CASE WHEN w1.timezone = w2.timezone AND w1.timezone IS NOT NULL THEN 0.5 ELSE 0 END) +
+            (CASE WHEN w1.language = w2.language AND w1.language IS NOT NULL THEN 0.5 ELSE 0 END) +
+            (CASE WHEN w1.platform = w2.platform AND w1.platform IS NOT NULL THEN 0.5 ELSE 0 END) as score,
+            ARRAY_REMOVE(ARRAY[
+              CASE WHEN w1.ip_hash = w2.ip_hash AND w1.ip_hash IS NOT NULL THEN 'IP' END,
+              CASE WHEN w1.storage_token = w2.storage_token AND w1.storage_token IS NOT NULL THEN 'Token' END,
+              CASE WHEN w1.user_agent = w2.user_agent AND w1.user_agent IS NOT NULL THEN 'UA' END,
+              CASE WHEN w1.screen_resolution = w2.screen_resolution AND w1.screen_resolution IS NOT NULL THEN 'Screen' END,
+              CASE WHEN w1.hardware_concurrency = w2.hardware_concurrency AND w1.device_memory = w2.device_memory THEN 'HW' END,
+              CASE WHEN w1.timezone = w2.timezone AND w1.timezone IS NOT NULL THEN 'TZ' END,
+              CASE WHEN w1.language = w2.language AND w1.language IS NOT NULL THEN 'Lang' END,
+              CASE WHEN w1.platform = w2.platform AND w1.platform IS NOT NULL THEN 'Plat' END
+            ], NULL) as matching_signals
+          FROM wallet_fingerprints w1
+          CROSS JOIN wallet_fingerprints w2
+          WHERE w1.wallet_address < w2.wallet_address
+        )
+        SELECT 
+          wallet,
+          MAX(score) as max_score,
+          COUNT(*) as match_count,
+          ARRAY_AGG(DISTINCT signal) as all_signals
+        FROM (
+          SELECT wallet1 as wallet, score, UNNEST(matching_signals) as signal FROM scored_pairs WHERE score >= 3
+          UNION ALL
+          SELECT wallet2 as wallet, score, UNNEST(matching_signals) as signal FROM scored_pairs WHERE score >= 3
+        ) flagged
+        GROUP BY wallet
+        ORDER BY max_score DESC, match_count DESC
+        LIMIT 200
+      `);
+
+      return (results.rows as any[]).map(row => ({
+        wallet: row.wallet,
+        score: parseFloat(row.max_score),
+        matchCount: parseInt(row.match_count),
+        signals: row.all_signals || [],
+      }));
+    } catch (error) {
+      console.error('[Sybil] Error getting flagged wallets with scores:', error);
+      return [];
+    }
+  }
 }
 
 export const storage = new DbStorage();

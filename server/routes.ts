@@ -5300,6 +5300,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get wallet fingerprint details with score breakdown
+  app.get('/api/admin/analytics/sybil/fingerprint/:address', adminAuthMiddleware, async (req, res) => {
+    try {
+      const { address } = req.params;
+      if (!address || !/^0x[a-fA-F0-9]{40}$/i.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+      const details = await storage.getWalletFingerprintDetails(address);
+      res.json(details);
+    } catch (error) {
+      console.error('[Sybil] Error getting wallet fingerprint details:', error);
+      res.status(500).json({ error: 'Failed to get wallet fingerprint details' });
+    }
+  });
+
+  // Get wallets grouped by storage token (alternative to IP grouping)
+  app.get('/api/admin/analytics/sybil/tokens', adminAuthMiddleware, async (req, res) => {
+    try {
+      const minWallets = parseInt(req.query.minWallets as string) || 2;
+      const patterns = await storage.getSuspiciousStorageTokenPatterns(minWallets);
+      res.json(patterns);
+    } catch (error) {
+      console.error('[Sybil] Error getting storage token patterns:', error);
+      res.status(500).json({ error: 'Failed to get storage token patterns' });
+    }
+  });
+
+  // Get all flagged wallets with their scores and matching signals
+  app.get('/api/admin/analytics/sybil/flagged', adminAuthMiddleware, async (req, res) => {
+    try {
+      const flagged = await storage.getAllFlaggedWalletsWithScores();
+      res.json(flagged);
+    } catch (error) {
+      console.error('[Sybil] Error getting flagged wallets:', error);
+      res.status(500).json({ error: 'Failed to get flagged wallets' });
+    }
+  });
+
   // Sync GoodDollar claims from blockchain
   // Fetches G$ token transfers from CeloScan where FROM = UBI contract (claim events)
   app.post('/api/admin/gooddollar/sync-claims', adminAuthMiddleware, async (req, res) => {
