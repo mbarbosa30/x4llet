@@ -177,7 +177,7 @@ export default function Context() {
                 <p>Daily UBI claims on Celo after one-time face verification. Convert G$ to XP in Trust Hub.</p>
               </FeatureCard>
               <FeatureCard icon={Sparkles} title="XP Rewards">
-                <p>Earn XP from MaxFlow claims or GoodDollar conversion. Redeem 100 XP for 1 USDC deposited to savings.</p>
+                <p>Earn XP from MaxFlow claims or GoodDollar conversion. Spend on USDC savings (100 XP = 1 USDC), AI chat (1 XP per message), or SENADOR tokens.</p>
               </FeatureCard>
             </div>
           </section>
