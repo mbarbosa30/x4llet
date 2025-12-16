@@ -4,8 +4,72 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { transferRequestSchema, transferResponseSchema, paymentRequestSchema, submitAuthorizationSchema, authorizationSchema, type Authorization, aaveOperations, poolDraws } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import { randomUUID } from "crypto";
+import { randomUUID, createHash } from "crypto";
 import { getNetworkConfig, getNetworkByChainId } from "@shared/networks";
+
+// =============================================
+// IP Hashing for Sybil Detection
+// =============================================
+// Salt is rotated daily for privacy while still detecting same-session sybils
+const IP_SALT_SECRET = process.env.IP_SALT_SECRET || 'nanopay-sybil-detection-v1';
+
+function getDailySalt(): string {
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  return `${IP_SALT_SECRET}-${today}`;
+}
+
+function hashIp(ip: string): string {
+  const salt = getDailySalt();
+  return createHash('sha256').update(`${ip}-${salt}`).digest('hex').substring(0, 32);
+}
+
+function extractNetworkPrefix(ip: string): string | null {
+  if (!ip || ip === '127.0.0.1' || ip === '::1') return null;
+  // For IPv4, extract /24 network (e.g., "192.168.1")
+  const ipv4Match = ip.match(/^(\d+\.\d+\.\d+)\.\d+$/);
+  if (ipv4Match) return ipv4Match[1];
+  // For IPv6, return null (could extract /48 but less useful for our case)
+  return null;
+}
+
+function getClientIp(req: Request): string {
+  // Check standard proxy headers (Cloudflare, nginx, etc.)
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) {
+    const ips = (typeof forwarded === 'string' ? forwarded : forwarded[0]).split(',');
+    return ips[0].trim();
+  }
+  const realIp = req.headers['x-real-ip'];
+  if (realIp) return typeof realIp === 'string' ? realIp : realIp[0];
+  // Fallback to connection IP
+  return req.socket?.remoteAddress || 'unknown';
+}
+
+async function logIpEvent(
+  req: Request,
+  walletAddress: string,
+  eventType: 'first_seen' | 'xp_claim' | 'usdc_redemption' | 'airdrop'
+): Promise<void> {
+  try {
+    const clientIp = getClientIp(req);
+    if (!clientIp || clientIp === 'unknown') return;
+    
+    const ipHash = hashIp(clientIp);
+    const networkPrefix = extractNetworkPrefix(clientIp);
+    const userAgent = req.headers['user-agent'] || null;
+    
+    await storage.logIpEvent({
+      walletAddress: walletAddress.toLowerCase(),
+      ipHash,
+      networkPrefix,
+      eventType,
+      userAgent,
+    });
+  } catch (error) {
+    // Silent fail - IP logging should never break main functionality
+    console.error('[Sybil] Error logging IP event:', error);
+  }
+}
 import { AAVE_POOL_ABI, ATOKEN_ABI, ERC20_ABI, rayToPercent } from "@shared/aave";
 import { createPublicClient, createWalletClient, http, type Address, type Hex, hexToSignature, recoverAddress, hashTypedData, getAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -269,6 +333,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!address || !/^0x[a-fA-F0-9]{40}$/i.test(address)) {
         return res.status(400).json({ error: 'Invalid wallet address' });
       }
+
+      // Log IP event for sybil detection (first_seen tracks wallet activity)
+      logIpEvent(req, address, 'first_seen');
 
       // Fetch all data in parallel (including cached MaxFlow score)
       const [
@@ -5155,6 +5222,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // =============================================
+  // Sybil Detection Endpoints
+  // =============================================
+
+  // Get IP analytics summary
+  app.get('/api/admin/analytics/sybil', adminAuthMiddleware, async (req, res) => {
+    try {
+      const summary = await storage.getIpAnalyticsSummary();
+      res.json(summary);
+    } catch (error) {
+      console.error('[Sybil] Error getting analytics summary:', error);
+      res.status(500).json({ error: 'Failed to get sybil analytics' });
+    }
+  });
+
+  // Get suspicious IP patterns (multiple wallets from same IP)
+  app.get('/api/admin/analytics/sybil/suspicious', adminAuthMiddleware, async (req, res) => {
+    try {
+      const minWallets = parseInt(req.query.minWallets as string) || 2;
+      const patterns = await storage.getSuspiciousIpPatterns(minWallets);
+      res.json(patterns);
+    } catch (error) {
+      console.error('[Sybil] Error getting suspicious patterns:', error);
+      res.status(500).json({ error: 'Failed to get suspicious IP patterns' });
+    }
+  });
+
+  // Get IP events for a specific wallet (for investigating a flagged wallet)
+  app.get('/api/admin/analytics/sybil/wallet/:address', adminAuthMiddleware, async (req, res) => {
+    try {
+      const { address } = req.params;
+      if (!address || !/^0x[a-fA-F0-9]{40}$/i.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+      const events = await storage.getIpEventsForWallet(address);
+      res.json(events);
+    } catch (error) {
+      console.error('[Sybil] Error getting wallet IP events:', error);
+      res.status(500).json({ error: 'Failed to get wallet IP events' });
+    }
+  });
+
   // Sync GoodDollar claims from blockchain
   // Fetches G$ token transfers from CeloScan where FROM = UBI contract (claim events)
   app.post('/api/admin/gooddollar/sync-claims', adminAuthMiddleware, async (req, res) => {
@@ -5610,6 +5719,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const claim = await storage.claimXp(address, xpCenti, Math.round(rawSignal));
+
+      // Log IP event for sybil detection
+      logIpEvent(req, address, 'xp_claim');
 
       // Return XP as decimal for display
       res.json({
