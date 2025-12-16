@@ -220,16 +220,15 @@ export default function Send() {
         title: "Transaction sent",
         description: `${usdcAmount} USDC sent to ${recipient.slice(0, 6)}...${recipient.slice(-4)}`,
       });
-      // Immediate invalidation to clear stale data
+      // Immediate invalidation for instant feedback on Home page
       queryClient.invalidateQueries({ queryKey: ['/api/balance', address] });
       queryClient.invalidateQueries({ queryKey: ['/api/transactions', address] });
-      queryClient.invalidateQueries({ queryKey: ['/api/balance-history', address, chainId] });
-      
-      // Delayed refetch after 5 seconds to capture confirmed transaction
+      // Delayed refetch after 4s to capture confirmed transaction with accurate balance
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ['/api/balance', address] });
         queryClient.invalidateQueries({ queryKey: ['/api/transactions', address] });
-      }, 5000);
+        queryClient.invalidateQueries({ queryKey: ['/api/balance-history', address, chainId] });
+      }, 4000);
       
       setLocation('/home');
     },
@@ -689,7 +688,12 @@ export default function Send() {
                     
                     {showChainSelector && (
                       <div className="absolute top-full mt-2 z-50 border border-foreground/10 bg-background shadow-lg min-w-48">
-                        {chainsWithBalance.length > 0 ? (
+                        {!balanceData?.chains ? (
+                          <div className="px-3 py-3 text-xs font-mono text-muted-foreground flex items-center gap-2">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Loading balances...
+                          </div>
+                        ) : chainsWithBalance.length > 0 ? (
                           chainsWithBalance.map((chain) => (
                             <button
                               key={chain.network}

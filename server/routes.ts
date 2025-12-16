@@ -6378,10 +6378,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Rate limiter for face verification (5 attempts per 10 minutes per IP)
+  const faceVerificationRateLimits: Map<string, { count: number; resetAt: number }> = new Map();
+  const FACE_VERIFICATION_RATE_LIMIT = 5;
+  const FACE_VERIFICATION_RATE_WINDOW = 10 * 60 * 1000; // 10 minutes
+  
   // Submit face verification
   app.post('/api/face-verification/submit', async (req, res) => {
     try {
       const { walletAddress, embeddingHash, storageToken, challengesPassed } = req.body;
+      
+      // Rate limiting by IP
+      const clientIp = getClientIp(req);
+      const now = Date.now();
+      const rateLimit = faceVerificationRateLimits.get(clientIp);
+      
+      if (rateLimit) {
+        if (now < rateLimit.resetAt) {
+          if (rateLimit.count >= FACE_VERIFICATION_RATE_LIMIT) {
+            const retryAfter = Math.ceil((rateLimit.resetAt - now) / 1000);
+            return res.status(429).json({
+              error: 'Too many verification attempts',
+              retryAfter,
+              message: `Please wait ${Math.ceil(retryAfter / 60)} minutes before trying again`,
+            });
+          }
+          rateLimit.count++;
+        } else {
+          faceVerificationRateLimits.set(clientIp, { count: 1, resetAt: now + FACE_VERIFICATION_RATE_WINDOW });
+        }
+      } else {
+        faceVerificationRateLimits.set(clientIp, { count: 1, resetAt: now + FACE_VERIFICATION_RATE_WINDOW });
+      }
+      
+      // Cleanup old entries periodically
+      if (Math.random() < 0.1) {
+        for (const [ip, limit] of faceVerificationRateLimits.entries()) {
+          if (now > limit.resetAt) {
+            faceVerificationRateLimits.delete(ip);
+          }
+        }
+      }
       
       if (!walletAddress || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
         return res.status(400).json({ error: 'Invalid wallet address' });

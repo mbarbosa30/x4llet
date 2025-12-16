@@ -175,13 +175,35 @@ export interface GoodDollarBalance {
   decimals: number;
 }
 
+// Retry helper with exponential backoff
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxAttempts = 3,
+  baseDelayMs = 500
+): Promise<T> {
+  let lastError: Error | null = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (attempt < maxAttempts) {
+        const delay = baseDelayMs * Math.pow(2, attempt - 1);
+        console.warn(`[GoodDollar] Attempt ${attempt} failed, retrying in ${delay}ms...`, lastError.message);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw lastError;
+}
+
 export async function getIdentityStatus(address: Address): Promise<IdentityStatus> {
   const client = getCeloClient();
   
   console.log('[GoodDollar] Checking identity status for:', address);
   
   try {
-    const [isWhitelisted, whitelistedRoot, lastAuthenticatedBigInt, authPeriodBigInt] = await Promise.all([
+    const [isWhitelisted, whitelistedRoot, lastAuthenticatedBigInt, authPeriodBigInt] = await withRetry(() => Promise.all([
       client.readContract({
         address: GOODDOLLAR_CONTRACTS.identity.celo,
         abi: IDENTITY_ABI,
@@ -205,7 +227,7 @@ export async function getIdentityStatus(address: Address): Promise<IdentityStatu
         abi: IDENTITY_ABI,
         functionName: 'authenticationPeriod',
       }),
-    ]);
+    ]));
     
     console.log('[GoodDollar] Identity contract responses:', {
       isWhitelisted,
@@ -260,8 +282,8 @@ export async function getClaimStatus(address: Address): Promise<ClaimStatus> {
   console.log('[GoodDollar] Checking claim status for:', address);
   
   try {
-    // Fetch UBI scheme data and token decimals in parallel
-    const [entitlement, currentDay, dailyUbi, lastClaimedTimestamp, periodStart, tokenDecimals] = await Promise.all([
+    // Fetch UBI scheme data and token decimals in parallel with retry
+    const [entitlement, currentDay, dailyUbi, lastClaimedTimestamp, periodStart, tokenDecimals] = await withRetry(() => Promise.all([
       client.readContract({
         address: GOODDOLLAR_CONTRACTS.ubi.celo,
         abi: UBI_SCHEME_ABI,
@@ -294,7 +316,7 @@ export async function getClaimStatus(address: Address): Promise<ClaimStatus> {
         abi: ERC20_ABI,
         functionName: 'decimals',
       }),
-    ]);
+    ]));
     
     // lastClaimed returns a Unix timestamp (seconds) - convert to day number using periodStart
     // Formula: day = (timestamp - periodStart) / 86400
