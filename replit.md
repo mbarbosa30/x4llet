@@ -7,6 +7,7 @@ nanoPay is a minimalist Progressive Web App (PWA) designed for managing cryptocu
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
+- **2025-12-16**: Public Sybil API - Added `/api/public/v1/flagged-wallets` endpoint for MaxFlow integration. Returns all flagged wallets with scores, signals, and match counts. Features optional API key auth (SYBIL_API_KEY env var), rate limiting (60 req/min), and 5-minute caching.
 - **2025-12-13**: GoodDollar claim fix - Fixed checkEntitlement contract calls (using `args: [address]` for address-parameter overload instead of `account:`), fixed lastClaimed timestamp interpretation (converts Unix timestamp to day number using periodStart), and updated BUILD_VERSION for cache invalidation.
 - **2025-12-09**: Gas scanner implementation - tracks facilitator gas costs across all chains (Base, Celo, Gnosis, Arbitrum) using Etherscan v2 API. Fetches native token prices from CoinGecko, converts to USD, and displays "Gas Sponsored" metric on landing page. Runs hourly via scheduler with incremental block tracking per chain.
 - **2025-12-09**: Brutalist UI design refresh - cream background (#F4F4F1), 0px border radius, hard offset shadows (4px 4px black), IBM Plex Mono for labels. Created responsive desktop landing page with hero section, phone mockup, feature highlights. Simplified BalanceCard with cleaner styling and chain breakdown. Increased touch targets in BottomNav (icons to h-5).

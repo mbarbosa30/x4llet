@@ -6890,6 +6890,135 @@ You are accessed through nanoPay, a crypto wallet app, but your purpose extends 
     }
   });
 
+  // =============================================
+  // Public API v1 - Flagged Wallets for MaxFlow
+  // =============================================
+  // Rate limiting: in-memory tracker for public API
+  const publicApiRateLimits: Map<string, { count: number; resetAt: number }> = new Map();
+  const PUBLIC_API_RATE_LIMIT = 60; // requests per minute
+  const PUBLIC_API_RATE_WINDOW = 60 * 1000; // 1 minute in ms
+
+  // Cache for flagged wallets (updated every 5 minutes)
+  let flaggedWalletsCache: {
+    data: Array<{ wallet: string; score: number; matchCount: number; signals: string[] }>;
+    generatedAt: Date;
+  } | null = null;
+  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+  app.get('/api/public/v1/flagged-wallets', async (req, res) => {
+    try {
+      // API key authentication (optional - if SYBIL_API_KEY is set, require it)
+      const requiredApiKey = process.env.SYBIL_API_KEY;
+      if (requiredApiKey) {
+        const providedKey = req.headers['x-api-key'] as string;
+        if (!providedKey || providedKey !== requiredApiKey) {
+          return res.status(401).json({ 
+            error: 'Unauthorized',
+            message: 'Valid x-api-key header required'
+          });
+        }
+      }
+
+      // Rate limiting by IP
+      const clientIp = getClientIp(req);
+      const now = Date.now();
+      const rateLimit = publicApiRateLimits.get(clientIp);
+      
+      if (rateLimit) {
+        if (now < rateLimit.resetAt) {
+          if (rateLimit.count >= PUBLIC_API_RATE_LIMIT) {
+            const retryAfter = Math.ceil((rateLimit.resetAt - now) / 1000);
+            res.setHeader('X-RateLimit-Limit', PUBLIC_API_RATE_LIMIT.toString());
+            res.setHeader('X-RateLimit-Remaining', '0');
+            res.setHeader('X-RateLimit-Reset', Math.ceil(rateLimit.resetAt / 1000).toString());
+            res.setHeader('Retry-After', retryAfter.toString());
+            return res.status(429).json({
+              error: 'Rate limit exceeded',
+              retryAfter,
+              limit: PUBLIC_API_RATE_LIMIT,
+              window: '1 minute'
+            });
+          }
+          rateLimit.count++;
+        } else {
+          publicApiRateLimits.set(clientIp, { count: 1, resetAt: now + PUBLIC_API_RATE_WINDOW });
+        }
+      } else {
+        publicApiRateLimits.set(clientIp, { count: 1, resetAt: now + PUBLIC_API_RATE_WINDOW });
+      }
+
+      // Clean up old rate limit entries periodically
+      if (Math.random() < 0.1) { // 10% chance to clean up
+        for (const [ip, limit] of publicApiRateLimits.entries()) {
+          if (now > limit.resetAt) {
+            publicApiRateLimits.delete(ip);
+          }
+        }
+      }
+
+      // Check cache
+      if (flaggedWalletsCache && (now - flaggedWalletsCache.generatedAt.getTime()) < CACHE_TTL) {
+        const rateLimitEntry = publicApiRateLimits.get(clientIp);
+        const remaining = Math.max(0, PUBLIC_API_RATE_LIMIT - (rateLimitEntry?.count || 0));
+        const resetAt = rateLimitEntry?.resetAt || (now + PUBLIC_API_RATE_WINDOW);
+        
+        res.setHeader('X-RateLimit-Limit', PUBLIC_API_RATE_LIMIT.toString());
+        res.setHeader('X-RateLimit-Remaining', remaining.toString());
+        res.setHeader('X-RateLimit-Reset', Math.ceil(resetAt / 1000).toString());
+        res.setHeader('Cache-Control', 'public, max-age=300'); // 5 minutes
+        
+        console.log(`[Public API] Flagged wallets requested by ${clientIp} (cached), returning ${flaggedWalletsCache.data.length} wallets`);
+        
+        return res.json({
+          flagged: flaggedWalletsCache.data.map(w => ({
+            address: w.wallet,
+            score: w.score,
+            signals: w.signals,
+            matchCount: w.matchCount
+          })),
+          total: flaggedWalletsCache.data.length,
+          threshold: 3,
+          generatedAt: flaggedWalletsCache.generatedAt.toISOString(),
+          cached: true
+        });
+      }
+
+      // Fetch fresh data
+      const flagged = await storage.getAllFlaggedWalletsWithScores();
+      flaggedWalletsCache = {
+        data: flagged,
+        generatedAt: new Date()
+      };
+
+      const rateLimitEntryFresh = publicApiRateLimits.get(clientIp);
+      const remainingFresh = Math.max(0, PUBLIC_API_RATE_LIMIT - (rateLimitEntryFresh?.count || 0));
+      const resetAtFresh = rateLimitEntryFresh?.resetAt || (now + PUBLIC_API_RATE_WINDOW);
+      
+      res.setHeader('X-RateLimit-Limit', PUBLIC_API_RATE_LIMIT.toString());
+      res.setHeader('X-RateLimit-Remaining', remainingFresh.toString());
+      res.setHeader('X-RateLimit-Reset', Math.ceil(resetAtFresh / 1000).toString());
+      res.setHeader('Cache-Control', 'public, max-age=300');
+
+      console.log(`[Public API] Flagged wallets requested by ${clientIp}, returning ${flagged.length} wallets`);
+
+      res.json({
+        flagged: flagged.map(w => ({
+          address: w.wallet,
+          score: w.score,
+          signals: w.signals,
+          matchCount: w.matchCount
+        })),
+        total: flagged.length,
+        threshold: 3,
+        generatedAt: flaggedWalletsCache.generatedAt.toISOString(),
+        cached: false
+      });
+    } catch (error) {
+      console.error('[Public API] Error getting flagged wallets:', error);
+      res.status(500).json({ error: 'Failed to get flagged wallets' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
