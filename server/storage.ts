@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, type AiConversation, type AiMessage, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, globalSettings, aiConversations } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, type AiConversation, type AiMessage, type IpEvent, type InsertIpEvent, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, globalSettings, aiConversations, ipEvents } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo, gnosis, arbitrum } from 'viem/chains';
@@ -4419,6 +4419,133 @@ export class DbStorage extends MemStorage {
     } catch (error) {
       console.error('[Airdrop] Error getting eligible wallets:', error);
       throw error;
+    }
+  }
+
+  // =============================================
+  // IP Events (Sybil Detection)
+  // =============================================
+
+  async logIpEvent(event: InsertIpEvent): Promise<void> {
+    try {
+      await db.insert(ipEvents).values({
+        walletAddress: event.walletAddress.toLowerCase(),
+        ipHash: event.ipHash,
+        networkPrefix: event.networkPrefix,
+        eventType: event.eventType,
+        userAgent: event.userAgent,
+      });
+    } catch (error) {
+      console.error('[Sybil] Error logging IP event:', error);
+      // Don't throw - IP logging should not break main functionality
+    }
+  }
+
+  async getIpEventsForWallet(walletAddress: string): Promise<IpEvent[]> {
+    try {
+      return await db
+        .select()
+        .from(ipEvents)
+        .where(eq(ipEvents.walletAddress, walletAddress.toLowerCase()))
+        .orderBy(desc(ipEvents.createdAt));
+    } catch (error) {
+      console.error('[Sybil] Error getting IP events:', error);
+      return [];
+    }
+  }
+
+  async getSuspiciousIpPatterns(minWallets: number = 2): Promise<Array<{
+    ipHash: string;
+    walletCount: number;
+    wallets: string[];
+    eventCount: number;
+    firstSeen: string;
+    lastSeen: string;
+  }>> {
+    try {
+      // Get IP hashes that have multiple wallets
+      const results = await db.execute(sql`
+        SELECT 
+          ip_hash,
+          COUNT(DISTINCT wallet_address) as wallet_count,
+          ARRAY_AGG(DISTINCT wallet_address) as wallets,
+          COUNT(*) as event_count,
+          MIN(created_at) as first_seen,
+          MAX(created_at) as last_seen
+        FROM ip_events
+        GROUP BY ip_hash
+        HAVING COUNT(DISTINCT wallet_address) >= ${minWallets}
+        ORDER BY wallet_count DESC, event_count DESC
+        LIMIT 100
+      `);
+
+      return (results.rows as any[]).map(row => ({
+        ipHash: row.ip_hash,
+        walletCount: parseInt(row.wallet_count),
+        wallets: row.wallets || [],
+        eventCount: parseInt(row.event_count),
+        firstSeen: row.first_seen ? new Date(row.first_seen).toISOString() : '',
+        lastSeen: row.last_seen ? new Date(row.last_seen).toISOString() : '',
+      }));
+    } catch (error) {
+      console.error('[Sybil] Error getting suspicious patterns:', error);
+      return [];
+    }
+  }
+
+  async getIpAnalyticsSummary(): Promise<{
+    totalEvents: number;
+    uniqueIps: number;
+    uniqueWallets: number;
+    suspiciousIps: number;
+    eventsByType: Record<string, number>;
+  }> {
+    try {
+      const [totals, byType, suspicious] = await Promise.all([
+        db.execute(sql`
+          SELECT 
+            COUNT(*) as total_events,
+            COUNT(DISTINCT ip_hash) as unique_ips,
+            COUNT(DISTINCT wallet_address) as unique_wallets
+          FROM ip_events
+        `),
+        db.execute(sql`
+          SELECT event_type, COUNT(*) as count
+          FROM ip_events
+          GROUP BY event_type
+        `),
+        db.execute(sql`
+          SELECT COUNT(*) as count FROM (
+            SELECT ip_hash 
+            FROM ip_events 
+            GROUP BY ip_hash 
+            HAVING COUNT(DISTINCT wallet_address) >= 2
+          ) as suspicious
+        `),
+      ]);
+
+      const totalsRow = (totals.rows as any[])[0] || {};
+      const eventsByType: Record<string, number> = {};
+      for (const row of byType.rows as any[]) {
+        eventsByType[row.event_type] = parseInt(row.count);
+      }
+
+      return {
+        totalEvents: parseInt(totalsRow.total_events || '0'),
+        uniqueIps: parseInt(totalsRow.unique_ips || '0'),
+        uniqueWallets: parseInt(totalsRow.unique_wallets || '0'),
+        suspiciousIps: parseInt(((suspicious.rows as any[])[0]?.count) || '0'),
+        eventsByType,
+      };
+    } catch (error) {
+      console.error('[Sybil] Error getting analytics summary:', error);
+      return {
+        totalEvents: 0,
+        uniqueIps: 0,
+        uniqueWallets: 0,
+        suspiciousIps: 0,
+        eventsByType: {},
+      };
     }
   }
 }
