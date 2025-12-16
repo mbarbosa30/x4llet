@@ -138,7 +138,8 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   const startDetection = useCallback(() => {
     if (!faceLandmarkerRef.current || !videoRef.current) return;
     
-    setStatus('detecting');
+    // Only set to 'detecting' if we're in initial states, not 'challenges'
+    setStatus(prev => prev === 'ready' || prev === 'loading' ? 'detecting' : prev);
     
     const detect = async () => {
       if (!videoRef.current || !faceLandmarkerRef.current || videoRef.current.readyState !== 4) {
