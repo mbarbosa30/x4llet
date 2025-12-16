@@ -4467,6 +4467,35 @@ export class DbStorage extends MemStorage {
     }
   }
 
+  async isWalletSuspicious(walletAddress: string): Promise<{ suspicious: boolean; reason?: string }> {
+    try {
+      // Check if this wallet shares an IP with any other wallets
+      const result = await db.execute(sql`
+        SELECT ip_hash, COUNT(DISTINCT wallet_address) as wallet_count
+        FROM ip_events
+        WHERE ip_hash IN (
+          SELECT ip_hash FROM ip_events WHERE wallet_address = ${walletAddress.toLowerCase()}
+        )
+        GROUP BY ip_hash
+        HAVING COUNT(DISTINCT wallet_address) >= 2
+        LIMIT 1
+      `);
+
+      if (result.rows && result.rows.length > 0) {
+        const row = result.rows[0] as any;
+        return {
+          suspicious: true,
+          reason: `IP shared with ${row.wallet_count} wallets`,
+        };
+      }
+
+      return { suspicious: false };
+    } catch (error) {
+      console.error('[Sybil] Error checking wallet suspicious status:', error);
+      return { suspicious: false }; // Fail open to not block legitimate users
+    }
+  }
+
   async getSuspiciousIpPatterns(minWallets: number = 2): Promise<Array<{
     ipHash: string;
     walletCount: number;

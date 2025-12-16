@@ -36,9 +36,8 @@ export default function Home() {
   const [copiedHash, setCopiedHash] = useState(false);
   const [pendingReferral, setPendingReferral] = useState<string | null>(null);
   const [showVouchConfirmation, setShowVouchConfirmation] = useState(false);
-  const [showSybilWarning, setShowSybilWarning] = useState(() => {
-    // Show warning unless previously dismissed in this session
-    return sessionStorage.getItem('sybil_warning_dismissed') !== 'true';
+  const [sybilWarningDismissed, setSybilWarningDismissed] = useState(() => {
+    return sessionStorage.getItem('sybil_warning_dismissed') === 'true';
   });
   
   // Force re-render every second for countdown displays
@@ -61,11 +60,15 @@ export default function Home() {
     await refetchDashboard();
   };
 
-  // Extract data from dashboard response (includes MaxFlow from cache)
+  // Extract data from dashboard response (includes MaxFlow from cache and sybil status)
   const balanceData = dashboardData?.balance;
   const allTransactions = dashboardData?.transactions;
   const xpData = dashboardData?.xp;
   const maxflowScore = dashboardData?.maxflow;
+  const sybilStatus = dashboardData?.sybil;
+  
+  // Show sybil warning only if wallet is flagged AND user hasn't dismissed it
+  const showSybilWarning = sybilStatus?.suspicious && !sybilWarningDismissed;
 
   const { data: exchangeRate } = useExchangeRate(currency, { skipUsd: false });
 
@@ -231,7 +234,7 @@ export default function Home() {
           <div className="relative bg-amber-500/10 border border-amber-500/30 p-3" data-testid="banner-sybil-warning">
             <button
               onClick={() => {
-                setShowSybilWarning(false);
+                setSybilWarningDismissed(true);
                 sessionStorage.setItem('sybil_warning_dismissed', 'true');
               }}
               className="absolute top-2 right-2 text-amber-600/60 hover:text-amber-600 text-xs"

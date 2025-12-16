@@ -38,11 +38,17 @@ export interface DashboardMaxFlow {
   cached_at?: string;
 }
 
+export interface DashboardSybil {
+  suspicious: boolean;
+  reason?: string;
+}
+
 export interface DashboardData {
   balance: DashboardBalance;
   transactions: (Transaction & { chainId: number })[];
   xp: DashboardXp;
   maxflow: DashboardMaxFlow | null;
+  sybil: DashboardSybil;
 }
 
 export function useDashboard(address: string | null) {

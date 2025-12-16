@@ -330,7 +330,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         logIpEvent(req, address, 'first_seen');
       }
 
-      // Fetch all data in parallel (including cached MaxFlow score)
+      // Fetch all data in parallel (including cached MaxFlow score and sybil status)
       const [
         baseBalance,
         celoBalance,
@@ -342,6 +342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         arbitrumTransactions,
         xpBalance,
         maxflowScore,
+        sybilStatus,
       ] = await Promise.all([
         storage.getBalance(address, 8453),
         storage.getBalance(address, 42220),
@@ -353,6 +354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getTransactions(address, 42161),
         storage.getXpBalance(address),
         storage.getMaxFlowScore(address),
+        storage.isWalletSuspicious(address),
       ]);
 
       // Calculate total balance
@@ -438,6 +440,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           timeUntilNextClaim,
         },
         maxflow: maxflowScore ? maxflowData : null,
+        sybil: sybilStatus,
       });
     } catch (error) {
       console.error('Error fetching dashboard:', error);
