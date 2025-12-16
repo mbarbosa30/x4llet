@@ -470,7 +470,7 @@ export const ipEvents = pgTable("ip_events", {
   walletAddress: text("wallet_address").notNull(),
   ipHash: text("ip_hash").notNull(), // SHA-256 hash of IP + stable salt
   networkPrefix: text("network_prefix"), // /24 network for geo patterns (e.g., "192.168.1")
-  eventType: text("event_type").notNull(), // 'first_seen', 'xp_claim', 'usdc_redemption', 'airdrop'
+  eventType: text("event_type").notNull(), // 'first_seen', 'xp_claim', 'usdc_redemption', 'airdrop', 'fingerprint'
   // Browser fingerprint signals
   userAgent: text("user_agent"), // Full browser User-Agent string
   screenResolution: text("screen_resolution"), // e.g., "1920x1080@2" (width x height @ pixel ratio)
