@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users, Clock, Share2, Waypoints, CheckCircle2, Circle, ChevronRight, HelpCircle } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users, Clock, Share2, Waypoints, CheckCircle2, Circle, ChevronRight, HelpCircle, Eye } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import {
@@ -36,6 +36,10 @@ export default function Home() {
   const [copiedHash, setCopiedHash] = useState(false);
   const [pendingReferral, setPendingReferral] = useState<string | null>(null);
   const [showVouchConfirmation, setShowVouchConfirmation] = useState(false);
+  const [showSybilWarning, setShowSybilWarning] = useState(() => {
+    // Show warning unless previously dismissed in this session
+    return sessionStorage.getItem('sybil_warning_dismissed') !== 'true';
+  });
   
   // Force re-render every second for countdown displays
   useTick();
@@ -222,6 +226,39 @@ export default function Home() {
       }}
     >
       <main className="max-w-md mx-auto p-4 space-y-4">
+        {/* Anti-Sybil Warning Banner */}
+        {showSybilWarning && (
+          <div className="relative bg-amber-500/10 border border-amber-500/30 p-3" data-testid="banner-sybil-warning">
+            <button
+              onClick={() => {
+                setShowSybilWarning(false);
+                sessionStorage.setItem('sybil_warning_dismissed', 'true');
+              }}
+              className="absolute top-2 right-2 text-amber-600/60 hover:text-amber-600 text-xs"
+              data-testid="button-dismiss-sybil-warning"
+            >
+              ✕
+            </button>
+            <div className="flex items-start gap-2 pr-4">
+              <Eye className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-xs text-amber-800 dark:text-amber-200 space-y-1">
+                <p className="font-medium">Activity is monitored for sybil detection.</p>
+                <p className="text-amber-700/80 dark:text-amber-300/80">
+                  Suspicious accounts may have funds and rewards locked.{' '}
+                  <button 
+                    onClick={() => setLocation('/claim')}
+                    className="underline font-medium hover:text-amber-900 dark:hover:text-amber-100"
+                    data-testid="link-verify-identity"
+                  >
+                    Verify your identity
+                  </button>
+                  {' '}to ensure uninterrupted access.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Empty state: no balance and no transactions */}
         {!isLoadingWallet && !isLoading && parseFloat(balance || '0') === 0 && transactions.length === 0 ? (
           <>
