@@ -781,9 +781,6 @@ export default function MaxFlow() {
                       if (success) {
                         queryClient.invalidateQueries({ queryKey: ['/api/face-verification', address] });
                         queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
-                        if (address) {
-                          sessionStorage.removeItem(`faceCheckPrompted_${address}`);
-                        }
                         setAutoFaceCheck(false);
                         toast({
                           title: "Face Verification Complete",

@@ -134,22 +134,17 @@ export default function Home() {
   const isGdVerified = gdIdentity?.isWhitelisted || 
     (gdIdentity?.whitelistedRoot && gdIdentity.whitelistedRoot !== '0x0000000000000000000000000000000000000000');
 
-  // Auto-redirect to Face Check if not verified (once per session per address)
+  // Auto-redirect to Face Check if not verified (on every wallet load: create/unlock/restore)
   // Skip if user is already GoodDollar verified (they don't need our Face Check)
   useEffect(() => {
     if (!address || isLoadingFaceVerification || !faceVerificationStatus) return;
     
-    // Skip Face Check prompt if user is already GoodDollar verified
+    // Skip Face Check if user is already GoodDollar verified (proven human via GD's own face verification)
     if (isGdVerified) return;
     
-    // Check if already prompted this session for this address
-    const promptKey = `faceCheckPrompted_${address}`;
-    const alreadyPrompted = sessionStorage.getItem(promptKey);
-    
-    if (!faceVerificationStatus.verified && !alreadyPrompted) {
-      // Mark as prompted to avoid redirect loops
-      sessionStorage.setItem(promptKey, 'true');
-      // Navigate to MaxFlow with face check auto-open
+    // Always redirect to Face Check if not verified
+    // This happens on: new wallet creation, wallet unlock, or wallet restore
+    if (!faceVerificationStatus.verified) {
       setLocation('/maxflow?tab=maxflow&faceCheck=1');
     }
   }, [address, faceVerificationStatus, isLoadingFaceVerification, setLocation, isGdVerified]);
