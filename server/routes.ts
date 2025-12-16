@@ -6980,7 +6980,7 @@ You are accessed through nanoPay, a crypto wallet app, but your purpose extends 
             clusterSize: w.clusterSize
           })),
           total: actuallyFlagged.length,
-          threshold: 4,
+          threshold: 5,
           generatedAt: flaggedWalletsCache.generatedAt.toISOString(),
           cached: true,
           exemptionRules: {
@@ -7019,7 +7019,7 @@ You are accessed through nanoPay, a crypto wallet app, but your purpose extends 
           clusterSize: w.clusterSize
         })),
         total: actuallyFlagged.length,
-        threshold: 4,
+        threshold: 5,
         generatedAt: flaggedWalletsCache.generatedAt.toISOString(),
         cached: false,
         exemptionRules: {

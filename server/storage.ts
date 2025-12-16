@@ -4533,7 +4533,7 @@ export class DbStorage extends MemStorage {
         )
         SELECT wallet_address, score
         FROM scored
-        WHERE score >= 4.0
+        WHERE score >= 5.0
         ORDER BY score DESC
         LIMIT 10
       `);
@@ -4874,9 +4874,9 @@ export class DbStorage extends MemStorage {
             COUNT(*) as match_count,
             ARRAY_AGG(DISTINCT signal) as all_signals
           FROM (
-            SELECT wallet1 as wallet, score, UNNEST(matching_signals) as signal FROM scored_pairs WHERE score >= 4
+            SELECT wallet1 as wallet, score, UNNEST(matching_signals) as signal FROM scored_pairs WHERE score >= 5
             UNION ALL
-            SELECT wallet2 as wallet, score, UNNEST(matching_signals) as signal FROM scored_pairs WHERE score >= 4
+            SELECT wallet2 as wallet, score, UNNEST(matching_signals) as signal FROM scored_pairs WHERE score >= 5
           ) flagged
           GROUP BY wallet
         )
