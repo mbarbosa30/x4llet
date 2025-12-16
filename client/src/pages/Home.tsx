@@ -272,11 +272,11 @@ export default function Home() {
                 <p className="text-amber-700/80 dark:text-amber-300/80">
                   Your funds and rewards may be locked. Everyone who vouched for you, and everyone you vouched for, will also be affected.{' '}
                   <button 
-                    onClick={() => setLocation('/claim')}
+                    onClick={() => setLocation('/maxflow?tab=trust')}
                     className="underline font-medium hover:text-amber-900 dark:hover:text-amber-100"
                     data-testid="link-verify-identity"
                   >
-                    Verify your identity
+                    Complete Face Check
                   </button>
                   {' '}to ensure uninterrupted access.
                 </p>
