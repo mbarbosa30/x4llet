@@ -767,7 +767,7 @@ export default function MaxFlow() {
                   </div>
                 </div>
               </Card>
-            ) : (!isGdVerified && !faceVerificationData?.verified) ? (
+            ) : (!faceVerificationData?.verified) ? (
               <Card className="p-4">
                 <Suspense fallback={
                   <div className="flex items-center justify-center py-8">

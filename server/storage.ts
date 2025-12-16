@@ -5060,11 +5060,14 @@ export class DbStorage extends MemStorage {
     similarityScore?: number;
   }): Promise<FaceVerification> {
     try {
+      // Normalize embedding before storing for consistent comparison
+      const normalizedEmbedding = data.embedding ? this.normalizeEmbedding(data.embedding) : null;
+      
       const result = await db.insert(faceVerifications)
         .values({
           walletAddress: data.walletAddress.toLowerCase(),
           embeddingHash: data.embeddingHash,
-          embedding: data.embedding ? JSON.stringify(data.embedding) : null,
+          embedding: normalizedEmbedding ? JSON.stringify(normalizedEmbedding) : null,
           storageToken: data.storageToken || null,
           challengesPassed: JSON.stringify(data.challengesPassed),
           ipHash: data.ipHash || null,
@@ -5091,26 +5094,26 @@ export class DbStorage extends MemStorage {
     return embedding.map(v => v / norm);
   }
 
-  // Cosine similarity for face embedding comparison (expects normalized vectors)
+  // Cosine similarity for face embedding comparison
+  // Expects pre-normalized vectors (stored normalized, incoming normalized before comparison)
   private cosineSimilarity(a: number[], b: number[]): number {
     if (a.length !== b.length) {
       console.warn(`[FaceVerification] Embedding length mismatch: ${a.length} vs ${b.length}`);
       return 0;
     }
-    // Normalize both vectors first for consistent comparison
-    const normA = this.normalizeEmbedding(a);
-    const normB = this.normalizeEmbedding(b);
-    
+    // Both vectors should already be normalized - just compute dot product
     let dotProduct = 0;
-    for (let i = 0; i < normA.length; i++) {
-      dotProduct += normA[i] * normB[i];
+    for (let i = 0; i < a.length; i++) {
+      dotProduct += a[i] * b[i];
     }
-    // For unit vectors, cosine similarity is just the dot product
     return dotProduct;
   }
 
   async findSimilarFace(embedding: number[], excludeWallet?: string, threshold: number = 0.75, requestStartTime?: Date): Promise<{ match: FaceVerification; similarity: number } | null> {
     try {
+      // Normalize incoming embedding for consistent comparison with stored (normalized) embeddings
+      const normalizedInput = this.normalizeEmbedding(embedding);
+      
       // Get all verified face verifications with embeddings
       // Filter out records created after requestStartTime to prevent self-race conditions
       const whereConditions = [
@@ -5138,21 +5141,23 @@ export class DbStorage extends MemStorage {
           continue;
         }
         
-        // Parse stored embedding
+        // Parse stored embedding and normalize it (handles legacy unnormalized data)
         let storedEmbedding: number[];
         try {
-          storedEmbedding = JSON.parse(verification.embedding!);
-          if (!Array.isArray(storedEmbedding)) {
+          const rawStored = JSON.parse(verification.embedding!);
+          if (!Array.isArray(rawStored)) {
             console.warn(`[FaceVerification] Invalid embedding format for ${verification.walletAddress}`);
             continue;
           }
+          // Normalize stored embedding to handle legacy unnormalized data
+          storedEmbedding = this.normalizeEmbedding(rawStored);
         } catch {
           console.warn(`[FaceVerification] Failed to parse embedding for ${verification.walletAddress}`);
           continue;
         }
         
-        // Calculate similarity
-        const similarity = this.cosineSimilarity(embedding, storedEmbedding);
+        // Calculate similarity - both vectors are now normalized
+        const similarity = this.cosineSimilarity(normalizedInput, storedEmbedding);
         allScores.push({ wallet: verification.walletAddress.slice(0, 8), similarity });
         
         // Check if this is a match above threshold
