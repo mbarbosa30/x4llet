@@ -51,6 +51,11 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   const lastBlinkStateRef = useRef(false);
   const headTurnProgressRef = useRef({ left: 0, right: 0 });
   const faceEmbeddingsRef = useRef<number[][]>([]);
+  
+  // Refs to mirror state for animation frame loop (avoids stale closures)
+  const currentChallengeIndexRef = useRef(0);
+  const challengesRef = useRef<ChallengeState[]>(CHALLENGES.map(c => ({ ...c })));
+  const statusRef = useRef<typeof status>('loading');
 
   const cleanup = useCallback(() => {
     if (animationFrameRef.current) {
@@ -66,6 +71,19 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   useEffect(() => {
     return cleanup;
   }, [cleanup]);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    currentChallengeIndexRef.current = currentChallengeIndex;
+  }, [currentChallengeIndex]);
+
+  useEffect(() => {
+    challengesRef.current = challenges;
+  }, [challenges]);
+
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
 
   const loadMediaPipe = useCallback(async () => {
     try {
@@ -174,7 +192,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
             const padding = 20;
             ctx.strokeRect(minX - padding, minY - padding, maxX - minX + padding * 2, maxY - minY + padding * 2);
             
-            if (status === 'challenges') {
+            if (statusRef.current === 'challenges') {
               processChallenge(results);
             }
             
@@ -200,7 +218,9 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
     
     if (!blendshapes || !landmarks) return;
     
-    const currentChallenge = challenges[currentChallengeIndex];
+    // Use refs to get fresh values (avoids stale closure)
+    const idx = currentChallengeIndexRef.current;
+    const currentChallenge = challengesRef.current[idx];
     if (!currentChallenge || currentChallenge.completed) return;
     
     switch (currentChallenge.type) {
@@ -212,7 +232,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
         if (isBlinking && !lastBlinkStateRef.current) {
           blinkCountRef.current++;
           setChallenges(prev => prev.map((c, i) => 
-            i === currentChallengeIndex ? { ...c, progress: blinkCountRef.current * 50 } : c
+            i === idx ? { ...c, progress: blinkCountRef.current * 50 } : c
           ));
           
           if (blinkCountRef.current >= 2) {
@@ -228,7 +248,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
         if (noseX > 0.6) {
           headTurnProgressRef.current.left = Math.min(100, headTurnProgressRef.current.left + 5);
           setChallenges(prev => prev.map((c, i) => 
-            i === currentChallengeIndex ? { ...c, progress: headTurnProgressRef.current.left } : c
+            i === idx ? { ...c, progress: headTurnProgressRef.current.left } : c
           ));
           
           if (headTurnProgressRef.current.left >= 100) {
@@ -243,7 +263,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
         if (noseX < 0.4) {
           headTurnProgressRef.current.right = Math.min(100, headTurnProgressRef.current.right + 5);
           setChallenges(prev => prev.map((c, i) => 
-            i === currentChallengeIndex ? { ...c, progress: headTurnProgressRef.current.right } : c
+            i === idx ? { ...c, progress: headTurnProgressRef.current.right } : c
           ));
           
           if (headTurnProgressRef.current.right >= 100) {
@@ -256,12 +276,22 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   };
 
   const completeChallenge = () => {
+    const idx = currentChallengeIndexRef.current;
+    const challengeCount = challengesRef.current.length;
+    
+    // Update ref immediately so next frame sees correct state
+    challengesRef.current = challengesRef.current.map((c, i) => 
+      i === idx ? { ...c, completed: true, progress: 100 } : c
+    );
+    
+    // Update React state for UI
     setChallenges(prev => prev.map((c, i) => 
-      i === currentChallengeIndex ? { ...c, completed: true, progress: 100 } : c
+      i === idx ? { ...c, completed: true, progress: 100 } : c
     ));
     
-    if (currentChallengeIndex < challenges.length - 1) {
-      setCurrentChallengeIndex(prev => prev + 1);
+    if (idx < challengeCount - 1) {
+      currentChallengeIndexRef.current = idx + 1;
+      setCurrentChallengeIndex(idx + 1);
       blinkCountRef.current = 0;
       lastBlinkStateRef.current = false;
     } else {
@@ -323,9 +353,14 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   };
 
   const startChallenges = () => {
+    const freshChallenges = CHALLENGES.map(c => ({ ...c }));
     setStatus('challenges');
-    setChallenges(CHALLENGES.map(c => ({ ...c })));
+    setChallenges(freshChallenges);
     setCurrentChallengeIndex(0);
+    // Also update refs immediately
+    challengesRef.current = freshChallenges;
+    currentChallengeIndexRef.current = 0;
+    statusRef.current = 'challenges';
     blinkCountRef.current = 0;
     lastBlinkStateRef.current = false;
     headTurnProgressRef.current = { left: 0, right: 0 };
@@ -335,8 +370,12 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   const handleRetry = () => {
     cleanup();
     setError(null);
-    setChallenges(CHALLENGES.map(c => ({ ...c })));
+    const freshChallenges = CHALLENGES.map(c => ({ ...c }));
+    setChallenges(freshChallenges);
     setCurrentChallengeIndex(0);
+    // Also update refs immediately
+    challengesRef.current = freshChallenges;
+    currentChallengeIndexRef.current = 0;
     blinkCountRef.current = 0;
     faceEmbeddingsRef.current = [];
     loadMediaPipe();
