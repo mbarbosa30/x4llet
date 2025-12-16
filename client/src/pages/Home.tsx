@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users, Clock, Share2, Waypoints, CheckCircle2, Circle, ChevronRight, HelpCircle, Eye } from 'lucide-react';
+import { SiTelegram } from 'react-icons/si';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import {
@@ -429,6 +430,18 @@ export default function Home() {
                 <HelpCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                 <span className="text-sm text-muted-foreground">Have questions? Check the FAQs</span>
               </button>
+
+              {/* Telegram Link */}
+              <a
+                href="https://t.me/+zWefAe1jX9FhODU0"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 p-3 w-full text-left bg-muted/30 border border-foreground/10 hover-elevate"
+                data-testid="link-telegram-home"
+              >
+                <SiTelegram className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                <span className="text-sm text-muted-foreground">Join our Telegram community</span>
+              </a>
             </div>
           </>
         ) : (
