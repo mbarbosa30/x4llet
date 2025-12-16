@@ -510,15 +510,35 @@ export default function Faqs() {
                   </AccordionTrigger>
                   <AccordionContent className="px-5 pb-4">
                     <p className="text-sm text-muted-foreground mb-2">
-                      The XP Store lets you redeem accumulated XP for real value:
+                      The XP Store lets you spend accumulated XP in several ways:
                     </p>
                     <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
                       <li><span className="font-medium">100 XP → 1 USDC:</span> Deposited directly to your Aave savings on Celo</li>
-                      <li>Funds appear in your Earn page as aUSDC, immediately earning yield</li>
-                      <li>More redemption options coming as the system grows</li>
+                      <li><span className="font-medium">1 XP per AI message:</span> Use the built-in AI assistant for crypto questions</li>
+                      <li><span className="font-medium">1 XP → 1 SENADOR:</span> Experimental token exchange (high-risk)</li>
                     </ul>
                     <p className="text-sm text-muted-foreground mt-2">
-                      This creates a tangible reward for network participation while driving users toward long-term savings behavior.
+                      This creates tangible rewards for network participation while offering multiple ways to use your earned XP.
+                    </p>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="xp-ai-chat" className="border-b border-foreground/20 last:border-0">
+                  <AccordionTrigger className="font-mono text-sm uppercase tracking-wide text-left px-5" data-testid="faq-xp-ai-chat">
+                    What is AI Chat?
+                  </AccordionTrigger>
+                  <AccordionContent className="px-5 pb-4">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      AI Chat is a built-in assistant that helps you understand crypto, DeFi, and how to use nanoPay features. Each message costs 1 XP.
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                      <li>Ask questions about blockchain, staking, or gasless payments</li>
+                      <li>Get help understanding Aave, GoodDollar, or Circles</li>
+                      <li>Learn about trust networks and how to build your signal</li>
+                      <li>Conversations are private and stored locally</li>
+                    </ul>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Access AI Chat from the Settings page when you have XP available.
                     </p>
                   </AccordionContent>
                 </AccordionItem>
