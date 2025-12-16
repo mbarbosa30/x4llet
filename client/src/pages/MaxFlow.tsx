@@ -35,7 +35,7 @@ const FaceVerification = lazy(() => import('@/components/FaceVerification'));
 import { apiRequest } from '@/lib/queryClient';
 
 export default function MaxFlow() {
-  const [, setLocation] = useLocation();
+  const [currentPath, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { address } = useWallet();
@@ -49,7 +49,7 @@ export default function MaxFlow() {
   const [showFaceVerification, setShowFaceVerification] = useState(false);
   const [activeTab, setActiveTab] = useState('trust');
 
-  // Watch for URL changes and update tab accordingly
+  // Sync tab state with URL on mount and navigation
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -64,13 +64,16 @@ export default function MaxFlow() {
         setActiveTab(savedTab);
       }
     } catch {}
-  }, [location]);
+  }, [currentPath]); // Re-run when wouter path changes
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     try {
       localStorage.setItem('maxflow_tab', tab);
     } catch {}
+    // Update URL to reflect tab state for shareable links (use replace to avoid history spam)
+    const newUrl = `/maxflow${tab !== 'trust' ? `?tab=${tab}` : ''}`;
+    window.history.replaceState(null, '', newUrl);
   };
 
   // Face verification status query
@@ -458,12 +461,10 @@ export default function MaxFlow() {
                               queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
                               toast({
                                 title: "Face Verification Complete",
-                                description: data?.xpAwarded ? `You've earned ${data.xpAwarded} XP! Check the Claim tab.` : "Verification successful!",
+                                description: data?.xpAwarded ? `You've earned ${data.xpAwarded} XP!` : "Verification successful!",
                               });
-                              // Switch to Claim tab after successful verification to show XP actions
-                              setTimeout(() => {
-                                handleTabChange('claim');
-                              }, 1500);
+                              // Switch to Claim tab immediately to show XP actions
+                              handleTabChange('claim');
                             }
                           }}
                           onCancel={() => {
