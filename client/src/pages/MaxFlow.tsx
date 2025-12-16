@@ -46,8 +46,8 @@ export default function MaxFlow() {
   const [showRedeemConfirm, setShowRedeemConfirm] = useState(false);
   const [showSenadorConfirm, setShowSenadorConfirm] = useState(false);
   const [senadorAmount, setSenadorAmount] = useState('');
-  const [showFaceVerification, setShowFaceVerification] = useState(false);
   const [activeTab, setActiveTab] = useState('trust');
+  const [faceVerificationKey, setFaceVerificationKey] = useState(0);
 
   // Sync tab state with URL on mount and navigation
   useEffect(() => {
@@ -395,86 +395,59 @@ export default function MaxFlow() {
 
           {/* TRUST TAB - Face Check + MaxFlow Signal + Vouch */}
           <TabsContent value="trust" className="space-y-4 mt-4">
-            {/* Face Verification Section */}
-            <Card className="p-4 space-y-4">
-              <button
-                onClick={() => setShowFaceVerification(!showFaceVerification)}
-                className="w-full flex items-center justify-between group"
-                data-testid="button-toggle-face-verification"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0">
-                    <Camera className="h-5 w-5 text-white" />
-                  </div>
-                  <div className="text-left">
-                    <h3 className="text-lg font-semibold">Face Check</h3>
-                    <span className="font-label text-muted-foreground text-xs">// LIVENESS VERIFICATION</span>
-                  </div>
+            {/* Face Verification Section - Always visible */}
+            <Card className="p-4">
+              {isLoadingFaceVerification ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-                <div className="flex items-center gap-2">
-                  {isLoadingFaceVerification ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  ) : faceVerificationData?.verified ? (
-                    <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
-                      <Check className="h-4 w-4" />
-                      Verified
-                    </span>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">+50 XP</span>
-                  )}
-                  <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${showFaceVerification ? 'rotate-180' : ''}`} />
-                </div>
-              </button>
-
-              {showFaceVerification && (
-                <div className="space-y-4 pt-2">
-                  {faceVerificationData?.verified ? (
-                    <div className="text-center space-y-2">
-                      <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md">
-                        <Check className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                        <span className="text-emerald-700 dark:text-emerald-300 font-medium">Face verification complete</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Verified on {new Date(faceVerificationData.createdAt).toLocaleDateString()}
-                      </p>
-                      {faceVerificationData.isDuplicate && (
-                        <p className="text-xs text-amber-600 dark:text-amber-400">
-                          Note: Duplicate face detected
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-sm text-muted-foreground text-center">
-                        Complete a simple face check with blink and head turn challenges to prove you're human. Earn 50 XP as a reward.
-                      </p>
-                      <Suspense fallback={
-                        <div className="flex items-center justify-center py-8">
-                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                        </div>
-                      }>
-                        <FaceVerification
-                          walletAddress={address || ''}
-                          onComplete={(success, data) => {
-                            if (success) {
-                              queryClient.invalidateQueries({ queryKey: ['/api/face-verification', address] });
-                              queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
-                              toast({
-                                title: "Face Verification Complete",
-                                description: data?.xpAwarded ? `You've earned ${data.xpAwarded} XP!` : "Verification successful!",
-                              });
-                              // Switch to Claim tab immediately to show XP actions
-                              handleTabChange('claim');
-                            }
-                          }}
-                          onCancel={() => {
-                            setShowFaceVerification(false);
-                          }}
-                        />
-                      </Suspense>
-                    </>
+              ) : faceVerificationData?.verified ? (
+                <div className="text-center space-y-3 py-4">
+                  <div className="h-16 w-16 rounded-full bg-emerald-100 dark:bg-emerald-950/50 flex items-center justify-center mx-auto">
+                    <Check className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg">Face Check Complete</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Verified on {new Date(faceVerificationData.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md">
+                    <span className="text-emerald-700 dark:text-emerald-300 text-sm font-medium">+50 XP earned</span>
+                  </div>
+                  {faceVerificationData.isDuplicate && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      Note: Duplicate face detected
+                    </p>
                   )}
                 </div>
+              ) : (
+                <Suspense fallback={
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                }>
+                  <FaceVerification
+                    key={faceVerificationKey}
+                    walletAddress={address || ''}
+                    onComplete={(success, data) => {
+                      if (success) {
+                        queryClient.invalidateQueries({ queryKey: ['/api/face-verification', address] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
+                        toast({
+                          title: "Face Verification Complete",
+                          description: data?.xpAwarded ? `You've earned ${data.xpAwarded} XP!` : "Verification successful!",
+                        });
+                        // Switch to Claim tab immediately to show XP actions
+                        handleTabChange('claim');
+                      }
+                    }}
+                    onReset={() => {
+                      // Force remount to re-request camera permissions
+                      setFaceVerificationKey(prev => prev + 1);
+                    }}
+                  />
+                </Suspense>
               )}
             </Card>
 

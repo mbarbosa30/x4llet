@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Loader2, Camera, Check, X, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Loader2, Camera, Check, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFingerprint } from '@/lib/fingerprint';
 import { apiRequest } from '@/lib/queryClient';
@@ -29,10 +28,10 @@ const CHALLENGES: ChallengeState[] = [
 interface FaceVerificationProps {
   walletAddress: string;
   onComplete: (success: boolean, data?: any) => void;
-  onCancel: () => void;
+  onReset?: () => void;
 }
 
-export default function FaceVerification({ walletAddress, onComplete, onCancel }: FaceVerificationProps) {
+export default function FaceVerification({ walletAddress, onComplete, onReset }: FaceVerificationProps) {
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -353,12 +352,7 @@ export default function FaceVerification({ walletAddress, onComplete, onCancel }
   }, [status, startDetection]);
 
   return (
-    <Card className="p-4 space-y-4">
-      <div className="text-center">
-        <h3 className="font-semibold text-lg">Face Verification</h3>
-        <p className="text-sm text-muted-foreground">Complete the liveness check to verify you're human</p>
-      </div>
-
+    <div className="space-y-4">
       <div 
         className="relative bg-black rounded-md overflow-hidden mx-auto w-full max-w-[280px]"
         style={{ aspectRatio: videoAspect }}
@@ -451,35 +445,36 @@ export default function FaceVerification({ walletAddress, onComplete, onCancel }
         </div>
       )}
 
-      <div className="flex gap-3 justify-center">
-        <Button
-          variant="outline"
-          size="default"
-          onClick={() => {
-            cleanup();
-            onCancel();
-          }}
-          disabled={isSubmitting}
-          data-testid="button-cancel-face-verification"
-        >
-          <X className="h-4 w-4" />
-          <span className="ml-2">Cancel</span>
-        </Button>
-        
+      {/* Title and description below camera */}
+      <div className="text-center space-y-1">
+        <h3 className="font-semibold text-lg">Face Check</h3>
+        <p className="text-sm text-muted-foreground">
+          Complete blink and head turn challenges to prove you're human. Earn 50 XP as a reward.
+        </p>
+      </div>
+
+      <div className="flex gap-3 justify-center flex-wrap">
         {status === 'error' && (
-          <Button size="default" onClick={handleRetry} data-testid="button-retry-face-verification">
-            <RefreshCw className="h-4 w-4" />
-            <span className="ml-2">Retry</span>
-          </Button>
+          <>
+            <Button size="default" onClick={handleRetry} data-testid="button-retry-face-verification">
+              <RefreshCw className="h-4 w-4" />
+              <span className="ml-2">Retry</span>
+            </Button>
+            {onReset && (
+              <Button size="default" variant="outline" onClick={onReset} data-testid="button-reset-face-verification">
+                <span>Reset Camera</span>
+              </Button>
+            )}
+          </>
         )}
         
         {(status === 'ready' || status === 'detecting') && faceDetected && (
           <Button size="default" onClick={startChallenges} data-testid="button-start-challenges">
             <Camera className="h-4 w-4" />
-            <span className="ml-2">Start</span>
+            <span className="ml-2">Start Verification</span>
           </Button>
         )}
       </div>
-    </Card>
+    </div>
   );
 }
