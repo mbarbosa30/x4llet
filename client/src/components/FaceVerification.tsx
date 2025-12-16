@@ -128,9 +128,24 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
       });
       
       // Load face-api.js for identity embeddings (128D face descriptors)
+      // Use script loader approach since ESM import doesn't work reliably
       setLoadingMessage('Loading face recognition...');
-      const faceApiModule = await import('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.esm.js');
-      const faceapi = faceApiModule.default ?? faceApiModule;
+      
+      // Load face-api.js via script tag if not already loaded
+      if (!(window as any).faceapi) {
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error('Failed to load face-api.js'));
+          document.head.appendChild(script);
+        });
+      }
+      
+      const faceapi = (window as any).faceapi;
+      if (!faceapi) {
+        throw new Error('face-api.js not available');
+      }
       faceApiRef.current = faceapi;
       
       // Load required models from CDN
