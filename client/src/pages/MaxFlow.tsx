@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Scan, Shield, Loader2, Sparkles, Clock, ChevronDown, Coins, Info, Camera, Check } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Scan, Shield, Loader2, Sparkles, Clock, ChevronDown, Coins, Info, Camera, Check, Users, Gift } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +47,31 @@ export default function MaxFlow() {
   const [showSenadorConfirm, setShowSenadorConfirm] = useState(false);
   const [senadorAmount, setSenadorAmount] = useState('');
   const [showFaceVerification, setShowFaceVerification] = useState(false);
+  const [activeTab, setActiveTab] = useState('trust');
+
+  // Watch for URL changes and update tab accordingly
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam === 'trust' || tabParam === 'claim') {
+        setActiveTab(tabParam);
+        return;
+      }
+      // Fall back to localStorage if no URL param
+      const savedTab = localStorage.getItem('maxflow_tab');
+      if (savedTab === 'trust' || savedTab === 'claim') {
+        setActiveTab(savedTab);
+      }
+    } catch {}
+  }, [location]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    try {
+      localStorage.setItem('maxflow_tab', tab);
+    } catch {}
+  };
 
   // Face verification status query
   const { data: faceVerificationData, isLoading: isLoadingFaceVerification } = useQuery<{
@@ -352,539 +378,549 @@ export default function MaxFlow() {
       )}
 
       <main className="max-w-md mx-auto p-4 space-y-4">
-        {!isLoadingMaxFlow && score > 0 && (
-          <Card className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Sparkles className="h-10 w-10 text-amber-500 shrink-0" />
-                <div>
-                  <h2 className="text-xl text-section">Experience</h2>
-                  <span className="font-label text-muted-foreground">// XP_REWARDS</span>
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="trust" className="flex items-center gap-2" data-testid="tab-trust">
+              <Users className="h-4 w-4" />
+              Trust
+            </TabsTrigger>
+            <TabsTrigger value="claim" className="flex items-center gap-2" data-testid="tab-claim">
+              <Gift className="h-4 w-4" />
+              Claim
+            </TabsTrigger>
+          </TabsList>
+
+          {/* TRUST TAB - Face Check + MaxFlow Signal + Vouch */}
+          <TabsContent value="trust" className="space-y-4 mt-4">
+            {/* Face Verification Section */}
+            <Card className="p-4 space-y-4">
+              <button
+                onClick={() => setShowFaceVerification(!showFaceVerification)}
+                className="w-full flex items-center justify-between group"
+                data-testid="button-toggle-face-verification"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0">
+                    <Camera className="h-5 w-5 text-white" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="text-lg font-semibold">Face Check</h3>
+                    <span className="font-label text-muted-foreground text-xs">// LIVENESS VERIFICATION</span>
+                  </div>
                 </div>
-              </div>
-              <Link href="/faqs#experience-points">
-                <Button variant="ghost" size="icon" className="h-8 w-8" data-testid="button-xp-info">
-                  <Info className="h-4 w-4 text-muted-foreground" />
-                </Button>
-              </Link>
-            </div>
-
-            <div className="text-center py-2">
-              {isLoadingXp ? (
-                <p className="font-mono text-5xl font-bold">--</p>
-              ) : (
-                <p className="font-mono text-5xl font-bold tabular-nums" data-testid="text-xp-balance">
-                  {(xpData?.totalXp ?? 0).toFixed(2)}
-                </p>
-              )}
-              <span className="text-sm text-muted-foreground">total XP earned</span>
-            </div>
-
-            <p className="text-sm text-muted-foreground text-center">
-              Claim daily XP based on your trust signal. More signal = exponentially more XP.
-            </p>
-
-            {!isLoadingXp && xpData && (
-              <div className="space-y-3">
-                {xpData.canClaim ? (
-                  <Button
-                    onClick={() => claimXpMutation.mutate()}
-                    disabled={claimXpMutation.isPending}
-                    className="w-full"
-                    size="lg"
-                    data-testid="button-claim-xp"
-                  >
-                    {claimXpMutation.isPending ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        CLAIMING...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        CLAIM {(((score * score) / 100 + Math.sqrt(score)) / 2).toFixed(2)} XP
-                      </>
-                    )}
-                  </Button>
-                ) : timeRemaining === 0 ? (
-                  <div className="flex items-center justify-center gap-2 py-3 px-4 bg-muted border border-foreground/10">
-                    <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
-                    <span className="font-mono text-sm text-muted-foreground">
-                      {isFetchingXp ? 'Refreshing...' : 'Ready soon...'}
+                <div className="flex items-center gap-2">
+                  {isLoadingFaceVerification ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  ) : faceVerificationData?.verified ? (
+                    <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
+                      <Check className="h-4 w-4" />
+                      Verified
                     </span>
-                  </div>
-                ) : timeRemaining !== null && timeRemaining > 0 ? (
-                  <div className="flex items-center justify-center gap-2 py-3 px-4 bg-muted border border-foreground/10">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-mono text-sm text-muted-foreground" data-testid="text-xp-cooldown">
-                      {formatTimeRemaining(timeRemaining)}
-                    </span>
-                  </div>
-                ) : null}
-                
-                {/* XP Redemption Button */}
-                <Button
-                  onClick={() => setShowRedeemConfirm(true)}
-                  disabled={(xpData?.totalXp ?? 0) < 100 || redeemXpMutation.isPending}
-                  variant={(xpData?.totalXp ?? 0) >= 100 ? "default" : "outline"}
-                  className="w-full disabled:bg-neutral-300 disabled:text-neutral-700 disabled:border-neutral-300"
-                  size="lg"
-                  data-testid="button-redeem-xp"
-                >
-                  {redeemXpMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      REDEEMING...
-                    </>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">+50 XP</span>
+                  )}
+                  <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${showFaceVerification ? 'rotate-180' : ''}`} />
+                </div>
+              </button>
+
+              {showFaceVerification && (
+                <div className="space-y-4 pt-2">
+                  {faceVerificationData?.verified ? (
+                    <div className="text-center space-y-2">
+                      <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md">
+                        <Check className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                        <span className="text-emerald-700 dark:text-emerald-300 font-medium">Face verification complete</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Verified on {new Date(faceVerificationData.createdAt).toLocaleDateString()}
+                      </p>
+                      {faceVerificationData.isDuplicate && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                          Note: Duplicate face detected
+                        </p>
+                      )}
+                    </div>
                   ) : (
                     <>
-                      <Coins className="h-4 w-4 mr-2" />
-                      GET 1 USDC FOR 100 XP
+                      <p className="text-sm text-muted-foreground text-center">
+                        Complete a simple face check with blink and head turn challenges to prove you're human. Earn 50 XP as a reward.
+                      </p>
+                      <Suspense fallback={
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                      }>
+                        <FaceVerification
+                          walletAddress={address || ''}
+                          onComplete={(success, data) => {
+                            if (success) {
+                              queryClient.invalidateQueries({ queryKey: ['/api/face-verification', address] });
+                              queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
+                              toast({
+                                title: "Face Verification Complete",
+                                description: data?.xpAwarded ? `You've earned ${data.xpAwarded} XP! Check the Claim tab.` : "Verification successful!",
+                              });
+                              // Switch to Claim tab after successful verification to show XP actions
+                              setTimeout(() => {
+                                handleTabChange('claim');
+                              }, 1500);
+                            }
+                          }}
+                          onCancel={() => {
+                            setShowFaceVerification(false);
+                          }}
+                        />
+                      </Suspense>
                     </>
                   )}
-                </Button>
-              </div>
-            )}
-          </Card>
-        )}
+                </div>
+              )}
+            </Card>
 
-        {/* SENADOR Token Section - show if user has XP or SENADOR tokens */}
-        {!isLoadingMaxFlow && ((xpData?.totalXp ?? 0) > 0 || (senadorData?.balance ?? 0n) > 0n) && (
-          <Card className="p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0">
-                  <span className="text-lg font-bold text-white">S</span>
-                </div>
-                <div>
-                  <h2 className="text-xl text-section">SENADOR</h2>
-                  <span className="font-label text-muted-foreground">// TOKEN</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {isLoadingSenador ? (
-                  <p className="font-mono text-2xl font-bold">--</p>
-                ) : (
-                  <p className="font-mono text-2xl font-bold tabular-nums" data-testid="text-senador-balance">
-                    {senadorData?.balanceFormatted ?? '0.00'}
+            {/* MaxFlow Signal + Vouch Section */}
+            <Card className="p-6 space-y-6">
+              {!isLoadingMaxFlow && score === 0 ? (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Shield className="h-10 w-10 text-[#30A99C] dark:text-[#40C4B5] shrink-0" />
+                      <div>
+                        <h2 className="text-xl text-section">Trust Graph</h2>
+                        <span className="font-label text-muted-foreground">// MAXFLOW</span>
+                      </div>
+                    </div>
+                    <Link href="/faqs#maxflow">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" data-testid="button-maxflow-info">
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </Link>
+                  </div>
+
+                  <div className="text-center py-4">
+                    <p className="font-mono text-5xl font-bold">0</p>
+                    <span className="text-sm text-muted-foreground">network signal</span>
+                  </div>
+
+                  <div className="space-y-2 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      MaxFlow measures your trust network health through a sybil-resistant graph signal.
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Build your signal by getting vouched to unlock XP claiming based on your score.
+                    </p>
+                  </div>
+
+                  <p className="text-sm text-muted-foreground text-center" data-testid="text-user-address">
+                    Share <span className="font-mono">{address?.slice(0, 6)}...{address?.slice(-4)}</span> to get vouched
                   </p>
-                )}
-                <Link href="/faqs#senador-token">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" data-testid="button-senador-info">
-                    <Info className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
+                </div>
+              ) : (
+                <div className="text-center space-y-4">
+                  <div className="flex justify-end -mt-2 -mr-2">
+                    <Link href="/faqs#maxflow">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" data-testid="button-maxflow-info">
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </Link>
+                  </div>
+                  <div>
+                    <h2 className="text-sm text-muted-foreground mb-2">Your MaxFlow Signal</h2>
+                    {isLoadingMaxFlow ? (
+                      <div className="text-4xl font-bold text-foreground tracking-tight">--</div>
+                    ) : (
+                      <div className="text-5xl font-bold tabular-nums text-foreground tracking-tight" data-testid="text-score">
+                        {Math.round(score)}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex justify-center gap-2">
+                    {[...Array(10)].map((_, i) => (
+                      <div
+                        key={i}
+                        className={`h-2 w-2 rounded-full ${
+                          i < Math.round(score / 10) ? 'bg-[#30A99C] dark:bg-[#40C4B5]' : 'bg-muted'
+                        }`}
+                      />
+                    ))}
+                  </div>
 
-            <p className="text-sm text-muted-foreground text-center">
-              Exchange your XP for SENADOR tokens.
-            </p>
-            <p className="text-xs text-amber-600 dark:text-amber-500 text-center font-medium">
-              High-risk experimental token. Not investment advice.
-            </p>
+                  {!isLoadingMaxFlow && (scoreData?.algorithm_breakdown || scoreData?.vouch_counts) && (
+                    <Collapsible className="pt-4 border-t">
+                      <CollapsibleTrigger className="flex items-center justify-center gap-2 w-full text-xs font-medium text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors" data-testid="button-toggle-metrics">
+                        <span>Network Details</span>
+                        <ChevronDown className="h-3 w-3" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-4 pt-3">
+                        {scoreData?.algorithm_breakdown && (
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-1 gap-2 text-sm">
+                              <div className="flex justify-between items-center" data-testid="metric-flow">
+                                <span className="text-muted-foreground">Maximum Flow</span>
+                                <span className="font-mono font-medium">{(scoreData.algorithm_breakdown.flow_component ?? 0).toFixed(1)}</span>
+                              </div>
+                              <div className="flex justify-between items-center" data-testid="metric-min-cut">
+                                <span className="text-muted-foreground">Minimum Cut</span>
+                                <span className="font-mono font-medium">{(scoreData.algorithm_breakdown.actual_min_cut ?? 0).toFixed(1)}</span>
+                              </div>
+                              <div className="flex justify-between items-center" data-testid="metric-redundancy">
+                                <span className="text-muted-foreground">Redundancy Component</span>
+                                <span className="font-mono font-medium">{(scoreData.algorithm_breakdown.redundancy_component ?? 0).toFixed(1)}</span>
+                              </div>
+                              <div className="flex justify-between items-center" data-testid="metric-paths">
+                                <span className="text-muted-foreground">Disjoint Paths</span>
+                                <span className="font-mono font-medium">{scoreData.algorithm_breakdown.vertex_disjoint_paths}</span>
+                              </div>
+                              <div className="flex justify-between items-center" data-testid="metric-network-size">
+                                <span className="text-muted-foreground">Network Size</span>
+                                <span className="font-mono font-medium">{scoreData.algorithm_breakdown.ego_network_size}</span>
+                              </div>
+                              <div className="flex justify-between items-center" data-testid="metric-effective-redundancy">
+                                <span className="text-muted-foreground">Effective Redundancy</span>
+                                <span className="font-mono font-medium">{(scoreData.algorithm_breakdown.effective_redundancy ?? 0).toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between items-center" data-testid="metric-edge-density">
+                                <span className="text-muted-foreground">Edge Density</span>
+                                <span className="font-mono font-medium">{(scoreData.algorithm_breakdown.edge_density ?? 0).toFixed(2)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {scoreData?.vouch_counts && (
+                          <div className="space-y-2 pt-2 border-t">
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div className="text-center">
+                                <div className="font-mono font-medium" data-testid="text-vouches-received">{scoreData.vouch_counts.incoming_active}</div>
+                                <div className="text-xs text-muted-foreground">Active Vouches</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="font-mono font-medium" data-testid="text-vouches-given">{scoreData.vouch_counts.outgoing_total}</div>
+                                <div className="text-xs text-muted-foreground">Vouches Given</div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </CollapsibleContent>
+                    </Collapsible>
+                  )}
+                </div>
+              )}
 
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  placeholder="Amount of XP"
-                  value={senadorAmount}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    // Only allow positive integers
-                    if (val === '' || /^\d+$/.test(val)) {
-                      setSenadorAmount(val);
-                    }
-                  }}
-                  min="1"
-                  step="1"
-                  max={xpData?.totalXp ?? 0}
-                  className="flex-1"
-                  data-testid="input-senador-amount"
-                />
+              {!showVouchInput && (
                 <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSenadorAmount(String(Math.floor(xpData?.totalXp ?? 0)))}
-                  disabled={!xpData || xpData.totalXp < 1}
-                  data-testid="button-senador-max"
+                  onClick={() => setShowVouchInput(true)}
+                  className="w-full"
+                  size="lg"
+                  data-testid="button-vouch"
                 >
-                  MAX
+                  Vouch for Someone
                 </Button>
-              </div>
-              
-              <Button
-                onClick={() => setShowSenadorConfirm(true)}
-                disabled={
-                  !senadorAmount || 
-                  parseFloat(senadorAmount) < 1 || 
-                  parseFloat(senadorAmount) > (xpData?.totalXp ?? 0) ||
-                  redeemSenadorMutation.isPending
-                }
-                className="w-full"
-                size="lg"
-                data-testid="button-exchange-senador"
-              >
-                {redeemSenadorMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    EXCHANGING...
-                  </>
-                ) : (
-                  <>
-                    GET {senadorAmount || '0'} SENADOR FOR {senadorAmount || '0'} XP
-                  </>
-                )}
-              </Button>
-            </div>
-          </Card>
-        )}
+              )}
 
-        <Card className="p-6 space-y-6">
-          {!isLoadingMaxFlow && score === 0 ? (
-            <div className="space-y-6">
+              {showVouchInput && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="vouch-address">Address to Vouch</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="vouch-address"
+                        placeholder="0x..."
+                        value={vouchAddress}
+                        onChange={(e) => setVouchAddress(e.target.value)}
+                        className="font-mono text-sm flex-1"
+                        data-testid="input-vouch-address"
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setShowScanner(true)}
+                        data-testid="button-scan-vouch"
+                      >
+                        <Scan className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowVouchInput(false);
+                        setVouchAddress('');
+                      }}
+                      className="flex-1"
+                      data-testid="button-cancel-vouch"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleVouch}
+                      disabled={!vouchAddress || vouchMutation.isPending}
+                      className="flex-1"
+                      data-testid="button-submit-vouch"
+                    >
+                      {vouchMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Submitting...
+                        </>
+                      ) : 'Submit Vouch'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            <div className="pt-4 space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">About MaxFlow</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                <a 
+                  href="https://maxflow.one" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-[#30A99C] dark:text-[#40C4B5] hover:underline"
+                >
+                  MaxFlow.one
+                </a>{' '}
+                is a neutral reputation infrastructure that converts public binary endorsements ("vouches") into verifiable graph signals using max-flow/min-cut algorithms and recursive trust weighting.
+              </p>
+              <a 
+                href="https://maxflow.one/whitepaper" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-block text-xs text-[#30A99C] dark:text-[#40C4B5] hover:underline font-medium"
+                data-testid="link-whitepaper"
+              >
+                Read the Whitepaper →
+              </a>
+            </div>
+          </TabsContent>
+
+          {/* CLAIM TAB - XP, USDC, SENADOR */}
+          <TabsContent value="claim" className="space-y-4 mt-4">
+            {/* XP Balance & Claim Section */}
+            <Card className="p-6 space-y-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Shield className="h-10 w-10 text-[#30A99C] dark:text-[#40C4B5] shrink-0" />
+                  <Sparkles className="h-10 w-10 text-amber-500 shrink-0" />
                   <div>
-                    <h2 className="text-xl text-section">Trust Graph</h2>
-                    <span className="font-label text-muted-foreground">// MAXFLOW</span>
+                    <h2 className="text-xl text-section">Experience</h2>
+                    <span className="font-label text-muted-foreground">// XP_REWARDS</span>
                   </div>
                 </div>
-                <Link href="/faqs#maxflow">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" data-testid="button-maxflow-info">
+                <Link href="/faqs#experience-points">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" data-testid="button-xp-info">
                     <Info className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </Link>
               </div>
 
-              <div className="text-center py-4">
-                <p className="font-mono text-5xl font-bold">0</p>
-                <span className="text-sm text-muted-foreground">network signal</span>
-              </div>
-
-              <div className="space-y-2 text-center">
-                <p className="text-sm text-muted-foreground">
-                  MaxFlow measures your trust network health through a sybil-resistant graph signal.
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Build your signal by getting vouched to unlock XP claiming based on your score.
-                </p>
-                <p className="text-xs text-muted-foreground/70 italic">
-                  More details on XP utility and benefits coming soon.
-                </p>
-              </div>
-
-              <p className="text-sm text-muted-foreground text-center" data-testid="text-user-address">
-                Share <span className="font-mono">{address?.slice(0, 6)}...{address?.slice(-4)}</span> to get vouched
-              </p>
-            </div>
-          ) : (
-            <div className="text-center space-y-4">
-              <div className="flex justify-end -mt-2 -mr-2">
-                <Link href="/faqs#maxflow">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" data-testid="button-maxflow-info">
-                    <Info className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </Link>
-              </div>
-              <div>
-                <h2 className="text-sm text-muted-foreground mb-2">Your MaxFlow Signal</h2>
-                {isLoadingMaxFlow ? (
-                  <div className="text-4xl font-bold text-foreground tracking-tight">--</div>
+              <div className="text-center py-2">
+                {isLoadingXp ? (
+                  <p className="font-mono text-5xl font-bold">--</p>
                 ) : (
-                  <div className="text-5xl font-bold tabular-nums text-foreground tracking-tight" data-testid="text-score">
-                    {Math.round(score)}
-                  </div>
+                  <p className="font-mono text-5xl font-bold tabular-nums" data-testid="text-xp-balance">
+                    {(xpData?.totalXp ?? 0).toFixed(2)}
+                  </p>
                 )}
-              </div>
-              
-              <div className="flex justify-center gap-2">
-                {[...Array(10)].map((_, i) => (
-                  <div
-                    key={i}
-                    className={`h-2 w-2 rounded-full ${
-                      i < Math.round(score / 10) ? 'bg-[#30A99C] dark:bg-[#40C4B5]' : 'bg-muted'
-                    }`}
-                  />
-                ))}
+                <span className="text-sm text-muted-foreground">total XP earned</span>
               </div>
 
-              {!isLoadingMaxFlow && (scoreData?.algorithm_breakdown || scoreData?.vouch_counts) && (
-                <Collapsible className="pt-4 border-t">
-                  <CollapsibleTrigger className="flex items-center justify-center gap-2 w-full text-xs font-medium text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors" data-testid="button-toggle-metrics">
-                    <span>Network Details</span>
-                    <ChevronDown className="h-3 w-3" />
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="space-y-4 pt-3">
-                    {scoreData?.algorithm_breakdown && (
-                      <div className="space-y-2">
-                        <div className="grid grid-cols-1 gap-2 text-sm">
-                          <div className="flex justify-between items-center" data-testid="metric-flow">
-                            <span className="text-muted-foreground">Maximum Flow</span>
-                            <span className="font-mono font-medium">{(scoreData.algorithm_breakdown.flow_component ?? 0).toFixed(1)}</span>
-                          </div>
-                          <div className="flex justify-between items-center" data-testid="metric-min-cut">
-                            <span className="text-muted-foreground">Minimum Cut</span>
-                            <span className="font-mono font-medium">{(scoreData.algorithm_breakdown.actual_min_cut ?? 0).toFixed(1)}</span>
-                          </div>
-                          <div className="flex justify-between items-center" data-testid="metric-redundancy">
-                            <span className="text-muted-foreground">Redundancy Component</span>
-                            <span className="font-mono font-medium">{(scoreData.algorithm_breakdown.redundancy_component ?? 0).toFixed(1)}</span>
-                          </div>
-                          <div className="flex justify-between items-center" data-testid="metric-paths">
-                            <span className="text-muted-foreground">Disjoint Paths</span>
-                            <span className="font-mono font-medium">{scoreData.algorithm_breakdown.vertex_disjoint_paths}</span>
-                          </div>
-                          <div className="flex justify-between items-center" data-testid="metric-network-size">
-                            <span className="text-muted-foreground">Network Size</span>
-                            <span className="font-mono font-medium">{scoreData.algorithm_breakdown.ego_network_size}</span>
-                          </div>
-                          <div className="flex justify-between items-center" data-testid="metric-effective-redundancy">
-                            <span className="text-muted-foreground">Effective Redundancy</span>
-                            <span className="font-mono font-medium">{(scoreData.algorithm_breakdown.effective_redundancy ?? 0).toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between items-center" data-testid="metric-edge-density">
-                            <span className="text-muted-foreground">Edge Density</span>
-                            <span className="font-mono font-medium">{(scoreData.algorithm_breakdown.edge_density ?? 0).toFixed(2)}</span>
-                          </div>
+              {score > 0 ? (
+                <>
+                  <p className="text-sm text-muted-foreground text-center">
+                    Claim daily XP based on your trust signal. More signal = exponentially more XP.
+                  </p>
+
+                  {!isLoadingXp && xpData && (
+                    <div className="space-y-3">
+                      {xpData.canClaim ? (
+                        <Button
+                          onClick={() => claimXpMutation.mutate()}
+                          disabled={claimXpMutation.isPending}
+                          className="w-full"
+                          size="lg"
+                          data-testid="button-claim-xp"
+                        >
+                          {claimXpMutation.isPending ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              CLAIMING...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-4 w-4 mr-2" />
+                              CLAIM {(((score * score) / 100 + Math.sqrt(score)) / 2).toFixed(2)} XP
+                            </>
+                          )}
+                        </Button>
+                      ) : timeRemaining === 0 ? (
+                        <div className="flex items-center justify-center gap-2 py-3 px-4 bg-muted border border-foreground/10">
+                          <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
+                          <span className="font-mono text-sm text-muted-foreground">
+                            {isFetchingXp ? 'Refreshing...' : 'Ready soon...'}
+                          </span>
                         </div>
-                      </div>
-                    )}
-                    
-                    {scoreData?.vouch_counts && (
-                      <div className="space-y-2 pt-2 border-t">
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div className="text-center">
-                            <div className="font-mono font-medium" data-testid="text-vouches-received">{scoreData.vouch_counts.incoming_active}</div>
-                            <div className="text-xs text-muted-foreground">Active Vouches</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="font-mono font-medium" data-testid="text-vouches-given">{scoreData.vouch_counts.outgoing_total}</div>
-                            <div className="text-xs text-muted-foreground">Vouches Given</div>
-                          </div>
+                      ) : timeRemaining !== null && timeRemaining > 0 ? (
+                        <div className="flex items-center justify-center gap-2 py-3 px-4 bg-muted border border-foreground/10">
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-mono text-sm text-muted-foreground" data-testid="text-xp-cooldown">
+                            {formatTimeRemaining(timeRemaining)}
+                          </span>
                         </div>
-                      </div>
-                    )}
-                  </CollapsibleContent>
-                </Collapsible>
+                      ) : null}
+                      
+                      {/* XP Redemption Button */}
+                      <Button
+                        onClick={() => setShowRedeemConfirm(true)}
+                        disabled={(xpData?.totalXp ?? 0) < 100 || redeemXpMutation.isPending}
+                        variant={(xpData?.totalXp ?? 0) >= 100 ? "default" : "outline"}
+                        className="w-full disabled:bg-neutral-300 disabled:text-neutral-700 disabled:border-neutral-300"
+                        size="lg"
+                        data-testid="button-redeem-xp"
+                      >
+                        {redeemXpMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            REDEEMING...
+                          </>
+                        ) : (
+                          <>
+                            <Coins className="h-4 w-4 mr-2" />
+                            GET 1 USDC FOR 100 XP
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-3 text-center">
+                  <p className="text-sm text-muted-foreground" data-testid="text-xp-no-signal">
+                    Get vouched to earn XP from your signal
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleTabChange('trust')}
+                    className="w-full"
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    Go to Trust Tab
+                  </Button>
+                </div>
               )}
-            </div>
-          )}
+            </Card>
 
-          {!showVouchInput && (
-            <Button
-              onClick={() => setShowVouchInput(true)}
-              className="w-full"
-              size="lg"
-              data-testid="button-vouch"
-            >
-              Vouch for Someone
-            </Button>
-          )}
+            {/* SENADOR Token Section */}
+            <Card className="p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0">
+                    <span className="text-lg font-bold text-white">S</span>
+                  </div>
+                  <div>
+                    <h2 className="text-xl text-section">SENADOR</h2>
+                    <span className="font-label text-muted-foreground">// TOKEN</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isLoadingSenador ? (
+                    <p className="font-mono text-2xl font-bold">--</p>
+                  ) : (
+                    <p className="font-mono text-2xl font-bold tabular-nums" data-testid="text-senador-balance">
+                      {senadorData?.balanceFormatted ?? '0.00'}
+                    </p>
+                  )}
+                  <Link href="/faqs#senador-token">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" data-testid="button-senador-info">
+                      <Info className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
 
-          {showVouchInput && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="vouch-address">Address to Vouch</Label>
-                <div className="flex gap-2">
+              <p className="text-sm text-muted-foreground text-center">
+                Exchange your XP for SENADOR tokens.
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-500 text-center font-medium">
+                High-risk experimental token. Not investment advice.
+              </p>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
                   <Input
-                    id="vouch-address"
-                    placeholder="0x..."
-                    value={vouchAddress}
-                    onChange={(e) => setVouchAddress(e.target.value)}
-                    className="font-mono text-sm flex-1"
-                    data-testid="input-vouch-address"
+                    type="number"
+                    placeholder="Amount of XP"
+                    value={senadorAmount}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '' || /^\d+$/.test(val)) {
+                        setSenadorAmount(val);
+                      }
+                    }}
+                    min="1"
+                    step="1"
+                    max={xpData?.totalXp ?? 0}
+                    className="flex-1"
+                    data-testid="input-senador-amount"
                   />
                   <Button
                     variant="outline"
-                    size="icon"
-                    onClick={() => setShowScanner(true)}
-                    data-testid="button-scan-vouch"
+                    size="sm"
+                    onClick={() => setSenadorAmount(String(Math.floor(xpData?.totalXp ?? 0)))}
+                    disabled={!xpData || xpData.totalXp < 1}
+                    data-testid="button-senador-max"
                   >
-                    <Scan className="h-4 w-4" />
+                    MAX
                   </Button>
                 </div>
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowVouchInput(false);
-                    setVouchAddress('');
-                  }}
-                  className="flex-1"
-                  data-testid="button-cancel-vouch"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleVouch}
-                  disabled={!vouchAddress || vouchMutation.isPending}
-                  className="flex-1"
-                  data-testid="button-submit-vouch"
-                >
-                  {vouchMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Submitting...
-                    </>
-                  ) : 'Submit Vouch'}
-                </Button>
-              </div>
-            </div>
-          )}
-        </Card>
-
-        {!isLoadingMaxFlow && score === 0 && (
-          <Card className="p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-amber-500" />
-                <span className="font-medium">XP Balance</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {isLoadingXp ? (
-                  <span className="text-2xl font-bold tabular-nums">--</span>
-                ) : (
-                  <span className="text-2xl font-bold tabular-nums" data-testid="text-xp-balance">
-                    {xpData?.totalXp ?? 0}
-                  </span>
-                )}
-                <Link href="/faqs#experience-points">
-                  <Button variant="ghost" size="icon" className="h-6 w-6" data-testid="button-xp-info-zero">
-                    <Info className="h-3.5 w-3.5 text-muted-foreground" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
-
-            <p className="text-xs text-muted-foreground text-center">
-              Claim Experience Points to access new features and benefit from special opportunities.
-            </p>
-
-            {!isLoadingXp && xpData && (
-              <>
-                <p className="text-sm text-muted-foreground text-center" data-testid="text-xp-no-signal">
-                  Get vouched to earn XP from your signal
-                </p>
                 
-                {xpData.claimCount > 0 && (
-                  <p className="text-xs text-muted-foreground text-center" data-testid="text-xp-claim-count">
-                    {xpData.claimCount} claim{xpData.claimCount !== 1 ? 's' : ''} total
-                  </p>
-                )}
-              </>
-            )}
-          </Card>
-        )}
-
-        {/* Face Verification Section */}
-        <Card className="p-4 space-y-4">
-          <button
-            onClick={() => setShowFaceVerification(!showFaceVerification)}
-            className="w-full flex items-center justify-between group"
-            data-testid="button-toggle-face-verification"
-          >
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0">
-                <Camera className="h-5 w-5 text-white" />
-              </div>
-              <div className="text-left">
-                <h3 className="text-lg font-semibold">Face Check</h3>
-                <span className="font-label text-muted-foreground text-xs">// LIVENESS VERIFICATION</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {isLoadingFaceVerification ? (
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              ) : faceVerificationData?.verified ? (
-                <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
-                  <Check className="h-4 w-4" />
-                  Verified
-                </span>
-              ) : (
-                <span className="text-muted-foreground text-sm">+50 XP</span>
-              )}
-              <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${showFaceVerification ? 'rotate-180' : ''}`} />
-            </div>
-          </button>
-
-          {showFaceVerification && (
-            <div className="space-y-4 pt-2">
-              {faceVerificationData?.verified ? (
-                <div className="text-center space-y-2">
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md">
-                    <Check className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                    <span className="text-emerald-700 dark:text-emerald-300 font-medium">Face verification complete</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Verified on {new Date(faceVerificationData.createdAt).toLocaleDateString()}
-                  </p>
-                  {faceVerificationData.isDuplicate && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400">
-                      Note: Duplicate face detected
-                    </p>
+                <Button
+                  onClick={() => setShowSenadorConfirm(true)}
+                  disabled={
+                    !senadorAmount || 
+                    parseFloat(senadorAmount) < 1 || 
+                    parseFloat(senadorAmount) > (xpData?.totalXp ?? 0) ||
+                    redeemSenadorMutation.isPending
+                  }
+                  className="w-full"
+                  size="lg"
+                  data-testid="button-exchange-senador"
+                >
+                  {redeemSenadorMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      EXCHANGING...
+                    </>
+                  ) : (
+                    <>
+                      GET {senadorAmount || '0'} SENADOR FOR {senadorAmount || '0'} XP
+                    </>
                   )}
-                </div>
-              ) : (
-                <>
-                  <p className="text-sm text-muted-foreground text-center">
-                    Complete a simple face check with blink and head turn challenges to prove you're human. Earn 50 XP as a reward.
-                  </p>
-                  <Suspense fallback={
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    </div>
-                  }>
-                    <FaceVerification
-                      walletAddress={address || ''}
-                      onComplete={(success, data) => {
-                        if (success) {
-                          queryClient.invalidateQueries({ queryKey: ['/api/face-verification', address] });
-                          queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
-                          toast({
-                            title: "Face Verification Complete",
-                            description: data?.xpAwarded ? `You've earned ${data.xpAwarded} XP!` : "Verification successful!",
-                          });
-                        }
-                      }}
-                      onCancel={() => {
-                        setShowFaceVerification(false);
-                      }}
-                    />
-                  </Suspense>
-                </>
-              )}
-            </div>
-          )}
-        </Card>
+                </Button>
+              </div>
+            </Card>
 
-        <div className="pt-6 space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">About</h3>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            <a 
-              href="https://maxflow.one" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-[#30A99C] dark:text-[#40C4B5] hover:underline"
-            >
-              MaxFlow.one
-            </a>{' '}
-            is a neutral reputation infrastructure that converts public binary endorsements ("vouches") into verifiable graph signals using max-flow/min-cut algorithms and recursive trust weighting. It computes mathematical signals that applications interpret according to their own policies—for creditworthiness, governance weight, access control, or grant allocation.
-          </p>
-          <a 
-            href="https://maxflow.one/whitepaper" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="inline-block text-xs text-[#30A99C] dark:text-[#40C4B5] hover:underline font-medium"
-            data-testid="link-whitepaper"
-          >
-            Read the Whitepaper →
-          </a>
-        </div>
+            {/* Link to GoodDollar claim page */}
+            <Card className="p-4">
+              <Link href="/claim">
+                <button className="w-full flex items-center justify-between group" data-testid="link-gooddollar">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shrink-0">
+                      <span className="text-lg font-bold text-white">G$</span>
+                    </div>
+                    <div className="text-left">
+                      <h3 className="text-lg font-semibold">GoodDollar</h3>
+                      <span className="font-label text-muted-foreground text-xs">// CLAIM UBI</span>
+                    </div>
+                  </div>
+                  <ChevronDown className="h-5 w-5 text-muted-foreground -rotate-90" />
+                </button>
+              </Link>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
 
       {/* XP Redemption Confirmation Dialog */}

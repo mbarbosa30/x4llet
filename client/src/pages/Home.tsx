@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users, Clock, Share2, Waypoints, CheckCircle2, Circle, ChevronRight, HelpCircle, Eye } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users, Clock, Share2, Waypoints, CheckCircle2, Circle, ChevronRight, HelpCircle, Eye, Camera } from 'lucide-react';
 import { SiTelegram } from 'react-icons/si';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
@@ -343,7 +343,21 @@ export default function Home() {
                   <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                 </button>
 
-                {/* Option 2: GoodDollar */}
+                {/* Option 2: Face Check */}
+                <button
+                  onClick={() => setLocation('/maxflow?tab=trust')}
+                  className="flex items-start gap-3 p-3 w-full text-left bg-muted/30 border border-foreground/10 hover-elevate"
+                  data-testid="button-earn-facecheck"
+                >
+                  <Camera className="h-5 w-5 text-violet-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium">Complete Face Check</div>
+                    <div className="text-xs text-muted-foreground">Prove you're human → earn 50 XP instantly</div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                </button>
+
+                {/* Option 3: GoodDollar */}
                 <button
                   onClick={() => setLocation('/claim')}
                   className="flex items-start gap-3 p-3 w-full text-left bg-muted/30 border border-foreground/10 hover-elevate"
