@@ -53,7 +53,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   const animationFrameRef = useRef<number | null>(null);
   const faceLandmarkerRef = useRef<any>(null);
   
-  const [status, setStatus] = useState<'loading' | 'ready' | 'detecting' | 'challenges' | 'processing' | 'complete' | 'error'>('loading');
+  const [status, setStatus] = useState<'intro' | 'loading' | 'ready' | 'detecting' | 'challenges' | 'processing' | 'complete' | 'error'>('intro');
   const [error, setError] = useState<string | null>(null);
   const [challenges, setChallenges] = useState<ChallengeState[]>(CHALLENGES.map(c => ({ ...c })));
   const [currentChallengeIndex, setCurrentChallengeIndex] = useState(0);
@@ -69,7 +69,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   // Refs to mirror state for animation frame loop (avoids stale closures)
   const currentChallengeIndexRef = useRef(0);
   const challengesRef = useRef<ChallengeState[]>(CHALLENGES.map(c => ({ ...c })));
-  const statusRef = useRef<typeof status>('loading');
+  const statusRef = useRef<typeof status>('intro');
 
   const cleanup = useCallback(() => {
     if (animationFrameRef.current) {
@@ -409,9 +409,10 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
     loadMediaPipe();
   };
 
-  useEffect(() => {
+  // Start button handler - only request camera when user explicitly clicks
+  const handleStartVerification = () => {
     loadMediaPipe();
-  }, [loadMediaPipe]);
+  };
 
   useEffect(() => {
     if (status === 'ready' || status === 'detecting' || status === 'challenges') {
@@ -421,6 +422,75 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
 
   const currentChallenge = challenges[currentChallengeIndex];
   const completedCount = challenges.filter(c => c.completed).length;
+
+  // Intro screen - shown before camera access
+  if (status === 'intro') {
+    return (
+      <div className="space-y-6 py-4">
+        {/* Title */}
+        <div className="text-center space-y-2">
+          <div className="flex items-center justify-center gap-2">
+            <Camera className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold text-lg">Face Check</h3>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Verify you're human with a quick liveness check
+          </p>
+        </div>
+
+        {/* What to expect */}
+        <div className="space-y-3 px-2">
+          <p className="text-xs text-muted-foreground text-center uppercase tracking-wide">What you'll do</p>
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <Eye className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-sm">Blink twice</span>
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <ArrowLeft className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-sm">Turn your head left</span>
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <ArrowRight className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-sm">Turn your head right</span>
+            </div>
+          </div>
+        </div>
+
+        {/* XP reward badge */}
+        <div className="flex justify-center">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-full">
+            <Sparkles className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+            <span className="text-xs font-medium text-amber-700 dark:text-amber-300">+120 XP reward</span>
+          </div>
+        </div>
+
+        {/* Privacy note */}
+        <p className="text-xs text-muted-foreground text-center px-4">
+          Your face data is processed locally and never stored as an image.
+        </p>
+
+        {/* Start button */}
+        <div className="flex justify-center">
+          <Button 
+            size="lg" 
+            onClick={handleStartVerification}
+            data-testid="button-start-liveness-check"
+            className="px-8"
+          >
+            <Camera className="h-4 w-4 mr-2" />
+            Start Liveness Check
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
