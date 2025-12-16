@@ -114,6 +114,23 @@ export default function Home() {
     staleTime: 60 * 1000,
   });
 
+  // Fetch face verification status to hide option if already completed
+  const { data: faceVerificationStatus } = useQuery<{ verified: boolean; verifiedAt?: string }>({
+    queryKey: ['/api/face-verification', address],
+    enabled: !!address,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Determine if user has any funds (USDC or Aave savings)
+  const hasFunds = parseFloat(balance || '0') > 0 || (aaveBalance?.totalUsd ?? 0) > 0;
+  const hasTransactions = transactions.length > 0;
+  
+  // Show onboarding if: data is loaded AND user has no funds AND no transactions
+  // Show wallet view if: data is loaded AND (user has funds OR has transactions)
+  // Show loading if: still fetching data
+  const isDataReady = !isLoadingWallet && !isLoading;
+  const showOnboarding = isDataReady && !hasFunds && !hasTransactions;
+
   // Derive MaxFlow tile CTA
   const mfScore = maxflowScore?.local_health ?? 0;
   const getMaxflowCta = (): string => {
