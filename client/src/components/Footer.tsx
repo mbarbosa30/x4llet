@@ -1,4 +1,5 @@
 import { Link } from 'wouter';
+import { SiTelegram } from 'react-icons/si';
 
 export default function Footer() {
   return (
@@ -15,6 +16,17 @@ export default function Footer() {
         <Link href="/faqs" className="hover-elevate px-2 py-1" data-testid="link-faqs">
           FAQs
         </Link>
+        <span className="text-border">•</span>
+        <a 
+          href="https://t.me/+zWefAe1jX9FhODU0" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="hover-elevate px-2 py-1 flex items-center gap-1"
+          data-testid="link-telegram"
+        >
+          <SiTelegram className="h-3 w-3" />
+          Community
+        </a>
       </div>
     </footer>
   );
