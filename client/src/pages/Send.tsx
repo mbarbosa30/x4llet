@@ -689,8 +689,8 @@ export default function Send() {
                     
                     {showChainSelector && (
                       <div className="absolute top-full mt-2 z-50 border border-foreground/10 bg-background shadow-lg min-w-48">
-                        {allChains.length > 0 ? (
-                          allChains.map((chain) => (
+                        {chainsWithBalance.length > 0 ? (
+                          chainsWithBalance.map((chain) => (
                             <button
                               key={chain.network}
                               onClick={() => {
