@@ -150,20 +150,33 @@ export async function hydrateQueryCache(): Promise<void> {
     }
     
     let hydratedCount = 0;
+    const balanceQueriesToInvalidate: unknown[][] = [];
+    
     for (const cached of persisted.queries) {
-      // Only hydrate if not too stale (max 5 minutes for balance data)
-      const age = Date.now() - cached.timestamp;
-      if (age < 5 * 60 * 1000) {
-        queryClient.setQueryData(cached.queryKey, cached.data);
-        hydratedCount++;
+      // Hydrate ALL cached data for instant UI (offline-first)
+      // Set data with original timestamp so React Query knows the true age
+      queryClient.setQueryData(cached.queryKey, cached.data, {
+        updatedAt: cached.timestamp,
+      });
+      hydratedCount++;
+      
+      // Track balance queries for immediate invalidation (force refetch when online)
+      const keyStr = String(cached.queryKey[0]);
+      if (keyStr.includes('/api/balance') || keyStr.includes('/api/dashboard')) {
+        balanceQueriesToInvalidate.push(cached.queryKey);
       }
     }
     
     console.log(`[QueryCache] Hydrated ${hydratedCount}/${persisted.queries.length} queries from IndexedDB`);
     
-    // Re-persist immediately to update timestamps and keep cache fresh across reloads
-    if (hydratedCount > 0) {
-      await flushQueryCache();
+    // Invalidate balance queries to force a fresh fetch (user expects up-to-date balances)
+    // This shows cached data instantly while fetching fresh data in background
+    for (const queryKey of balanceQueriesToInvalidate) {
+      queryClient.invalidateQueries({ queryKey });
+    }
+    
+    if (balanceQueriesToInvalidate.length > 0) {
+      console.log(`[QueryCache] Invalidated ${balanceQueriesToInvalidate.length} balance queries for background refresh`);
     }
   } catch (error) {
     console.error("[QueryCache] Failed to hydrate cache:", error);
