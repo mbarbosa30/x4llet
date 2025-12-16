@@ -129,15 +129,16 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
       
       // Load face-api.js for identity embeddings (128D face descriptors)
       setLoadingMessage('Loading face recognition...');
-      const faceApi = await import('https://cdn.jsdelivr.net/npm/@pluv/face-api@1.0.0/+esm');
-      faceApiRef.current = faceApi;
+      const faceApiModule = await import('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.esm.js');
+      const faceapi = faceApiModule.default ?? faceApiModule;
+      faceApiRef.current = faceapi;
       
       // Load required models from CDN
-      const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@pluv/face-api@1.0.0/weights';
+      const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
       await Promise.all([
-        faceApi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-        faceApi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-        faceApi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
       ]);
       console.log('[FaceVerification] face-api.js models loaded successfully');
       
@@ -232,8 +233,9 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
               // Capture face descriptor using face-api.js (only during challenges, max 5 samples)
               if (faceEmbeddingsRef.current.length < 5 && faceApiRef.current && videoRef.current) {
                 try {
-                  const detection = await faceApiRef.current
-                    .detectSingleFace(videoRef.current, new faceApiRef.current.TinyFaceDetectorOptions())
+                  const faceapi = faceApiRef.current;
+                  const detection = await faceapi
+                    .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
                     .withFaceLandmarks()
                     .withFaceDescriptor();
                   
@@ -242,7 +244,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
                     console.log(`[FaceVerification] Captured face descriptor ${faceEmbeddingsRef.current.length}/5`);
                   }
                 } catch (faceApiErr) {
-                  // Silently ignore face-api detection errors during sampling
+                  console.warn('[FaceVerification] Face descriptor capture error:', faceApiErr);
                 }
               }
             }
