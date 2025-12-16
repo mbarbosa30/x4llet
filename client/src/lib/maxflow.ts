@@ -326,8 +326,18 @@ export async function vouchFor(endorsedAddress: string): Promise<VouchResponse> 
     message,
   });
 
+  // Check if endorsee has no score before submitting (for post-vouch prefetch)
+  let endorseeHadNoScore = false;
+  try {
+    const preScore = await getMaxFlowScore(validatedEndorsed.toLowerCase());
+    endorseeHadNoScore = preScore.local_health === 0;
+  } catch {
+    // No score found = first time user
+    endorseeHadNoScore = true;
+  }
+
   // Submit vouch (flat structure for v1 API)
-  return submitVouch({
+  const result = await submitVouch({
     endorser: validatedEndorser.toLowerCase(),
     endorsee: validatedEndorsed.toLowerCase(),
     epoch: epoch.toString(),
@@ -335,6 +345,18 @@ export async function vouchFor(endorsedAddress: string): Promise<VouchResponse> 
     sig: signature,
     chainId: chainId,
   });
+
+  // If vouch succeeded AND endorsee had no score, prefetch to trigger recalculation
+  // This ensures first-time vouched users see their score immediately
+  if (result.ok && endorseeHadNoScore) {
+    try {
+      await getMaxFlowScore(validatedEndorsed.toLowerCase());
+    } catch {
+      // Non-critical - endorsee will get score on their next visit
+    }
+  }
+
+  return result;
 }
 
 /**
