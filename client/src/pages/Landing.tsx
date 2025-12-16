@@ -359,7 +359,7 @@ function DesktopLanding({
             <Link href="/faqs" className="text-sm font-mono font-medium text-muted-foreground hover:text-foreground uppercase tracking-wide">
               FAQs
             </Link>
-            <Link href="/context" className="text-sm font-mono font-medium text-muted-foreground hover:text-foreground uppercase tracking-wide">
+            <Link href="/context" className="text-sm font-mono font-medium text-muted-foreground hover:text-foreground uppercase tracking-wide hidden md:block">
               Context
             </Link>
             <Button onClick={() => setLocation('/create')} data-testid="button-launch-app">
