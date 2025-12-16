@@ -470,39 +470,20 @@ export default function MaxFlow() {
             {/* MaxFlow Signal + Vouch Section */}
             <Card className="p-6 space-y-6">
               {!isLoadingMaxFlow && score === 0 ? (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Shield className="h-10 w-10 text-[#30A99C] dark:text-[#40C4B5] shrink-0" />
-                      <div>
-                        <h2 className="text-xl text-section">Trust Graph</h2>
-                        <span className="font-label text-muted-foreground">// MAXFLOW</span>
-                      </div>
-                    </div>
-                    <Link href="/faqs#maxflow">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" data-testid="button-maxflow-info">
-                        <Info className="h-4 w-4 text-muted-foreground" />
-                      </Button>
-                    </Link>
-                  </div>
-
-                  <div className="text-center py-4">
+                <div className="space-y-4">
+                  <div className="text-center space-y-2">
                     <p className="font-mono text-5xl font-bold">0</p>
-                    <span className="text-sm text-muted-foreground">network signal</span>
+                    <span className="text-sm text-muted-foreground">Trust Signal</span>
                   </div>
 
-                  <div className="space-y-2 text-center">
-                    <p className="text-sm text-muted-foreground">
-                      MaxFlow measures your trust network health through a sybil-resistant graph signal.
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Build your signal by getting vouched to unlock XP claiming based on your score.
-                    </p>
-                  </div>
-
-                  <p className="text-sm text-muted-foreground text-center" data-testid="text-user-address">
-                    Share <span className="font-mono">{address?.slice(0, 6)}...{address?.slice(-4)}</span> to get vouched
+                  <p className="text-sm text-muted-foreground text-center">
+                    Get vouched to build your trust signal and unlock XP rewards.
                   </p>
+
+                  <div className="text-center py-2 px-3 bg-muted/50 border border-foreground/10" data-testid="text-user-address">
+                    <span className="text-xs text-muted-foreground">Share your address: </span>
+                    <span className="font-mono text-sm">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center space-y-4">
@@ -662,27 +643,23 @@ export default function MaxFlow() {
               )}
             </Card>
 
-            <div className="pt-4 space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">About MaxFlow</h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                <a 
-                  href="https://maxflow.one" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-[#30A99C] dark:text-[#40C4B5] hover:underline"
-                >
-                  MaxFlow.one
-                </a>{' '}
-                is a neutral reputation infrastructure that converts public binary endorsements ("vouches") into verifiable graph signals using max-flow/min-cut algorithms and recursive trust weighting.
-              </p>
+            <div className="flex justify-center gap-4 pt-2">
+              <a 
+                href="https://maxflow.one" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                maxflow.one
+              </a>
               <a 
                 href="https://maxflow.one/whitepaper" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="inline-block text-xs text-[#30A99C] dark:text-[#40C4B5] hover:underline font-medium"
+                className="text-xs text-muted-foreground hover:text-foreground"
                 data-testid="link-whitepaper"
               >
-                Read the Whitepaper →
+                whitepaper
               </a>
             </div>
           </TabsContent>
@@ -690,38 +667,20 @@ export default function MaxFlow() {
           {/* CLAIM TAB - XP, USDC, SENADOR */}
           <TabsContent value="claim" className="space-y-4 mt-4">
             {/* XP Balance & Claim Section */}
-            <Card className="p-6 space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Sparkles className="h-10 w-10 text-amber-500 shrink-0" />
-                  <div>
-                    <h2 className="text-xl text-section">Experience</h2>
-                    <span className="font-label text-muted-foreground">// XP_REWARDS</span>
-                  </div>
-                </div>
-                <Link href="/faqs#experience-points">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" data-testid="button-xp-info">
-                    <Info className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </Link>
-              </div>
-
-              <div className="text-center py-2">
+            <Card className="p-6 space-y-4">
+              <div className="text-center space-y-1">
                 {isLoadingXp ? (
                   <p className="font-mono text-5xl font-bold">--</p>
                 ) : (
                   <p className="font-mono text-5xl font-bold tabular-nums" data-testid="text-xp-balance">
-                    {(xpData?.totalXp ?? 0).toFixed(2)}
+                    {(xpData?.totalXp ?? 0).toFixed(0)}
                   </p>
                 )}
-                <span className="text-sm text-muted-foreground">total XP earned</span>
+                <span className="text-sm text-muted-foreground">XP Balance</span>
               </div>
 
               {score > 0 ? (
                 <>
-                  <p className="text-sm text-muted-foreground text-center">
-                    Claim daily XP based on your trust signal. More signal = exponentially more XP.
-                  </p>
 
                   {!isLoadingXp && xpData && (
                     <div className="space-y-3">
@@ -803,39 +762,29 @@ export default function MaxFlow() {
             </Card>
 
             {/* SENADOR Token Section */}
-            <Card className="p-6 space-y-4">
+            <Card className="p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0">
-                    <span className="text-lg font-bold text-white">S</span>
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0">
+                    <span className="text-sm font-bold text-white">S</span>
                   </div>
-                  <div>
-                    <h2 className="text-xl text-section">SENADOR</h2>
-                    <span className="font-label text-muted-foreground">// TOKEN</span>
-                  </div>
+                  <span className="font-medium">SENADOR</span>
                 </div>
                 <div className="flex items-center gap-2">
                   {isLoadingSenador ? (
-                    <p className="font-mono text-2xl font-bold">--</p>
+                    <span className="font-mono font-bold">--</span>
                   ) : (
-                    <p className="font-mono text-2xl font-bold tabular-nums" data-testid="text-senador-balance">
-                      {senadorData?.balanceFormatted ?? '0.00'}
-                    </p>
+                    <span className="font-mono font-bold" data-testid="text-senador-balance">
+                      {senadorData?.balanceFormatted ?? '0'}
+                    </span>
                   )}
                   <Link href="/faqs#senador-token">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" data-testid="button-senador-info">
-                      <Info className="h-4 w-4 text-muted-foreground" />
+                    <Button variant="ghost" size="icon" className="h-7 w-7" data-testid="button-senador-info">
+                      <Info className="h-3 w-3 text-muted-foreground" />
                     </Button>
                   </Link>
                 </div>
               </div>
-
-              <p className="text-sm text-muted-foreground text-center">
-                Exchange your XP for SENADOR tokens.
-              </p>
-              <p className="text-xs text-amber-600 dark:text-amber-500 text-center font-medium">
-                High-risk experimental token. Not investment advice.
-              </p>
 
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
