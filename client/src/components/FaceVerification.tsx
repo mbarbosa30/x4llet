@@ -73,6 +73,9 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   const currentChallengeIndexRef = useRef(0);
   const challengesRef = useRef<ChallengeState[]>(CHALLENGES.map(c => ({ ...c })));
   const statusRef = useRef<typeof status>('intro');
+  
+  // Track if component is mounted to prevent state updates after unmount
+  const isMountedRef = useRef(true);
 
   const cleanup = useCallback(() => {
     if (animationFrameRef.current) {
