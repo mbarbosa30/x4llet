@@ -746,6 +746,59 @@ export default function MaxFlow() {
           </TabsList>
 
           <TabsContent value="maxflow" className="space-y-4 mt-4">
+            {/* Face Check - First priority for new users */}
+            {(isLoadingFaceVerification || isLoadingGdIdentity) ? (
+              <Card className="p-4">
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              </Card>
+            ) : (faceVerificationData?.isDuplicate && !isGdVerified) ? (
+              <Card className="p-4 border-amber-500">
+                <div className="text-center space-y-3 py-4">
+                  <div className="h-16 w-16 rounded-full bg-amber-100 dark:bg-amber-950/50 flex items-center justify-center mx-auto">
+                    <AlertTriangle className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg text-amber-700 dark:text-amber-400">Duplicate Face Detected</h3>
+                    <p className="text-sm text-muted-foreground">
+                      This face was already verified with another wallet
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            ) : (!isGdVerified && !faceVerificationData?.verified) ? (
+              <Card className="p-4">
+                <Suspense fallback={
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                }>
+                  <FaceVerification
+                    key={faceVerificationKey}
+                    walletAddress={address || ''}
+                    onComplete={(success, data) => {
+                      if (success) {
+                        queryClient.invalidateQueries({ queryKey: ['/api/face-verification', address] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
+                        if (address) {
+                          sessionStorage.removeItem(`faceCheckPrompted_${address}`);
+                        }
+                        setAutoFaceCheck(false);
+                        toast({
+                          title: "Face Verification Complete",
+                          description: data?.xpAwarded ? `You've earned ${data.xpAwarded} XP!` : "Verification successful!",
+                        });
+                      }
+                    }}
+                    onReset={() => {
+                      setFaceVerificationKey(prev => prev + 1);
+                    }}
+                  />
+                </Suspense>
+              </Card>
+            ) : null}
+
             <Card className="p-6 space-y-6">
               {!isLoadingMaxFlow && score === 0 ? (
                 <div className="space-y-4">
@@ -932,58 +985,6 @@ export default function MaxFlow() {
                 </div>
               )}
             </Card>
-
-            {(isLoadingFaceVerification || isLoadingGdIdentity) ? (
-              <Card className="p-4">
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              </Card>
-            ) : (faceVerificationData?.isDuplicate && !isGdVerified) ? (
-              <Card className="p-4 border-amber-500">
-                <div className="text-center space-y-3 py-4">
-                  <div className="h-16 w-16 rounded-full bg-amber-100 dark:bg-amber-950/50 flex items-center justify-center mx-auto">
-                    <AlertTriangle className="h-8 w-8 text-amber-600 dark:text-amber-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg text-amber-700 dark:text-amber-400">Duplicate Face Detected</h3>
-                    <p className="text-sm text-muted-foreground">
-                      This face was already verified with another wallet
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            ) : (!isGdVerified && !faceVerificationData?.verified) ? (
-              <Card className="p-4">
-                <Suspense fallback={
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
-                }>
-                  <FaceVerification
-                    key={faceVerificationKey}
-                    walletAddress={address || ''}
-                    onComplete={(success, data) => {
-                      if (success) {
-                        queryClient.invalidateQueries({ queryKey: ['/api/face-verification', address] });
-                        queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
-                        if (address) {
-                          sessionStorage.removeItem(`faceCheckPrompted_${address}`);
-                        }
-                        setAutoFaceCheck(false);
-                        toast({
-                          title: "Face Verification Complete",
-                          description: data?.xpAwarded ? `You've earned ${data.xpAwarded} XP!` : "Verification successful!",
-                        });
-                      }
-                    }}
-                    onReset={() => {
-                      setFaceVerificationKey(prev => prev + 1);
-                    }}
-                  />
-                </Suspense>
-              </Card>
-            ) : null}
 
             <Card className="p-6 space-y-4">
               <div className="flex items-start justify-between">
