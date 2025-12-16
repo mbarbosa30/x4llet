@@ -48,7 +48,7 @@ export interface DashboardData {
   transactions: (Transaction & { chainId: number })[];
   xp: DashboardXp;
   maxflow: DashboardMaxFlow | null;
-  sybil: DashboardSybil;
+  sybil: DashboardSybil | null;
 }
 
 export function useDashboard(address: string | null) {
