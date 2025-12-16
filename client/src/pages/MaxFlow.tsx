@@ -732,7 +732,6 @@ export default function MaxFlow() {
 
               {score > 0 ? (
                 <>
-
                   {!isLoadingXp && xpData && (
                     <div className="space-y-3">
                       {xpData.canClaim ? (
@@ -770,28 +769,6 @@ export default function MaxFlow() {
                           </span>
                         </div>
                       ) : null}
-                      
-                      {/* XP Redemption Button */}
-                      <Button
-                        onClick={() => setShowRedeemConfirm(true)}
-                        disabled={(xpData?.totalXp ?? 0) < 100 || redeemXpMutation.isPending}
-                        variant={(xpData?.totalXp ?? 0) >= 100 ? "default" : "outline"}
-                        className="w-full disabled:bg-neutral-300 disabled:text-neutral-700 disabled:border-neutral-300"
-                        size="lg"
-                        data-testid="button-redeem-xp"
-                      >
-                        {redeemXpMutation.isPending ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            REDEEMING...
-                          </>
-                        ) : (
-                          <>
-                            <Coins className="h-4 w-4 mr-2" />
-                            GET 1 USDC FOR 100 XP
-                          </>
-                        )}
-                      </Button>
                     </div>
                   )}
                 </>
@@ -810,6 +787,28 @@ export default function MaxFlow() {
                   </Button>
                 </div>
               )}
+              
+              {/* XP Redemption Button - Always visible, disabled when XP < 100 */}
+              <Button
+                onClick={() => setShowRedeemConfirm(true)}
+                disabled={(xpData?.totalXp ?? 0) < 100 || redeemXpMutation.isPending}
+                variant={(xpData?.totalXp ?? 0) >= 100 ? "default" : "outline"}
+                className="w-full mt-3 disabled:bg-neutral-300 disabled:text-neutral-700 disabled:border-neutral-300"
+                size="lg"
+                data-testid="button-redeem-xp"
+              >
+                {redeemXpMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    REDEEMING...
+                  </>
+                ) : (
+                  <>
+                    <Coins className="h-4 w-4 mr-2" />
+                    GET 1 USDC FOR 100 XP
+                  </>
+                )}
+              </Button>
             </Card>
 
             {/* SENADOR Token Section */}
