@@ -247,7 +247,7 @@ export default function Home() {
               <div className="text-xs text-amber-800 dark:text-amber-200 space-y-1">
                 <p className="font-medium">This wallet was flagged for suspicious sybil activity.</p>
                 <p className="text-amber-700/80 dark:text-amber-300/80">
-                  Your funds and rewards may be locked.{' '}
+                  Your funds and rewards may be locked. Everyone who vouched for you, and everyone you vouched for, will also be affected.{' '}
                   <button 
                     onClick={() => setLocation('/claim')}
                     className="underline font-medium hover:text-amber-900 dark:hover:text-amber-100"
