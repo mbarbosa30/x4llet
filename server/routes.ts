@@ -6400,6 +6400,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'No challenges completed' });
       }
       
+      // Validate quality metrics - reject 'unknown' values
+      if (qualityMetrics) {
+        const requiredFields = ['faceSize', 'centered', 'noOcclusion'];
+        const hasUnknown = requiredFields.some(field => 
+          qualityMetrics[field] === 'unknown' || qualityMetrics[field] === undefined
+        );
+        if (hasUnknown) {
+          console.warn(`[FaceVerification] Rejected: quality metrics contain 'unknown' values`, qualityMetrics);
+          return res.status(400).json({ 
+            error: 'Face detection quality too low',
+            message: 'Please ensure good lighting and center your face in the frame',
+            qualityMetrics,
+          });
+        }
+      } else {
+        console.warn(`[FaceVerification] Rejected: no quality metrics provided`);
+        return res.status(400).json({ 
+          error: 'Quality metrics required',
+          message: 'Face detection did not complete properly',
+        });
+      }
+      
       const normalizedAddress = walletAddress.toLowerCase();
       
       // Check for existing verification

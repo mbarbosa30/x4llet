@@ -93,6 +93,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   const lastBlinkStateRef = useRef(false);
   const headTurnProgressRef = useRef({ left: 0, right: 0 });
   const faceEmbeddingsRef = useRef<Float32Array[]>([]); // Store 128D face descriptors
+  const lastValidQualityRef = useRef<FaceQuality | null>(null); // Capture quality at moment of submission
   
   // Refs to mirror state for animation frame loop (avoids stale closures)
   const currentChallengeIndexRef = useRef(0);
@@ -368,6 +369,10 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
                 blendshapes
               );
               setFaceQuality(quality);
+              // Capture quality in ref when all checks pass (for reliable submission)
+              if (quality.allPassed) {
+                lastValidQualityRef.current = quality;
+              }
             }
             
             const minX = Math.min(...landmarks.map(l => l.x)) * canvasRef.current.width;
@@ -534,13 +539,18 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
       // Use ref instead of state to get fresh challenge data (avoids stale closure)
       const passedChallenges = challengesRef.current.filter(c => c.completed).map(c => c.type);
       
+      // Use ref for quality metrics (avoids stale closure from state)
+      const capturedQuality = lastValidQualityRef.current;
+      if (!capturedQuality || !capturedQuality.allPassed) {
+        throw new Error('Face quality check not completed. Please ensure your face is clearly visible.');
+      }
+      
       // Collect quality metrics for diagnostic logging
       const qualityMetrics = {
-        faceSize: faceQuality?.faceSize ? 'ok' : 'unknown',
-        centered: faceQuality?.centered ? 'ok' : 'unknown',
-        noOcclusion: faceQuality?.noOcclusion ? 'ok' : 'unknown',
+        faceSize: capturedQuality.faceSize ? 'ok' : 'fail',
+        centered: capturedQuality.centered ? 'ok' : 'fail',
+        noOcclusion: capturedQuality.noOcclusion ? 'ok' : 'fail',
         embeddingCount: numDescriptors,
-        // Note: faceQuality state may be stale, these are best-effort diagnostics
       };
       
       // Use raw fetch instead of apiRequest to handle 409 duplicate responses gracefully
