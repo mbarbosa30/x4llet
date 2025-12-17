@@ -6522,12 +6522,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         matchedWalletScore: similarFace ? JSON.stringify([{ wallet: similarFace.match.walletAddress, score: similarFace.similarity }]) : undefined,
       });
       
-      // Award XP for successful verification (120 XP = 12000 centi-XP)
-      try {
-        await storage.claimXp(normalizedAddress, 12000, 0); // 120 XP bonus
-        console.log(`[FaceVerification] Awarded 120 XP to ${normalizedAddress}`);
-      } catch (xpError) {
-        console.error('[FaceVerification] Error awarding XP:', xpError);
+      // Award XP only for verified faces (not duplicates)
+      let xpAwarded = 0;
+      if (status === 'verified') {
+        try {
+          await storage.claimXp(normalizedAddress, 12000, 0); // 120 XP bonus
+          xpAwarded = 120;
+          console.log(`[FaceVerification] Awarded 120 XP to ${normalizedAddress}`);
+        } catch (xpError) {
+          console.error('[FaceVerification] Error awarding XP:', xpError);
+        }
+      } else {
+        console.log(`[FaceVerification] Skipping XP for duplicate face: ${normalizedAddress}`);
       }
       
       res.json({
@@ -6535,7 +6541,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         verified: true,
         isDuplicate: status === 'duplicate',
         status: verification.status,
-        xpAwarded: 120,
+        xpAwarded,
         similarityScore: matchSimilarity ? Math.round(matchSimilarity * 100) : undefined,
       });
     } catch (error) {
