@@ -183,7 +183,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
     }
     
     return {
-      confidence: true, // MediaPipe doesn't expose confidence directly
+      confidence: true, // MediaPipe filters by minFaceDetectionConfidence (0.7) at initialization
       faceSize: sizeOk,
       centered: centeredOk,
       noOcclusion: landmarkOk && eyesVisible,
@@ -234,6 +234,9 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
         },
         runningMode: 'VIDEO',
         numFaces: 1,
+        minFaceDetectionConfidence: 0.7,  // Require 70% confidence for detection
+        minFacePresenceConfidence: 0.7,   // Require 70% confidence face is present
+        minTrackingConfidence: 0.7,        // Require 70% confidence for tracking
         outputFaceBlendshapes: true,
         outputFacialTransformationMatrixes: true
       });
