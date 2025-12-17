@@ -313,12 +313,26 @@ export interface InflationData {
   annualRate: number; // annualized rate for animations
 }
 
+// Aggregated balance response for all chains
+export interface AllChainsBalanceResponse {
+  balance: string;
+  balanceMicro: string;
+  decimals: number;
+  chains: {
+    base: { chainId: number; balance: string; balanceMicro: string };
+    celo: { chainId: number; balance: string; balanceMicro: string };
+    gnosis: { chainId: number; balance: string; balanceMicro: string };
+    arbitrum: { chainId: number; balance: string; balanceMicro: string };
+  };
+}
+
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   
   getBalance(address: string, chainId: number, forceRefresh?: boolean): Promise<BalanceResponse>;
+  getAllBalances(address: string, forceRefresh?: boolean): Promise<AllChainsBalanceResponse>;
   getTransactions(address: string, chainId: number): Promise<Transaction[]>;
   addTransaction(address: string, chainId: number, tx: Transaction): Promise<void>;
   
@@ -634,6 +648,36 @@ export class MemStorage implements IStorage {
       
       return fallback;
     }
+  }
+
+  async getAllBalances(address: string, _forceRefresh?: boolean): Promise<AllChainsBalanceResponse> {
+    // MemStorage: Fetch all chains in parallel (no caching layer)
+    const [baseBalance, celoBalance, gnosisBalance, arbitrumBalance] = await Promise.all([
+      this.getBalance(address, 8453),
+      this.getBalance(address, 42220),
+      this.getBalance(address, 100),
+      this.getBalance(address, 42161),
+    ]);
+
+    const totalMicroUsdc = BigInt(baseBalance.balanceMicro) + BigInt(celoBalance.balanceMicro) + 
+                           BigInt(gnosisBalance.balanceMicro) + BigInt(arbitrumBalance.balanceMicro);
+    
+    const roundedMicroUsdc = totalMicroUsdc + 5000n;
+    const integerPart = roundedMicroUsdc / 1000000n;
+    const fractionalPart = (roundedMicroUsdc % 1000000n) / 10000n;
+    const totalFormatted = `${integerPart}.${fractionalPart.toString().padStart(2, '0')}`;
+
+    return {
+      balance: totalFormatted,
+      balanceMicro: totalMicroUsdc.toString(),
+      decimals: 6,
+      chains: {
+        base: { chainId: 8453, balance: baseBalance.balance, balanceMicro: baseBalance.balanceMicro },
+        celo: { chainId: 42220, balance: celoBalance.balance, balanceMicro: celoBalance.balanceMicro },
+        gnosis: { chainId: 100, balance: gnosisBalance.balance, balanceMicro: gnosisBalance.balanceMicro },
+        arbitrum: { chainId: 42161, balance: arbitrumBalance.balance, balanceMicro: arbitrumBalance.balanceMicro },
+      },
+    };
   }
 
   async getTransactions(address: string, chainId: number): Promise<Transaction[]> {
@@ -1104,6 +1148,120 @@ export class DbStorage extends MemStorage {
     await this.cacheTransactions(address, chainId, freshBalance.transactions);
 
     return freshBalance;
+  }
+
+  async getAllBalances(address: string, forceRefresh: boolean = false): Promise<AllChainsBalanceResponse> {
+    // Register wallet if first time seeing it
+    await this.registerWallet(address);
+
+    const allChainIds = [8453, 42220, 100, 42161]; // Base, Celo, Gnosis, Arbitrum
+    const addressKey = `all-${address}`;
+
+    // OPTIMIZATION: Fetch ALL chains' cached balances in ONE database query
+    const cached = await db
+      .select()
+      .from(cachedBalances)
+      .where(
+        and(
+          eq(cachedBalances.address, address),
+          or(...allChainIds.map(id => eq(cachedBalances.chainId, id)))
+        )
+      );
+
+    const now = new Date();
+    const cachedByChain = new Map(cached.map(c => [c.chainId, c]));
+    
+    // Check if we have valid cache for all chains
+    const allChainsHaveCache = allChainIds.every(id => cachedByChain.has(id));
+    const oldestCacheAge = cached.length > 0 
+      ? Math.max(...cached.map(c => now.getTime() - c.updatedAt.getTime()))
+      : Infinity;
+
+    // Helper to convert cached balance to micro format
+    const parseCachedBalance = (balance: string): string => {
+      if (balance.includes('.')) {
+        const parts = balance.split('.');
+        const whole = parts[0] || '0';
+        const fraction = (parts[1] || '0').padEnd(6, '0').slice(0, 6);
+        return whole + fraction;
+      }
+      return balance;
+    };
+
+    // Build response from cached data
+    const buildCachedResponse = (): AllChainsBalanceResponse => {
+      const chainBalances = {
+        base: cachedByChain.get(8453),
+        celo: cachedByChain.get(42220),
+        gnosis: cachedByChain.get(100),
+        arbitrum: cachedByChain.get(42161),
+      };
+
+      const baseMicro = chainBalances.base ? parseCachedBalance(chainBalances.base.balance) : '0';
+      const celoMicro = chainBalances.celo ? parseCachedBalance(chainBalances.celo.balance) : '0';
+      const gnosisMicro = chainBalances.gnosis ? parseCachedBalance(chainBalances.gnosis.balance) : '0';
+      const arbitrumMicro = chainBalances.arbitrum ? parseCachedBalance(chainBalances.arbitrum.balance) : '0';
+
+      const totalMicroUsdc = BigInt(baseMicro) + BigInt(celoMicro) + BigInt(gnosisMicro) + BigInt(arbitrumMicro);
+      const roundedMicroUsdc = totalMicroUsdc + 5000n;
+      const integerPart = roundedMicroUsdc / 1000000n;
+      const fractionalPart = (roundedMicroUsdc % 1000000n) / 10000n;
+      const totalFormatted = `${integerPart}.${fractionalPart.toString().padStart(2, '0')}`;
+
+      return {
+        balance: totalFormatted,
+        balanceMicro: totalMicroUsdc.toString(),
+        decimals: 6,
+        chains: {
+          base: { chainId: 8453, balance: formatUsdcAmount(baseMicro), balanceMicro: baseMicro },
+          celo: { chainId: 42220, balance: formatUsdcAmount(celoMicro), balanceMicro: celoMicro },
+          gnosis: { chainId: 100, balance: formatUsdcAmount(gnosisMicro), balanceMicro: gnosisMicro },
+          arbitrum: { chainId: 42161, balance: formatUsdcAmount(arbitrumMicro), balanceMicro: arbitrumMicro },
+        },
+      };
+    };
+
+    // Stale-while-revalidate: Return cached data if valid
+    if (allChainsHaveCache && oldestCacheAge < this.CACHE_TTL_MS && !forceRefresh) {
+      console.log(`[DB Cache] Returning all cached balances for ${address} (oldest age: ${Math.round(oldestCacheAge / 1000)}s)`);
+
+      // If any cache is stale, trigger ONE background refresh for ALL chains
+      if (oldestCacheAge > this.CACHE_STALE_MS && !this.backgroundRefreshInProgress.has(addressKey)) {
+        console.log(`[DB Cache] Cache stale, triggering single background refresh for all chains: ${address}`);
+        this.backgroundRefreshInProgress.add(addressKey);
+
+        // Background refresh - fetch all chains in parallel, but only ONE background job
+        super.getAllBalances(address)
+          .then(async freshBalances => {
+            // Cache all chain balances
+            await Promise.all([
+              this.cacheBalance(address, 8453, { balance: freshBalances.chains.base.balance, balanceMicro: freshBalances.chains.base.balanceMicro, decimals: 6, nonce: '', transactions: [] }),
+              this.cacheBalance(address, 42220, { balance: freshBalances.chains.celo.balance, balanceMicro: freshBalances.chains.celo.balanceMicro, decimals: 6, nonce: '', transactions: [] }),
+              this.cacheBalance(address, 100, { balance: freshBalances.chains.gnosis.balance, balanceMicro: freshBalances.chains.gnosis.balanceMicro, decimals: 6, nonce: '', transactions: [] }),
+              this.cacheBalance(address, 42161, { balance: freshBalances.chains.arbitrum.balance, balanceMicro: freshBalances.chains.arbitrum.balanceMicro, decimals: 6, nonce: '', transactions: [] }),
+            ]);
+            console.log(`[DB Cache] Background refresh complete for all chains: ${address}`);
+          })
+          .catch(err => console.error(`[DB Cache] Background refresh failed for ${address}:`, err))
+          .finally(() => this.backgroundRefreshInProgress.delete(addressKey));
+      }
+
+      return buildCachedResponse();
+    }
+
+    // Cache miss or force refresh - fetch from blockchain synchronously
+    console.log(`[DB Cache] ${allChainsHaveCache ? (forceRefresh ? 'Force refresh' : 'Cache expired') : 'Cache miss'} - fetching fresh balances from blockchain`);
+    const freshBalances = await super.getAllBalances(address);
+
+    // Cache all chain balances in parallel
+    await Promise.all([
+      this.cacheBalance(address, 8453, { balance: freshBalances.chains.base.balance, balanceMicro: freshBalances.chains.base.balanceMicro, decimals: 6, nonce: '', transactions: [] }),
+      this.cacheBalance(address, 42220, { balance: freshBalances.chains.celo.balance, balanceMicro: freshBalances.chains.celo.balanceMicro, decimals: 6, nonce: '', transactions: [] }),
+      this.cacheBalance(address, 100, { balance: freshBalances.chains.gnosis.balance, balanceMicro: freshBalances.chains.gnosis.balanceMicro, decimals: 6, nonce: '', transactions: [] }),
+      this.cacheBalance(address, 42161, { balance: freshBalances.chains.arbitrum.balance, balanceMicro: freshBalances.chains.arbitrum.balanceMicro, decimals: 6, nonce: '', transactions: [] }),
+    ]);
+
+    return freshBalances;
   }
 
   private async cacheBalance(address: string, chainId: number, balance: BalanceResponse): Promise<void> {

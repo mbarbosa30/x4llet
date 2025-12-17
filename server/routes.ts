@@ -497,52 +497,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(balance);
       }
       
-      // Otherwise, fetch balances from all chains in parallel
-      const [baseBalance, celoBalance, gnosisBalance, arbitrumBalance] = await Promise.all([
-        storage.getBalance(address, 8453, forceRefresh),
-        storage.getBalance(address, 42220, forceRefresh),
-        storage.getBalance(address, 100, forceRefresh),
-        storage.getBalance(address, 42161, forceRefresh),
-      ]);
-      
-      // Calculate total balance (sum of micro-USDC) - keep as BigInt for precision
-      const totalMicroUsdc = BigInt(baseBalance.balanceMicro) + BigInt(celoBalance.balanceMicro) + BigInt(gnosisBalance.balanceMicro) + BigInt(arbitrumBalance.balanceMicro);
-      
-      // Format total for display using BigInt division to preserve precision
-      // Add 5000 for rounding to nearest cent (0.005 USDC = 5000 micro-USDC)
-      const roundedMicroUsdc = totalMicroUsdc + 5000n;
-      const integerPart = roundedMicroUsdc / 1000000n;
-      const fractionalPart = (roundedMicroUsdc % 1000000n) / 10000n; // Get cents
-      const totalFormatted = `${integerPart}.${fractionalPart.toString().padStart(2, '0')}`;
+      // OPTIMIZED: Use getAllBalances which fetches all chains in ONE database query
+      // and triggers only ONE background refresh per address
+      const allBalances = await storage.getAllBalances(address, forceRefresh);
       
       res.json({
-        balance: totalFormatted,
-        balanceMicro: totalMicroUsdc.toString(),
-        decimals: 6,
-        nonce: baseBalance.nonce, // Use Base nonce (not critical for aggregated view)
+        balance: allBalances.balance,
+        balanceMicro: allBalances.balanceMicro,
+        decimals: allBalances.decimals,
+        nonce: '', // Not critical for aggregated view
         transactions: [], // Will be fetched separately via /api/transactions
-        chains: {
-          base: {
-            chainId: 8453,
-            balance: baseBalance.balance,
-            balanceMicro: baseBalance.balanceMicro,
-          },
-          celo: {
-            chainId: 42220,
-            balance: celoBalance.balance,
-            balanceMicro: celoBalance.balanceMicro,
-          },
-          gnosis: {
-            chainId: 100,
-            balance: gnosisBalance.balance,
-            balanceMicro: gnosisBalance.balanceMicro,
-          },
-          arbitrum: {
-            chainId: 42161,
-            balance: arbitrumBalance.balance,
-            balanceMicro: arbitrumBalance.balanceMicro,
-          },
-        },
+        chains: allBalances.chains,
       });
     } catch (error) {
       console.error('Error fetching balance:', error);
