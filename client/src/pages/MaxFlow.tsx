@@ -931,6 +931,10 @@ export default function MaxFlow() {
 
               {showVouchInput && (
                 <div className="space-y-4">
+                  <div className="text-xs text-muted-foreground bg-muted/50 p-3 border border-foreground/10 flex gap-2">
+                    <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                    <span>Your Signal reflects the trust of those who vouch for you, balanced against the risk of those you vouch for. Be selective — vouch only for people you genuinely trust.</span>
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="vouch-address">Address to Vouch</Label>
                     <div className="flex gap-2">
