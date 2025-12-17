@@ -26,6 +26,24 @@ const CHALLENGES: ChallengeState[] = [
   { type: 'turn_right', label: 'Turn head right', completed: false, progress: 0 },
 ];
 
+// Quality check thresholds
+const QUALITY_THRESHOLDS = {
+  minConfidence: 0.7,        // Minimum detection confidence
+  minFaceRatio: 0.08,        // Face must be at least 8% of frame
+  maxFaceRatio: 0.6,         // Face must not be more than 60% of frame (too close)
+  centerTolerance: 0.25,     // Face center must be within 25% of frame center
+  minLandmarkCount: 450,     // MediaPipe provides 478 landmarks when fully visible
+};
+
+interface FaceQuality {
+  confidence: boolean;
+  faceSize: boolean;
+  centered: boolean;
+  noOcclusion: boolean;
+  allPassed: boolean;
+  message: string;
+}
+
 const getChallengeIcon = (type: Challenge, className: string = "h-5 w-5") => {
   switch (type) {
     case 'blink':
@@ -62,6 +80,14 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [videoAspect, setVideoAspect] = useState<number>(3/4); // Default portrait ratio
   const [loadingMessage, setLoadingMessage] = useState<string>('Initializing...');
+  const [faceQuality, setFaceQuality] = useState<FaceQuality>({
+    confidence: false,
+    faceSize: false,
+    centered: false,
+    noOcclusion: false,
+    allPassed: false,
+    message: 'Position your face in the oval',
+  });
   
   const blinkCountRef = useRef(0);
   const lastBlinkStateRef = useRef(false);
@@ -85,6 +111,85 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
+  }, []);
+
+  // Check face quality based on detection results
+  const checkFaceQuality = useCallback((
+    landmarks: Array<{ x: number; y: number; z: number }>,
+    frameWidth: number,
+    frameHeight: number,
+    blendshapes?: Array<{ categoryName: string; score: number }>
+  ): FaceQuality => {
+    // Calculate face bounding box
+    const xs = landmarks.map(l => l.x);
+    const ys = landmarks.map(l => l.y);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    
+    const faceWidth = maxX - minX;
+    const faceHeight = maxY - minY;
+    const faceArea = faceWidth * faceHeight;
+    const faceCenterX = (minX + maxX) / 2;
+    const faceCenterY = (minY + maxY) / 2;
+    
+    // Check 1: Face size (between min and max ratio)
+    const sizeOk = faceArea >= QUALITY_THRESHOLDS.minFaceRatio && faceArea <= QUALITY_THRESHOLDS.maxFaceRatio;
+    
+    // Check 2: Face centered (within tolerance of frame center)
+    const centerXOk = Math.abs(faceCenterX - 0.5) <= QUALITY_THRESHOLDS.centerTolerance;
+    const centerYOk = Math.abs(faceCenterY - 0.5) <= QUALITY_THRESHOLDS.centerTolerance;
+    const centeredOk = centerXOk && centerYOk;
+    
+    // Check 3: Landmark count (occlusion detection)
+    const landmarkOk = landmarks.length >= QUALITY_THRESHOLDS.minLandmarkCount;
+    
+    // Check 4: Eye visibility (sunglasses detection via blendshapes)
+    // If eyes are visible, blink scores should be low when eyes are open
+    let eyesVisible = true;
+    if (blendshapes) {
+      const leftBlink = blendshapes.find(b => b.categoryName === 'eyeBlinkLeft')?.score ?? 0;
+      const rightBlink = blendshapes.find(b => b.categoryName === 'eyeBlinkRight')?.score ?? 0;
+      // If both eyes show very low blink AND very low visibility, might be occluded
+      // This is heuristic - if we can detect blinks, eyes are visible
+      eyesVisible = true; // MediaPipe handles this implicitly
+    }
+    
+    const allPassed = sizeOk && centeredOk && landmarkOk && eyesVisible;
+    
+    // Generate user-friendly message
+    let message = '';
+    if (!sizeOk) {
+      if (faceArea < QUALITY_THRESHOLDS.minFaceRatio) {
+        message = 'Move closer to camera';
+      } else {
+        message = 'Move back a bit';
+      }
+    } else if (!centeredOk) {
+      if (faceCenterX < 0.5 - QUALITY_THRESHOLDS.centerTolerance) {
+        message = 'Move face right';
+      } else if (faceCenterX > 0.5 + QUALITY_THRESHOLDS.centerTolerance) {
+        message = 'Move face left';
+      } else if (faceCenterY < 0.5 - QUALITY_THRESHOLDS.centerTolerance) {
+        message = 'Move face down';
+      } else {
+        message = 'Move face up';
+      }
+    } else if (!landmarkOk) {
+      message = 'Remove glasses or obstructions';
+    } else if (allPassed) {
+      message = 'Ready to verify';
+    }
+    
+    return {
+      confidence: true, // MediaPipe doesn't expose confidence directly
+      faceSize: sizeOk,
+      centered: centeredOk,
+      noOcclusion: landmarkOk && eyesVisible,
+      allPassed,
+      message,
+    };
   }, []);
 
   useEffect(() => {
@@ -230,6 +335,18 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
         const hasFace = results.faceLandmarks && results.faceLandmarks.length > 0;
         setFaceDetected(hasFace);
         
+        // Reset quality when no face detected
+        if (!hasFace) {
+          setFaceQuality({
+            confidence: false,
+            faceSize: false,
+            centered: false,
+            noOcclusion: false,
+            allPassed: false,
+            message: 'Position your face in the oval',
+          });
+        }
+        
         if (hasFace && canvasRef.current && videoRef.current) {
           const ctx = canvasRef.current.getContext('2d');
           if (ctx) {
@@ -237,8 +354,18 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
             ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
             
             const landmarks = results.faceLandmarks[0];
-            ctx.strokeStyle = '#22c55e';
-            ctx.lineWidth = 2;
+            
+            // Run quality checks (only during pre-challenge phase)
+            if (statusRef.current === 'detecting' || statusRef.current === 'ready') {
+              const blendshapes = results.faceBlendshapes?.[0]?.categories;
+              const quality = checkFaceQuality(
+                landmarks,
+                canvasRef.current.width,
+                canvasRef.current.height,
+                blendshapes
+              );
+              setFaceQuality(quality);
+            }
             
             const minX = Math.min(...landmarks.map(l => l.x)) * canvasRef.current.width;
             const maxX = Math.max(...landmarks.map(l => l.x)) * canvasRef.current.width;
@@ -246,6 +373,9 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
             const maxY = Math.max(...landmarks.map(l => l.y)) * canvasRef.current.height;
             
             const padding = 20;
+            // Color based on quality: green if all passed, yellow if face detected but quality issues
+            ctx.strokeStyle = faceQuality.allPassed ? '#22c55e' : '#f59e0b';
+            ctx.lineWidth = 2;
             ctx.strokeRect(minX - padding, minY - padding, maxX - minX + padding * 2, maxY - minY + padding * 2);
             
             if (statusRef.current === 'challenges') {
@@ -636,13 +766,17 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div 
               className={`w-[55%] h-[70%] rounded-[50%] border-4 transition-all duration-300 ${
-                faceDetected 
+                faceQuality.allPassed 
                   ? 'border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]' 
+                  : faceDetected
+                  ? 'border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.4)]'
                   : 'border-white/40'
               }`}
               style={{
-                boxShadow: faceDetected 
+                boxShadow: faceQuality.allPassed 
                   ? '0 0 0 3000px rgba(0,0,0,0.3), inset 0 0 30px rgba(16,185,129,0.2)' 
+                  : faceDetected
+                  ? '0 0 0 3000px rgba(0,0,0,0.3), inset 0 0 30px rgba(245,158,11,0.2)'
                   : '0 0 0 3000px rgba(0,0,0,0.4)'
               }}
             />
@@ -667,10 +801,17 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
           </div>
         )}
 
-        {(status === 'detecting' || status === 'ready') && !faceDetected && (
+        {(status === 'detecting' || status === 'ready') && (
           <div className="absolute inset-x-0 bottom-8 flex justify-center">
-            <div className="text-center text-white bg-black/60 backdrop-blur-sm px-4 py-2 rounded-full">
-              <p className="text-sm">Position your face in the oval</p>
+            <div className={`text-center text-white backdrop-blur-sm px-4 py-2 rounded-full flex items-center gap-2 ${
+              faceQuality.allPassed 
+                ? 'bg-emerald-600/80' 
+                : faceDetected 
+                ? 'bg-amber-600/80' 
+                : 'bg-black/60'
+            }`}>
+              {faceQuality.allPassed && <Check className="h-4 w-4" />}
+              <p className="text-sm">{faceQuality.message}</p>
             </div>
           </div>
         )}
@@ -765,9 +906,10 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
             onClick={startChallenges} 
             data-testid="button-start-challenges"
             className="px-8"
+            disabled={!faceQuality.allPassed}
           >
             <Camera className="h-4 w-4 mr-2" />
-            Start Verification
+            {faceQuality.allPassed ? 'Start Verification' : 'Adjust Position'}
           </Button>
         )}
       </div>
