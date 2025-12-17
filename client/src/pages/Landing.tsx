@@ -8,7 +8,12 @@ import { WifiOff, Wifi, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap, Use
 import { SiTelegram } from 'react-icons/si';
 import { hasWallet, isWalletUnlocked } from '@/lib/wallet';
 import Footer from '@/components/Footer';
-import stellarLogo from '@assets/200-2004304_9-stellar-logo-new-stellar-png-icon-clipart_1765646675902.png';
+
+const StellarIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12.283 1.851A10.154 10.154 0 001.846 12.002c0 .259.01.516.03.773A1.847 1.847 0 01.872 14.56L0 15.005v2.074l2.568-1.309.832-.424.855-.436 16.912-8.627.833-.425V3.784l-4.868 2.483A10.123 10.123 0 0012.283 1.85zM21.126 6.92l-.832.424-.855.436-16.912 8.627-.833.425v2.074l4.868-2.483a10.123 10.123 0 004.849 4.417 10.154 10.154 0 0010.437-10.151c0-.259-.01-.516-.03-.773a1.847 1.847 0 011.004-1.785L24 6.846V4.772z"/>
+  </svg>
+);
 
 interface AaveApyData {
   chainId: number;
@@ -243,7 +248,7 @@ function MobileLanding({
           </div>
           
           <p className="text-sm text-muted-foreground text-center pt-4 flex items-center justify-center gap-2">
-            <img src={stellarLogo} alt="Stellar" className="h-4" />
+            <StellarIcon className="h-4 w-4" />
             <span><span className="font-semibold">Stellar</span> version available. <Link href="/stellar" className="underline hover:text-foreground font-semibold" data-testid="link-stellar-landing">Access Now</Link></span>
           </p>
         </div>
@@ -411,7 +416,7 @@ function DesktopLanding({
             </div>
             
             <p className="text-sm text-muted-foreground flex items-center gap-2">
-              <img src={stellarLogo} alt="Stellar" className="h-4" />
+              <StellarIcon className="h-4 w-4" />
               <span><span className="font-semibold">Stellar</span> version available. <Link href="/stellar" className="underline hover:text-foreground font-semibold" data-testid="link-stellar-desktop">Access Now</Link></span>
             </p>
           </div>
