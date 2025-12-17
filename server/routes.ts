@@ -6443,12 +6443,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // STEP 2: Fuzzy match - cosine similarity on embeddings (catches same person with variations)
-      // TIERED CONFIDENCE SCORING with device context:
-      // - < 0.85: Pass (clearly different person)
-      // - 0.85-0.92: Check device context - same device = block, different device = allow + sybil points
-      // - > 0.92: Block as duplicate (too similar)
-      const THRESHOLD_LOW = 0.85;   // Below this = definitely different person
-      const THRESHOLD_HIGH = 0.92;  // Above this = definitely same person
+      // TIERED CONFIDENCE SCORING with device context (lenient while gathering data):
+      // - < 0.90: Pass (clearly different person)
+      // - 0.90-0.975: Check device context - same device = block, different device = allow + sybil warning
+      // - > 0.975: Block as duplicate (near-identical, likely replay attack)
+      const THRESHOLD_LOW = 0.90;   // Below this = definitely different person
+      const THRESHOLD_HIGH = 0.975; // Above this = definitely same person (very lenient while gathering data)
       
       // Pass request start time to prevent self-race conditions
       const requestStartTime = new Date();
