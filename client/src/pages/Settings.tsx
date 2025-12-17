@@ -59,7 +59,7 @@ export default function Settings() {
   const [passkeyEnrolled, setPasskeyEnrolled] = useState(false);
   const [isEnrollingPasskey, setIsEnrollingPasskey] = useState(false);
   const [isRemovingPasskey, setIsRemovingPasskey] = useState(false);
-  const [autoLock, setAutoLock] = useState(15);
+  const [autoLock, setAutoLock] = useState(0);
   const [showAutoLock, setShowAutoLock] = useState(false);
   const [sessionPersistence, setSessionPersistence] = useState(true);
   const [showRecoveryPhrase, setShowRecoveryPhrase] = useState(false);
@@ -102,10 +102,10 @@ export default function Settings() {
         const mnemonicExists = await hasMnemonicWallet();
         setHasMnemonic(mnemonicExists);
         
-        const currentAutoLock = prefs.autoLockMinutes ?? 15;
+        const currentAutoLock = prefs.autoLockMinutes ?? 0;
         if (currentAutoLock === -1) {
           setSessionPersistence(false);
-          setAutoLock(15);
+          setAutoLock(0);
         } else {
           setSessionPersistence(true);
           setAutoLock(currentAutoLock);
@@ -133,7 +133,7 @@ export default function Settings() {
     setSessionPersistence(newValue);
     
     if (newValue) {
-      // Enable persistence with default 15 min timer
+      // Enable persistence with current auto-lock timer
       setAutoLockMinutes(autoLock);
       await savePreferences({ currency, language, autoLockMinutes: autoLock });
       toast({

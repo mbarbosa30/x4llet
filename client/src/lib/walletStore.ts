@@ -17,7 +17,7 @@ let state: WalletStoreState = {
 };
 
 let idleTimeout: ReturnType<typeof setTimeout> | null = null;
-let autoLockMinutes = 15; // Default 15 minutes
+let autoLockMinutes = 0; // Default: no auto-lock (only lock on tab close)
 
 function notifyListeners() {
   listeners.forEach(listener => listener());
