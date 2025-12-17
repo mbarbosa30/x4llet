@@ -6352,7 +6352,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Submit face verification
   app.post('/api/face-verification/submit', async (req, res) => {
     try {
-      const { walletAddress, embeddingHash, embedding, storageToken, challengesPassed } = req.body;
+      const { walletAddress, embeddingHash, embedding, storageToken, challengesPassed, qualityMetrics } = req.body;
+      const userAgent = req.get('user-agent') || undefined;
+      const processingStartTime = Date.now();
       
       // Rate limiting by IP
       const clientIp = getClientIp(req);
@@ -6542,7 +6544,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Create verification record for unique face
+      // Calculate processing time
+      const processingTimeMs = Date.now() - processingStartTime;
+      
+      // Create verification record for unique face with diagnostics
       const verification = await storage.createFaceVerification({
         walletAddress: normalizedAddress,
         embeddingHash,
@@ -6551,6 +6556,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         challengesPassed,
         ipHash: ipHash ? await hashIp(ipHash) : undefined,
         status: 'verified',
+        qualityMetrics: qualityMetrics ? JSON.stringify(qualityMetrics) : undefined,
+        userAgent,
+        processingTimeMs,
+        matchedWalletScore: similarFace ? JSON.stringify([{ wallet: similarFace.match.walletAddress, score: similarFace.similarity }]) : undefined,
       });
       
       // Award XP for successful verification (120 XP = 12000 centi-XP)
@@ -6582,6 +6591,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('[FaceVerification] Error getting stats:', error);
       res.status(500).json({ error: 'Failed to get stats' });
+    }
+  });
+  
+  // Admin: Get detailed diagnostic data for recent face verifications
+  app.get('/api/admin/face-verification/diagnostics', adminAuthMiddleware, async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const diagnostics = await storage.getFaceVerificationDiagnostics(limit);
+      res.json(diagnostics);
+    } catch (error) {
+      console.error('[FaceVerification] Error getting diagnostics:', error);
+      res.status(500).json({ error: 'Failed to get diagnostics' });
     }
   });
 

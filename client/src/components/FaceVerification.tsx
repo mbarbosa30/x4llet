@@ -534,6 +534,15 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
       // Use ref instead of state to get fresh challenge data (avoids stale closure)
       const passedChallenges = challengesRef.current.filter(c => c.completed).map(c => c.type);
       
+      // Collect quality metrics for diagnostic logging
+      const qualityMetrics = {
+        faceSize: faceQuality?.faceSize ? 'ok' : 'unknown',
+        centered: faceQuality?.centered ? 'ok' : 'unknown',
+        noOcclusion: faceQuality?.noOcclusion ? 'ok' : 'unknown',
+        embeddingCount: numDescriptors,
+        // Note: faceQuality state may be stale, these are best-effort diagnostics
+      };
+      
       // Use raw fetch instead of apiRequest to handle 409 duplicate responses gracefully
       // apiRequest throws on non-OK responses, but we need to handle 409 as a valid "duplicate detected" case
       const response = await fetch('/api/face-verification/submit', {
@@ -545,6 +554,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
           embedding: avgEmbedding,
           storageToken: fingerprint.storageToken,
           challengesPassed: passedChallenges,
+          qualityMetrics,
         }),
         credentials: 'include',
       });

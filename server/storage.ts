@@ -445,12 +445,28 @@ export interface IStorage {
     status?: string;
     duplicateOf?: string;
     similarityScore?: number;
+    // Diagnostic fields
+    qualityMetrics?: string;
+    userAgent?: string;
+    processingTimeMs?: number;
+    matchedWalletScore?: string;
   }): Promise<FaceVerification>;
   getFaceVerificationStats(): Promise<{
     totalVerified: number;
     duplicatesDetected: number;
     recentVerifications: FaceVerification[];
   }>;
+  getFaceVerificationDiagnostics(limit: number): Promise<Array<{
+    walletAddress: string;
+    status: string;
+    similarityScore: string | null;
+    qualityMetrics: string | null;
+    userAgent: string | null;
+    processingTimeMs: number | null;
+    matchedWalletScore: string | null;
+    challengesPassed: string;
+    createdAt: Date;
+  }>>;
 }
 
 export interface GasDrip {
@@ -1035,6 +1051,10 @@ export class MemStorage implements IStorage {
     status?: string;
     duplicateOf?: string;
     similarityScore?: number;
+    qualityMetrics?: string;
+    userAgent?: string;
+    processingTimeMs?: number;
+    matchedWalletScore?: string;
   }): Promise<FaceVerification> {
     throw new Error('Face verification not available in MemStorage');
   }
@@ -1045,6 +1065,20 @@ export class MemStorage implements IStorage {
     recentVerifications: FaceVerification[];
   }> {
     return { totalVerified: 0, duplicatesDetected: 0, recentVerifications: [] };
+  }
+
+  async getFaceVerificationDiagnostics(limit: number): Promise<Array<{
+    walletAddress: string;
+    status: string;
+    similarityScore: string | null;
+    qualityMetrics: string | null;
+    userAgent: string | null;
+    processingTimeMs: number | null;
+    matchedWalletScore: string | null;
+    challengesPassed: string;
+    createdAt: Date;
+  }>> {
+    return [];
   }
 }
 
@@ -5240,6 +5274,10 @@ export class DbStorage extends MemStorage {
     status?: string;
     duplicateOf?: string;
     similarityScore?: number;
+    qualityMetrics?: string;
+    userAgent?: string;
+    processingTimeMs?: number;
+    matchedWalletScore?: string;
   }): Promise<FaceVerification> {
     try {
       // Normalize embedding before storing for consistent comparison
@@ -5256,6 +5294,11 @@ export class DbStorage extends MemStorage {
           status: data.status || 'verified',
           duplicateOf: data.duplicateOf || null,
           similarityScore: data.similarityScore ? data.similarityScore.toFixed(4) : null,
+          // Diagnostic fields
+          qualityMetrics: data.qualityMetrics || null,
+          userAgent: data.userAgent || null,
+          processingTimeMs: data.processingTimeMs || null,
+          matchedWalletScore: data.matchedWalletScore || null,
         })
         .returning();
       return result[0];
@@ -5400,6 +5443,40 @@ export class DbStorage extends MemStorage {
         duplicatesDetected: 0,
         recentVerifications: [],
       };
+    }
+  }
+
+  async getFaceVerificationDiagnostics(limit: number): Promise<Array<{
+    walletAddress: string;
+    status: string;
+    similarityScore: string | null;
+    qualityMetrics: string | null;
+    userAgent: string | null;
+    processingTimeMs: number | null;
+    matchedWalletScore: string | null;
+    challengesPassed: string;
+    createdAt: Date;
+  }>> {
+    try {
+      const results = await db.select({
+        walletAddress: faceVerifications.walletAddress,
+        status: faceVerifications.status,
+        similarityScore: faceVerifications.similarityScore,
+        qualityMetrics: faceVerifications.qualityMetrics,
+        userAgent: faceVerifications.userAgent,
+        processingTimeMs: faceVerifications.processingTimeMs,
+        matchedWalletScore: faceVerifications.matchedWalletScore,
+        challengesPassed: faceVerifications.challengesPassed,
+        createdAt: faceVerifications.createdAt,
+      })
+      .from(faceVerifications)
+      .orderBy(desc(faceVerifications.createdAt))
+      .limit(limit);
+
+      return results;
+    } catch (error) {
+      console.error('[FaceVerification] Error getting diagnostics:', error);
+      return [];
     }
   }
 

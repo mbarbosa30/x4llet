@@ -505,6 +505,11 @@ export const faceVerifications = pgTable("face_verifications", {
   ipHash: text("ip_hash"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   expiresAt: timestamp("expires_at"), // Optional expiration for re-verification
+  // Diagnostic fields for quality analysis
+  qualityMetrics: text("quality_metrics"), // JSON: { faceSize, centering, landmarkCount, detectionConfidence }
+  userAgent: text("user_agent"), // Browser/device info
+  processingTimeMs: integer("processing_time_ms"), // Time taken for similarity search
+  matchedWalletScore: text("matched_wallet_score"), // JSON array of all similar faces found with scores
 });
 
 export type FaceVerification = typeof faceVerifications.$inferSelect;
