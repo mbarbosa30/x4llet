@@ -318,7 +318,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   
-  getBalance(address: string, chainId: number): Promise<BalanceResponse>;
+  getBalance(address: string, chainId: number, forceRefresh?: boolean): Promise<BalanceResponse>;
   getTransactions(address: string, chainId: number): Promise<Transaction[]>;
   addTransaction(address: string, chainId: number, tx: Transaction): Promise<void>;
   
@@ -523,7 +523,7 @@ export class MemStorage implements IStorage {
     return user;
   }
 
-  async getBalance(address: string, chainId: number): Promise<BalanceResponse> {
+  async getBalance(address: string, chainId: number, _forceRefresh?: boolean): Promise<BalanceResponse> {
     const key = `${address}-${chainId}`;
     
     console.log(`[Balance API] Fetching balance for address: ${address}, chainId: ${chainId}`);
@@ -1006,9 +1006,11 @@ export class MemStorage implements IStorage {
 
 // Database storage with PostgreSQL for all data
 export class DbStorage extends MemStorage {
-  private readonly CACHE_TTL_MS = 30000; // 30 seconds for balance cache
+  private readonly CACHE_TTL_MS = 120000; // 2 minutes for balance cache (return stale immediately)
+  private readonly CACHE_STALE_MS = 30000; // 30 seconds - trigger background refresh after this
   private readonly TRANSACTION_CACHE_TTL_MS = 300000; // 5 minutes for transaction cache
   private readonly RATE_TTL_MS = 14400000; // 4 hours for exchange rates
+  private backgroundRefreshInProgress = new Set<string>(); // Track in-flight refreshes
 
   async registerWallet(address: string): Promise<void> {
     try {
@@ -1025,7 +1027,7 @@ export class DbStorage extends MemStorage {
     }
   }
 
-  async getBalance(address: string, chainId: number): Promise<BalanceResponse> {
+  async getBalance(address: string, chainId: number, forceRefresh: boolean = false): Promise<BalanceResponse> {
     // Register wallet if first time seeing it
     await this.registerWallet(address);
 
@@ -1038,11 +1040,10 @@ export class DbStorage extends MemStorage {
 
     const now = new Date();
     const cacheAge = cached[0] ? now.getTime() - cached[0].updatedAt.getTime() : Infinity;
+    const cacheKey = `${address}-${chainId}`;
 
-    // Return cached balance if fresh enough
-    if (cached[0] && cacheAge < this.CACHE_TTL_MS) {
-      console.log(`[DB Cache] Returning cached balance for ${address} (age: ${Math.round(cacheAge / 1000)}s)`);
-      
+    // Helper to build response from cached data
+    const buildCachedResponse = async () => {
       const transactions = await this.getTransactions(address, chainId);
       
       // Cached balance should be stored as micro-USDC integer
@@ -1069,10 +1070,33 @@ export class DbStorage extends MemStorage {
         nonce: cached[0].nonce,
         transactions,
       };
+    };
+
+    // Stale-while-revalidate: Return cached data immediately if within TTL
+    if (cached[0] && cacheAge < this.CACHE_TTL_MS && !forceRefresh) {
+      console.log(`[DB Cache] Returning cached balance for ${address} (age: ${Math.round(cacheAge / 1000)}s)`);
+      
+      // If cache is stale (> 30s) but still valid (< 2min), trigger background refresh
+      if (cacheAge > this.CACHE_STALE_MS && !this.backgroundRefreshInProgress.has(cacheKey)) {
+        console.log(`[DB Cache] Cache stale, triggering background refresh for ${cacheKey}`);
+        this.backgroundRefreshInProgress.add(cacheKey);
+        
+        // Background refresh - don't await
+        super.getBalance(address, chainId)
+          .then(freshBalance => {
+            this.cacheBalance(address, chainId, freshBalance);
+            this.cacheTransactions(address, chainId, freshBalance.transactions);
+            console.log(`[DB Cache] Background refresh complete for ${cacheKey}`);
+          })
+          .catch(err => console.error(`[DB Cache] Background refresh failed for ${cacheKey}:`, err))
+          .finally(() => this.backgroundRefreshInProgress.delete(cacheKey));
+      }
+      
+      return buildCachedResponse();
     }
 
-    // Cache miss or stale - fetch from blockchain
-    console.log(`[DB Cache] Cache ${cached[0] ? 'stale' : 'miss'} - fetching fresh balance from blockchain`);
+    // Cache miss, force refresh, or cache too old - fetch from blockchain synchronously
+    console.log(`[DB Cache] Cache ${cached[0] ? (forceRefresh ? 'force refresh' : 'expired') : 'miss'} - fetching fresh balance from blockchain`);
     const freshBalance = await super.getBalance(address, chainId);
 
     // Store fresh data in database

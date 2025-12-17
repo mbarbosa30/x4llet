@@ -489,19 +489,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { address } = req.params;
       const chainId = req.query.chainId ? parseInt(req.query.chainId as string) : undefined;
+      const forceRefresh = req.query.refresh === 'true';
       
       // If chainId provided, return single chain balance (legacy support)
       if (chainId !== undefined) {
-        const balance = await storage.getBalance(address, chainId);
+        const balance = await storage.getBalance(address, chainId, forceRefresh);
         return res.json(balance);
       }
       
       // Otherwise, fetch balances from all chains in parallel
       const [baseBalance, celoBalance, gnosisBalance, arbitrumBalance] = await Promise.all([
-        storage.getBalance(address, 8453),
-        storage.getBalance(address, 42220),
-        storage.getBalance(address, 100),
-        storage.getBalance(address, 42161),
+        storage.getBalance(address, 8453, forceRefresh),
+        storage.getBalance(address, 42220, forceRefresh),
+        storage.getBalance(address, 100, forceRefresh),
+        storage.getBalance(address, 42161, forceRefresh),
       ]);
       
       // Calculate total balance (sum of micro-USDC) - keep as BigInt for precision
