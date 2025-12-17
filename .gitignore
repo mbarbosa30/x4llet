@@ -4,3 +4,20 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Development artifacts
+attached_assets/branding-*.json
+attached_assets/screenshot-*.png
+attached_assets/Pasted-*.txt
+attached_assets/IMG_*.jpeg
+attached_assets/content-*.md
+attached_assets/*.mov
+attached_assets/Screenshot_*.png
+
+# Diagnostic scripts (keep locally, exclude from repo)
+scripts/
+
+# Environment
+.env
+.env.local
+.env.*.local
