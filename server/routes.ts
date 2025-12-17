@@ -6443,20 +6443,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // STEP 2: Fuzzy match - cosine similarity on embeddings (catches same person with variations)
-      // TIERED CONFIDENCE SCORING with device context (lenient while gathering data):
-      // - < 0.90: Pass (clearly different person)
-      // - 0.90-0.975: Check device context - same device = block, different device = allow + sybil warning
-      // - > 0.975: Block as duplicate (near-identical, likely replay attack)
-      const THRESHOLD_LOW = 0.90;   // Below this = definitely different person
-      const THRESHOLD_HIGH = 0.975; // Above this = definitely same person (very lenient while gathering data)
+      // DATA GATHERING PHASE - No blocking, just logging and sybil points
+      // - > 0.97: Mark as duplicate in DB (for tracking) but still allow verification
+      // - < 0.97: Mark as verified
+      const DUPLICATE_THRESHOLD = 0.97; // Above this = mark as duplicate (but don't block)
       
       // Pass request start time to prevent self-race conditions
       const requestStartTime = new Date();
       let similarFace: { match: any; similarity: number } | null = null;
       if (Array.isArray(embedding) && embedding.length > 0) {
         console.log(`[FaceVerification] Checking fuzzy match for ${normalizedAddress}, embedding length: ${embedding.length}`);
-        // Use lower threshold to catch medium-similarity matches for device context check
-        similarFace = await storage.findSimilarFace(embedding, normalizedAddress, THRESHOLD_LOW, requestStartTime);
+        // Use 0.80 threshold to catch all potential matches for logging
+        similarFace = await storage.findSimilarFace(embedding, normalizedAddress, 0.80, requestStartTime);
       } else {
         console.warn(`[FaceVerification] No embedding provided for ${normalizedAddress}, skipping fuzzy match`);
       }
@@ -6464,82 +6462,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Hash IP for comparison
       const hashedIp = ipHash ? await hashIp(ipHash) : undefined;
       
+      // Determine status and log suspicious patterns (but never block)
+      let status: 'verified' | 'duplicate' = 'verified';
+      let duplicateOf: string | undefined;
+      let matchSimilarity: number | undefined;
+      
       if (similarFace) {
         const similarity = similarFace.similarity;
         const matchWallet = similarFace.match.walletAddress;
+        matchSimilarity = similarity;
         
         // Check if same device (matching IP hash or storage token)
         const sameDevice = (hashedIp && similarFace.match.ipHash === hashedIp) || 
                           (storageToken && similarFace.match.storageToken === storageToken);
         
-        console.log(`[FaceVerification] Match found: ${(similarity * 100).toFixed(1)}% similarity, sameDevice: ${sameDevice}`);
+        console.log(`[FaceVerification] Match found: ${(similarity * 100).toFixed(1)}% similarity, sameDevice: ${sameDevice}, matchWallet: ${matchWallet.slice(0, 8)}...`);
         
-        // HIGH SIMILARITY (>0.92) - Always block
-        if (similarity >= THRESHOLD_HIGH) {
-          await storage.createFaceVerification({
-            walletAddress: normalizedAddress,
-            embeddingHash,
-            embedding: embedding,
-            storageToken: storageToken || undefined,
-            challengesPassed,
-            ipHash: hashedIp,
-            status: 'duplicate',
-            duplicateOf: matchWallet,
-            similarityScore: similarity,
-          });
-          
-          console.warn(`[FaceVerification] HIGH similarity rejected (${(similarity * 100).toFixed(1)}%): ${normalizedAddress} matches ${matchWallet}`);
-          
-          return res.status(409).json({
-            error: 'This face is too similar to one already verified with another wallet',
-            isDuplicate: true,
-            duplicateOf: matchWallet.slice(0, 6) + '...' + matchWallet.slice(-4),
-            similarity: Math.round(similarity * 100),
-          });
+        // Mark as duplicate if above threshold (but still allow verification)
+        if (similarity >= DUPLICATE_THRESHOLD) {
+          status = 'duplicate';
+          duplicateOf = matchWallet;
+          console.warn(`[FaceVerification] HIGH similarity (${(similarity * 100).toFixed(1)}%) - marking as duplicate but allowing: ${normalizedAddress} matches ${matchWallet}`);
         }
         
-        // MEDIUM SIMILARITY (0.85-0.92) - Check device context
-        if (similarity >= THRESHOLD_LOW && similarity < THRESHOLD_HIGH) {
-          if (sameDevice) {
-            // Same device + medium similarity = likely sybil, block
-            await storage.createFaceVerification({
+        // Log sybil warning for any suspicious pattern (same device OR high similarity)
+        if (sameDevice || similarity >= 0.90) {
+          try {
+            await storage.logIpEvent({
               walletAddress: normalizedAddress,
-              embeddingHash,
-              embedding: embedding,
+              ipHash: hashedIp || 'unknown',
+              eventType: 'face_similarity_warning',
               storageToken: storageToken || undefined,
-              challengesPassed,
-              ipHash: hashedIp,
-              status: 'duplicate',
-              duplicateOf: matchWallet,
-              similarityScore: similarity,
+              userAgent: req.get('user-agent') || undefined,
             });
-            
-            console.warn(`[FaceVerification] MEDIUM similarity + SAME DEVICE rejected (${(similarity * 100).toFixed(1)}%): ${normalizedAddress} matches ${matchWallet}`);
-            
-            return res.status(409).json({
-              error: 'This face is too similar to one already verified from this device',
-              isDuplicate: true,
-              duplicateOf: matchWallet.slice(0, 6) + '...' + matchWallet.slice(-4),
-              similarity: Math.round(similarity * 100),
-            });
-          } else {
-            // Different device + medium similarity = allow but log warning for sybil tracking
-            console.log(`[FaceVerification] MEDIUM similarity + DIFFERENT DEVICE - allowing with sybil warning: ${normalizedAddress}`);
-            
-            // Log IP event for sybil tracking (will contribute to sybil score via existing logic)
-            try {
-              await storage.logIpEvent({
-                walletAddress: normalizedAddress,
-                ipHash: hashedIp || 'unknown',
-                eventType: 'face_similarity_warning',
-                storageToken: storageToken || undefined,
-                userAgent: req.get('user-agent') || undefined,
-              });
-              console.log(`[FaceVerification] Logged face similarity warning for ${normalizedAddress} (${Math.round(similarity * 100)}% similar to ${matchWallet.slice(0, 8)})`);
-            } catch (logError) {
-              console.error('[FaceVerification] Error logging sybil warning:', logError);
-            }
-            // Continue to allow verification (don't return here)
+            console.log(`[FaceVerification] Logged sybil warning: ${normalizedAddress} (${Math.round(similarity * 100)}% similar to ${matchWallet.slice(0, 8)}, sameDevice: ${sameDevice})`);
+          } catch (logError) {
+            console.error('[FaceVerification] Error logging sybil warning:', logError);
           }
         }
       }
@@ -6547,15 +6505,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate processing time
       const processingTimeMs = Date.now() - processingStartTime;
       
-      // Create verification record for unique face with diagnostics
+      // Create verification record - ALWAYS allow through (data gathering phase)
       const verification = await storage.createFaceVerification({
         walletAddress: normalizedAddress,
         embeddingHash,
         embedding: Array.isArray(embedding) ? embedding : undefined,
         storageToken: storageToken || undefined,
         challengesPassed,
-        ipHash: ipHash ? await hashIp(ipHash) : undefined,
-        status: 'verified',
+        ipHash: hashedIp,
+        status,
+        duplicateOf,
+        similarityScore: matchSimilarity,
         qualityMetrics: qualityMetrics ? JSON.stringify(qualityMetrics) : undefined,
         userAgent,
         processingTimeMs,
@@ -6573,9 +6533,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: true,
         verified: true,
-        isDuplicate: false,
+        isDuplicate: status === 'duplicate',
         status: verification.status,
         xpAwarded: 120,
+        similarityScore: matchSimilarity ? Math.round(matchSimilarity * 100) : undefined,
       });
     } catch (error) {
       console.error('[FaceVerification] Error submitting:', error);
