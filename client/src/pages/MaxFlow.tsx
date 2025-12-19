@@ -1172,16 +1172,9 @@ export default function MaxFlow() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Experimental token on Celo. 1 XP = 1 SENADOR.</span>
-                {senadorPrice && senadorPrice.price > 0 ? (
-                  <span className="font-mono text-foreground" data-testid="text-senador-price">
-                    1 = ${senadorPrice.priceFormatted}
-                  </span>
-                ) : isLoadingSenadorPrice ? (
-                  <span className="font-mono">--</span>
-                ) : null}
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Experimental token on Celo. 1 XP = 1 SENADOR.
+              </p>
 
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
