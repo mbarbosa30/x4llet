@@ -367,12 +367,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         logIpEvent(req, address, 'first_seen');
       }
 
-      // Fetch all data in parallel (including cached MaxFlow score and sybil status)
+      // OPTIMIZED: Use getAllBalances for single DB query + parallel transaction fetch
       const [
-        baseBalance,
-        celoBalance,
-        gnosisBalance,
-        arbitrumBalance,
+        allBalances,
         baseTransactions,
         celoTransactions,
         gnosisTransactions,
@@ -381,10 +378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         maxflowScore,
         sybilStatus,
       ] = await Promise.all([
-        storage.getBalance(address, 8453),
-        storage.getBalance(address, 42220),
-        storage.getBalance(address, 100),
-        storage.getBalance(address, 42161),
+        storage.getAllBalances(address),
         storage.getTransactions(address, 8453),
         storage.getTransactions(address, 42220),
         storage.getTransactions(address, 100),
@@ -393,13 +387,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getMaxFlowScore(address),
         storage.isWalletSuspicious(address),
       ]);
-
-      // Calculate total balance
-      const totalMicroUsdc = BigInt(baseBalance.balanceMicro) + BigInt(celoBalance.balanceMicro) + BigInt(gnosisBalance.balanceMicro) + BigInt(arbitrumBalance.balanceMicro);
-      const roundedMicroUsdc = totalMicroUsdc + 5000n;
-      const integerPart = roundedMicroUsdc / 1000000n;
-      const fractionalPart = (roundedMicroUsdc % 1000000n) / 10000n;
-      const totalFormatted = `${integerPart}.${fractionalPart.toString().padStart(2, '0')}`;
 
       // Merge and sort transactions
       const allTransactions = [
@@ -456,16 +443,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         balance: {
-          balance: totalFormatted,
-          balanceMicro: totalMicroUsdc.toString(),
-          decimals: 6,
-          nonce: baseBalance.nonce,
-          chains: {
-            base: { chainId: 8453, balance: baseBalance.balance, balanceMicro: baseBalance.balanceMicro },
-            celo: { chainId: 42220, balance: celoBalance.balance, balanceMicro: celoBalance.balanceMicro },
-            gnosis: { chainId: 100, balance: gnosisBalance.balance, balanceMicro: gnosisBalance.balanceMicro },
-            arbitrum: { chainId: 42161, balance: arbitrumBalance.balance, balanceMicro: arbitrumBalance.balanceMicro },
-          },
+          balance: allBalances.balance,
+          balanceMicro: allBalances.balanceMicro,
+          decimals: allBalances.decimals,
+          nonce: 0,
+          chains: allBalances.chains,
         },
         transactions: allTransactions,
         xp: {
