@@ -534,3 +534,18 @@ export const gdDailySpending = pgTable("gd_daily_spending", {
 }));
 
 export type GdDailySpending = typeof gdDailySpending.$inferSelect;
+
+// Daily USDC redemption tracking (max 1 per day, requires face verification)
+export const usdcDailyRedemptions = pgTable("usdc_daily_redemptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: text("wallet_address").notNull(),
+  date: text("date").notNull(), // YYYY-MM-DD format for easy daily tracking
+  redemptionCount: integer("redemption_count").notNull().default(1),
+  xpSpent: integer("xp_spent").notNull().default(10000), // 100 XP in centi-XP
+  usdcReceived: text("usdc_received").notNull().default('1000000'), // 1 USDC in micro-USDC
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  walletDateUnique: unique().on(table.walletAddress, table.date),
+}));
+
+export type UsdcDailyRedemption = typeof usdcDailyRedemptions.$inferSelect;
