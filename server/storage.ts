@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, type AiConversation, type AiMessage, type IpEvent, type InsertIpEvent, type FaceVerification, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, globalSettings, aiConversations, ipEvents, faceVerifications } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, type AiConversation, type AiMessage, type IpEvent, type InsertIpEvent, type FaceVerification, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, globalSettings, aiConversations, ipEvents, faceVerifications, gdDailySpending } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo, gnosis, arbitrum } from 'viem/chains';
@@ -425,6 +425,10 @@ export interface IStorage {
   refundXp(walletAddress: string, xpAmount: number): Promise<{ success: boolean; newBalance: number }>;
   creditXpFromGdExchange(walletAddress: string, xpAmountCenti: number, gdAmount: string): Promise<{ success: boolean; newBalance: number }>;
   getXpClaimHistory(walletAddress: string, limit?: number): Promise<XpClaim[]>;
+  
+  // G$ Daily Spending methods (1000 G$ per day limit)
+  getGdDailySpending(walletAddress: string, date: string): Promise<{ gdSpent: bigint; xpEarned: number } | null>;
+  recordGdSpending(walletAddress: string, gdAmountRaw: bigint, xpEarned: number): Promise<{ success: boolean; newDailyTotal: bigint }>;
   
   // AI Conversation methods
   getAiConversation(walletAddress: string): Promise<AiConversation | null>;
@@ -1015,6 +1019,14 @@ export class MemStorage implements IStorage {
 
   async getXpClaimHistory(walletAddress: string, limit?: number): Promise<XpClaim[]> {
     return [];
+  }
+
+  async getGdDailySpending(walletAddress: string, date: string): Promise<{ gdSpent: bigint; xpEarned: number } | null> {
+    return null;
+  }
+
+  async recordGdSpending(walletAddress: string, gdAmountRaw: bigint, xpEarned: number): Promise<{ success: boolean; newDailyTotal: bigint }> {
+    throw new Error('G$ spending tracking not available in MemStorage');
   }
 
   async getAiConversation(walletAddress: string): Promise<AiConversation | null> {
@@ -4518,6 +4530,80 @@ export class DbStorage extends MemStorage {
     } catch (error) {
       console.error('[XP] Error getting claim history:', error);
       return [];
+    }
+  }
+
+  async getGdDailySpending(walletAddress: string, date: string): Promise<{ gdSpent: bigint; xpEarned: number } | null> {
+    try {
+      const normalized = walletAddress.toLowerCase();
+      const result = await db
+        .select()
+        .from(gdDailySpending)
+        .where(and(
+          eq(gdDailySpending.walletAddress, normalized),
+          eq(gdDailySpending.date, date)
+        ))
+        .limit(1);
+      
+      if (result.length === 0) {
+        return null;
+      }
+      
+      return {
+        gdSpent: BigInt(result[0].gdSpent),
+        xpEarned: result[0].xpEarned,
+      };
+    } catch (error) {
+      console.error('[GD Spending] Error getting daily spending:', error);
+      return null;
+    }
+  }
+
+  async recordGdSpending(walletAddress: string, gdAmountRaw: bigint, xpEarnedCenti: number): Promise<{ success: boolean; newDailyTotal: bigint }> {
+    const normalized = walletAddress.toLowerCase();
+    const now = new Date();
+    const today = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    try {
+      // Get existing spending for today
+      const existing = await this.getGdDailySpending(normalized, today);
+      
+      if (existing) {
+        // Update existing record
+        const newTotal = existing.gdSpent + gdAmountRaw;
+        const newXpTotal = existing.xpEarned + xpEarnedCenti;
+        
+        await db
+          .update(gdDailySpending)
+          .set({
+            gdSpent: newTotal.toString(),
+            xpEarned: newXpTotal,
+            updatedAt: now,
+          })
+          .where(and(
+            eq(gdDailySpending.walletAddress, normalized),
+            eq(gdDailySpending.date, today)
+          ));
+        
+        console.log(`[GD Spending] Updated ${normalized} spending: +${gdAmountRaw} (total: ${newTotal})`);
+        return { success: true, newDailyTotal: newTotal };
+      } else {
+        // Create new record for today
+        await db.insert(gdDailySpending).values({
+          walletAddress: normalized,
+          date: today,
+          gdSpent: gdAmountRaw.toString(),
+          xpEarned: xpEarnedCenti,
+          createdAt: now,
+          updatedAt: now,
+        });
+        
+        console.log(`[GD Spending] Created ${normalized} spending: ${gdAmountRaw}`);
+        return { success: true, newDailyTotal: gdAmountRaw };
+      }
+    } catch (error) {
+      console.error('[GD Spending] Error recording spending:', error);
+      return { success: false, newDailyTotal: BigInt(0) };
     }
   }
 

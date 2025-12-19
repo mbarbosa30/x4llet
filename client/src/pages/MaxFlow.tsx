@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Scan, Shield, Loader2, Sparkles, Clock, ChevronDown, Coins, Info, Camera, Check, Users, Gift, AlertTriangle, ExternalLink, AlertCircle } from 'lucide-react';
+import { Scan, Shield, Loader2, Sparkles, Clock, ChevronDown, Coins, Info, Camera, Check, Users, Gift, AlertTriangle, ExternalLink, AlertCircle, CheckCircle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -187,6 +187,22 @@ export default function MaxFlow() {
     queryKey: ['/gooddollar/price'],
     queryFn: () => getGoodDollarPrice(),
     staleTime: 5 * 60 * 1000,
+  });
+
+  // G$ to XP exchange daily limit status
+  const { data: gdDailyStatus, refetch: refetchGdDailyStatus } = useQuery<{
+    faceVerified: boolean;
+    gdVerified: boolean;
+    eligible: boolean;
+    dailyLimit: number;
+    spent: number;
+    remaining: number;
+    date: string;
+  }>({
+    queryKey: ['/api/xp/gd-daily-status', address],
+    queryFn: () => fetch(`/api/xp/gd-daily-status/${address}`).then(res => res.json()),
+    enabled: !!address,
+    staleTime: 30 * 1000, // Refresh every 30 seconds
   });
 
   useEffect(() => {
@@ -441,6 +457,7 @@ export default function MaxFlow() {
         setGdExchangeAmount('10');
         queryClient.invalidateQueries({ queryKey: ['/gooddollar/balance', address] });
         queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
+        queryClient.invalidateQueries({ queryKey: ['/api/xp/gd-daily-status', address] });
       } else {
         toast({
           title: "Exchange Failed",
@@ -1483,73 +1500,123 @@ export default function MaxFlow() {
             <DialogTitle className="text-base">Buy XP with G$</DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-3">
-            <div>
-              <div className="relative">
-                <Input
-                  id="gd-amount"
-                  type="number"
-                  inputMode="decimal"
-                  min="10"
-                  step="10"
-                  value={gdExchangeAmount}
-                  onChange={(e) => setGdExchangeAmount(e.target.value)}
-                  placeholder="Amount"
-                  className="text-lg pr-10"
-                  data-testid="input-gd-exchange-amount"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">G$</span>
+          {/* Eligibility Check */}
+          {gdDailyStatus && !gdDailyStatus.eligible ? (
+            <div className="space-y-3">
+              <div className="p-3 border rounded bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-2">Requirements to exchange G$ for XP:</p>
+                <ul className="text-xs space-y-1 text-amber-700 dark:text-amber-300">
+                  <li className="flex items-center gap-2">
+                    {gdDailyStatus.faceVerified ? (
+                      <CheckCircle className="h-3 w-3 text-green-500" />
+                    ) : (
+                      <AlertCircle className="h-3 w-3 text-amber-500" />
+                    )}
+                    Face Check completed
+                  </li>
+                  <li className="flex items-center gap-2">
+                    {gdDailyStatus.gdVerified ? (
+                      <CheckCircle className="h-3 w-3 text-green-500" />
+                    ) : (
+                      <AlertCircle className="h-3 w-3 text-amber-500" />
+                    )}
+                    GoodDollar identity verified
+                  </li>
+                </ul>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Balance: {gdBalance?.balanceFormatted || '0'} G$
-              </p>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowGdExchangeDialog(false)}
+              >
+                Close
+              </Button>
             </div>
-
-            <div className="flex items-center justify-between p-2 border rounded bg-muted/30">
-              <span className="text-sm text-muted-foreground">You get:</span>
-              <span className="font-mono font-bold" data-testid="text-xp-preview">
-                {Math.floor(parseFloat(gdExchangeAmount || '0') / 10)} XP
-              </span>
-            </div>
-
-            {parseFloat(gdExchangeAmount || '0') > parseFloat(gdBalance?.balanceFormatted?.replace(/,/g, '') || '0') && (
-              <p className="text-xs text-destructive">Insufficient balance</p>
-            )}
-
-            {parseFloat(gdExchangeAmount || '0') < 10 && parseFloat(gdExchangeAmount || '0') > 0 && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">Min: 10 G$</p>
-            )}
-          </div>
-
-          <div className="flex gap-2 pt-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => {
-                setShowGdExchangeDialog(false);
-                setGdExchangeAmount('10');
-              }}
-              disabled={exchangeGdMutation.isPending}
-            >
-              Close
-            </Button>
-            <Button
-              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
-              onClick={() => exchangeGdMutation.mutate(gdExchangeAmount)}
-              disabled={
-                exchangeGdMutation.isPending ||
-                parseFloat(gdExchangeAmount || '0') < 10 ||
-                parseFloat(gdExchangeAmount || '0') > parseFloat(gdBalance?.balanceFormatted?.replace(/,/g, '') || '0')
-              }
-              data-testid="button-confirm-exchange"
-            >
-              {exchangeGdMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                'Buy'
+          ) : (
+            <div className="space-y-3">
+              {/* Daily Limit Info */}
+              {gdDailyStatus && (
+                <div className="p-2 border rounded bg-muted/30 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Daily limit:</span>
+                    <span className="font-mono">{gdDailyStatus.remaining.toFixed(0)} / {gdDailyStatus.dailyLimit} G$ left</span>
+                  </div>
+                </div>
               )}
-            </Button>
-          </div>
+              
+              <div>
+                <div className="relative">
+                  <Input
+                    id="gd-amount"
+                    type="number"
+                    inputMode="decimal"
+                    min="10"
+                    step="10"
+                    max={gdDailyStatus?.remaining || 1000}
+                    value={gdExchangeAmount}
+                    onChange={(e) => setGdExchangeAmount(e.target.value)}
+                    placeholder="Amount"
+                    className="text-lg pr-10"
+                    data-testid="input-gd-exchange-amount"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">G$</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Balance: {gdBalance?.balanceFormatted || '0'} G$
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between p-2 border rounded bg-muted/30">
+                <span className="text-sm text-muted-foreground">You get:</span>
+                <span className="font-mono font-bold" data-testid="text-xp-preview">
+                  {Math.floor(parseFloat(gdExchangeAmount || '0') / 10)} XP
+                </span>
+              </div>
+
+              {parseFloat(gdExchangeAmount || '0') > parseFloat(gdBalance?.balanceFormatted?.replace(/,/g, '') || '0') && (
+                <p className="text-xs text-destructive">Insufficient balance</p>
+              )}
+
+              {parseFloat(gdExchangeAmount || '0') < 10 && parseFloat(gdExchangeAmount || '0') > 0 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">Min: 10 G$</p>
+              )}
+
+              {gdDailyStatus && parseFloat(gdExchangeAmount || '0') > gdDailyStatus.remaining && (
+                <p className="text-xs text-destructive">Exceeds daily limit ({gdDailyStatus.remaining.toFixed(0)} G$ remaining)</p>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowGdExchangeDialog(false);
+                    setGdExchangeAmount('10');
+                  }}
+                  disabled={exchangeGdMutation.isPending}
+                >
+                  Close
+                </Button>
+                <Button
+                  className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+                  onClick={() => exchangeGdMutation.mutate(gdExchangeAmount)}
+                  disabled={
+                    exchangeGdMutation.isPending ||
+                    parseFloat(gdExchangeAmount || '0') < 10 ||
+                    parseFloat(gdExchangeAmount || '0') > parseFloat(gdBalance?.balanceFormatted?.replace(/,/g, '') || '0') ||
+                    (gdDailyStatus && parseFloat(gdExchangeAmount || '0') > gdDailyStatus.remaining)
+                  }
+                  data-testid="button-confirm-exchange"
+                >
+                  {exchangeGdMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    'Buy'
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

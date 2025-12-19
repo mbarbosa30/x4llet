@@ -6250,6 +6250,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== XP EXCHANGE: Buy XP with G$ (10 G$ = 1 XP) =====
+  // Requirements: Face verified + GoodDollar verified + Max 1000 G$ per day
+  const GD_DAILY_LIMIT = BigInt(1000) * BigInt(1e18); // 1000 G$ in raw units (18 decimals)
+  
   app.post('/api/xp/exchange-gd', async (req, res) => {
     try {
       const { address, gdAmount, txHash } = req.body;
@@ -6268,6 +6271,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const normalizedAddress = address.toLowerCase();
 
+      // === VERIFICATION CHECKS ===
+      
+      // 1. Check face verification status
+      const faceVerification = await storage.getFaceVerification(normalizedAddress);
+      if (!faceVerification || faceVerification.status !== 'verified') {
+        return res.status(403).json({ 
+          error: 'Face verification required',
+          code: 'FACE_NOT_VERIFIED',
+          message: 'You must complete Face Check to exchange G$ for XP',
+        });
+      }
+      
+      // 2. Check GoodDollar identity verification
+      const gdIdentity = await storage.getGoodDollarIdentity(normalizedAddress);
+      if (!gdIdentity || !gdIdentity.isWhitelisted) {
+        return res.status(403).json({ 
+          error: 'GoodDollar verification required',
+          code: 'GD_NOT_VERIFIED',
+          message: 'You must verify your GoodDollar identity to exchange G$ for XP',
+        });
+      }
+      
+      // === AMOUNT VALIDATION ===
+      
       // G$ has 18 decimals, so we expect gdAmount in raw units (e.g., "10000000000000000000" = 10 G$)
       // Exchange rate: 10 G$ = 1 XP = 100 centi-XP
       const gdRaw = BigInt(gdAmount);
@@ -6278,6 +6305,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ 
           error: 'Minimum exchange is 10 G$ for 1 XP',
           minGdRequired: '10.00',
+        });
+      }
+      
+      // === DAILY LIMIT CHECK ===
+      
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const dailySpending = await storage.getGdDailySpending(normalizedAddress, today);
+      const currentDailySpent = dailySpending?.gdSpent ?? BigInt(0);
+      const remainingDaily = GD_DAILY_LIMIT - currentDailySpent;
+      
+      if (gdRaw > remainingDaily) {
+        const remainingFormatted = Number(remainingDaily) / 1e18;
+        const spentFormatted = Number(currentDailySpent) / 1e18;
+        return res.status(400).json({ 
+          error: 'Daily limit exceeded',
+          code: 'DAILY_LIMIT_EXCEEDED',
+          message: `Daily limit is 1000 G$. You have spent ${spentFormatted.toFixed(2)} G$ today. Remaining: ${remainingFormatted.toFixed(2)} G$`,
+          dailyLimit: 1000,
+          spent: spentFormatted,
+          remaining: remainingFormatted,
         });
       }
 
@@ -6297,6 +6344,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!result.success) {
         return res.status(500).json({ error: 'Failed to credit XP' });
       }
+      
+      // Record daily spending
+      await storage.recordGdSpending(normalizedAddress, gdRaw, xpCenti);
+      
+      const newDailyTotal = currentDailySpent + gdRaw;
+      const newRemainingDaily = Number(GD_DAILY_LIMIT - newDailyTotal) / 1e18;
 
       res.json({
         success: true,
@@ -6304,10 +6357,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
         xpReceived: xpCenti / 100,
         newXpBalance: result.newBalance / 100,
         txHash,
+        dailySpent: Number(newDailyTotal) / 1e18,
+        dailyRemaining: newRemainingDaily,
       });
     } catch (error) {
       console.error('[XP Exchange] Error:', error);
       res.status(500).json({ error: 'Failed to exchange G$ for XP' });
+    }
+  });
+  
+  // Get G$ daily spending status for a wallet
+  app.get('/api/xp/gd-daily-status/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+      
+      const normalizedAddress = address.toLowerCase();
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Get verification statuses
+      const faceVerification = await storage.getFaceVerification(normalizedAddress);
+      const gdIdentity = await storage.getGoodDollarIdentity(normalizedAddress);
+      const dailySpending = await storage.getGdDailySpending(normalizedAddress, today);
+      
+      const dailyLimitGd = 1000;
+      const spentGd = dailySpending ? Number(dailySpending.gdSpent) / 1e18 : 0;
+      const remainingGd = dailyLimitGd - spentGd;
+      
+      res.json({
+        faceVerified: faceVerification?.status === 'verified',
+        gdVerified: gdIdentity?.isWhitelisted ?? false,
+        eligible: (faceVerification?.status === 'verified') && (gdIdentity?.isWhitelisted ?? false),
+        dailyLimit: dailyLimitGd,
+        spent: spentGd,
+        remaining: Math.max(0, remainingGd),
+        date: today,
+      });
+    } catch (error) {
+      console.error('[XP Exchange] Error getting daily status:', error);
+      res.status(500).json({ error: 'Failed to get daily status' });
     }
   });
 
