@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, type AiConversation, type AiMessage, type IpEvent, type InsertIpEvent, type FaceVerification, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, globalSettings, aiConversations, ipEvents, faceVerifications, gdDailySpending } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, type AiConversation, type AiMessage, type IpEvent, type InsertIpEvent, type FaceVerification, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, globalSettings, aiConversations, ipEvents, faceVerifications, gdDailySpending, usdcDailyRedemptions } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo, gnosis, arbitrum } from 'viem/chains';
@@ -429,6 +429,10 @@ export interface IStorage {
   // G$ Daily Spending methods (1000 G$ per day limit)
   getGdDailySpending(walletAddress: string, date: string): Promise<{ gdSpent: bigint; xpEarned: number } | null>;
   recordGdSpending(walletAddress: string, gdAmountRaw: bigint, xpEarned: number): Promise<{ success: boolean; newDailyTotal: bigint }>;
+  
+  // USDC Daily Redemption methods (max 1 per day)
+  getUsdcDailyRedemption(walletAddress: string, date: string): Promise<{ count: number } | null>;
+  recordUsdcRedemption(walletAddress: string): Promise<{ success: boolean; alreadyRedeemed: boolean }>;
   
   // AI Conversation methods
   getAiConversation(walletAddress: string): Promise<AiConversation | null>;
@@ -1027,6 +1031,14 @@ export class MemStorage implements IStorage {
 
   async recordGdSpending(walletAddress: string, gdAmountRaw: bigint, xpEarned: number): Promise<{ success: boolean; newDailyTotal: bigint }> {
     throw new Error('G$ spending tracking not available in MemStorage');
+  }
+
+  async getUsdcDailyRedemption(walletAddress: string, date: string): Promise<{ count: number } | null> {
+    return null;
+  }
+
+  async recordUsdcRedemption(walletAddress: string): Promise<{ success: boolean; alreadyRedeemed: boolean }> {
+    throw new Error('USDC redemption tracking not available in MemStorage');
   }
 
   async getAiConversation(walletAddress: string): Promise<AiConversation | null> {
@@ -4604,6 +4616,63 @@ export class DbStorage extends MemStorage {
     } catch (error) {
       console.error('[GD Spending] Error recording spending:', error);
       return { success: false, newDailyTotal: BigInt(0) };
+    }
+  }
+
+  async getUsdcDailyRedemption(walletAddress: string, date: string): Promise<{ count: number } | null> {
+    try {
+      const normalized = walletAddress.toLowerCase();
+      const result = await db
+        .select()
+        .from(usdcDailyRedemptions)
+        .where(and(
+          eq(usdcDailyRedemptions.walletAddress, normalized),
+          eq(usdcDailyRedemptions.date, date)
+        ))
+        .limit(1);
+      
+      if (result.length === 0) {
+        return null;
+      }
+      
+      return {
+        count: result[0].redemptionCount,
+      };
+    } catch (error) {
+      console.error('[USDC Redemption] Error getting daily redemption:', error);
+      return null;
+    }
+  }
+
+  async recordUsdcRedemption(walletAddress: string): Promise<{ success: boolean; alreadyRedeemed: boolean }> {
+    const normalized = walletAddress.toLowerCase();
+    const now = new Date();
+    const today = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    try {
+      // Check if already redeemed today
+      const existing = await this.getUsdcDailyRedemption(normalized, today);
+      
+      if (existing && existing.count > 0) {
+        console.log(`[USDC Redemption] Already redeemed today: ${normalized}`);
+        return { success: false, alreadyRedeemed: true };
+      }
+      
+      // Create new redemption record
+      await db.insert(usdcDailyRedemptions).values({
+        walletAddress: normalized,
+        date: today,
+        redemptionCount: 1,
+        xpSpent: 10000, // 100 XP in centi-XP
+        usdcReceived: '1000000', // 1 USDC in micro-USDC
+        createdAt: now,
+      });
+      
+      console.log(`[USDC Redemption] Recorded redemption for ${normalized}`);
+      return { success: true, alreadyRedeemed: false };
+    } catch (error) {
+      console.error('[USDC Redemption] Error recording redemption:', error);
+      return { success: false, alreadyRedeemed: false };
     }
   }
 

@@ -5807,6 +5807,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== XP REDEMPTION: Exchange 100 XP for 1 USDC deposited to Aave on Celo =====
+  // Requires: Face verification + max 1 per day
+  
+  // Status endpoint to check eligibility
+  app.get('/api/xp/usdc-daily-status/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      
+      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+      
+      const normalizedAddress = address.toLowerCase();
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Check face verification status
+      const faceVerification = await storage.getFaceVerification(normalizedAddress);
+      const faceVerified = faceVerification?.status === 'verified';
+      
+      // Check if already redeemed today
+      const dailyRedemption = await storage.getUsdcDailyRedemption(normalizedAddress, today);
+      const alreadyRedeemedToday = (dailyRedemption?.count ?? 0) > 0;
+      
+      const eligible = faceVerified && !alreadyRedeemedToday;
+      
+      res.json({
+        eligible,
+        faceVerified,
+        alreadyRedeemedToday,
+        dailyLimit: 1,
+        remaining: alreadyRedeemedToday ? 0 : 1,
+      });
+    } catch (error) {
+      console.error('[USDC Status] Error:', error);
+      res.status(500).json({ error: 'Failed to check USDC redemption status' });
+    }
+  });
+  
   app.post('/api/xp/redeem', async (req, res) => {
     try {
       const { address } = req.body;
@@ -5819,6 +5856,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Log IP event for sybil detection
       logIpEvent(req, normalizedAddress, 'usdc_redemption');
+
+      // === NEW: Check face verification ===
+      const faceVerification = await storage.getFaceVerification(normalizedAddress);
+      if (!faceVerification || faceVerification.status !== 'verified') {
+        return res.status(403).json({ 
+          error: 'Face verification required',
+          message: 'Complete Face Check in the MaxFlow tab to redeem USDC',
+        });
+      }
+      
+      // === NEW: Check daily limit (max 1 per day) ===
+      const today = new Date().toISOString().split('T')[0];
+      const dailyRedemption = await storage.getUsdcDailyRedemption(normalizedAddress, today);
+      if (dailyRedemption && dailyRedemption.count > 0) {
+        return res.status(403).json({ 
+          error: 'Daily limit reached',
+          message: 'You can only redeem 1 USDC per day. Try again tomorrow.',
+        });
+      }
 
       // Check XP balance (100 XP = 10000 centi-XP)
       const XP_REQUIRED = 10000; // 100 XP in centi-XP
@@ -5948,6 +6004,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`[XP Redeem] Success! 100 XP → 1 aUSDC transferred to ${address}`);
+
+      // Record the redemption for daily limit tracking
+      await storage.recordUsdcRedemption(normalizedAddress);
 
       res.json({
         success: true,

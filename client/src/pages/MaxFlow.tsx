@@ -205,6 +205,20 @@ export default function MaxFlow() {
     staleTime: 30 * 1000, // Refresh every 30 seconds
   });
 
+  // USDC redemption daily limit status (1 per day, requires face verification)
+  const { data: usdcDailyStatus } = useQuery<{
+    eligible: boolean;
+    faceVerified: boolean;
+    alreadyRedeemedToday: boolean;
+    dailyLimit: number;
+    remaining: number;
+  }>({
+    queryKey: ['/api/xp/usdc-daily-status', address],
+    queryFn: () => fetch(`/api/xp/usdc-daily-status/${address}`).then(res => res.json()),
+    enabled: !!address,
+    staleTime: 30 * 1000, // Refresh every 30 seconds
+  });
+
   useEffect(() => {
     if (!pendingFvResult || !address) return;
 
@@ -527,6 +541,7 @@ export default function MaxFlow() {
         description: `1 USDC has been deposited to your savings on Celo.`,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
+      queryClient.invalidateQueries({ queryKey: ['/api/xp/usdc-daily-status', address] });
       await queryClient.refetchQueries({ queryKey: ['/api/aave/balance'] });
       setLocation('/earn');
     },
@@ -1080,8 +1095,8 @@ export default function MaxFlow() {
               
               <Button
                 onClick={() => setShowRedeemConfirm(true)}
-                disabled={(xpData?.totalXp ?? 0) < 100 || redeemXpMutation.isPending}
-                variant={(xpData?.totalXp ?? 0) >= 100 ? "default" : "outline"}
+                disabled={(xpData?.totalXp ?? 0) < 100 || redeemXpMutation.isPending || !usdcDailyStatus?.eligible}
+                variant={(xpData?.totalXp ?? 0) >= 100 && usdcDailyStatus?.eligible ? "default" : "outline"}
                 className="w-full mt-3 disabled:bg-neutral-300 disabled:text-neutral-700 disabled:border-neutral-300"
                 size="lg"
                 data-testid="button-redeem-xp"
@@ -1090,6 +1105,16 @@ export default function MaxFlow() {
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     REDEEMING...
+                  </>
+                ) : usdcDailyStatus?.alreadyRedeemedToday ? (
+                  <>
+                    <Clock className="h-4 w-4 mr-2" />
+                    REDEEMED TODAY
+                  </>
+                ) : !usdcDailyStatus?.faceVerified ? (
+                  <>
+                    <AlertCircle className="h-4 w-4 mr-2" />
+                    FACE CHECK REQUIRED
                   </>
                 ) : (
                   <>
@@ -1443,13 +1468,31 @@ export default function MaxFlow() {
             <AlertDialogDescription className="space-y-2">
               <p>This will deduct 100 XP from your balance and deposit 1 USDC to your savings on Celo.</p>
               <p className="text-sm font-medium">The USDC will appear in your Earn page and start earning yield immediately.</p>
+              <div className="p-2 mt-2 border rounded bg-muted/30 text-xs space-y-1">
+                <div className="flex items-center gap-2">
+                  {usdcDailyStatus?.faceVerified ? (
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                  ) : (
+                    <AlertCircle className="h-3 w-3 text-amber-500" />
+                  )}
+                  <span>Face Check completed</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {!usdcDailyStatus?.alreadyRedeemedToday ? (
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                  ) : (
+                    <AlertCircle className="h-3 w-3 text-amber-500" />
+                  )}
+                  <span>Daily limit: 1 per day</span>
+                </div>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={redeemXpMutation.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={() => redeemXpMutation.mutate()}
-              disabled={redeemXpMutation.isPending}
+              disabled={redeemXpMutation.isPending || !usdcDailyStatus?.eligible}
               data-testid="button-confirm-redeem"
             >
               {redeemXpMutation.isPending ? (
