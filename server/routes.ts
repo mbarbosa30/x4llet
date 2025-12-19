@@ -6253,35 +6253,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Endpoint to get SENADOR price from Uniswap V3 pool on Celo
-  // Pool: SENADOR/USDC - 0x18878177bcd26098bc8c20f8ff6dd4ebd5ce41c3879ba349e323d21307f22546
+  // Endpoint to get SENADOR price from Uniswap V4 pool on Celo
+  // Pool ID: 0x18878177bcd26098bc8c20f8ff6dd4ebd5ce41c3879ba349e323d21307f22546
+  // Uniswap V4 StateView contract on Celo: 0xbc21f8720babf4b20d195ee5c6e99c52b76f2bfb
+  const UNISWAP_V4_STATE_VIEW = '0xbc21f8720babf4b20d195ee5c6e99c52b76f2bfb' as Address;
+  const SENADOR_POOL_ID = '0x18878177bcd26098bc8c20f8ff6dd4ebd5ce41c3879ba349e323d21307f22546' as `0x${string}`;
+  
+  // Pool tokens: SENADOR/USDC (native USDC on Celo)
+  // SENADOR has 18 decimals, USDC has 6 decimals
+  const USDC_CELO_ADDRESS = '0xcebA9300f2b948710d2653dD7B07f33A8B32118C' as Address;
+  const SENADOR_DECIMALS_PRICE = 18;
+  const USDC_DECIMALS = 6;
+  
+  // StateView ABI for getSlot0 - returns sqrtPriceX96, tick, protocolFee, lpFee
+  const STATE_VIEW_ABI = [
+    {
+      name: 'getSlot0',
+      type: 'function',
+      stateMutability: 'view',
+      inputs: [{ name: 'poolId', type: 'bytes32' }],
+      outputs: [
+        { name: 'sqrtPriceX96', type: 'uint160' },
+        { name: 'tick', type: 'int24' },
+        { name: 'protocolFee', type: 'uint24' },
+        { name: 'lpFee', type: 'uint24' },
+      ],
+    },
+  ] as const;
+  
+  // Cache for SENADOR price (5 minutes)
+  let senadorPriceCache: { price: number; priceFormatted: string; updatedAt: Date } | null = null;
+  const SENADOR_PRICE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  
   app.get('/api/senador/price', async (_req, res) => {
     try {
-      // Uniswap V3 pool address for SENADOR/USDC on Celo
-      // This is a pool ID, we need the actual pool contract address
-      // For now, we'll try to get price from the pool
+      // Check cache first
+      if (senadorPriceCache && (Date.now() - senadorPriceCache.updatedAt.getTime()) < SENADOR_PRICE_CACHE_TTL) {
+        console.log('[SENADOR Price] Returning cached price:', senadorPriceCache.priceFormatted);
+        return res.json({
+          price: senadorPriceCache.price,
+          priceFormatted: senadorPriceCache.priceFormatted,
+          source: 'uniswap_v4_cache',
+          cachedAt: senadorPriceCache.updatedAt.toISOString(),
+        });
+      }
+      
       const CELO_CHAIN_ID = 42220;
       const network = getNetworkByChainId(CELO_CHAIN_ID);
       
       if (!network) {
-        return res.json({ price: 0, priceFormatted: 'N/A', source: 'unavailable' });
+        return res.json({ price: 0, priceFormatted: 'N/A', source: 'network_unavailable' });
       }
 
       const chainInfo = resolveChain(CELO_CHAIN_ID);
       if (!chainInfo) {
-        return res.json({ price: 0, priceFormatted: 'N/A', source: 'unavailable' });
+        return res.json({ price: 0, priceFormatted: 'N/A', source: 'chain_unavailable' });
       }
 
-      // For now, return price unavailable since we need the actual pool contract
-      // The pool ID provided is a Uniswap identifier, not a contract address
-      // TODO: Query Uniswap subgraph or find pool contract address
+      const publicClient = createPublicClient({
+        chain: chainInfo.viemChain,
+        transport: http(network.rpcUrl),
+      });
+
+      // Read pool slot0 from StateView contract
+      const [sqrtPriceX96, tick] = await publicClient.readContract({
+        address: UNISWAP_V4_STATE_VIEW,
+        abi: STATE_VIEW_ABI,
+        functionName: 'getSlot0',
+        args: [SENADOR_POOL_ID],
+      });
+
+      console.log(`[SENADOR Price] sqrtPriceX96: ${sqrtPriceX96}, tick: ${tick}`);
+
+      // Convert sqrtPriceX96 to price
+      // Formula: price = (sqrtPriceX96 / 2^96)^2
+      // This gives price of token1 in terms of token0
+      const Q96 = BigInt(2) ** BigInt(96);
+      const sqrtPrice = Number(sqrtPriceX96) / Number(Q96);
+      const rawPrice = sqrtPrice * sqrtPrice;
+      
+      // Adjust for decimals: price * 10^(decimals0 - decimals1)
+      // Token ordering in Uniswap: token0 < token1 by address (lexicographic)
+      // SENADOR: 0xc48d80f75bef8723226dcac5e61304df7277d2a2
+      // USDC: 0xcebA9300f2b948710d2653dD7B07f33A8B32118C
+      // Comparing: 0xc48... < 0xceb... so SENADOR is token0, USDC is token1
+      // sqrtPriceX96 gives price of token1 in terms of token0
+      // So rawPrice = USDC per SENADOR (what we want - price of SENADOR in USDC)
+      
+      // Apply decimal adjustment: rawPrice * 10^(decimals0 - decimals1) = rawPrice * 10^(18-6) = rawPrice * 10^12
+      const finalPrice = rawPrice * Math.pow(10, SENADOR_DECIMALS_PRICE - USDC_DECIMALS);
+      
+      console.log(`[SENADOR Price] Raw price: ${rawPrice}, Adjusted (SENADOR in USDC): ${finalPrice}`);
+
+      // Update cache
+      senadorPriceCache = {
+        price: finalPrice,
+        priceFormatted: finalPrice < 0.01 ? finalPrice.toFixed(6) : finalPrice.toFixed(4),
+        updatedAt: new Date(),
+      };
+
       res.json({
-        price: 0,
-        priceFormatted: 'N/A',
-        source: 'pool_lookup_pending',
+        price: finalPrice,
+        priceFormatted: senadorPriceCache.priceFormatted,
+        source: 'uniswap_v4',
+        sqrtPriceX96: sqrtPriceX96.toString(),
+        tick,
       });
     } catch (error) {
       console.error('[SENADOR Price] Error:', error);
+      
+      // Return cached price if available, even if stale
+      if (senadorPriceCache) {
+        return res.json({
+          price: senadorPriceCache.price,
+          priceFormatted: senadorPriceCache.priceFormatted,
+          source: 'uniswap_v4_stale_cache',
+          cachedAt: senadorPriceCache.updatedAt.toISOString(),
+        });
+      }
+      
       res.json({
         price: 0,
         priceFormatted: 'N/A',

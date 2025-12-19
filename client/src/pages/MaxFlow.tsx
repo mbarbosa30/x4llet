@@ -578,6 +578,17 @@ export default function MaxFlow() {
     staleTime: 60 * 1000,
   });
 
+  // Fetch SENADOR price from Uniswap V4 pool
+  const { data: senadorPrice, isLoading: isLoadingSenadorPrice } = useQuery<{
+    price: number;
+    priceFormatted: string;
+    source: string;
+  }>({
+    queryKey: ['/api/senador/price'],
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  });
+
   const redeemSenadorMutation = useMutation({
     mutationFn: async (xpAmount: number) => {
       return apiRequest('POST', '/api/xp/redeem-senador', { address, xpAmount });
@@ -1154,9 +1165,16 @@ export default function MaxFlow() {
                 </div>
               </div>
 
-              <p className="text-xs text-muted-foreground">
-                Experimental token on Celo. 1 XP = 1 SENADOR. Not financial advice.
-              </p>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Experimental token on Celo. 1 XP = 1 SENADOR.</span>
+                {senadorPrice && senadorPrice.price > 0 ? (
+                  <span className="font-mono text-foreground" data-testid="text-senador-price">
+                    ${senadorPrice.priceFormatted}
+                  </span>
+                ) : isLoadingSenadorPrice ? (
+                  <span className="font-mono">--</span>
+                ) : null}
+              </div>
 
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
