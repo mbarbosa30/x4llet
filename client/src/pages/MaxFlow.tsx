@@ -1150,19 +1150,25 @@ export default function MaxFlow() {
                   <span className="font-medium">SENADOR</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  {isLoadingSenador ? (
+                  {isLoadingSenador || isLoadingSenadorPrice ? (
                     <span className="font-mono font-bold">--</span>
-                  ) : (
+                  ) : senadorData?.balance && senadorData.balance > 0n ? (
                     <div className="text-right">
                       <span className="font-mono font-bold" data-testid="text-senador-balance">
-                        {senadorData?.balanceFormatted ?? '0'}
+                        {senadorData.balanceFormatted}
                       </span>
-                      {senadorPrice && senadorPrice.price > 0 && senadorData?.balance && senadorData.balance > 0n ? (
+                      {senadorPrice && senadorPrice.price > 0 && (
                         <div className="text-xs text-muted-foreground font-mono" data-testid="text-senador-value">
                           ${(Number(senadorData.balance) / 1e18 * senadorPrice.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
-                      ) : null}
+                      )}
                     </div>
+                  ) : senadorPrice && senadorPrice.price > 0 ? (
+                    <span className="font-mono text-muted-foreground" data-testid="text-senador-price">
+                      ${senadorPrice.priceFormatted}
+                    </span>
+                  ) : (
+                    <span className="font-mono font-bold">0</span>
                   )}
                   <Link href="/faqs#senador-token">
                     <Button variant="ghost" size="icon" className="h-7 w-7" data-testid="button-senador-info">
