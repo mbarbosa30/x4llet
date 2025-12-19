@@ -139,7 +139,7 @@ interface BlockExplorerTx {
 }
 
 // Parse transaction response from any Etherscan-compatible API
-function parseTransactionResponse(data: any, address: string, chainName: string): Transaction[] {
+function parseTransactionResponse(data: any, address: string, chainName: string, tokenType: string = 'USDC'): Transaction[] {
   if (data.status !== '1' || !data.result) {
     return [];
   }
@@ -151,13 +151,6 @@ function parseTransactionResponse(data: any, address: string, chainName: string)
     
     const isSend = normalizedFrom === normalizedWallet;
     const amount = tx.value;
-
-    console.log(`[Transaction Type Detection] TX ${tx.hash.slice(0, 10)}...`);
-    console.log(`  Wallet: ${normalizedWallet}`);
-    console.log(`  From:   ${normalizedFrom}`);
-    console.log(`  To:     ${normalizedTo}`);
-    console.log(`  Type:   ${isSend ? 'SEND' : 'RECEIVE'}`);
-    console.log(`  Amount: ${amount} micro-USDC`);
 
     return {
       id: tx.hash,
@@ -171,104 +164,161 @@ function parseTransactionResponse(data: any, address: string, chainName: string)
     } as Transaction;
   });
 
-  console.log(`[Explorer] Found ${transactions.length} ${chainName} transactions`);
+  console.log(`[Explorer] Found ${transactions.length} ${chainName} ${tokenType} transactions`);
   return transactions;
 }
 
-// Etherscan v2 unified API with chain-specific fallback for rate limit resilience
-async function fetchTransactionsFromEtherscan(address: string, chainId: number): Promise<Transaction[]> {
-  const etherscanApiKey = process.env.ETHERSCAN_API_KEY;
-  
-  // Map chainId to USDC contract address
-  const usdcAddresses: Record<number, string> = {
-    8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',  // Base mainnet
-    42220: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C',  // Celo mainnet
-    100: '0x2a22f9c3b484c3629090FeED35F17Ff8F88f76F0',  // Gnosis USDC.e (Circle standard)
-    42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',  // Arbitrum native USDC
-  };
+// Token contract addresses
+const TOKEN_ADDRESSES: Record<number, { usdc: string; senador?: string }> = {
+  8453: { usdc: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },  // Base mainnet
+  42220: { 
+    usdc: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C',  // Celo mainnet USDC
+    senador: '0xc48d80f75bef8723226dcac5e61304df7277d2a2',  // SENADOR token on Celo
+  },
+  100: { usdc: '0x2a22f9c3b484c3629090FeED35F17Ff8F88f76F0' },  // Gnosis USDC.e
+  42161: { usdc: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' },  // Arbitrum native USDC
+};
 
-  const usdcAddress = usdcAddresses[chainId];
-  if (!usdcAddress) {
+// Chain-specific API configuration
+const CHAIN_APIS: Record<number, { url: string; keyEnv: string; name: string }> = {
+  8453: { url: 'https://api.basescan.org/api', keyEnv: 'BASESCAN_API_KEY', name: 'BaseScan' },
+  42220: { url: 'https://api.celoscan.io/api', keyEnv: 'CELOSCAN_API_KEY', name: 'CeloScan' },
+  100: { url: 'https://api.gnosisscan.io/api', keyEnv: 'GNOSISSCAN_API_KEY', name: 'GnosisScan' },
+  42161: { url: 'https://api.arbiscan.io/api', keyEnv: 'ARBISCAN_API_KEY', name: 'Arbiscan' },
+};
+
+// Helper to fetch token transactions from Etherscan v2 or chain-specific API
+async function fetchTokenTransactions(
+  address: string, 
+  chainId: number, 
+  contractAddress: string, 
+  tokenType: string
+): Promise<Transaction[]> {
+  const etherscanApiKey = process.env.ETHERSCAN_API_KEY;
+  const chainName = chainId === 8453 ? 'Base' : chainId === 42220 ? 'Celo' : chainId === 100 ? 'Gnosis' : chainId === 42161 ? 'Arbitrum' : `Chain ${chainId}`;
+
+  // Try Etherscan v2 API first
+  if (etherscanApiKey) {
+    const url = `https://api.etherscan.io/v2/api?chainid=${chainId}&module=account&action=tokentx&contractaddress=${contractAddress}&address=${address}&sort=desc&apikey=${etherscanApiKey}`;
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.status === '1' && data.result) {
+        const txs = parseTransactionResponse(data, address, chainName, tokenType);
+        if (txs.length > 0) return txs;
+      }
+    } catch (error) {
+      console.log(`[Etherscan v2] ${chainName} ${tokenType} request failed - trying fallback`);
+    }
+  }
+
+  // Fallback to chain-specific API
+  const chainApi = CHAIN_APIS[chainId];
+  if (!chainApi) return [];
+
+  const chainApiKey = process.env[chainApi.keyEnv];
+  if (!chainApiKey) return [];
+
+  try {
+    const url = `${chainApi.url}?module=account&action=tokentx&contractaddress=${contractAddress}&address=${address}&sort=desc&apikey=${chainApiKey}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (data.status === '1' && data.result) {
+      return parseTransactionResponse(data, address, chainName, tokenType);
+    }
+  } catch (error) {
+    console.error(`[${chainApi.name}] Error fetching ${tokenType} transactions:`, error);
+  }
+  return [];
+}
+
+// Helper to fetch native token transactions (ETH, CELO, xDAI)
+async function fetchNativeTransactions(address: string, chainId: number): Promise<Transaction[]> {
+  const etherscanApiKey = process.env.ETHERSCAN_API_KEY;
+  const chainName = chainId === 8453 ? 'Base' : chainId === 42220 ? 'Celo' : chainId === 100 ? 'Gnosis' : chainId === 42161 ? 'Arbitrum' : `Chain ${chainId}`;
+  const nativeToken = chainId === 42220 ? 'CELO' : chainId === 100 ? 'xDAI' : 'ETH';
+
+  // Try Etherscan v2 API first
+  if (etherscanApiKey) {
+    const url = `https://api.etherscan.io/v2/api?chainid=${chainId}&module=account&action=txlist&address=${address}&sort=desc&apikey=${etherscanApiKey}`;
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.status === '1' && data.result) {
+        // Filter out zero-value transactions (contract calls without value transfer)
+        const filtered = { ...data, result: data.result.filter((tx: any) => tx.value !== '0') };
+        const txs = parseTransactionResponse(filtered, address, chainName, nativeToken);
+        if (txs.length > 0) return txs;
+      }
+    } catch (error) {
+      console.log(`[Etherscan v2] ${chainName} ${nativeToken} request failed - trying fallback`);
+    }
+  }
+
+  // Fallback to chain-specific API
+  const chainApi = CHAIN_APIS[chainId];
+  if (!chainApi) return [];
+
+  const chainApiKey = process.env[chainApi.keyEnv];
+  if (!chainApiKey) return [];
+
+  try {
+    const url = `${chainApi.url}?module=account&action=txlist&address=${address}&sort=desc&apikey=${chainApiKey}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (data.status === '1' && data.result) {
+      // Filter out zero-value transactions
+      const filtered = { ...data, result: data.result.filter((tx: any) => tx.value !== '0') };
+      return parseTransactionResponse(filtered, address, chainName, nativeToken);
+    }
+  } catch (error) {
+    console.error(`[${chainApi.name}] Error fetching ${nativeToken} transactions:`, error);
+  }
+  return [];
+}
+
+// Etherscan v2 unified API with chain-specific fallback for rate limit resilience
+// Now fetches USDC, SENADOR (on Celo), and native token transactions
+async function fetchTransactionsFromEtherscan(address: string, chainId: number): Promise<Transaction[]> {
+  const tokens = TOKEN_ADDRESSES[chainId];
+  if (!tokens) {
     console.error(`[Explorer] Unsupported chainId: ${chainId}`);
     return [];
   }
 
   const chainName = chainId === 8453 ? 'Base' : chainId === 42220 ? 'Celo' : chainId === 100 ? 'Gnosis' : chainId === 42161 ? 'Arbitrum' : `Chain ${chainId}`;
+  console.log(`[Explorer] Fetching all transactions for ${address} on ${chainName}`);
 
-  // Try unified Etherscan v2 API first (if API key available)
-  if (etherscanApiKey) {
-    const unifiedUrl = `https://api.etherscan.io/v2/api?chainid=${chainId}&module=account&action=tokentx&contractaddress=${usdcAddress}&address=${address}&sort=desc&apikey=${etherscanApiKey}`;
-    
-    try {
-      console.log(`[Etherscan v2] Fetching ${chainName} transactions for ${address}`);
-      const response = await fetch(unifiedUrl);
-      const data = await response.json();
+  // Fetch all transaction types in parallel
+  const fetchPromises: Promise<Transaction[]>[] = [
+    fetchTokenTransactions(address, chainId, tokens.usdc, 'USDC'),
+    fetchNativeTransactions(address, chainId),
+  ];
 
-      if (data.status === '1' && data.result) {
-        const transactions = parseTransactionResponse(data, address, chainName);
-        if (transactions.length > 0) {
-          return transactions;
-        }
+  // Add SENADOR fetch for Celo
+  if (tokens.senador) {
+    fetchPromises.push(fetchTokenTransactions(address, chainId, tokens.senador, 'SENADOR'));
+  }
+
+  const results = await Promise.all(fetchPromises);
+  
+  // Merge and deduplicate by txHash
+  const txMap = new Map<string, Transaction>();
+  for (const txList of results) {
+    for (const tx of txList) {
+      if (tx.txHash && !txMap.has(tx.txHash)) {
+        txMap.set(tx.txHash, tx);
       }
-      console.log(`[Etherscan v2] ${chainName} API returned: ${data.message || 'no results'} - trying chain-specific fallback`);
-    } catch (error) {
-      console.log(`[Etherscan v2] ${chainName} request failed - trying chain-specific fallback`);
     }
   }
 
-  // Fallback to chain-specific APIs for better rate limit handling
-  const chainSpecificApis: Record<number, { url: string; keyEnv: string; name: string }> = {
-    8453: {
-      url: 'https://api.basescan.org/api',
-      keyEnv: 'BASESCAN_API_KEY',
-      name: 'BaseScan',
-    },
-    42220: {
-      url: 'https://api.celoscan.io/api',
-      keyEnv: 'CELOSCAN_API_KEY',
-      name: 'CeloScan',
-    },
-    100: {
-      url: 'https://api.gnosisscan.io/api',
-      keyEnv: 'GNOSISSCAN_API_KEY',
-      name: 'GnosisScan',
-    },
-    42161: {
-      url: 'https://api.arbiscan.io/api',
-      keyEnv: 'ARBISCAN_API_KEY',
-      name: 'Arbiscan',
-    },
-  };
+  // Sort by timestamp (newest first)
+  const allTransactions = Array.from(txMap.values()).sort((a, b) => 
+    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
 
-  const chainApi = chainSpecificApis[chainId];
-  if (!chainApi) {
-    console.log(`[Explorer] No chain-specific fallback for chainId ${chainId}`);
-    return [];
-  }
-
-  const chainApiKey = process.env[chainApi.keyEnv];
-  if (!chainApiKey) {
-    console.log(`[${chainApi.name}] No API key (${chainApi.keyEnv}) - cannot fetch transactions`);
-    return [];
-  }
-
-  const fallbackUrl = `${chainApi.url}?module=account&action=tokentx&contractaddress=${usdcAddress}&address=${address}&sort=desc&apikey=${chainApiKey}`;
-
-  try {
-    console.log(`[${chainApi.name}] Fetching ${chainName} transactions (fallback)`);
-    const response = await fetch(fallbackUrl);
-    const data = await response.json();
-
-    if (data.status === '1' && data.result) {
-      return parseTransactionResponse(data, address, chainName);
-    }
-    
-    console.log(`[${chainApi.name}] No transactions found or API error:`, data.message);
-    return [];
-  } catch (error) {
-    console.error(`[${chainApi.name}] Error fetching transactions:`, error);
-    return [];
-  }
+  console.log(`[Explorer] Total ${allTransactions.length} transactions for ${address} on ${chainName}`);
+  return allTransactions;
 }
 
 export interface MaxFlowScore {
