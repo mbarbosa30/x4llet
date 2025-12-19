@@ -98,12 +98,9 @@ export default function Home() {
 
   const { data: exchangeRate } = useExchangeRate(currency, { skipUsd: false });
 
-  // Fetch Aave balance when earn mode is enabled (no polling)
-  const { data: aaveBalance } = useAaveBalance(address, earnMode);
-  
-  // Always fetch Aave balance for onboarding check (regardless of earnMode)
-  // This ensures we check on-chain savings even if user hasn't enabled earn mode
-  const { data: aaveBalanceForOnboarding, isLoading: isLoadingAaveBalance } = useAaveBalance(address, true);
+  // Fetch Aave balance once - used for both earn mode display and onboarding check
+  // Single query reduces API calls and page load time
+  const { data: aaveBalance, isLoading: isLoadingAaveBalance } = useAaveBalance(address, true);
 
   // Fetch GoodDollar identity status
   const { data: gdIdentity } = useQuery<IdentityStatus>({
@@ -178,8 +175,8 @@ export default function Home() {
 
   const transactions = allTransactions || [];
 
-  // Determine if user has any funds (USDC or Aave savings) - use always-fetched aUSDC for accuracy
-  const hasFunds = parseFloat(balance || '0') > 0 || parseFloat(aaveBalanceForOnboarding?.totalAUsdcBalance ?? '0') > 0;
+  // Determine if user has any funds (USDC or Aave savings)
+  const hasFunds = parseFloat(balance || '0') > 0 || parseFloat(aaveBalance?.totalAUsdcBalance ?? '0') > 0;
   const hasTransactions = transactions.length > 0;
   const isFaceChecked = faceVerificationStatus?.verified || false;
   

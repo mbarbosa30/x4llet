@@ -55,7 +55,10 @@ export function useDashboard(address: string | null) {
   return useQuery<DashboardData>({
     queryKey: ['/api/dashboard', address],
     enabled: !!address,
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 2 * 60 * 1000, // 2 minutes - reduce refetches
+    gcTime: 5 * 60 * 1000, // 5 minutes garbage collection
+    refetchOnWindowFocus: false, // Don't refetch when tab regains focus
+    refetchOnReconnect: false, // Don't refetch on network reconnect
     placeholderData: keepPreviousData, // Show cached data while refreshing
     queryFn: async () => {
       const res = await fetch(`/api/dashboard/${address}`);
