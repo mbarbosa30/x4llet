@@ -1106,12 +1106,17 @@ export default function MaxFlow() {
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     REDEEMING...
                   </>
-                ) : usdcDailyStatus?.alreadyRedeemedToday ? (
+                ) : !usdcDailyStatus ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    CHECKING...
+                  </>
+                ) : usdcDailyStatus.alreadyRedeemedToday ? (
                   <>
                     <Clock className="h-4 w-4 mr-2" />
                     REDEEMED TODAY
                   </>
-                ) : !usdcDailyStatus?.faceVerified ? (
+                ) : !usdcDailyStatus.faceVerified ? (
                   <>
                     <AlertCircle className="h-4 w-4 mr-2" />
                     FACE CHECK REQUIRED
