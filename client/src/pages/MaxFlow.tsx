@@ -1153,9 +1153,16 @@ export default function MaxFlow() {
                   {isLoadingSenador ? (
                     <span className="font-mono font-bold">--</span>
                   ) : (
-                    <span className="font-mono font-bold" data-testid="text-senador-balance">
-                      {senadorData?.balanceFormatted ?? '0'}
-                    </span>
+                    <div className="text-right">
+                      <span className="font-mono font-bold" data-testid="text-senador-balance">
+                        {senadorData?.balanceFormatted ?? '0'}
+                      </span>
+                      {senadorPrice && senadorPrice.price > 0 && senadorData?.balance && senadorData.balance > 0n ? (
+                        <div className="text-xs text-muted-foreground font-mono" data-testid="text-senador-value">
+                          ${(Number(senadorData.balance) / 1e18 * senadorPrice.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                      ) : null}
+                    </div>
                   )}
                   <Link href="/faqs#senador-token">
                     <Button variant="ghost" size="icon" className="h-7 w-7" data-testid="button-senador-info">
@@ -1169,7 +1176,7 @@ export default function MaxFlow() {
                 <span>Experimental token on Celo. 1 XP = 1 SENADOR.</span>
                 {senadorPrice && senadorPrice.price > 0 ? (
                   <span className="font-mono text-foreground" data-testid="text-senador-price">
-                    ${senadorPrice.priceFormatted}
+                    1 = ${senadorPrice.priceFormatted}
                   </span>
                 ) : isLoadingSenadorPrice ? (
                   <span className="font-mono">--</span>
