@@ -519,3 +519,18 @@ export const insertFaceVerificationSchema = createInsertSchema(faceVerifications
   createdAt: true,
 });
 export type InsertFaceVerification = z.infer<typeof insertFaceVerificationSchema>;
+
+// Daily G$ to XP exchange tracking (1000 G$ per day limit)
+export const gdDailySpending = pgTable("gd_daily_spending", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: text("wallet_address").notNull(),
+  date: text("date").notNull(), // YYYY-MM-DD format for easy daily tracking
+  gdSpent: text("gd_spent").notNull().default('0'), // Amount spent in raw units (18 decimals)
+  xpEarned: integer("xp_earned").notNull().default(0), // XP earned in centi-XP
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  walletDateUnique: unique().on(table.walletAddress, table.date),
+}));
+
+export type GdDailySpending = typeof gdDailySpending.$inferSelect;
