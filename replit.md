@@ -1,63 +1,33 @@
 # nanoPay - Lightweight Crypto Wallet PWA
 
 ## Overview
-nanoPay is a minimalist Progressive Web App (PWA) designed for managing cryptocurrency wallets, with a primary focus on gasless USDC transfers. It aims to provide a performant, accessible, and offline-first solution for low-bandwidth environments. Key capabilities include secure local key storage with encrypted cloud backups, gasless transactions on Base, Celo, and Gnosis via EIP-3009, and network signal scoring for anti-sybil and reputation building. The project's ambition is to deliver a robust and efficient crypto wallet.
+nanoPay is a minimalist Progressive Web App (PWA) for managing cryptocurrency wallets, focusing on gasless USDC transfers. It aims to be performant, accessible, and offline-first for low-bandwidth environments. Key features include secure local key storage with encrypted cloud backups, gasless transactions on Base, Celo, Gnosis, and Arbitrum via EIP-3009, and network signal scoring for anti-sybil measures and reputation building. The project's ambition is to deliver a robust and efficient crypto wallet.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes
-- **2025-12-20**: Passive texture analysis for face verification - Detects photo/screen attacks using moiré pattern detection (periodic patterns from screen pixels) and Laplacian variance analysis (texture flatness). Runs every other frame at 128x128 for <5ms/frame performance. Currently in DATA GATHERING mode (logs but never blocks XP) - set `TEXTURE_ANALYSIS_BLOCKING=true` to enable blocking. Conservative thresholds (moiré >0.70 AND variance <0.06 AND confidence ≥0.75) require both indicators. All metrics logged in qualityMetrics JSON for tuning. State resets between verification sessions.
-- **2025-12-19**: Expanded transaction tracking - Transaction count on landing page now includes SENADOR token (Celo), and native gas tokens (ETH on Base/Arbitrum, CELO on Celo, xDAI on Gnosis) in addition to USDC. Uses parallel API calls to Etherscan for USDC tokens, SENADOR, and native transactions, with deduplication by txHash. Note: Volume calculations may mix different token units (pending schema update to track token type).
-- **2025-12-19**: SENADOR price display - Shows live Uniswap V4 pool price from Celo. When balance is 0, shows price instead of "0". When balance > 0, shows balance with total USD value.
-- **2025-12-19**: Dashboard performance optimization - Transaction caching now uses stale-while-revalidate pattern (60s stale threshold, 5min hard TTL). Returns cached data immediately and refreshes Etherscan API in background. Frontend useDashboard hook increased staleTime to 2 minutes, disabled refetchOnWindowFocus/refetchOnReconnect. Consolidated duplicate Aave balance calls in Home.tsx from 2 to 1. Combined with earlier getAllBalances optimization, these changes significantly reduce page load time for returning users.
-- **2025-12-19**: USDC redemption daily limits - Added max 1 USDC redemption per day per wallet. Requires Face Check verification (status='verified'). New `usdc_daily_redemptions` table tracks daily redemptions. New `/api/xp/usdc-daily-status/:address` endpoint returns eligibility info. Frontend shows eligibility requirements (Face Check + daily limit) with checkmarks/warnings, button states change based on verification and daily limit status.
-- **2025-12-19**: G$ to XP exchange daily limits - Added 1000 G$ per day limit per wallet for G$ to XP exchanges. Requires dual verification: Face Check (face-api.js) AND GoodDollar identity. New `gd_daily_spending` table tracks daily spending. Frontend shows eligibility requirements and remaining daily allowance. Prevents abuse while rewarding verified users.
-- **2025-12-17**: Fixed session timeout issues - Changed default auto-lock from 15 minutes to 0 (never auto-lock, only on tab close). When value is 0, no idle timer runs and no expiry is stored in sessionStorage, so sessions persist until the browser tab is closed. User can still configure 5/15/30/60 min timeouts in Settings.
-- **2025-12-17**: Database performance optimization - Implemented `getAllBalances()` method that fetches all 4 chains' cached balances in ONE database query (vs 4 separate queries before). Background refresh now triggers once per address instead of per chain. Reduced database operations per page load from 8 to 2 (~75% reduction). Uses stale-while-revalidate pattern: return cached data immediately (<2min), trigger background refresh only after 30s.
-- **2025-12-16**: Face recognition upgrade - Replaced MediaPipe landmarks (204D geometric positions) with face-api.js neural network embeddings (128D identity descriptors). MediaPipe landmarks only captured facial geometry which was nearly identical for all faces (0.97+ similarity). face-api.js uses a trained neural network to capture actual identity features with typical same-person similarity 0.7-0.9 and different-person 0.2-0.5. MediaPipe still used for liveness detection (blink, head turn). Models loaded from CDN: tinyFaceDetector, faceLandmark68Net, faceRecognitionNet.
-- **2025-12-16**: Face verification admin tools - Added admin buttons to delete legacy face verification records (without embeddings) or all records. Traction page now shows status-specific icons: green checkmark for verified, red X for duplicate detection, amber warning for failed. Admin deletion endpoints protected with auth middleware.
-- **2025-12-16**: MaxFlow page restructured into MaxFlow and GoodDollar tabs. MaxFlow tab contains: score display, Face Check (non-GD users), vouch section, XP claim, USDC redemption (100 XP = 1 USDC), SENADOR exchange. GoodDollar tab contains: identity verification, G$ balance, claim G$ with countdown, buy XP with G$ (10 G$ = 1 XP). Circles page removed (link added to FAQs instead). Tab state persists via localStorage with URL query param support (`?tab=maxflow` or `?tab=gooddollar`).
-- **2025-12-16**: Face Check liveness verification - Added client-side face verification using MediaPipe Face Landmarker (CDN-loaded). Collapsible card in MaxFlow page with blink and head turn challenges. Face embeddings hashed (SHA-256) for privacy and stored in `face_verifications` table. Awards 120 XP on successful verification. Duplicate face detection feeds into sybil scoring (+3 points for same face on different devices). API endpoints: `GET /api/face-verification/:address`, `POST /api/face-verification/submit`.
-- **2025-12-16**: Sybil detection exemptions - Added two automatic exemptions to reduce false positives: (1) GoodDollar verified wallets are never flagged (proven humans via face verification), (2) Small clusters (≤3 wallets per device) are exempt (allows for lost wallet recovery and experimentation). Public API `/api/public/v1/flagged-wallets` now only returns actually flagged wallets (not exempt ones), with `clusterSize` field and `exemptionRules` documentation. Admin panel shows both flagged and exempt wallets with color-coded status.
-- **2025-12-16**: Public Sybil API - Added `/api/public/v1/flagged-wallets` endpoint for MaxFlow integration. Returns all flagged wallets with scores, signals, and match counts. Features optional API key auth (SYBIL_API_KEY env var), rate limiting (60 req/min), and 5-minute caching. Threshold set to ≥5 points (requires stronger signal combinations like IP+Token+UA).
-- **2025-12-13**: GoodDollar claim fix - Fixed checkEntitlement contract calls (using `args: [address]` for address-parameter overload instead of `account:`), fixed lastClaimed timestamp interpretation (converts Unix timestamp to day number using periodStart), and updated BUILD_VERSION for cache invalidation.
-- **2025-12-09**: Gas scanner implementation - tracks facilitator gas costs across all chains (Base, Celo, Gnosis, Arbitrum) using Etherscan v2 API. Fetches native token prices from CoinGecko, converts to USD, and displays "Gas Sponsored" metric on landing page. Runs hourly via scheduler with incremental block tracking per chain.
-- **2025-12-09**: Brutalist UI design refresh - cream background (#F4F4F1), 0px border radius, hard offset shadows (4px 4px black), IBM Plex Mono for labels. Created responsive desktop landing page with hero section, phone mockup, feature highlights. Simplified BalanceCard with cleaner styling and chain breakdown. Increased touch targets in BottomNav (icons to h-5).
-- **2025-12-09**: Performance optimizations via code splitting - lazy-loaded Admin, Dashboard, HowItWorks, Faqs, Context pages using React.lazy(). QRScanner component also lazy-loaded in Send, MaxFlow, and Claim pages to reduce initial bundle size for regular wallet users.
-- **2025-12-09**: Added session persistence - wallet stays unlocked across page refreshes. DEK stored in sessionStorage with configurable auto-lock timer (5/15/30/60 min or tab close). UX/security trade-off documented: sessionStorage cleared on tab close, idle timeout limits exposure, device lock is primary security layer.
-- **2025-12-08**: Fixed service worker caching issue causing blank pages for returning users. Service worker now fetches version from `/api/version` endpoint to dynamically name caches, uses network-first strategy for JS/CSS assets, and prompts users to reload when updates are available.
-- **2025-12-08**: Added Arbitrum network support (chainId: 42161) with native USDC and Aave V3 integration. Includes balance fetching, transaction history, and gasless transfers via EIP-3009.
-- **2025-12-08**: Fixed GoodDollar claim recording bug - corrected apiRequest function calls to use proper (method, url, data) signature instead of (url, options).
-
-## Deployment Requirements
-**Important**: Before each deployment, update `BUILD_VERSION` in `server/routes.ts` (line ~142) to a new timestamp. This triggers cache invalidation for returning users, ensuring they receive fresh assets instead of stale cached bundles.
-
 ## System Architecture
 
 ### Frontend
-The frontend is built with React 18, TypeScript, Vite, Wouter, TanStack Query, Shadcn UI, and Tailwind CSS. It features a mobile-optimized PWA design with a fixed header/footer and content limited to 448px. State management utilizes IndexedDB for local key storage and TanStack Query for API data caching. It supports multi-chain balance aggregation, merged transaction history, and currency auto-detection via IP geolocation or browser locale.
+Built with React 18, TypeScript, Vite, Wouter, TanStack Query, Shadcn UI, and Tailwind CSS. It features a mobile-optimized PWA design, utilizing IndexedDB for local key storage and TanStack Query for API data caching. It supports multi-chain balance aggregation, merged transaction history, and currency auto-detection. The UI uses a Brutalist design refresh with a cream background, 0px border radius, and hard offset shadows.
 
 ### Backend
-The backend uses Express.js (TypeScript), Drizzle ORM, and PostgreSQL (via Neon serverless adapter). It provides APIs for multi-chain balance and transaction history, and a production-ready EIP-3009 facilitator for gasless USDC transfers on Base, Celo, and Gnosis. Transaction history is retrieved using Etherscan v2 unified API with chain-specific fallbacks. All USDC amounts are handled with BigInt for precision.
+Uses Express.js (TypeScript), Drizzle ORM, and PostgreSQL (via Neon serverless adapter). It provides APIs for multi-chain balance and transaction history, and a production-ready EIP-3009 facilitator for gasless USDC transfers across supported networks. Transaction history is primarily sourced from Etherscan v2 API. All USDC amounts are handled with BigInt for precision.
 
 ### Cryptographic Architecture
-Wallet generation uses `viem` for secp256k1 private keys, encrypted with WebCrypto API (AES-GCM with PBKDF2) and stored in IndexedDB. EIP-712 typed data signing enables gasless transfers. Session persistence stores the DEK in sessionStorage (UX/security trade-off: survives page refreshes until tab close or idle timeout; XSS risk accepted, device lock is primary protection). WebAuthn passkey support is integrated for biometric unlock, using a Data Encryption Key (DEK) pattern with PRF extension for secure key derivation. Auto-lock timer (configurable: 0/5/15/30/60 min) clears session on inactivity; default is 0 (never auto-lock until tab closes).
+Wallet generation uses `viem` for secp256k1 private keys, encrypted with WebCrypto API (AES-GCM with PBKDF2) and stored in IndexedDB. EIP-712 typed data signing enables gasless transfers. Session persistence stores the DEK in sessionStorage, with configurable auto-lock timers. WebAuthn passkey support is integrated for biometric unlock using a Data Encryption Key (DEK) pattern.
 
 ### Data Storage
-A PostgreSQL database with Drizzle ORM is used for intelligent caching of user data, wallets, authorizations, and blockchain data (balances, transactions, MaxFlow scores, exchange rates). USDC amounts are standardized to micro-USDC integers.
+A PostgreSQL database with Drizzle ORM caches user data, wallets, authorizations, and blockchain data (balances, transactions, MaxFlow scores, exchange rates). USDC amounts are standardized to micro-USDC integers.
 
 ### Network Configuration
-The application supports Base (chainId: 8453), Celo (chainId: 42220), Gnosis (chainId: 100), and Arbitrum (chainId: 42161), with full gasless support for native USDC and USDC.e where applicable via EIP-3009.
+Supports Base (chainId: 8453), Celo (chainId: 42220), Gnosis (chainId: 100), and Arbitrum (chainId: 42161), with full gasless support for native USDC and USDC.e where applicable via EIP-3009.
 
 ### PWA Features
-Designed as an offline-first PWA with a service worker for asset caching, IndexedDB for local data, and a manifest file. Includes mobile optimizations like viewport configuration and Apple mobile web app meta tags.
+Designed as an offline-first PWA with a service worker for asset caching, IndexedDB for local data, and a manifest file. Includes mobile optimizations and dynamic cache naming for versioning.
 
 ### UI/UX Decisions
-The UI features a unified fixed header and bottom navigation with sections for Signal, Wallet, and Settings.
-- **Trust Hub (MaxFlow Page)**: Two-tab interface: MaxFlow tab (score display, Face Check for non-GD users, vouch section, XP claim, USDC/SENADOR redemption) and GoodDollar tab (identity verification, G$ claiming, G$ → XP exchange). Circles Protocol support deprecated (link in FAQs to circles.garden).
-- **Multi-chain UX**: Aggregated USDC balance, chain badges for transactions, and auto-selection of networks.
-- **Pool (Prize-Linked Savings)**: A feature for weekly prize pools where users can opt-in a percentage of their Aave savings yield on Celo. It includes a referral system, facilitator authorization flow, and an automated weekly draw execution with a scheduler. The architecture tracks `netDeposits` to accurately calculate interest, and features a sponsored pool for donations.
+The UI features a unified fixed header and bottom navigation. The Trust Hub (MaxFlow Page) includes a two-tab interface for MaxFlow (score, Face Check, vouch, XP/USDC/SENADOR redemption) and GoodDollar (identity verification, G$ claiming, G$ → XP exchange). Multi-chain UX includes aggregated USDC balances, chain badges, and network auto-selection. A Pool (Prize-Linked Savings) feature allows users to opt-in a percentage of their Aave savings yield for weekly prize pools. Face verification uses face-api.js for neural network embeddings and MediaPipe for liveness detection.
 
 ## External Dependencies
 
@@ -67,15 +37,18 @@ The UI features a unified fixed header and bottom navigation with sections for S
 - **USDC Smart Contracts**: Native USDC (Base, Celo) and USDC.e (Gnosis) implementations.
 
 ### External APIs
-- **MaxFlow API**: For network signal scoring, with DNS resilience and fallback domains.
+- **MaxFlow API**: For network signal scoring.
 - **fawazahmed0 Currency API**: For exchange rates.
 - **Etherscan v2 unified API**: Primary source for transaction history.
+- **CoinGecko**: For native token prices.
 
 ### UI Component Libraries
 - **Radix UI**: Headless component primitives.
 - **Shadcn UI**: Pre-styled components.
 - **Lucide React**: Icon library.
 - **QRCode**: Canvas-based QR code generation.
+- **face-api.js**: For face recognition and liveness detection.
+- **MediaPipe Face Landmarker**: For liveness detection.
 
 ### Development Tools
 - **Drizzle Kit**: Database migration and schema management.
