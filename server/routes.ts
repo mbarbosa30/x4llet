@@ -6766,8 +6766,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Award XP only for verified faces (not duplicates)
+      // NOTE: Texture analysis is in DATA GATHERING mode - spoof detection logged but never blocks XP
+      // Set TEXTURE_ANALYSIS_BLOCKING=true to enable XP blocking based on texture analysis
       let xpAwarded = 0;
-      if (status === 'verified') {
+      let xpSkipReason: string | undefined;
+      
+      // Check if texture analysis detected a spoof (for logging only unless blocking enabled)
+      const isLikelySpoof = qualityMetrics?.isLikelySpoof === true || qualityMetrics?.isLikelySpoof === 'true';
+      const textureBlockingEnabled = process.env.TEXTURE_ANALYSIS_BLOCKING === 'true';
+      const shouldBlockForSpoof = isLikelySpoof && textureBlockingEnabled;
+      
+      // Log texture analysis results for tuning (regardless of blocking status)
+      if (isLikelySpoof) {
+        console.log(`[FaceVerification] Texture analysis flagged spoof: ${normalizedAddress} (moire: ${qualityMetrics?.moireScore?.toFixed(3)}, variance: ${qualityMetrics?.textureVariance?.toFixed(3)}, confidence: ${qualityMetrics?.textureConfidence?.toFixed(2)}) - blocking: ${textureBlockingEnabled}`);
+      }
+      
+      if (status === 'verified' && !shouldBlockForSpoof) {
         try {
           await storage.claimXp(normalizedAddress, 12000, 0); // 120 XP bonus
           xpAwarded = 120;
@@ -6775,7 +6789,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (xpError) {
           console.error('[FaceVerification] Error awarding XP:', xpError);
         }
+      } else if (shouldBlockForSpoof) {
+        xpSkipReason = 'spoof_detected';
+        console.log(`[FaceVerification] Blocked XP for likely spoof: ${normalizedAddress}`);
       } else {
+        xpSkipReason = 'duplicate';
         console.log(`[FaceVerification] Skipping XP for duplicate face: ${normalizedAddress}`);
       }
       
@@ -6783,8 +6801,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         verified: true,
         isDuplicate: status === 'duplicate',
+        isLikelySpoof,
         status: verification.status,
         xpAwarded,
+        xpSkipReason,
         similarityScore: matchSimilarity ? Math.round(matchSimilarity * 100) : undefined,
       });
     } catch (error) {

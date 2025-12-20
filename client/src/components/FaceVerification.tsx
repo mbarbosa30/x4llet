@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getFingerprint } from '@/lib/fingerprint';
 import { Progress } from '@/components/ui/progress';
 import { Link } from 'wouter';
+import { createAnalyzerState, analyzeFrame, getFinalAnalysis, resetAnalyzerState, type AnalyzerState } from '@/lib/textureAnalyzer';
 
 interface FaceLandmarkerResult {
   faceLandmarks: Array<Array<{ x: number; y: number; z: number }>>;
@@ -94,6 +95,8 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   const headTurnProgressRef = useRef({ left: 0, right: 0 });
   const faceEmbeddingsRef = useRef<Float32Array[]>([]); // Store 128D face descriptors
   const lastValidQualityRef = useRef<FaceQuality | null>(null); // Capture quality at moment of submission
+  const textureAnalyzerRef = useRef<AnalyzerState>(createAnalyzerState()); // Passive texture analysis
+  const frameCountRef = useRef(0); // For running texture analysis every other frame
   
   // Refs to mirror state for animation frame loop (avoids stale closures)
   const currentChallengeIndexRef = useRef(0);
@@ -386,6 +389,18 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
             ctx.lineWidth = 2;
             ctx.strokeRect(minX - padding, minY - padding, maxX - minX + padding * 2, maxY - minY + padding * 2);
             
+            // Run passive texture analysis every other frame during challenges
+            frameCountRef.current++;
+            if (statusRef.current === 'challenges' && frameCountRef.current % 2 === 0 && canvasRef.current) {
+              const faceBox = {
+                minX: Math.min(...landmarks.map(l => l.x)),
+                minY: Math.min(...landmarks.map(l => l.y)),
+                maxX: Math.max(...landmarks.map(l => l.x)),
+                maxY: Math.max(...landmarks.map(l => l.y)),
+              };
+              analyzeFrame(textureAnalyzerRef.current, canvasRef.current, faceBox);
+            }
+            
             if (statusRef.current === 'challenges') {
               processChallenge(results);
               
@@ -545,12 +560,20 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
         throw new Error('Face quality check not completed. Please ensure your face is clearly visible.');
       }
       
+      // Get passive texture analysis results
+      const textureAnalysis = getFinalAnalysis(textureAnalyzerRef.current);
+      console.log('[FaceVerification] Texture analysis:', textureAnalysis);
+      
       // Collect quality metrics for diagnostic logging
       const qualityMetrics = {
         faceSize: capturedQuality.faceSize ? 'ok' : 'fail',
         centered: capturedQuality.centered ? 'ok' : 'fail',
         noOcclusion: capturedQuality.noOcclusion ? 'ok' : 'fail',
         embeddingCount: numDescriptors,
+        moireScore: textureAnalysis.moireScore.toFixed(3),
+        textureVariance: textureAnalysis.textureVariance.toFixed(3),
+        isLikelySpoof: textureAnalysis.isLikelySpoof,
+        textureConfidence: textureAnalysis.confidence.toFixed(2),
       };
       
       // Use raw fetch instead of apiRequest to handle 409 duplicate responses gracefully
@@ -601,11 +624,25 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
       // Cleanup first, before onComplete triggers query invalidation
       cleanup();
       
-      // Show toast before onComplete (which may unmount this component)
-      toast({
-        title: 'Verification Complete!',
-        description: 'Face verification successful! +120 XP earned.',
-      });
+      // Show toast based on result
+      const xpAwarded = result.xpAwarded || 0;
+      if (result.isLikelySpoof) {
+        toast({
+          title: 'Verification Complete',
+          description: 'Face verified, but no XP awarded due to quality issues.',
+          variant: 'destructive',
+        });
+      } else if (xpAwarded > 0) {
+        toast({
+          title: 'Verification Complete!',
+          description: `Face verification successful! +${xpAwarded} XP earned.`,
+        });
+      } else {
+        toast({
+          title: 'Verification Complete',
+          description: 'Face verified successfully.',
+        });
+      }
       
       // Update state only if still mounted
       if (isMountedRef.current) {
@@ -639,6 +676,8 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
     lastBlinkStateRef.current = false;
     headTurnProgressRef.current = { left: 0, right: 0 };
     faceEmbeddingsRef.current = [];
+    resetAnalyzerState(textureAnalyzerRef.current); // Reset texture analyzer for new session
+    frameCountRef.current = 0;
   };
 
   const handleRetry = () => {
@@ -652,6 +691,8 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
     currentChallengeIndexRef.current = 0;
     blinkCountRef.current = 0;
     faceEmbeddingsRef.current = [];
+    resetAnalyzerState(textureAnalyzerRef.current); // Reset texture analyzer for new session
+    frameCountRef.current = 0;
     loadModels();
   };
 
