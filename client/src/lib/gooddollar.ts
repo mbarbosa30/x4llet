@@ -508,12 +508,11 @@ export interface FVResult {
   reason?: string;
 }
 
+// GoodDollar SDK constants - aligned with @goodsdks/citizen-sdk
+// See: https://github.com/GoodDollar/GoodSDKs/blob/main/packages/citizen-sdk/src/constants.ts
 const GOODDOLLAR_IDENTITY_URL = 'https://goodid.gooddollar.org';
 
-const FV_LOGIN_MSG = `Sign this message to login into GoodDollar Unique Identity service.
-WARNING: do not sign this message unless you trust the website/application requesting this signature.
-nonce:`;
-
+// This is FV_IDENTIFIER_MSG2 from the GoodDollar SDK
 const FV_IDENTIFIER_MSG = `Sign this message to request verifying your account <account> and to create your own secret unique identifier for your anonymized record.
 You can use this identifier in the future to delete this anonymized record.
 WARNING: do not sign this message unless you trust the website/application requesting this signature.`;
@@ -521,48 +520,45 @@ WARNING: do not sign this message unless you trust the website/application reque
 export interface GenerateFVLinkParams {
   address: Address;
   signMessage: (message: string) => Promise<string>;
-  firstName?: string;
   callbackUrl?: string;
   popupMode?: boolean;
   chainId?: number;
 }
 
+/**
+ * Generate a Face Verification Link following the GoodDollar SDK pattern.
+ * This matches the IdentitySDK.generateFVLink() implementation.
+ * See: https://github.com/GoodDollar/GoodSDKs/blob/main/packages/citizen-sdk/src/sdks/viem-identity-sdk.ts
+ */
 export async function generateFVLink(params: GenerateFVLinkParams): Promise<string> {
   const {
     address,
     signMessage,
-    firstName = 'User',
     callbackUrl,
     popupMode = false,
-    chainId = 42220,
+    chainId = 42220, // Default to Celo
   } = params;
 
   if (!popupMode && !callbackUrl) {
-    throw new Error('Redirect URL is required for redirect mode');
+    throw new Error('Callback URL is required for redirect mode');
   }
 
   const nonce = Math.floor(Date.now() / 1000).toString();
   
-  const loginSig = await signMessage(FV_LOGIN_MSG + nonce);
-  
-  const identifierMsg = FV_IDENTIFIER_MSG.replace('<account>', address);
-  const fvSig = await signMessage(identifierMsg);
+  // Sign the FV identifier message (SDK only uses this one signature)
+  const fvSigMessage = FV_IDENTIFIER_MSG.replace('<account>', address);
+  const fvSig = await signMessage(fvSigMessage);
 
-  const fvParams: Record<string, string | number | undefined> = {
+  // Build params matching SDK's generateFVLink
+  const fvParams: Record<string, string | number> = {
     account: address,
     nonce,
     fvsig: fvSig,
-    firstname: firstName,
-    sg: loginSig,
     chain: chainId,
   };
 
   if (callbackUrl) {
-    if (popupMode) {
-      fvParams.cbu = callbackUrl;
-    } else {
-      fvParams.rdu = callbackUrl;
-    }
+    fvParams[popupMode ? 'cbu' : 'rdu'] = callbackUrl;
   }
 
   const { compressToEncodedURIComponent } = await import('./lz-string-mini');
