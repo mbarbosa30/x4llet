@@ -2346,6 +2346,12 @@ function SybilScoresDashboard({ authHeader }: { authHeader: string | null }) {
   const [scores, setScores] = useState<SybilScoreData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [limit, setLimit] = useState(50);
+  const [selectedWallets, setSelectedWallets] = useState<Set<string>>(new Set());
+  const [tierFilter, setTierFilter] = useState<string>('all');
+  const [showBatchOverride, setShowBatchOverride] = useState(false);
+  const [batchTier, setBatchTier] = useState<string>('clear');
+  const [batchReason, setBatchReason] = useState('');
+  const [isBatchProcessing, setIsBatchProcessing] = useState(false);
   const { toast } = useToast();
 
   const loadScores = async () => {
@@ -2358,6 +2364,7 @@ function SybilScoresDashboard({ authHeader }: { authHeader: string | null }) {
       if (res.ok) {
         const data = await res.json();
         setScores(data);
+        setSelectedWallets(new Set());
       }
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to load sybil scores', variant: 'destructive' });
@@ -2371,6 +2378,141 @@ function SybilScoresDashboard({ authHeader }: { authHeader: string | null }) {
       loadScores();
     }
   }, [authHeader, limit]);
+
+  const filteredScores = tierFilter === 'all' 
+    ? scores 
+    : scores.filter(s => {
+        const tier = s.manualOverride ? s.manualTier || s.tier : s.tier;
+        return tier === tierFilter;
+      });
+
+  const toggleWallet = (address: string) => {
+    const newSet = new Set(selectedWallets);
+    if (newSet.has(address)) {
+      newSet.delete(address);
+    } else {
+      newSet.add(address);
+    }
+    setSelectedWallets(newSet);
+  };
+
+  const selectAll = () => {
+    if (selectedWallets.size === filteredScores.length) {
+      setSelectedWallets(new Set());
+    } else {
+      setSelectedWallets(new Set(filteredScores.map(s => s.walletAddress)));
+    }
+  };
+
+  const executeBatchOverride = async () => {
+    if (!authHeader || selectedWallets.size === 0) return;
+    if (!batchReason.trim()) {
+      toast({ title: 'Error', description: 'Please provide a reason for the override', variant: 'destructive' });
+      return;
+    }
+    
+    setIsBatchProcessing(true);
+    try {
+      const res = await fetch('/api/admin/sybil-scores/batch/override', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: authHeader 
+        },
+        body: JSON.stringify({
+          addresses: Array.from(selectedWallets),
+          tier: batchTier,
+          reason: batchReason.trim(),
+        }),
+      });
+      
+      if (res.ok) {
+        const result = await res.json();
+        toast({ 
+          title: 'Batch Override Complete', 
+          description: `${result.successful}/${result.processed} wallets updated to ${batchTier.toUpperCase()}` 
+        });
+        setShowBatchOverride(false);
+        setBatchReason('');
+        loadScores();
+      } else {
+        const error = await res.json();
+        toast({ title: 'Error', description: error.error || 'Batch override failed', variant: 'destructive' });
+      }
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to process batch override', variant: 'destructive' });
+    } finally {
+      setIsBatchProcessing(false);
+    }
+  };
+
+  const executeBatchRecalculate = async () => {
+    if (!authHeader || selectedWallets.size === 0) return;
+    
+    setIsBatchProcessing(true);
+    try {
+      const res = await fetch('/api/admin/sybil-scores/batch/recalculate', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: authHeader 
+        },
+        body: JSON.stringify({
+          addresses: Array.from(selectedWallets),
+        }),
+      });
+      
+      if (res.ok) {
+        const result = await res.json();
+        toast({ 
+          title: 'Batch Recalculate Complete', 
+          description: `${result.successful}/${result.processed} scores recalculated` 
+        });
+        loadScores();
+      } else {
+        const error = await res.json();
+        toast({ title: 'Error', description: error.error || 'Batch recalculate failed', variant: 'destructive' });
+      }
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to process batch recalculate', variant: 'destructive' });
+    } finally {
+      setIsBatchProcessing(false);
+    }
+  };
+
+  const executeBatchClearOverride = async () => {
+    if (!authHeader || selectedWallets.size === 0) return;
+    
+    setIsBatchProcessing(true);
+    try {
+      const res = await fetch('/api/admin/sybil-scores/batch/clear-override', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: authHeader 
+        },
+        body: JSON.stringify({
+          addresses: Array.from(selectedWallets),
+        }),
+      });
+      
+      if (res.ok) {
+        const result = await res.json();
+        toast({ 
+          title: 'Overrides Cleared', 
+          description: `${result.successful}/${result.processed} overrides removed` 
+        });
+        loadScores();
+      } else {
+        const error = await res.json();
+        toast({ title: 'Error', description: error.error || 'Batch clear failed', variant: 'destructive' });
+      }
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to clear overrides', variant: 'destructive' });
+    } finally {
+      setIsBatchProcessing(false);
+    }
+  };
 
   const getTierBadge = (tier: string, isOverride: boolean) => {
     const colors: Record<string, string> = {
@@ -2486,24 +2628,145 @@ function SybilScoresDashboard({ authHeader }: { authHeader: string | null }) {
         </CardContent>
       </Card>
 
+      {showBatchOverride && (
+        <Card className="border-2 border-purple-500">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Batch Override: {selectedWallets.size} Wallets
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Set Tier</label>
+                <Select value={batchTier} onValueChange={setBatchTier}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="clear">Clear (120 XP)</SelectItem>
+                    <SelectItem value="warn">Warn (60 XP)</SelectItem>
+                    <SelectItem value="limit">Limit (20 XP)</SelectItem>
+                    <SelectItem value="block">Block (0 XP)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Reason (required)</label>
+                <Input 
+                  value={batchReason}
+                  onChange={(e) => setBatchReason(e.target.value)}
+                  placeholder="Admin override reason..."
+                  data-testid="input-batch-reason"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                onClick={executeBatchOverride}
+                disabled={isBatchProcessing || !batchReason.trim()}
+                data-testid="button-execute-batch-override"
+              >
+                {isBatchProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Apply Override to {selectedWallets.size} Wallets
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => setShowBatchOverride(false)}
+                data-testid="button-cancel-batch-override"
+              >
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
-          <CardTitle>Wallet Scores ({scores.length})</CardTitle>
+          <CardTitle className="flex items-center justify-between gap-4 flex-wrap">
+            <span>Wallet Scores ({filteredScores.length})</span>
+            <div className="flex items-center gap-2">
+              <Select value={tierFilter} onValueChange={setTierFilter}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Filter tier" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Tiers</SelectItem>
+                  <SelectItem value="clear">Clear</SelectItem>
+                  <SelectItem value="warn">Warn</SelectItem>
+                  <SelectItem value="limit">Limit</SelectItem>
+                  <SelectItem value="block">Block</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardTitle>
+          {selectedWallets.size > 0 && (
+            <div className="flex items-center gap-2 pt-2">
+              <Badge variant="secondary">{selectedWallets.size} selected</Badge>
+              <Button 
+                size="sm" 
+                onClick={() => setShowBatchOverride(true)}
+                data-testid="button-batch-override"
+              >
+                Set Tier
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={executeBatchRecalculate}
+                disabled={isBatchProcessing}
+                data-testid="button-batch-recalculate"
+              >
+                {isBatchProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                Recalculate
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={executeBatchClearOverride}
+                disabled={isBatchProcessing}
+                data-testid="button-batch-clear-override"
+              >
+                Clear Overrides
+              </Button>
+              <Button 
+                size="sm" 
+                variant="ghost"
+                onClick={() => setSelectedWallets(new Set())}
+                data-testid="button-clear-selection"
+              >
+                Clear Selection
+              </Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin" />
             </div>
-          ) : scores.length === 0 ? (
+          ) : filteredScores.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No sybil scores recorded yet. Scores are calculated during Face Check verification.
+              {scores.length === 0 
+                ? 'No sybil scores recorded yet. Scores are calculated during Face Check verification.'
+                : `No wallets in ${tierFilter} tier.`}
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b-2 border-foreground">
+                    <th className="p-2 w-8">
+                      <input 
+                        type="checkbox"
+                        checked={selectedWallets.size === filteredScores.length && filteredScores.length > 0}
+                        onChange={selectAll}
+                        className="h-4 w-4"
+                        data-testid="checkbox-select-all"
+                      />
+                    </th>
                     <th className="text-left p-2">Wallet</th>
                     <th className="text-left p-2">Score</th>
                     <th className="text-left p-2">Tier</th>
@@ -2514,7 +2777,7 @@ function SybilScoresDashboard({ authHeader }: { authHeader: string | null }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {scores.map((s) => {
+                  {filteredScores.map((s) => {
                     let signals: Record<string, number> = {};
                     let trusts: Record<string, number> = {};
                     let reasons: string[] = [];
@@ -2528,9 +2791,23 @@ function SybilScoresDashboard({ authHeader }: { authHeader: string | null }) {
                       if (s.reasonCodes) reasons = JSON.parse(s.reasonCodes) || []; 
                     } catch {}
                     const tier = s.manualOverride ? s.manualTier || s.tier : s.tier;
+                    const isSelected = selectedWallets.has(s.walletAddress);
                     
                     return (
-                      <tr key={s.id} className="border-b border-muted hover-elevate">
+                      <tr 
+                        key={s.id} 
+                        className={`border-b border-muted hover-elevate ${isSelected ? 'bg-muted/50' : ''}`}
+                        onClick={() => toggleWallet(s.walletAddress)}
+                      >
+                        <td className="p-2" onClick={(e) => e.stopPropagation()}>
+                          <input 
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleWallet(s.walletAddress)}
+                            className="h-4 w-4"
+                            data-testid={`checkbox-wallet-${s.walletAddress.slice(0, 8)}`}
+                          />
+                        </td>
                         <td className="p-2 font-mono text-xs">
                           {s.walletAddress.slice(0, 8)}...{s.walletAddress.slice(-6)}
                         </td>

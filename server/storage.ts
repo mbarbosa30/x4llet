@@ -528,6 +528,7 @@ export interface IStorage {
   
   // Sybil scoring methods
   getSybilScore(walletAddress: string): Promise<SybilScore | null>;
+  getSybilScoresByTier(tier: string, limit: number, includeOverrides: boolean): Promise<SybilScore[]>;
 }
 
 export interface GasDrip {
@@ -1160,6 +1161,10 @@ export class MemStorage implements IStorage {
 
   async getSybilScore(walletAddress: string): Promise<SybilScore | null> {
     return null;
+  }
+
+  async getSybilScoresByTier(tier: string, limit: number, includeOverrides: boolean): Promise<SybilScore[]> {
+    return [];
   }
 }
 
@@ -6156,6 +6161,37 @@ export class DbStorage extends MemStorage {
 
   getXpMultiplierForTier(tier: string): number {
     return this.XP_MULTIPLIERS[tier] ?? 1.0;
+  }
+
+  async getSybilScoresByTier(tier: string, limit: number = 100, includeOverrides: boolean = true): Promise<SybilScore[]> {
+    try {
+      if (includeOverrides) {
+        return await db.select()
+          .from(sybilScores)
+          .where(
+            or(
+              eq(sybilScores.tier, tier),
+              eq(sybilScores.manualTier, tier)
+            )
+          )
+          .orderBy(desc(sybilScores.score), desc(sybilScores.updatedAt))
+          .limit(limit);
+      } else {
+        return await db.select()
+          .from(sybilScores)
+          .where(
+            and(
+              eq(sybilScores.tier, tier),
+              eq(sybilScores.manualOverride, false)
+            )
+          )
+          .orderBy(desc(sybilScores.score), desc(sybilScores.updatedAt))
+          .limit(limit);
+      }
+    } catch (error) {
+      console.error('[Sybil] Error getting sybil scores by tier:', error);
+      return [];
+    }
   }
 }
 

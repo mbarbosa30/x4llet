@@ -7195,6 +7195,191 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== BATCH TRUST TIER ACTIONS =====
+  
+  // Batch override: Apply same tier to multiple wallets
+  app.post('/api/admin/sybil-scores/batch/override', adminAuthMiddleware, async (req, res) => {
+    try {
+      const { addresses, tier, reason } = req.body;
+      
+      if (!Array.isArray(addresses) || addresses.length === 0) {
+        return res.status(400).json({ error: 'Addresses array is required' });
+      }
+      
+      if (addresses.length > 100) {
+        return res.status(400).json({ error: 'Maximum 100 addresses per batch' });
+      }
+      
+      if (!tier || !['clear', 'warn', 'limit', 'block'].includes(tier)) {
+        return res.status(400).json({ error: 'Invalid tier. Must be one of: clear, warn, limit, block' });
+      }
+      
+      if (!reason || typeof reason !== 'string') {
+        return res.status(400).json({ error: 'Reason is required for override' });
+      }
+      
+      const results: { address: string; success: boolean; error?: string }[] = [];
+      
+      for (const address of addresses) {
+        try {
+          if (!address || !/^0x[a-fA-F0-9]{40}$/i.test(address)) {
+            results.push({ address, success: false, error: 'Invalid address format' });
+            continue;
+          }
+          
+          // Ensure score exists first
+          let score = await storage.getSybilScore(address);
+          if (!score) {
+            score = await storage.calculateSybilScore(address);
+          }
+          
+          const updated = await storage.overrideSybilTier(address, tier, reason);
+          results.push({ address, success: !!updated });
+        } catch (err) {
+          results.push({ address, success: false, error: 'Processing error' });
+        }
+      }
+      
+      const successCount = results.filter(r => r.success).length;
+      res.json({ 
+        processed: results.length, 
+        successful: successCount,
+        failed: results.length - successCount,
+        results 
+      });
+    } catch (error) {
+      console.error('[Sybil] Error in batch override:', error);
+      res.status(500).json({ error: 'Failed to process batch override' });
+    }
+  });
+
+  // Batch recalculate: Recalculate scores for multiple wallets
+  app.post('/api/admin/sybil-scores/batch/recalculate', adminAuthMiddleware, async (req, res) => {
+    try {
+      const { addresses } = req.body;
+      
+      if (!Array.isArray(addresses) || addresses.length === 0) {
+        return res.status(400).json({ error: 'Addresses array is required' });
+      }
+      
+      if (addresses.length > 100) {
+        return res.status(400).json({ error: 'Maximum 100 addresses per batch' });
+      }
+      
+      const results: { address: string; success: boolean; newScore?: number; newTier?: string; error?: string }[] = [];
+      
+      for (const address of addresses) {
+        try {
+          if (!address || !/^0x[a-fA-F0-9]{40}$/i.test(address)) {
+            results.push({ address, success: false, error: 'Invalid address format' });
+            continue;
+          }
+          
+          const score = await storage.calculateSybilScore(address);
+          if (score) {
+            results.push({ 
+              address, 
+              success: true, 
+              newScore: score.score,
+              newTier: score.tier
+            });
+          } else {
+            results.push({ address, success: false, error: 'No score data' });
+          }
+        } catch (err) {
+          results.push({ address, success: false, error: 'Processing error' });
+        }
+      }
+      
+      const successCount = results.filter(r => r.success).length;
+      res.json({ 
+        processed: results.length, 
+        successful: successCount,
+        failed: results.length - successCount,
+        results 
+      });
+    } catch (error) {
+      console.error('[Sybil] Error in batch recalculate:', error);
+      res.status(500).json({ error: 'Failed to process batch recalculate' });
+    }
+  });
+
+  // Batch clear overrides: Remove manual overrides for multiple wallets
+  app.post('/api/admin/sybil-scores/batch/clear-override', adminAuthMiddleware, async (req, res) => {
+    try {
+      const { addresses } = req.body;
+      
+      if (!Array.isArray(addresses) || addresses.length === 0) {
+        return res.status(400).json({ error: 'Addresses array is required' });
+      }
+      
+      if (addresses.length > 100) {
+        return res.status(400).json({ error: 'Maximum 100 addresses per batch' });
+      }
+      
+      const results: { address: string; success: boolean; error?: string }[] = [];
+      
+      for (const address of addresses) {
+        try {
+          if (!address || !/^0x[a-fA-F0-9]{40}$/i.test(address)) {
+            results.push({ address, success: false, error: 'Invalid address format' });
+            continue;
+          }
+          
+          const updated = await storage.clearSybilOverride(address);
+          results.push({ address, success: !!updated });
+        } catch (err) {
+          results.push({ address, success: false, error: 'Processing error' });
+        }
+      }
+      
+      const successCount = results.filter(r => r.success).length;
+      res.json({ 
+        processed: results.length, 
+        successful: successCount,
+        failed: results.length - successCount,
+        results 
+      });
+    } catch (error) {
+      console.error('[Sybil] Error in batch clear override:', error);
+      res.status(500).json({ error: 'Failed to process batch clear override' });
+    }
+  });
+
+  // Get wallets by tier for export/batch operations
+  app.get('/api/admin/sybil-scores/by-tier/:tier', adminAuthMiddleware, async (req, res) => {
+    try {
+      const { tier } = req.params;
+      const { limit = '100', includeOverrides = 'true' } = req.query;
+      
+      if (!['clear', 'warn', 'limit', 'block'].includes(tier)) {
+        return res.status(400).json({ error: 'Invalid tier. Must be one of: clear, warn, limit, block' });
+      }
+      
+      const scores = await storage.getSybilScoresByTier(
+        tier, 
+        parseInt(limit as string) || 100,
+        includeOverrides === 'true'
+      );
+      
+      res.json({
+        tier,
+        count: scores.length,
+        wallets: scores.map(s => ({
+          address: s.walletAddress,
+          score: s.score,
+          tier: s.manualOverride ? s.manualTier : s.tier,
+          isOverride: s.manualOverride,
+          xpMultiplier: s.xpMultiplier,
+          updatedAt: s.updatedAt,
+        }))
+      });
+    } catch (error) {
+      console.error('[Sybil] Error fetching wallets by tier:', error);
+      res.status(500).json({ error: 'Failed to fetch wallets by tier' });
+    }
+  });
+
   // ===== STELLAR METRICS HELPER =====
   // Stellar wallet (nanopaystellar.replit.app) is a SEPARATE application with its own database.
   // storage.getGlobalStats() only queries the EVM database (wallets, cachedTransactions tables).
