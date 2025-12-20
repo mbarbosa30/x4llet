@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users, Clock, Share2, Waypoints, CheckCircle2, Circle, ChevronRight, HelpCircle, Eye, Camera } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, ExternalLink, Copy, Check, Loader2, Shield, Users, Clock, Share2, Waypoints, CheckCircle2, Circle, ChevronRight, HelpCircle, Camera } from 'lucide-react';
 import { SiTelegram } from 'react-icons/si';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
@@ -17,6 +17,7 @@ import BalanceCard from '@/components/BalanceCard';
 import TransactionList from '@/components/TransactionList';
 import AddressDisplay from '@/components/AddressDisplay';
 import VouchConfirmation from '@/components/VouchConfirmation';
+import { TrustStatusCard } from '@/components/TrustStatusCard';
 import { useWallet } from '@/hooks/useWallet';
 import { useDashboard } from '@/hooks/useDashboard';
 import { useAaveBalance } from '@/hooks/useAaveBalance';
@@ -38,12 +39,6 @@ export default function Home() {
   const [copiedHash, setCopiedHash] = useState(false);
   const [pendingReferral, setPendingReferral] = useState<string | null>(null);
   const [showVouchConfirmation, setShowVouchConfirmation] = useState(false);
-  const [sybilWarningDismissed, setSybilWarningDismissed] = useState(() => {
-    return sessionStorage.getItem('sybil_warning_dismissed') === 'true';
-  });
-  const [faceCheckBannerDismissed, setFaceCheckBannerDismissed] = useState(() => {
-    return sessionStorage.getItem('face_check_banner_dismissed') === 'true';
-  });
   
   // Force re-render every second for countdown displays
   useTick();
@@ -86,15 +81,11 @@ export default function Home() {
     await refetchDashboard();
   };
 
-  // Extract data from dashboard response (includes MaxFlow from cache and sybil status)
+  // Extract data from dashboard response (includes MaxFlow from cache)
   const balanceData = dashboardData?.balance;
   const allTransactions = dashboardData?.transactions;
   const xpData = dashboardData?.xp;
   const maxflowScore = dashboardData?.maxflow;
-  const sybilStatus = dashboardData?.sybil;
-  
-  // Sybil warning flag - resolved after faceVerificationStatus is available
-  const sybilFlagged = sybilStatus?.suspicious && !sybilWarningDismissed;
 
   const { data: exchangeRate } = useExchangeRate(currency, { skipUsd: false });
 
@@ -180,16 +171,8 @@ export default function Home() {
   const hasTransactions = transactions.length > 0;
   const isFaceChecked = faceVerificationStatus?.verified || false;
   
-  // Show sybil warning only if wallet is flagged AND user hasn't dismissed it AND not face-verified
-  const showSybilWarning = sybilFlagged && !isFaceChecked;
-  
-  // Face Check is ENCOURAGED but not mandatory:
-  // 1. Show wallet regardless of face check status
-  // 2. If not face checked, show a dismissable banner encouraging verification
-  // 3. If no funds → show onboarding (how to get USDC)
-  // 4. If has funds → show normal wallet
+  // Data ready and onboarding checks
   const isDataReady = !isLoadingWallet && !isLoading && !isLoadingFaceVerification && !isLoadingAaveBalance;
-  const showFaceCheckBanner = isDataReady && !isFaceChecked && !isGdVerified && !faceCheckBannerDismissed;
   const showOnboarding = isDataReady && !hasFunds;
   
   const getExplorerUrl = (txHash: string, txChainId?: number) => {
@@ -292,90 +275,6 @@ export default function Home() {
       }}
     >
       <main className="max-w-md mx-auto p-4 space-y-4">
-        {/* Anti-Sybil Warning Modal */}
-        <Dialog open={showSybilWarning} onOpenChange={(open) => {
-          if (!open) {
-            setSybilWarningDismissed(true);
-            sessionStorage.setItem('sybil_warning_dismissed', 'true');
-          }
-        }}>
-          <DialogContent className="max-w-sm" data-testid="modal-sybil-warning">
-            <DialogHeader>
-              <div className="flex justify-center mb-4">
-                <div className="h-16 w-16 rounded-full bg-amber-100 dark:bg-amber-950/50 flex items-center justify-center">
-                  <Eye className="h-8 w-8 text-amber-600 dark:text-amber-400" />
-                </div>
-              </div>
-              <DialogTitle className="text-center">Suspicious Activity Detected</DialogTitle>
-              <DialogDescription className="text-center space-y-3 pt-2">
-                <p>This wallet was flagged for suspicious sybil activity.</p>
-                <p>Your rewards and everyone who vouched for you, or you vouched for, might be affected. Complete Face Check to ensure uninterrupted access.</p>
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col gap-2 pt-2">
-              <Button 
-                onClick={() => {
-                  setSybilWarningDismissed(true);
-                  sessionStorage.setItem('sybil_warning_dismissed', 'true');
-                  setLocation('/maxflow?tab=maxflow');
-                }}
-                data-testid="button-sybil-face-check"
-              >
-                Complete Face Check
-              </Button>
-              <Button 
-                variant="outline"
-                onClick={() => {
-                  setSybilWarningDismissed(true);
-                  sessionStorage.setItem('sybil_warning_dismissed', 'true');
-                }}
-                data-testid="button-dismiss-sybil-warning"
-              >
-                Close
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Face Check encouragement banner - dismissable */}
-        {showFaceCheckBanner && (
-          <div className="relative overflow-hidden border-2 border-violet-500/30 bg-gradient-to-r from-violet-500/10 via-violet-500/5 to-violet-500/10 mb-4">
-            <div className="flex items-center gap-4 p-4">
-              <div className="h-12 w-12 rounded-full bg-violet-500/20 flex items-center justify-center flex-shrink-0">
-                <Camera className="h-6 w-6 text-violet-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm">Verify Your Identity</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Quick face scan to prove you're human and earn <span className="text-violet-500 font-medium">+120 XP</span>
-                </p>
-              </div>
-            </div>
-            <div className="flex border-t border-violet-500/20">
-              <Button
-                variant="ghost"
-                className="flex-1 rounded-none border-r border-violet-500/20 text-violet-500 hover:text-violet-600 hover:bg-violet-500/10"
-                onClick={() => setLocation('/maxflow?tab=maxflow')}
-                data-testid="button-banner-face-check"
-              >
-                <Camera className="h-4 w-4 mr-2" />
-                Start Face Check
-              </Button>
-              <Button
-                variant="ghost"
-                className="px-4 rounded-none text-muted-foreground hover:text-foreground"
-                onClick={() => {
-                  setFaceCheckBannerDismissed(true);
-                  sessionStorage.setItem('face_check_banner_dismissed', 'true');
-                }}
-                data-testid="button-dismiss-face-check-banner"
-              >
-                Later
-              </Button>
-            </div>
-          </div>
-        )}
-
         {/* Loading state - show spinner until we know what to display */}
         {!isDataReady ? (
           <div className="flex flex-col items-center justify-center py-16 space-y-4">
@@ -578,6 +477,14 @@ export default function Home() {
                 aaveBalance={aaveBalance}
                 onRefresh={handleRefreshBalance}
                 isRefreshing={isRefreshingBalance && !isLoading}
+              />
+            )}
+
+            {!isFaceChecked && !isGdVerified && (
+              <TrustStatusCard 
+                address={address} 
+                onFaceVerify={() => setLocation('/maxflow?tab=maxflow')}
+                compact
               />
             )}
 

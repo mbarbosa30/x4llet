@@ -350,6 +350,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== UNIFIED TRUST PROFILE =====
+  // Combines sybil detection, local face verification, MaxFlow, and derived limits
+  // Single source of truth for trust-related gating decisions
+  app.get('/api/trust-profile/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+      
+      if (!address || !/^0x[a-fA-F0-9]{40}$/i.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+
+      const normalizedAddress = address.toLowerCase();
+
+      // Fetch all trust signals in parallel
+      const [
+        sybilScore,
+        faceVerification,
+        maxflowScore,
+        xpBalance,
+      ] = await Promise.all([
+        storage.getSybilScore(normalizedAddress),
+        storage.getFaceVerification(normalizedAddress),
+        storage.getMaxFlowScore(normalizedAddress),
+        storage.getXpBalance(normalizedAddress),
+      ]);
+
+      // Compute sybil status
+      const sybilTier = sybilScore?.manualOverride 
+        ? (sybilScore.manualTier || 'clear')
+        : (sybilScore?.tier || 'clear');
+      const sybilScoreValue = sybilScore?.score || 0;
+      const xpMultiplier = sybilScore?.xpMultiplier 
+        ? parseFloat(sybilScore.xpMultiplier)
+        : (sybilTier === 'clear' ? 1.0 : sybilTier === 'warn' ? 0.5 : sybilTier === 'limit' ? 0.167 : 0);
+
+      // Parse sybil signals
+      let sybilSignals: string[] = [];
+      try {
+        const reasonCodes = sybilScore?.reasonCodes ? JSON.parse(sybilScore.reasonCodes) : [];
+        sybilSignals = reasonCodes.slice(0, 3); // Top 3 reasons
+      } catch { /* ignore parse errors */ }
+
+      // Compute local face verification status
+      const faceEnrolled = faceVerification !== null && faceVerification.status === 'verified';
+      const faceDuplicate = faceVerification?.status === 'duplicate';
+      const faceLastVerified = faceVerification?.createdAt || null;
+
+      // Compute MaxFlow tier based on local_health score
+      let maxflowTier: 'new' | 'standard' | 'trusted' | 'verified' = 'new';
+      const maxflowScoreValue = maxflowScore?.local_health || 0;
+      const maxflowVouches = maxflowScore?.vouch_counts?.incoming_active || 0;
+      if (maxflowScoreValue >= 100) maxflowTier = 'verified';
+      else if (maxflowScoreValue >= 50) maxflowTier = 'trusted';
+      else if (maxflowScoreValue >= 10) maxflowTier = 'standard';
+
+      // Compute derived limits based on all signals
+      // XP earning is gated by sybil score
+      const dailyXpCap = Math.floor(100 * xpMultiplier);
+      
+      // USDC redemption requires local face enrollment
+      const canRedeemUsdc = faceEnrolled && !faceDuplicate && sybilTier !== 'block';
+      
+      // Determine what's blocking USDC redemption
+      let usdcBlockReason: string | null = null;
+      if (!faceEnrolled) {
+        usdcBlockReason = 'Complete face verification to redeem XP';
+      } else if (faceDuplicate) {
+        usdcBlockReason = 'Face matched another account';
+      } else if (sybilTier === 'block') {
+        usdcBlockReason = 'Account flagged for suspicious activity';
+      }
+
+      res.json({
+        address: normalizedAddress,
+        sybil: {
+          score: sybilScoreValue,
+          tier: sybilTier,
+          signals: sybilSignals,
+          xpMultiplier,
+          isOverridden: sybilScore?.manualOverride || false,
+        },
+        localFace: {
+          enrolled: faceEnrolled,
+          duplicate: faceDuplicate,
+          lastVerified: faceLastVerified,
+        },
+        maxflow: {
+          score: maxflowScoreValue,
+          tier: maxflowTier,
+          vouches: maxflowVouches,
+        },
+        limits: {
+          dailyXpCap,
+          canRedeemUsdc,
+          usdcBlockReason,
+          currentXp: xpBalance,
+        },
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('[TrustProfile] Error fetching trust profile:', error);
+      res.status(500).json({ error: 'Failed to fetch trust profile' });
+    }
+  });
+
   // Batched dashboard endpoint - combines balance, transactions, and XP into single request
   // Reduces network round-trips for Home page initial load
   app.get('/api/dashboard/:address', async (req, res) => {

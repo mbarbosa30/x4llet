@@ -525,6 +525,9 @@ export interface IStorage {
     challengesPassed: string;
     createdAt: Date;
   }>>;
+  
+  // Sybil scoring methods
+  getSybilScore(walletAddress: string): Promise<SybilScore | null>;
 }
 
 export interface GasDrip {
@@ -1153,6 +1156,10 @@ export class MemStorage implements IStorage {
     createdAt: Date;
   }>> {
     return [];
+  }
+
+  async getSybilScore(walletAddress: string): Promise<SybilScore | null> {
+    return null;
   }
 }
 
