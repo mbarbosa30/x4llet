@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock, Users, ArrowUpDown, ChevronDown, ChevronUp, Network, UserCheck, PiggyBank, Coins, Shield, Settings, BarChart3, Clock, DollarSign, Wallet, Gift, RefreshCw, HandHeart, Check, Info, ScanFace } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
@@ -1808,6 +1810,7 @@ export default function Admin() {
 
           {/* Sybil Detection Tab */}
           <TabsContent value="sybil" className="space-y-6">
+            <SybilScoresDashboard authHeader={authHeader} />
             <SybilDetectionPanel authHeader={authHeader} />
           </TabsContent>
 
@@ -2318,6 +2321,262 @@ export default function Admin() {
           </TabsContent>
         </Tabs>
       </div>
+    </div>
+  );
+}
+
+// Sybil Confidence Scores Dashboard
+interface SybilScoreData {
+  id: string;
+  walletAddress: string;
+  score: number;
+  tier: string;
+  signalBreakdown: string;
+  reasonCodes: string;
+  trustOffsets: string;
+  xpMultiplier: string;
+  manualOverride: boolean;
+  manualTier: string | null;
+  manualReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function SybilScoresDashboard({ authHeader }: { authHeader: string | null }) {
+  const [scores, setScores] = useState<SybilScoreData[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [limit, setLimit] = useState(50);
+  const { toast } = useToast();
+
+  const loadScores = async () => {
+    if (!authHeader) return;
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/admin/sybil-scores?limit=${limit}`, {
+        headers: { Authorization: authHeader },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setScores(data);
+      }
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to load sybil scores', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (authHeader) {
+      loadScores();
+    }
+  }, [authHeader, limit]);
+
+  const getTierBadge = (tier: string, isOverride: boolean) => {
+    const colors: Record<string, string> = {
+      clear: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+      warn: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+      limit: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+      block: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+    };
+    return (
+      <Badge className={`${colors[tier] || 'bg-muted'} ${isOverride ? 'ring-2 ring-purple-500' : ''}`}>
+        {tier.toUpperCase()}
+        {isOverride && ' (Manual)'}
+      </Badge>
+    );
+  };
+
+  const getXpDisplay = (multiplier: string) => {
+    const m = parseFloat(multiplier) || 1.0;
+    const xp = Math.round(120 * m);
+    return `${xp} XP`;
+  };
+
+  // Calculate tier distribution
+  const tierCounts = scores.reduce((acc, s) => {
+    const tier = s.manualOverride ? s.manualTier || s.tier : s.tier;
+    acc[tier] = (acc[tier] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Unified Sybil Confidence Scores
+          </CardTitle>
+          <CardDescription>
+            Combines device fingerprint, face verification, and trust signals into a single 0-100 score.
+            Higher score = higher sybil risk. XP is adjusted based on tier.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-3 border-2 border-foreground">
+              <div className="text-2xl font-bold text-green-600">{tierCounts['clear'] || 0}</div>
+              <div className="text-xs text-muted-foreground">Clear (0-29)</div>
+              <div className="text-xs">120 XP</div>
+            </div>
+            <div className="p-3 border-2 border-foreground">
+              <div className="text-2xl font-bold text-amber-600">{tierCounts['warn'] || 0}</div>
+              <div className="text-xs text-muted-foreground">Warn (30-59)</div>
+              <div className="text-xs">60 XP</div>
+            </div>
+            <div className="p-3 border-2 border-foreground">
+              <div className="text-2xl font-bold text-orange-600">{tierCounts['limit'] || 0}</div>
+              <div className="text-xs text-muted-foreground">Limit (60-79)</div>
+              <div className="text-xs">20 XP</div>
+            </div>
+            <div className="p-3 border-2 border-foreground">
+              <div className="text-2xl font-bold text-red-600">{tierCounts['block'] || 0}</div>
+              <div className="text-xs text-muted-foreground">Block (80-100)</div>
+              <div className="text-xs">0 XP</div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <Button onClick={loadScores} disabled={isLoading} size="sm" data-testid="button-refresh-scores">
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Refresh
+            </Button>
+            <Select value={limit.toString()} onValueChange={(v) => setLimit(parseInt(v))}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="25">25 rows</SelectItem>
+                <SelectItem value="50">50 rows</SelectItem>
+                <SelectItem value="100">100 rows</SelectItem>
+                <SelectItem value="200">200 rows</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Signal Weights</CardTitle>
+          <CardDescription>How each signal contributes to the risk score</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <div className="font-bold mb-2 text-destructive">Risk Signals (increase score)</div>
+              <ul className="space-y-1 text-muted-foreground">
+                <li><strong>+35:</strong> Same face on different device</li>
+                <li><strong>+30:</strong> Photo/screen spoof detected</li>
+                <li><strong>+25:</strong> Same device token</li>
+                <li><strong>+10:</strong> Same IP address (per wallet)</li>
+                <li><strong>+5:</strong> Same browser user agent</li>
+              </ul>
+            </div>
+            <div>
+              <div className="font-bold mb-2 text-green-600">Trust Signals (reduce score)</div>
+              <ul className="space-y-1 text-muted-foreground">
+                <li><strong>-30:</strong> GoodDollar verified identity</li>
+                <li><strong>-10:</strong> Passed liveness challenges</li>
+                <li><strong>-0.2/day:</strong> Account age (max -20)</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Wallet Scores ({scores.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : scores.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No sybil scores recorded yet. Scores are calculated during Face Check verification.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b-2 border-foreground">
+                    <th className="text-left p-2">Wallet</th>
+                    <th className="text-left p-2">Score</th>
+                    <th className="text-left p-2">Tier</th>
+                    <th className="text-left p-2">XP Award</th>
+                    <th className="text-left p-2">Signals</th>
+                    <th className="text-left p-2">Trust Offsets</th>
+                    <th className="text-left p-2">Updated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scores.map((s) => {
+                    let signals: Record<string, number> = {};
+                    let trusts: Record<string, number> = {};
+                    let reasons: string[] = [];
+                    try { 
+                      if (s.signalBreakdown) signals = JSON.parse(s.signalBreakdown) || {}; 
+                    } catch {}
+                    try { 
+                      if (s.trustOffsets) trusts = JSON.parse(s.trustOffsets) || {}; 
+                    } catch {}
+                    try { 
+                      if (s.reasonCodes) reasons = JSON.parse(s.reasonCodes) || []; 
+                    } catch {}
+                    const tier = s.manualOverride ? s.manualTier || s.tier : s.tier;
+                    
+                    return (
+                      <tr key={s.id} className="border-b border-muted hover-elevate">
+                        <td className="p-2 font-mono text-xs">
+                          {s.walletAddress.slice(0, 8)}...{s.walletAddress.slice(-6)}
+                        </td>
+                        <td className="p-2">
+                          <span className={`font-bold ${s.score >= 60 ? 'text-red-600' : s.score >= 30 ? 'text-amber-600' : 'text-green-600'}`}>
+                            {s.score}
+                          </span>
+                        </td>
+                        <td className="p-2">{getTierBadge(tier, s.manualOverride)}</td>
+                        <td className="p-2">{getXpDisplay(s.xpMultiplier)}</td>
+                        <td className="p-2">
+                          <div className="flex flex-wrap gap-1">
+                            {Object.entries(signals).map(([key, val]) => (
+                              <Badge key={key} variant="outline" className="text-xs">
+                                {key}: +{val}
+                              </Badge>
+                            ))}
+                            {Object.keys(signals).length === 0 && (
+                              <span className="text-muted-foreground text-xs">None</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-2">
+                          <div className="flex flex-wrap gap-1">
+                            {Object.entries(trusts).map(([key, val]) => (
+                              <Badge key={key} variant="outline" className="text-xs bg-green-50 dark:bg-green-950">
+                                {key}: -{val}
+                              </Badge>
+                            ))}
+                            {Object.keys(trusts).length === 0 && (
+                              <span className="text-muted-foreground text-xs">None</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-2 text-xs text-muted-foreground">
+                          {new Date(s.updatedAt).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

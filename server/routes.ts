@@ -6765,33 +6765,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         matchedWalletScore: similarFace ? JSON.stringify([{ wallet: similarFace.match.walletAddress, score: similarFace.similarity }]) : undefined,
       });
       
-      // Award XP only for verified faces (not duplicates)
-      // NOTE: Texture analysis is in DATA GATHERING mode - spoof detection logged but never blocks XP
-      // Set TEXTURE_ANALYSIS_BLOCKING=true to enable XP blocking based on texture analysis
+      // Award XP based on sybil confidence score
+      // Calculates weighted score from device fingerprint, face similarity, trust signals
       let xpAwarded = 0;
       let xpSkipReason: string | undefined;
+      let sybilTier: string | undefined;
+      let sybilScore: number | undefined;
       
-      // Check if texture analysis detected a spoof (for logging only unless blocking enabled)
+      // Check if texture analysis detected a spoof (for logging)
       const isLikelySpoof = qualityMetrics?.isLikelySpoof === true || qualityMetrics?.isLikelySpoof === 'true';
-      const textureBlockingEnabled = process.env.TEXTURE_ANALYSIS_BLOCKING === 'true';
-      const shouldBlockForSpoof = isLikelySpoof && textureBlockingEnabled;
       
-      // Log texture analysis results for tuning (regardless of blocking status)
+      // Log texture analysis results for tuning
       if (isLikelySpoof) {
-        console.log(`[FaceVerification] Texture analysis flagged spoof: ${normalizedAddress} (moire: ${qualityMetrics?.moireScore?.toFixed(3)}, variance: ${qualityMetrics?.textureVariance?.toFixed(3)}, confidence: ${qualityMetrics?.textureConfidence?.toFixed(2)}) - blocking: ${textureBlockingEnabled}`);
+        console.log(`[FaceVerification] Texture analysis flagged spoof: ${normalizedAddress} (moire: ${qualityMetrics?.moireScore?.toFixed(3)}, variance: ${qualityMetrics?.textureVariance?.toFixed(3)}, confidence: ${qualityMetrics?.textureConfidence?.toFixed(2)})`);
       }
       
-      if (status === 'verified' && !shouldBlockForSpoof) {
+      if (status === 'verified') {
         try {
-          await storage.claimXp(normalizedAddress, 12000, 0); // 120 XP bonus
-          xpAwarded = 120;
-          console.log(`[FaceVerification] Awarded 120 XP to ${normalizedAddress}`);
+          // Calculate unified sybil confidence score
+          const scoreResult = await storage.calculateSybilScore(normalizedAddress);
+          sybilTier = scoreResult.manualOverride ? scoreResult.manualTier || scoreResult.tier : scoreResult.tier;
+          sybilScore = scoreResult.score;
+          
+          // Base XP for Face Check is 120 (12000 centi-XP)
+          const baseXp = 12000;
+          const multiplier = parseFloat(scoreResult.xpMultiplier) || 1.0;
+          const adjustedXp = Math.round(baseXp * multiplier);
+          
+          if (adjustedXp > 0) {
+            await storage.claimXp(normalizedAddress, adjustedXp, 0);
+            xpAwarded = adjustedXp / 100; // Convert centi-XP to XP for display
+            console.log(`[FaceVerification] Awarded ${xpAwarded} XP to ${normalizedAddress} (tier: ${sybilTier}, score: ${sybilScore}, multiplier: ${multiplier})`);
+          } else {
+            xpSkipReason = 'sybil_blocked';
+            console.log(`[FaceVerification] Blocked XP for sybil tier: ${normalizedAddress} (tier: ${sybilTier}, score: ${sybilScore})`);
+          }
+          
+          // Log reason codes for monitoring
+          if (scoreResult.reasonCodes && scoreResult.reasonCodes !== '[]') {
+            try {
+              const reasons = JSON.parse(scoreResult.reasonCodes);
+              if (reasons.length > 0) {
+                console.log(`[FaceVerification] Sybil reasons for ${normalizedAddress}: ${reasons.join(', ')}`);
+              }
+            } catch {}
+          }
         } catch (xpError) {
-          console.error('[FaceVerification] Error awarding XP:', xpError);
+          console.error('[FaceVerification] Error calculating sybil score/awarding XP:', xpError);
+          // Fallback to full XP on error to avoid blocking legitimate users
+          try {
+            await storage.claimXp(normalizedAddress, 12000, 0);
+            xpAwarded = 120;
+          } catch {}
         }
-      } else if (shouldBlockForSpoof) {
-        xpSkipReason = 'spoof_detected';
-        console.log(`[FaceVerification] Blocked XP for likely spoof: ${normalizedAddress}`);
       } else {
         xpSkipReason = 'duplicate';
         console.log(`[FaceVerification] Skipping XP for duplicate face: ${normalizedAddress}`);
@@ -6805,6 +6831,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: verification.status,
         xpAwarded,
         xpSkipReason,
+        sybilTier,
+        sybilScore,
         similarityScore: matchSimilarity ? Math.round(matchSimilarity * 100) : undefined,
       });
     } catch (error) {
@@ -6833,6 +6861,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('[FaceVerification] Error getting diagnostics:', error);
       res.status(500).json({ error: 'Failed to get diagnostics' });
+    }
+  });
+
+  // ===== SYBIL SCORE ADMIN ENDPOINTS =====
+  
+  // Get all sybil scores for admin dashboard
+  app.get('/api/admin/sybil-scores', adminAuthMiddleware, async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+      const scores = await storage.getAllSybilScores(limit);
+      res.json(scores);
+    } catch (error) {
+      console.error('[Sybil] Error getting sybil scores:', error);
+      res.status(500).json({ error: 'Failed to get sybil scores' });
+    }
+  });
+
+  // Get sybil score for a specific wallet
+  app.get('/api/admin/sybil-scores/:address', adminAuthMiddleware, async (req, res) => {
+    try {
+      const { address } = req.params;
+      if (!address || !/^0x[a-fA-F0-9]{40}$/i.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+      
+      const score = await storage.getSybilScore(address);
+      if (!score) {
+        // Calculate score on-demand if not exists
+        const calculatedScore = await storage.calculateSybilScore(address);
+        return res.json(calculatedScore);
+      }
+      res.json(score);
+    } catch (error) {
+      console.error('[Sybil] Error getting sybil score:', error);
+      res.status(500).json({ error: 'Failed to get sybil score' });
+    }
+  });
+
+  // Recalculate sybil score for a wallet
+  app.post('/api/admin/sybil-scores/:address/recalculate', adminAuthMiddleware, async (req, res) => {
+    try {
+      const { address } = req.params;
+      if (!address || !/^0x[a-fA-F0-9]{40}$/i.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+      
+      const score = await storage.calculateSybilScore(address);
+      res.json(score);
+    } catch (error) {
+      console.error('[Sybil] Error recalculating sybil score:', error);
+      res.status(500).json({ error: 'Failed to recalculate sybil score' });
+    }
+  });
+
+  // Override sybil tier for a wallet
+  app.post('/api/admin/sybil-scores/:address/override', adminAuthMiddleware, async (req, res) => {
+    try {
+      const { address } = req.params;
+      const { tier, reason } = req.body;
+      
+      if (!address || !/^0x[a-fA-F0-9]{40}$/i.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+      
+      if (!tier || !['clear', 'warn', 'limit', 'block'].includes(tier)) {
+        return res.status(400).json({ error: 'Invalid tier. Must be one of: clear, warn, limit, block' });
+      }
+      
+      if (!reason || typeof reason !== 'string') {
+        return res.status(400).json({ error: 'Reason is required for override' });
+      }
+      
+      // Ensure score exists first
+      let score = await storage.getSybilScore(address);
+      if (!score) {
+        score = await storage.calculateSybilScore(address);
+      }
+      
+      const updated = await storage.overrideSybilTier(address, tier, reason);
+      if (!updated) {
+        return res.status(404).json({ error: 'Failed to update sybil score' });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('[Sybil] Error overriding sybil tier:', error);
+      res.status(500).json({ error: 'Failed to override sybil tier' });
+    }
+  });
+
+  // Clear sybil override for a wallet
+  app.post('/api/admin/sybil-scores/:address/clear-override', adminAuthMiddleware, async (req, res) => {
+    try {
+      const { address } = req.params;
+      
+      if (!address || !/^0x[a-fA-F0-9]{40}$/i.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+      
+      const updated = await storage.clearSybilOverride(address);
+      if (!updated) {
+        return res.status(404).json({ error: 'Sybil score not found' });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error('[Sybil] Error clearing sybil override:', error);
+      res.status(500).json({ error: 'Failed to clear sybil override' });
     }
   });
 

@@ -549,3 +549,38 @@ export const usdcDailyRedemptions = pgTable("usdc_daily_redemptions", {
 }));
 
 export type UsdcDailyRedemption = typeof usdcDailyRedemptions.$inferSelect;
+
+// Unified Sybil Confidence Scores
+// Combines all signals into a weighted confidence score with graduated tiers
+export const sybilScores = pgTable("sybil_scores", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: text("wallet_address").notNull().unique(),
+  // Computed score (0-100, higher = more likely sybil)
+  score: integer("score").notNull().default(0),
+  // Tier classification based on score
+  tier: text("tier").notNull().default('clear'), // 'clear' (0-29), 'warn' (30-59), 'limit' (60-79), 'block' (80-100)
+  // Signal breakdown (JSON object with each signal's contribution)
+  signalBreakdown: text("signal_breakdown").notNull().default('{}'),
+  // Top reason codes for this score
+  reasonCodes: text("reason_codes").notNull().default('[]'), // JSON array of reason strings
+  // Trust offsets that reduced the score
+  trustOffsets: text("trust_offsets").notNull().default('{}'),
+  // XP multiplier based on tier (1.0 for clear, 0.5 for warn, 0.167 for limit, 0 for block)
+  xpMultiplier: text("xp_multiplier").notNull().default('1.0'),
+  // Manual override by admin
+  manualOverride: boolean("manual_override").notNull().default(false),
+  manualTier: text("manual_tier"), // If overridden, the admin-set tier
+  manualReason: text("manual_reason"), // Admin notes for override
+  // Timestamps
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type SybilScore = typeof sybilScores.$inferSelect;
+
+export const insertSybilScoreSchema = createInsertSchema(sybilScores).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSybilScore = z.infer<typeof insertSybilScoreSchema>;

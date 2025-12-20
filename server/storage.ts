@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, type AiConversation, type AiMessage, type IpEvent, type InsertIpEvent, type FaceVerification, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, globalSettings, aiConversations, ipEvents, faceVerifications, gdDailySpending, usdcDailyRedemptions } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, type AiConversation, type AiMessage, type IpEvent, type InsertIpEvent, type FaceVerification, type SybilScore, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, globalSettings, aiConversations, ipEvents, faceVerifications, gdDailySpending, usdcDailyRedemptions, sybilScores } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo, gnosis, arbitrum } from 'viem/chains';
@@ -5729,6 +5729,426 @@ export class DbStorage extends MemStorage {
       console.error('[FaceVerification] Error deleting all verifications:', error);
       throw error;
     }
+  }
+
+  // =============================================
+  // Sybil Confidence Score Service
+  // =============================================
+  
+  // Signal weights for risk calculation
+  private readonly SIGNAL_WEIGHTS = {
+    // High risk signals
+    faceMatch: 35,           // Same face on different device
+    deviceFingerprint: 25,   // Same device token on different wallet
+    ipMatch: 10,             // Same IP (common for shared networks)
+    uaMatch: 5,              // Same browser (easy to change)
+    spoofDetected: 30,       // Texture analysis detected screen/photo
+    // Trust offsets (reduce score)
+    gooddollarVerified: -30, // GoodDollar verified identity
+    maxflowScore: -0.3,      // Per MaxFlow point (max -30)
+    livenessPass: -10,       // Completed liveness challenges
+    accountAge: -0.2,        // Per day old (max -20)
+  };
+
+  // Tier thresholds
+  private readonly TIER_THRESHOLDS = {
+    clear: 29,    // 0-29: full access
+    warn: 59,     // 30-59: reduced XP
+    limit: 79,    // 60-79: minimal XP
+    // 80-100: blocked
+  };
+
+  // XP multipliers by tier
+  private readonly XP_MULTIPLIERS: Record<string, number> = {
+    clear: 1.0,   // 120 XP
+    warn: 0.5,    // 60 XP
+    limit: 0.167, // 20 XP
+    block: 0,     // 0 XP
+  };
+
+  async calculateSybilScore(walletAddress: string): Promise<SybilScore> {
+    const normalizedAddress = walletAddress.toLowerCase();
+    
+    try {
+      // Gather all signals in parallel
+      // NOTE: MaxFlow score intentionally excluded - Face Check XP earned before network established
+      const [
+        fingerprintSignals,
+        faceSignals,
+        gooddollarStatus,
+        walletInfo,
+      ] = await Promise.all([
+        this.getFingerprintSignals(normalizedAddress),
+        this.getFaceVerificationSignals(normalizedAddress),
+        this.getGoodDollarIdentity(normalizedAddress),
+        db.select().from(wallets).where(eq(wallets.address, normalizedAddress)).limit(1),
+      ]);
+
+      // Calculate raw risk score
+      let rawScore = 0;
+      const signalBreakdown: Record<string, number> = {};
+      const reasonCodes: string[] = [];
+      const trustOffsets: Record<string, number> = {};
+
+      // Device fingerprint signals
+      if (fingerprintSignals.deviceMatch) {
+        const contribution = this.SIGNAL_WEIGHTS.deviceFingerprint;
+        rawScore += contribution;
+        signalBreakdown.deviceFingerprint = contribution;
+        reasonCodes.push(`Device matches ${fingerprintSignals.deviceMatchCount} other wallet(s)`);
+      }
+
+      if (fingerprintSignals.ipMatch) {
+        const contribution = Math.min(this.SIGNAL_WEIGHTS.ipMatch * fingerprintSignals.ipMatchCount, 20);
+        rawScore += contribution;
+        signalBreakdown.ipMatch = contribution;
+        reasonCodes.push(`IP shared with ${fingerprintSignals.ipMatchCount} other wallet(s)`);
+      }
+
+      if (fingerprintSignals.uaMatch) {
+        const contribution = this.SIGNAL_WEIGHTS.uaMatch;
+        rawScore += contribution;
+        signalBreakdown.uaMatch = contribution;
+      }
+
+      // Face verification signals
+      if (faceSignals.isDuplicate) {
+        const contribution = this.SIGNAL_WEIGHTS.faceMatch;
+        rawScore += contribution;
+        signalBreakdown.faceMatch = contribution;
+        reasonCodes.push(`Face matches another wallet (similarity: ${faceSignals.similarityScore})`);
+      }
+
+      if (faceSignals.spoofDetected) {
+        const contribution = this.SIGNAL_WEIGHTS.spoofDetected;
+        rawScore += contribution;
+        signalBreakdown.spoofDetected = contribution;
+        reasonCodes.push('Photo/screen detected during face check');
+      }
+
+      // Trust offsets (reduce score)
+      if (gooddollarStatus?.isWhitelisted && !gooddollarStatus?.isExpired) {
+        const offset = this.SIGNAL_WEIGHTS.gooddollarVerified;
+        rawScore += offset; // negative, so reduces score
+        trustOffsets.gooddollarVerified = Math.abs(offset);
+      }
+
+      // NOTE: MaxFlow score intentionally excluded from sybil calculation
+      // Face Check XP is earned before users establish their network
+      // MaxFlow trust signal may be added for other claim types in the future
+
+      if (faceSignals.livenessPass) {
+        const offset = this.SIGNAL_WEIGHTS.livenessPass;
+        rawScore += offset;
+        trustOffsets.livenessPass = Math.abs(offset);
+      }
+
+      // Account age offset
+      if (walletInfo.length > 0 && walletInfo[0].createdAt) {
+        const ageMs = Date.now() - walletInfo[0].createdAt.getTime();
+        const ageDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
+        if (ageDays > 0) {
+          const offset = Math.max(this.SIGNAL_WEIGHTS.accountAge * ageDays, -20);
+          rawScore += offset;
+          trustOffsets.accountAge = Math.abs(offset);
+        }
+      }
+
+      // Clamp score to 0-100
+      const finalScore = Math.max(0, Math.min(100, Math.round(rawScore)));
+
+      // Determine tier
+      let tier: string;
+      if (finalScore <= this.TIER_THRESHOLDS.clear) {
+        tier = 'clear';
+      } else if (finalScore <= this.TIER_THRESHOLDS.warn) {
+        tier = 'warn';
+      } else if (finalScore <= this.TIER_THRESHOLDS.limit) {
+        tier = 'limit';
+      } else {
+        tier = 'block';
+      }
+
+      const xpMultiplier = this.XP_MULTIPLIERS[tier];
+
+      // Upsert the score
+      const scoreRecord = await this.upsertSybilScore({
+        walletAddress: normalizedAddress,
+        score: finalScore,
+        tier,
+        signalBreakdown: JSON.stringify(signalBreakdown),
+        reasonCodes: JSON.stringify(reasonCodes),
+        trustOffsets: JSON.stringify(trustOffsets),
+        xpMultiplier: xpMultiplier.toString(),
+      });
+
+      return scoreRecord;
+    } catch (error) {
+      console.error('[Sybil] Error calculating sybil score:', error);
+      // Return a default "clear" score on error to avoid blocking legitimate users
+      return {
+        id: '',
+        walletAddress: normalizedAddress,
+        score: 0,
+        tier: 'clear',
+        signalBreakdown: '{}',
+        reasonCodes: '[]',
+        trustOffsets: '{}',
+        xpMultiplier: '1.0',
+        manualOverride: false,
+        manualTier: null,
+        manualReason: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+    }
+  }
+
+  private async getFingerprintSignals(walletAddress: string): Promise<{
+    deviceMatch: boolean;
+    deviceMatchCount: number;
+    ipMatch: boolean;
+    ipMatchCount: number;
+    uaMatch: boolean;
+  }> {
+    try {
+      const result = await db.execute(sql`
+        WITH my_signals AS (
+          SELECT storage_token, ip_hash, user_agent
+          FROM ip_events
+          WHERE wallet_address = ${walletAddress}
+          ORDER BY created_at DESC
+          LIMIT 1
+        ),
+        device_matches AS (
+          SELECT DISTINCT wallet_address
+          FROM ip_events, my_signals
+          WHERE ip_events.wallet_address != ${walletAddress}
+            AND ip_events.storage_token = my_signals.storage_token
+            AND my_signals.storage_token IS NOT NULL
+        ),
+        ip_matches AS (
+          SELECT DISTINCT wallet_address
+          FROM ip_events, my_signals
+          WHERE ip_events.wallet_address != ${walletAddress}
+            AND ip_events.ip_hash = my_signals.ip_hash
+            AND my_signals.ip_hash IS NOT NULL
+        ),
+        ua_matches AS (
+          SELECT DISTINCT wallet_address
+          FROM ip_events, my_signals
+          WHERE ip_events.wallet_address != ${walletAddress}
+            AND ip_events.user_agent = my_signals.user_agent
+            AND my_signals.user_agent IS NOT NULL
+        )
+        SELECT 
+          (SELECT COUNT(*) FROM device_matches) as device_count,
+          (SELECT COUNT(*) FROM ip_matches) as ip_count,
+          (SELECT COUNT(*) FROM ua_matches) as ua_count
+      `);
+
+      const row = (result.rows as any[])[0] || {};
+      return {
+        deviceMatch: parseInt(row.device_count || '0') > 0,
+        deviceMatchCount: parseInt(row.device_count || '0'),
+        ipMatch: parseInt(row.ip_count || '0') > 0,
+        ipMatchCount: parseInt(row.ip_count || '0'),
+        uaMatch: parseInt(row.ua_count || '0') > 0,
+      };
+    } catch (error) {
+      console.error('[Sybil] Error getting fingerprint signals:', error);
+      return { deviceMatch: false, deviceMatchCount: 0, ipMatch: false, ipMatchCount: 0, uaMatch: false };
+    }
+  }
+
+  private async getFaceVerificationSignals(walletAddress: string): Promise<{
+    isDuplicate: boolean;
+    similarityScore: string | null;
+    spoofDetected: boolean;
+    livenessPass: boolean;
+  }> {
+    try {
+      const faceRecord = await db.select()
+        .from(faceVerifications)
+        .where(eq(faceVerifications.walletAddress, walletAddress))
+        .orderBy(desc(faceVerifications.createdAt))
+        .limit(1);
+
+      if (faceRecord.length === 0) {
+        return { isDuplicate: false, similarityScore: null, spoofDetected: false, livenessPass: false };
+      }
+
+      const record = faceRecord[0];
+      
+      // Check for spoof in quality metrics
+      let spoofDetected = false;
+      if (record.qualityMetrics) {
+        try {
+          const metrics = JSON.parse(record.qualityMetrics);
+          spoofDetected = metrics.isLikelySpoof === true || metrics.isLikelySpoof === 'true';
+        } catch {}
+      }
+
+      // Check liveness (challenges passed)
+      let livenessPass = false;
+      if (record.challengesPassed) {
+        try {
+          const challenges = JSON.parse(record.challengesPassed);
+          livenessPass = Array.isArray(challenges) && challenges.length >= 2;
+        } catch {}
+      }
+
+      return {
+        isDuplicate: record.status === 'duplicate',
+        similarityScore: record.similarityScore,
+        spoofDetected,
+        livenessPass,
+      };
+    } catch (error) {
+      console.error('[Sybil] Error getting face verification signals:', error);
+      return { isDuplicate: false, similarityScore: null, spoofDetected: false, livenessPass: false };
+    }
+  }
+
+  private async upsertSybilScore(data: {
+    walletAddress: string;
+    score: number;
+    tier: string;
+    signalBreakdown: string;
+    reasonCodes: string;
+    trustOffsets: string;
+    xpMultiplier: string;
+  }): Promise<SybilScore> {
+    // Check for existing record
+    const existing = await db.select()
+      .from(sybilScores)
+      .where(eq(sybilScores.walletAddress, data.walletAddress))
+      .limit(1);
+
+    if (existing.length > 0) {
+      // If manually overridden, keep the manual tier
+      if (existing[0].manualOverride) {
+        const [updated] = await db.update(sybilScores)
+          .set({
+            score: data.score,
+            signalBreakdown: data.signalBreakdown,
+            reasonCodes: data.reasonCodes,
+            trustOffsets: data.trustOffsets,
+            updatedAt: new Date(),
+          })
+          .where(eq(sybilScores.walletAddress, data.walletAddress))
+          .returning();
+        return updated;
+      }
+
+      const [updated] = await db.update(sybilScores)
+        .set({
+          score: data.score,
+          tier: data.tier,
+          signalBreakdown: data.signalBreakdown,
+          reasonCodes: data.reasonCodes,
+          trustOffsets: data.trustOffsets,
+          xpMultiplier: data.xpMultiplier,
+          updatedAt: new Date(),
+        })
+        .where(eq(sybilScores.walletAddress, data.walletAddress))
+        .returning();
+      return updated;
+    }
+
+    // Insert new record
+    const [inserted] = await db.insert(sybilScores)
+      .values({
+        walletAddress: data.walletAddress,
+        score: data.score,
+        tier: data.tier,
+        signalBreakdown: data.signalBreakdown,
+        reasonCodes: data.reasonCodes,
+        trustOffsets: data.trustOffsets,
+        xpMultiplier: data.xpMultiplier,
+      })
+      .returning();
+    return inserted;
+  }
+
+  async getSybilScore(walletAddress: string): Promise<SybilScore | null> {
+    try {
+      const result = await db.select()
+        .from(sybilScores)
+        .where(eq(sybilScores.walletAddress, walletAddress.toLowerCase()))
+        .limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error('[Sybil] Error getting sybil score:', error);
+      return null;
+    }
+  }
+
+  async getAllSybilScores(limit: number = 100): Promise<SybilScore[]> {
+    try {
+      return await db.select()
+        .from(sybilScores)
+        .orderBy(desc(sybilScores.score), desc(sybilScores.updatedAt))
+        .limit(limit);
+    } catch (error) {
+      console.error('[Sybil] Error getting all sybil scores:', error);
+      return [];
+    }
+  }
+
+  async overrideSybilTier(
+    walletAddress: string, 
+    tier: string, 
+    reason: string
+  ): Promise<SybilScore | null> {
+    try {
+      const normalizedAddress = walletAddress.toLowerCase();
+      const xpMultiplier = this.XP_MULTIPLIERS[tier] ?? 1.0;
+
+      const [updated] = await db.update(sybilScores)
+        .set({
+          manualOverride: true,
+          manualTier: tier,
+          manualReason: reason,
+          tier: tier,
+          xpMultiplier: xpMultiplier.toString(),
+          updatedAt: new Date(),
+        })
+        .where(eq(sybilScores.walletAddress, normalizedAddress))
+        .returning();
+      
+      return updated || null;
+    } catch (error) {
+      console.error('[Sybil] Error overriding sybil tier:', error);
+      return null;
+    }
+  }
+
+  async clearSybilOverride(walletAddress: string): Promise<SybilScore | null> {
+    try {
+      // Recalculate the score without override
+      const score = await this.calculateSybilScore(walletAddress);
+      
+      // Clear the override flags
+      const [updated] = await db.update(sybilScores)
+        .set({
+          manualOverride: false,
+          manualTier: null,
+          manualReason: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(sybilScores.walletAddress, walletAddress.toLowerCase()))
+        .returning();
+      
+      return updated || null;
+    } catch (error) {
+      console.error('[Sybil] Error clearing sybil override:', error);
+      return null;
+    }
+  }
+
+  getXpMultiplierForTier(tier: string): number {
+    return this.XP_MULTIPLIERS[tier] ?? 1.0;
   }
 }
 
