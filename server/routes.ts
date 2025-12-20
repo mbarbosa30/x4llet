@@ -6411,6 +6411,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Requirements: Face verified + GoodDollar verified + Max 1000 G$ per day
   const GD_DAILY_LIMIT = BigInt(1000) * BigInt(1e18); // 1000 G$ in raw units (18 decimals)
   
+  // Helper to sync GoodDollar identity from on-chain for a single address
+  async function syncGoodDollarIdentityFromChain(walletAddress: string): Promise<{ isWhitelisted: boolean; isExpired: boolean } | null> {
+    try {
+      const GD_IDENTITY_ADDRESS = '0xC361A6E67822a0EDc17D899227dd9FC50BD62F42' as Address;
+      const GD_IDENTITY_ABI = [
+        { name: 'isWhitelisted', type: 'function', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ type: 'bool' }] },
+        { name: 'getWhitelistedRoot', type: 'function', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: 'whitelisted', type: 'address' }] },
+        { name: 'lastAuthenticated', type: 'function', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ type: 'uint256' }] },
+        { name: 'authenticationPeriod', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+      ] as const;
+      
+      const celoClient = createPublicClient({
+        chain: celo,
+        transport: http('https://forno.celo.org'),
+      });
+      
+      const [isWhitelisted, whitelistedRoot, lastAuthenticatedBigInt, authPeriodBigInt] = await Promise.all([
+        celoClient.readContract({ address: GD_IDENTITY_ADDRESS, abi: GD_IDENTITY_ABI, functionName: 'isWhitelisted', args: [walletAddress as Address] }),
+        celoClient.readContract({ address: GD_IDENTITY_ADDRESS, abi: GD_IDENTITY_ABI, functionName: 'getWhitelistedRoot', args: [walletAddress as Address] }),
+        celoClient.readContract({ address: GD_IDENTITY_ADDRESS, abi: GD_IDENTITY_ABI, functionName: 'lastAuthenticated', args: [walletAddress as Address] }),
+        celoClient.readContract({ address: GD_IDENTITY_ADDRESS, abi: GD_IDENTITY_ABI, functionName: 'authenticationPeriod' }),
+      ]);
+      
+      const authPeriodDays = Number(authPeriodBigInt);
+      const lastAuthSeconds = Number(lastAuthenticatedBigInt);
+      const lastAuthenticated = lastAuthSeconds > 0 ? new Date(lastAuthSeconds * 1000) : null;
+      const zeroAddress = '0x0000000000000000000000000000000000000000';
+      
+      let expiresAt: Date | null = null;
+      let isExpired = false;
+      let daysUntilExpiry: number | null = null;
+      
+      if (lastAuthenticated && authPeriodDays > 0) {
+        expiresAt = new Date(lastAuthenticated.getTime() + authPeriodDays * 24 * 60 * 60 * 1000);
+        isExpired = new Date() > expiresAt;
+        daysUntilExpiry = Math.ceil((expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+        if (daysUntilExpiry < 0) daysUntilExpiry = 0;
+      }
+      
+      // Save to database
+      await storage.upsertGoodDollarIdentity({
+        walletAddress: walletAddress.toLowerCase(),
+        isWhitelisted,
+        whitelistedRoot: whitelistedRoot !== zeroAddress ? whitelistedRoot : null,
+        lastAuthenticated,
+        authenticationPeriod: authPeriodDays,
+        expiresAt,
+        isExpired,
+        daysUntilExpiry,
+      });
+      
+      console.log(`[GoodDollar] Synced identity for ${walletAddress}: whitelisted=${isWhitelisted}, expired=${isExpired}`);
+      return { isWhitelisted, isExpired };
+    } catch (error) {
+      console.error(`[GoodDollar] Failed to sync identity for ${walletAddress}:`, error);
+      return null;
+    }
+  }
+  
   app.post('/api/xp/exchange-gd', async (req, res) => {
     try {
       const { address, gdAmount, txHash } = req.body;
@@ -6441,13 +6500,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // 2. Check GoodDollar identity verification
-      const gdIdentity = await storage.getGoodDollarIdentity(normalizedAddress);
-      if (!gdIdentity || !gdIdentity.isWhitelisted) {
+      // 2. Check GoodDollar identity verification - sync from chain if not in DB
+      let gdIdentity = await storage.getGoodDollarIdentity(normalizedAddress);
+      
+      // If not whitelisted in our database, try syncing from on-chain
+      if (!gdIdentity?.isWhitelisted) {
+        console.log(`[XP Exchange] User ${normalizedAddress} not whitelisted in DB, checking on-chain...`);
+        await syncGoodDollarIdentityFromChain(address);
+        // Always refetch from database after sync to get the latest status
+        gdIdentity = await storage.getGoodDollarIdentity(normalizedAddress);
+      }
+      
+      // Check if still not verified
+      if (!gdIdentity?.isWhitelisted) {
         return res.status(403).json({ 
           error: 'GoodDollar verification required',
           code: 'GD_NOT_VERIFIED',
           message: 'You must verify your GoodDollar identity to exchange G$ for XP',
+        });
+      }
+      
+      // Check if identity is expired
+      if (gdIdentity.isExpired) {
+        return res.status(403).json({ 
+          error: 'GoodDollar verification expired',
+          code: 'GD_EXPIRED',
+          message: 'Your GoodDollar identity has expired. Please renew your verification to continue exchanging G$ for XP.',
         });
       }
       
@@ -6537,8 +6615,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get verification statuses
       const faceVerification = await storage.getFaceVerification(normalizedAddress);
-      const gdIdentity = await storage.getGoodDollarIdentity(normalizedAddress);
+      let gdIdentity = await storage.getGoodDollarIdentity(normalizedAddress);
       const dailySpending = await storage.getGdDailySpending(normalizedAddress, today);
+      
+      // If not whitelisted in our database, try syncing from on-chain
+      if (!gdIdentity?.isWhitelisted) {
+        console.log(`[GoodDollar] User ${normalizedAddress} not whitelisted in DB, checking on-chain...`);
+        const onChainStatus = await syncGoodDollarIdentityFromChain(address);
+        if (onChainStatus?.isWhitelisted) {
+          // Refetch from database after sync
+          gdIdentity = await storage.getGoodDollarIdentity(normalizedAddress);
+        }
+      }
+      
+      // Also check if identity is expired
+      const gdVerified = (gdIdentity?.isWhitelisted ?? false) && !(gdIdentity?.isExpired ?? true);
       
       const dailyLimitGd = 1000;
       const spentGd = dailySpending ? Number(dailySpending.gdSpent) / 1e18 : 0;
@@ -6546,8 +6637,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({
         faceVerified: faceVerification?.status === 'verified',
-        gdVerified: gdIdentity?.isWhitelisted ?? false,
-        eligible: (faceVerification?.status === 'verified') && (gdIdentity?.isWhitelisted ?? false),
+        gdVerified,
+        eligible: (faceVerification?.status === 'verified') && gdVerified,
         dailyLimit: dailyLimitGd,
         spent: spentGd,
         remaining: Math.max(0, remainingGd),
