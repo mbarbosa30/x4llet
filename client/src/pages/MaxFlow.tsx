@@ -554,7 +554,8 @@ export default function MaxFlow() {
           if (match) {
             try {
               const parsed = JSON.parse(match[1]);
-              errorMessage = parsed.error || match[1];
+              // Prefer detailed 'message' field over generic 'error' field
+              errorMessage = parsed.message || parsed.error || match[1];
             } catch {
               errorMessage = match[1];
             }
@@ -613,7 +614,8 @@ export default function MaxFlow() {
           if (match) {
             try {
               const parsed = JSON.parse(match[1]);
-              errorMessage = parsed.error || match[1];
+              // Prefer detailed 'message' field over generic 'error' field
+              errorMessage = parsed.message || parsed.error || match[1];
             } catch {
               errorMessage = match[1];
             }

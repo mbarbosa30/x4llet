@@ -5865,10 +5865,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const xpBalance = await storage.getXpBalance(normalizedAddress);
       
       if (!xpBalance || xpBalance.totalXp < XP_REQUIRED) {
+        const current = (xpBalance?.totalXp || 0) / 100;
+        const needed = Math.ceil(100 - current);
         return res.status(400).json({ 
           error: 'Insufficient XP',
+          message: `You need ${needed} more XP. Current balance: ${Math.floor(current)} XP.`,
           required: 100,
-          current: (xpBalance?.totalXp || 0) / 100,
+          current,
         });
       }
 
@@ -5876,7 +5879,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const deductResult = await storage.deductXp(normalizedAddress, XP_REQUIRED);
       
       if (!deductResult.success) {
-        return res.status(400).json({ error: 'Failed to deduct XP' });
+        return res.status(400).json({ 
+          error: 'Failed to deduct XP',
+          message: 'Could not process your XP. Please try again.',
+        });
       }
 
       console.log(`[XP Redeem] Deducted 100 XP from ${normalizedAddress}, transferring 1 aUSDC on Celo`);
@@ -5924,7 +5930,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.refundXp(normalizedAddress, XP_REQUIRED);
         console.error('[XP Redeem] Insufficient aUSDC in facilitator wallet');
         return res.status(503).json({ 
-          error: 'Redemption temporarily unavailable - please try again later',
+          error: 'Redemption temporarily unavailable',
+          message: 'The USDC pool is temporarily empty. Your XP has been refunded. Please try again in a few hours.',
           details: 'Facilitator needs to be topped up with aUSDC',
         });
       }
@@ -6020,12 +6027,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const parsedXp = parseFloat(xpAmount);
       if (isNaN(parsedXp) || parsedXp < 1) {
-        return res.status(400).json({ error: 'Minimum 1 XP required' });
+        return res.status(400).json({ 
+          error: 'Minimum 1 XP required',
+          message: 'Enter at least 1 XP to exchange for SENADOR.',
+        });
       }
       
       // Reject fractional XP - must be a whole number
       if (!Number.isInteger(parsedXp) || parsedXp <= 0) {
-        return res.status(400).json({ error: 'XP amount must be a positive whole number' });
+        return res.status(400).json({ 
+          error: 'XP amount must be a positive whole number',
+          message: 'Please enter a whole number of XP (no decimals).',
+        });
       }
       
       const xpToSpend = parsedXp;
@@ -6039,10 +6052,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const xpBalance = await storage.getXpBalance(normalizedAddress);
       
       if (!xpBalance || xpBalance.totalXp < xpCentiRequired) {
+        const current = (xpBalance?.totalXp || 0) / 100;
+        const needed = Math.ceil(xpToSpend - current);
         return res.status(400).json({ 
           error: 'Insufficient XP',
+          message: `You need ${needed} more XP. Current balance: ${Math.floor(current)} XP.`,
           required: xpToSpend,
-          current: (xpBalance?.totalXp || 0) / 100,
+          current,
         });
       }
 
@@ -6050,7 +6066,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const deductResult = await storage.deductXp(normalizedAddress, xpCentiRequired);
       
       if (!deductResult.success) {
-        return res.status(400).json({ error: 'Failed to deduct XP' });
+        return res.status(400).json({ 
+          error: 'Failed to deduct XP',
+          message: 'Could not process your XP. Please try again.',
+        });
       }
 
       console.log(`[XP → SENADOR] Deducted ${xpToSpend} XP from ${normalizedAddress}, transferring ${xpToSpend} SENADOR`);
@@ -6100,9 +6119,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (facilitatorSenadorBalance < senadorAmount) {
         console.error('[XP → SENADOR] Insufficient SENADOR in facilitator wallet');
         await storage.refundXp(normalizedAddress, xpCentiRequired);
-        return res.status(500).json({ 
-          error: 'Insufficient SENADOR in facilitator wallet',
-          available: (Number(facilitatorSenadorBalance) / 1e18).toFixed(2),
+        const available = (Number(facilitatorSenadorBalance) / 1e18).toFixed(0);
+        return res.status(503).json({ 
+          error: 'Insufficient SENADOR available',
+          message: `The SENADOR pool only has ${available} tokens available. Your XP has been refunded. Please try a smaller amount or wait for the pool to be refilled.`,
+          available,
         });
       }
 
@@ -6120,7 +6141,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (transferError) {
         console.error('[XP → SENADOR] Transfer failed:', transferError);
         await storage.refundXp(normalizedAddress, xpCentiRequired);
-        return res.status(500).json({ error: 'Failed to transfer SENADOR' });
+        return res.status(500).json({ 
+          error: 'Failed to transfer SENADOR',
+          message: 'The transfer could not be completed. Your XP has been refunded. Please try again.',
+        });
       }
 
       console.log(`[XP → SENADOR] Transfer tx: ${transferHash}`);
@@ -6129,7 +6153,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (transferReceipt.status !== 'success') {
         console.error('[XP → SENADOR] Transaction failed:', transferReceipt);
         await storage.refundXp(normalizedAddress, xpCentiRequired);
-        return res.status(500).json({ error: 'SENADOR transfer transaction failed' });
+        return res.status(500).json({ 
+          error: 'SENADOR transfer transaction failed',
+          message: 'The blockchain transaction failed. Your XP has been refunded. Please try again.',
+        });
       }
 
       console.log(`[XP → SENADOR] Success! ${xpToSpend} XP → ${xpToSpend} SENADOR transferred to ${address}`);

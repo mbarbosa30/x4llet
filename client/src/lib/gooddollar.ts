@@ -997,7 +997,8 @@ export async function exchangeGdForXp(
     if (!response.ok) {
       return { 
         success: false, 
-        error: data.error || 'Failed to credit XP',
+        // Prefer detailed 'message' field over generic 'error' field
+        error: data.message || data.error || 'Failed to credit XP',
         txHash, // Include txHash so user knows transfer succeeded
       };
     }
