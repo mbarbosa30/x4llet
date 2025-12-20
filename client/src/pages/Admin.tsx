@@ -1052,7 +1052,7 @@ export default function Admin() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-8 mb-6" data-testid="admin-tabs">
+          <TabsList className="grid w-full grid-cols-9 mb-6" data-testid="admin-tabs">
             <TabsTrigger value="overview" className="flex items-center gap-1.5" data-testid="tab-overview">
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Overview</span>
@@ -1076,6 +1076,10 @@ export default function Admin() {
             <TabsTrigger value="sybil" className="flex items-center gap-1.5" data-testid="tab-sybil">
               <AlertCircle className="h-4 w-4" />
               <span className="hidden sm:inline">Sybil</span>
+            </TabsTrigger>
+            <TabsTrigger value="facecheck" className="flex items-center gap-1.5" data-testid="tab-facecheck">
+              <ScanFace className="h-4 w-4" />
+              <span className="hidden sm:inline">Face</span>
             </TabsTrigger>
             <TabsTrigger value="wallets" className="flex items-center gap-1.5" data-testid="tab-wallets">
               <Users className="h-4 w-4" />
@@ -1805,6 +1809,11 @@ export default function Admin() {
           {/* Sybil Detection Tab */}
           <TabsContent value="sybil" className="space-y-6">
             <SybilDetectionPanel authHeader={authHeader} />
+          </TabsContent>
+
+          {/* Face Check Tab */}
+          <TabsContent value="facecheck" className="space-y-6">
+            <FaceCheckDashboard authHeader={authHeader} />
           </TabsContent>
 
           {/* Wallets Tab */}
@@ -3061,5 +3070,412 @@ function FaceVerificationManagement({ authHeader }: { authHeader: string | null 
         </p>
       </CardContent>
     </Card>
+  );
+}
+
+// Face Check Dashboard - Texture Analysis Metrics
+interface FaceCheckDiagnostic {
+  walletAddress: string;
+  status: string;
+  similarityScore: string | null;
+  qualityMetrics: string | null;
+  userAgent: string | null;
+  processingTimeMs: number | null;
+  matchedWalletScore: string | null;
+  challengesPassed: string;
+  createdAt: string;
+}
+
+interface ParsedQualityMetrics {
+  faceSize?: string;
+  centered?: boolean;
+  noOcclusion?: boolean;
+  moireScore?: number;
+  textureVariance?: number;
+  isLikelySpoof?: boolean;
+  textureConfidence?: number;
+  textureReason?: string;
+}
+
+function FaceCheckDashboard({ authHeader }: { authHeader: string | null }) {
+  const [diagnostics, setDiagnostics] = useState<FaceCheckDiagnostic[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [limit, setLimit] = useState(50);
+
+  const fetchDiagnostics = async () => {
+    if (!authHeader) return;
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/admin/face-verification/diagnostics?limit=${limit}`, {
+        headers: { 'Authorization': authHeader },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setDiagnostics(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch diagnostics:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (authHeader) {
+      fetchDiagnostics();
+    }
+  }, [authHeader, limit]);
+
+  // Parse quality metrics from JSON strings and coerce to numbers
+  const parsedDiagnostics = diagnostics.map(d => {
+    let metrics: ParsedQualityMetrics = {};
+    try {
+      if (d.qualityMetrics) {
+        const raw = JSON.parse(d.qualityMetrics);
+        metrics = {
+          faceSize: raw.faceSize,
+          centered: raw.centered,
+          noOcclusion: raw.noOcclusion,
+          moireScore: raw.moireScore !== undefined ? Number(raw.moireScore) : undefined,
+          textureVariance: raw.textureVariance !== undefined ? Number(raw.textureVariance) : undefined,
+          isLikelySpoof: raw.isLikelySpoof === true || raw.isLikelySpoof === 'true',
+          textureConfidence: raw.textureConfidence !== undefined ? Number(raw.textureConfidence) : undefined,
+          textureReason: raw.textureReason,
+        };
+      }
+    } catch {}
+    return { ...d, parsedMetrics: metrics };
+  });
+
+  // Calculate statistics
+  const withTextureData = parsedDiagnostics.filter(d => d.parsedMetrics.moireScore !== undefined);
+  const avgMoire = withTextureData.length > 0 
+    ? withTextureData.reduce((sum, d) => sum + (d.parsedMetrics.moireScore || 0), 0) / withTextureData.length 
+    : 0;
+  const avgVariance = withTextureData.length > 0 
+    ? withTextureData.reduce((sum, d) => sum + (d.parsedMetrics.textureVariance || 0), 0) / withTextureData.length 
+    : 0;
+  const spoofFlagged = withTextureData.filter(d => d.parsedMetrics.isLikelySpoof).length;
+  
+  // Distribution buckets for charts
+  const moireBuckets = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+  const moireDistribution = moireBuckets.slice(0, -1).map((bucket, i) => ({
+    range: `${bucket.toFixed(1)}-${moireBuckets[i + 1].toFixed(1)}`,
+    count: withTextureData.filter(d => {
+      const score = d.parsedMetrics.moireScore || 0;
+      return score >= bucket && score < moireBuckets[i + 1];
+    }).length,
+    threshold: bucket >= 0.7 ? 'suspicious' : 'normal',
+  }));
+
+  const varianceBuckets = [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 1.0];
+  const varianceDistribution = varianceBuckets.slice(0, -1).map((bucket, i) => ({
+    range: `${bucket.toFixed(2)}-${varianceBuckets[i + 1].toFixed(2)}`,
+    count: withTextureData.filter(d => {
+      const score = d.parsedMetrics.textureVariance || 0;
+      return score >= bucket && score < varianceBuckets[i + 1];
+    }).length,
+    threshold: bucket < 0.06 ? 'suspicious' : 'normal',
+  }));
+
+  // Status breakdown
+  const statusCounts = {
+    verified: parsedDiagnostics.filter(d => d.status === 'verified').length,
+    duplicate: parsedDiagnostics.filter(d => d.status === 'duplicate').length,
+    failed: parsedDiagnostics.filter(d => d.status === 'failed').length,
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid md:grid-cols-5 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Total Records</CardDescription>
+            <CardTitle className="text-2xl" data-testid="text-face-total">
+              {diagnostics.length}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>With Texture Data</CardDescription>
+            <CardTitle className="text-2xl" data-testid="text-face-texture">
+              {withTextureData.length}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Avg Moiré</CardDescription>
+            <CardTitle className="text-2xl" data-testid="text-face-moire">
+              {avgMoire.toFixed(3)}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Avg Variance</CardDescription>
+            <CardTitle className="text-2xl" data-testid="text-face-variance">
+              {avgVariance.toFixed(3)}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Spoof Flagged</CardDescription>
+            <CardTitle className="text-2xl text-amber-600" data-testid="text-face-spoof">
+              {spoofFlagged}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+
+      {/* Status Breakdown */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            Verification Status Breakdown
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500" />
+              <span className="text-sm">Verified: {statusCounts.verified}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-amber-500" />
+              <span className="text-sm">Duplicate: {statusCounts.duplicate}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-red-500" />
+              <span className="text-sm">Failed: {statusCounts.failed}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Moiré Score Distribution */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            Moiré Score Distribution
+            <span className="text-xs font-normal text-muted-foreground ml-2">
+              (Higher = more periodic patterns, threshold: 0.70)
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-end gap-1 h-32">
+            {moireDistribution.map((bucket, i) => {
+              const maxCount = Math.max(...moireDistribution.map(b => b.count), 1);
+              const height = (bucket.count / maxCount) * 100;
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                  <div 
+                    className={`w-full ${bucket.threshold === 'suspicious' ? 'bg-amber-500' : 'bg-blue-500'}`}
+                    style={{ height: `${height}%`, minHeight: bucket.count > 0 ? '4px' : '0' }}
+                    title={`${bucket.range}: ${bucket.count}`}
+                  />
+                  <span className="text-[10px] text-muted-foreground rotate-45 origin-left">
+                    {bucket.range.split('-')[0]}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-between text-xs text-muted-foreground mt-2">
+            <span>Low (normal)</span>
+            <span>High (suspicious)</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Variance Score Distribution */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            Texture Variance Distribution
+            <span className="text-xs font-normal text-muted-foreground ml-2">
+              (Lower = flatter texture, threshold: 0.06)
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-end gap-1 h-32">
+            {varianceDistribution.map((bucket, i) => {
+              const maxCount = Math.max(...varianceDistribution.map(b => b.count), 1);
+              const height = (bucket.count / maxCount) * 100;
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                  <div 
+                    className={`w-full ${bucket.threshold === 'suspicious' ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                    style={{ height: `${height}%`, minHeight: bucket.count > 0 ? '4px' : '0' }}
+                    title={`${bucket.range}: ${bucket.count}`}
+                  />
+                  <span className="text-[10px] text-muted-foreground rotate-45 origin-left">
+                    {bucket.range.split('-')[0]}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-between text-xs text-muted-foreground mt-2">
+            <span>Low (suspicious)</span>
+            <span>High (normal)</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent Verifications Table */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <ScanFace className="h-5 w-5" />
+                Recent Face Verifications
+              </CardTitle>
+              <CardDescription>
+                Detailed view of face verification attempts with texture analysis metrics
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-xs">Show:</Label>
+              <select 
+                value={limit} 
+                onChange={(e) => setLimit(Number(e.target.value))}
+                className="text-xs border p-1"
+                data-testid="select-face-limit"
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+              </select>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={fetchDiagnostics}
+                disabled={isLoading}
+                data-testid="button-refresh-face"
+              >
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-2">Wallet</th>
+                  <th className="text-left p-2">Status</th>
+                  <th className="text-right p-2">Moiré</th>
+                  <th className="text-right p-2">Variance</th>
+                  <th className="text-center p-2">Spoof?</th>
+                  <th className="text-right p-2">Confidence</th>
+                  <th className="text-right p-2">Similarity</th>
+                  <th className="text-left p-2">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parsedDiagnostics.map((d, i) => (
+                  <tr key={i} className="border-b hover:bg-muted/50">
+                    <td className="p-2 font-mono">
+                      {d.walletAddress.slice(0, 8)}...{d.walletAddress.slice(-4)}
+                    </td>
+                    <td className="p-2">
+                      <span className={`px-2 py-0.5 text-[10px] ${
+                        d.status === 'verified' ? 'bg-green-100 text-green-700' :
+                        d.status === 'duplicate' ? 'bg-amber-100 text-amber-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {d.status}
+                      </span>
+                    </td>
+                    <td className={`p-2 text-right font-mono ${
+                      (d.parsedMetrics.moireScore || 0) > 0.7 ? 'text-amber-600 font-bold' : ''
+                    }`}>
+                      {d.parsedMetrics.moireScore?.toFixed(3) ?? '—'}
+                    </td>
+                    <td className={`p-2 text-right font-mono ${
+                      (d.parsedMetrics.textureVariance || 1) < 0.06 ? 'text-amber-600 font-bold' : ''
+                    }`}>
+                      {d.parsedMetrics.textureVariance?.toFixed(3) ?? '—'}
+                    </td>
+                    <td className="p-2 text-center">
+                      {d.parsedMetrics.isLikelySpoof ? (
+                        <AlertCircle className="h-4 w-4 text-red-500 mx-auto" />
+                      ) : d.parsedMetrics.moireScore !== undefined ? (
+                        <Check className="h-4 w-4 text-green-500 mx-auto" />
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="p-2 text-right font-mono">
+                      {d.parsedMetrics.textureConfidence?.toFixed(2) ?? '—'}
+                    </td>
+                    <td className="p-2 text-right font-mono">
+                      {d.similarityScore ? `${(parseFloat(d.similarityScore) * 100).toFixed(0)}%` : '—'}
+                    </td>
+                    <td className="p-2 text-muted-foreground">
+                      {new Date(d.createdAt).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {diagnostics.length === 0 && !isLoading && (
+            <div className="text-center text-muted-foreground py-8">
+              No face verification records found
+            </div>
+          )}
+          {isLoading && (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Threshold Info */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Info className="h-5 w-5" />
+            Current Thresholds (Data Gathering Mode)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="font-medium">Moiré Threshold: 0.70</p>
+              <p className="text-muted-foreground text-xs">
+                Scores above this indicate periodic patterns (screen pixels)
+              </p>
+            </div>
+            <div>
+              <p className="font-medium">Variance Threshold: 0.06</p>
+              <p className="text-muted-foreground text-xs">
+                Scores below this indicate flat textures (photo/screen)
+              </p>
+            </div>
+          </div>
+          <div className="pt-2 border-t">
+            <p className="text-xs text-muted-foreground">
+              <strong>Note:</strong> XP blocking is currently disabled (TEXTURE_ANALYSIS_BLOCKING=false).
+              All texture metrics are logged for analysis. Enable blocking only after verifying thresholds with production data.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
