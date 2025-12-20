@@ -5911,17 +5911,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check face verification status
       const faceVerification = await storage.getFaceVerification(normalizedAddress);
       const faceVerified = faceVerification?.status === 'verified';
+      // Check both status and duplicateOf for duplicate detection
+      const faceDuplicate = faceVerification?.status === 'duplicate' || !!faceVerification?.duplicateOf;
+      
+      // Check sybil tier
+      const sybilScore = await storage.getSybilScore(normalizedAddress);
+      const effectiveTier = sybilScore?.manualOverride ? (sybilScore.manualTier || sybilScore.tier) : sybilScore?.tier;
+      const sybilBlocked = effectiveTier === 'block';
       
       // Check if already redeemed today
       const dailyRedemption = await storage.getUsdcDailyRedemption(normalizedAddress, today);
       const alreadyRedeemedToday = (dailyRedemption?.count ?? 0) > 0;
       
-      const eligible = faceVerified && !alreadyRedeemedToday;
+      // Must pass all checks to be eligible
+      const eligible = faceVerified && !faceDuplicate && !sybilBlocked && !alreadyRedeemedToday;
+      
+      // Determine block reason for UI
+      let blockReason: string | null = null;
+      if (!faceVerified) {
+        blockReason = 'Complete Face Check to redeem USDC';
+      } else if (faceDuplicate) {
+        blockReason = 'Face matched another account';
+      } else if (sybilBlocked) {
+        blockReason = 'Account flagged for suspicious activity';
+      } else if (alreadyRedeemedToday) {
+        blockReason = 'Daily limit reached (1 per day)';
+      }
       
       res.json({
         eligible,
         faceVerified,
+        faceDuplicate,
+        sybilBlocked,
         alreadyRedeemedToday,
+        blockReason,
         dailyLimit: 1,
         remaining: alreadyRedeemedToday ? 0 : 1,
       });
@@ -5944,8 +5967,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Log IP event for sybil detection
       logIpEvent(req, normalizedAddress, 'usdc_redemption');
 
-      // === NEW: Check face verification ===
+      // === Check face verification ===
       const faceVerification = await storage.getFaceVerification(normalizedAddress);
+      
+      // Check for face duplicate first (can have status 'duplicate' or duplicateOf field)
+      const isFaceDuplicate = faceVerification?.status === 'duplicate' || !!faceVerification?.duplicateOf;
+      if (isFaceDuplicate) {
+        return res.status(403).json({ 
+          error: 'Account flagged',
+          message: 'Your face matched another account. USDC redemption is blocked.',
+        });
+      }
+      
+      // Check face is verified
       if (!faceVerification || faceVerification.status !== 'verified') {
         return res.status(403).json({ 
           error: 'Face verification required',
@@ -5953,7 +5987,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // === NEW: Check daily limit (max 1 per day) ===
+      // === Check sybil tier (block tier cannot redeem) ===
+      const sybilScore = await storage.getSybilScore(normalizedAddress);
+      const effectiveTier = sybilScore?.manualOverride ? (sybilScore.manualTier || sybilScore.tier) : sybilScore?.tier;
+      if (effectiveTier === 'block') {
+        return res.status(403).json({ 
+          error: 'Account blocked',
+          message: 'Your account has been flagged for suspicious activity. USDC redemption is blocked.',
+        });
+      }
+      
+      // === Check daily limit (max 1 per day) ===
       const today = new Date().toISOString().split('T')[0];
       const dailyRedemption = await storage.getUsdcDailyRedemption(normalizedAddress, today);
       if (dailyRedemption && dailyRedemption.count > 0) {
