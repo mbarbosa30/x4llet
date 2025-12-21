@@ -6392,3 +6392,61 @@ export class DbStorage extends MemStorage {
 }
 
 export const storage = new DbStorage();
+
+// Seed default XP actions on startup
+export async function seedXpActions(): Promise<void> {
+  const defaultActions = [
+    {
+      actionType: 'face_verification',
+      xpAmount: 12000, // 120 XP in centi-XP
+      description: 'Verify your face to prove you are human',
+      isOneTime: true,
+      isActive: true,
+    },
+    {
+      actionType: 'first_transfer_received',
+      xpAmount: 5000, // 50 XP in centi-XP
+      description: 'Receive your first USDC transfer',
+      isOneTime: true,
+      isActive: true,
+    },
+    {
+      actionType: 'savings_3_days',
+      xpAmount: 5000, // 50 XP in centi-XP
+      description: 'Keep savings for at least 3 days',
+      isOneTime: true,
+      isActive: true,
+    },
+  ];
+
+  console.log('[Seed] Checking XP actions...');
+  
+  for (const action of defaultActions) {
+    try {
+      // Check if action already exists
+      const existing = await db
+        .select()
+        .from(xpActions)
+        .where(eq(xpActions.actionType, action.actionType))
+        .limit(1);
+
+      if (existing.length === 0) {
+        // Insert new action
+        await db.insert(xpActions).values({
+          actionType: action.actionType,
+          xpAmount: action.xpAmount,
+          description: action.description,
+          isOneTime: action.isOneTime,
+          isActive: action.isActive,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        console.log(`[Seed] Created XP action: ${action.actionType} (${action.xpAmount / 100} XP)`);
+      }
+    } catch (error) {
+      console.error(`[Seed] Error seeding ${action.actionType}:`, error);
+    }
+  }
+
+  console.log('[Seed] XP actions check complete');
+}

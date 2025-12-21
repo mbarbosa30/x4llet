@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startPoolScheduler } from "./poolScheduler";
 import { startGasScanScheduler } from "./gasScanScheduler";
+import { seedXpActions } from "./storage";
 
 // Increase DNS threadpool size for better DNS resolution performance
 // Must be set before any async I/O operations
@@ -96,6 +97,11 @@ app.use((req, res, next) => {
       
       // Start the gas scan scheduler to track facilitator gas costs
       startGasScanScheduler();
+      
+      // Seed XP actions after server is running (non-blocking)
+      seedXpActions().catch(err => {
+        console.error('[Seed] Failed to seed XP actions:', err);
+      });
     });
   } catch (error) {
     console.error('[STARTUP ERROR]', error);
