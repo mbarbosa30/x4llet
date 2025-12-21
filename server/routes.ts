@@ -422,6 +422,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         usdcBlockReason = 'Account flagged for suspicious activity';
       }
 
+      // Get pending XP info
+      const pendingFaceXp = (xpBalance?.pendingFaceXp ?? 0) / 100;
+      const outgoingVouches = maxflowScore?.vouch_counts?.outgoing_total || 0;
+
       res.json({
         address: normalizedAddress,
         sybil: {
@@ -440,12 +444,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           score: maxflowScoreValue,
           tier: maxflowTier,
           vouches: maxflowVouches,
+          outgoingVouches,
         },
         limits: {
           dailyXpCap,
           canRedeemUsdc,
           usdcBlockReason,
           currentXp: xpBalance,
+          pendingFaceXp,
         },
         updatedAt: new Date().toISOString(),
       });
@@ -557,6 +563,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transactions: allTransactions,
         xp: {
           totalXp: totalXpCenti / 100,
+          pendingFaceXp: (xpBalance?.pendingFaceXp ?? 0) / 100,
           claimCount,
           lastClaimTime: xpBalance?.lastClaimTime?.toISOString() ?? null,
           canClaim,
@@ -2913,6 +2920,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Cache the endorsee's fresh score from the response (API now returns it directly)
       const endorseeAddress = req.body.endorsee;
+      const endorserAddress = req.body.endorser;
+      
       if (endorseeAddress && data.endorseeLocalHealth !== undefined) {
         console.log(`[MaxFlow API] Caching fresh score for vouchee ${endorseeAddress}: ${data.endorseeLocalHealth}`);
         
@@ -2949,7 +2958,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      res.json(data);
+      // Award pending face verification XP to endorser (first vouch unlocks the reward)
+      let pendingXpAwarded = 0;
+      if (endorserAddress) {
+        try {
+          const result = await storage.awardPendingFaceXp(endorserAddress);
+          if (result.awarded) {
+            pendingXpAwarded = result.xpAmount / 100; // Convert centi-XP to XP
+            console.log(`[MaxFlow API] Awarded ${pendingXpAwarded} pending face XP to ${endorserAddress} for vouching`);
+          }
+        } catch (err) {
+          console.error(`[MaxFlow API] Error awarding pending XP:`, err);
+        }
+      }
+      
+      res.json({ ...data, pendingXpAwarded });
     } catch (error) {
       console.error('Error submitting vouch:', error);
       res.status(500).json({ error: 'Failed to submit vouch' });
@@ -5769,8 +5792,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Convert centi-XP to decimal for display (divide by 100)
       const totalXpCenti = xpBalance?.totalXp || 0;
+      const pendingFaceXpCenti = xpBalance?.pendingFaceXp || 0;
       res.json({
         totalXp: totalXpCenti / 100,
+        pendingFaceXp: pendingFaceXpCenti / 100,
         claimCount: xpBalance?.claimCount || 0,
         lastClaimTime: xpBalance?.lastClaimTime?.toISOString() || null,
         canClaim,
@@ -7047,6 +7072,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[FaceVerification] Texture analysis flagged spoof: ${normalizedAddress} (moire: ${qualityMetrics?.moireScore?.toFixed(3)}, variance: ${qualityMetrics?.textureVariance?.toFixed(3)}, confidence: ${qualityMetrics?.textureConfidence?.toFixed(2)})`);
       }
       
+      // Track pending XP for users who haven't vouched yet
+      let pendingXp = 0;
+      
       if (status === 'verified') {
         try {
           // Calculate unified sybil confidence score
@@ -7060,9 +7088,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const adjustedXp = Math.round(baseXp * multiplier);
           
           if (adjustedXp > 0) {
-            await storage.claimXp(normalizedAddress, adjustedXp, 0);
-            xpAwarded = adjustedXp / 100; // Convert centi-XP to XP for display
-            console.log(`[FaceVerification] Awarded ${xpAwarded} XP to ${normalizedAddress} (tier: ${sybilTier}, score: ${sybilScore}, multiplier: ${multiplier})`);
+            // Check if user has given at least one vouch (outgoing_total > 0)
+            const cachedScore = await storage.getMaxFlowScoreRaw(normalizedAddress);
+            const outgoingVouches = cachedScore?.vouch_counts?.outgoing_total || 0;
+            
+            if (outgoingVouches > 0) {
+              // User has vouched someone - award XP immediately
+              await storage.claimXp(normalizedAddress, adjustedXp, 0);
+              xpAwarded = adjustedXp / 100;
+              console.log(`[FaceVerification] Awarded ${xpAwarded} XP to ${normalizedAddress} (has ${outgoingVouches} vouches, tier: ${sybilTier})`);
+            } else {
+              // User hasn't vouched anyone - set pending XP, they'll get it when they vouch
+              await storage.setPendingFaceXp(normalizedAddress, adjustedXp);
+              pendingXp = adjustedXp / 100;
+              xpSkipReason = 'pending_vouch';
+              console.log(`[FaceVerification] Set ${pendingXp} pending XP for ${normalizedAddress} (must vouch someone to claim)`);
+            }
           } else {
             xpSkipReason = 'sybil_blocked';
             console.log(`[FaceVerification] Blocked XP for sybil tier: ${normalizedAddress} (tier: ${sybilTier}, score: ${sybilScore})`);
@@ -7079,10 +7120,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         } catch (xpError) {
           console.error('[FaceVerification] Error calculating sybil score/awarding XP:', xpError);
-          // Fallback to full XP on error to avoid blocking legitimate users
+          // Fallback: set pending XP on error to avoid blocking legitimate users
           try {
-            await storage.claimXp(normalizedAddress, 12000, 0);
-            xpAwarded = 120;
+            await storage.setPendingFaceXp(normalizedAddress, 12000);
+            pendingXp = 120;
+            xpSkipReason = 'pending_vouch';
           } catch {}
         }
       } else {
@@ -7097,6 +7139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isLikelySpoof,
         status: verification.status,
         xpAwarded,
+        pendingXp,
         xpSkipReason,
         sybilTier,
         sybilScore,

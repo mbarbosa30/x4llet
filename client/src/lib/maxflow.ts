@@ -60,6 +60,7 @@ export interface RevokeInfo {
 export interface VouchResponse {
   ok: boolean;
   error?: string;
+  pendingXpAwarded?: number;
 }
 
 export interface RevokeResponse {

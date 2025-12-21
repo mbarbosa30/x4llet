@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Shield, UserCheck, Users, AlertTriangle, CheckCircle, XCircle, ChevronRight } from 'lucide-react';
+import { Shield, UserCheck, Users, AlertTriangle, CheckCircle, XCircle, ChevronRight, Gift, Sparkles } from 'lucide-react';
 import { useTrustProfile } from '@/hooks/useTrustProfile';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'wouter';
@@ -111,6 +111,28 @@ export function TrustStatusCard({ address, onFaceVerify, compact = false }: Trus
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {profile.limits.pendingFaceXp > 0 && (
+          <Link href="/trust">
+            <div className="p-4 rounded-lg bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950 dark:to-yellow-950 border border-amber-200 dark:border-amber-800 cursor-pointer hover-elevate" data-testid="banner-pending-xp">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900">
+                  <Gift className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold text-amber-900 dark:text-amber-100 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    {profile.limits.pendingFaceXp} XP waiting!
+                  </div>
+                  <div className="text-sm text-amber-700 dark:text-amber-300">
+                    Vouch for a friend or whoever invited you to claim it
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+            </div>
+          </Link>
+        )}
+
         <div className="flex items-center justify-between p-3 rounded-lg border" data-testid="row-sybil-status">
           <div className="flex items-center gap-3">
             <div className={`p-2 rounded-lg ${sybilStatus.bg}`}>

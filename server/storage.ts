@@ -475,6 +475,8 @@ export interface IStorage {
   refundXp(walletAddress: string, xpAmount: number): Promise<{ success: boolean; newBalance: number }>;
   creditXpFromGdExchange(walletAddress: string, xpAmountCenti: number, gdAmount: string): Promise<{ success: boolean; newBalance: number }>;
   getXpClaimHistory(walletAddress: string, limit?: number): Promise<XpClaim[]>;
+  setPendingFaceXp(walletAddress: string, xpAmountCenti: number): Promise<void>;
+  awardPendingFaceXp(walletAddress: string): Promise<{ awarded: boolean; xpAmount: number }>;
   
   // G$ Daily Spending methods (1000 G$ per day limit)
   getGdDailySpending(walletAddress: string, date: string): Promise<{ gdSpent: bigint; xpEarned: number } | null>;
@@ -1077,6 +1079,14 @@ export class MemStorage implements IStorage {
 
   async getXpClaimHistory(walletAddress: string, limit?: number): Promise<XpClaim[]> {
     return [];
+  }
+
+  async setPendingFaceXp(walletAddress: string, xpAmountCenti: number): Promise<void> {
+    // MemStorage stub - no-op
+  }
+
+  async awardPendingFaceXp(walletAddress: string): Promise<{ awarded: boolean; xpAmount: number }> {
+    return { awarded: false, xpAmount: 0 };
   }
 
   async getGdDailySpending(walletAddress: string, date: string): Promise<{ gdSpent: bigint; xpEarned: number } | null> {
@@ -4626,6 +4636,70 @@ export class DbStorage extends MemStorage {
       console.error('[XP] Error getting claim history:', error);
       return [];
     }
+  }
+
+  async setPendingFaceXp(walletAddress: string, xpAmountCenti: number): Promise<void> {
+    const normalized = walletAddress.toLowerCase();
+    const now = new Date();
+    
+    const existingBalance = await this.getXpBalance(normalized);
+    
+    if (!existingBalance) {
+      await db.insert(xpBalances).values({
+        walletAddress: normalized,
+        totalXp: 0,
+        pendingFaceXp: xpAmountCenti,
+        claimCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+    } else {
+      await db
+        .update(xpBalances)
+        .set({
+          pendingFaceXp: xpAmountCenti,
+          updatedAt: now,
+        })
+        .where(eq(xpBalances.walletAddress, normalized));
+    }
+    
+    console.log(`[XP] Set pending face XP for ${normalized}: ${xpAmountCenti} centi-XP (${xpAmountCenti / 100} XP)`);
+  }
+
+  async awardPendingFaceXp(walletAddress: string): Promise<{ awarded: boolean; xpAmount: number }> {
+    const normalized = walletAddress.toLowerCase();
+    const now = new Date();
+    
+    const existingBalance = await this.getXpBalance(normalized);
+    
+    if (!existingBalance || existingBalance.pendingFaceXp === 0) {
+      return { awarded: false, xpAmount: 0 };
+    }
+    
+    const pendingXp = existingBalance.pendingFaceXp;
+    const newBalance = existingBalance.totalXp + pendingXp;
+    
+    // Update balance and clear pending XP
+    await db
+      .update(xpBalances)
+      .set({
+        totalXp: newBalance,
+        pendingFaceXp: 0,
+        claimCount: existingBalance.claimCount + 1,
+        updatedAt: now,
+      })
+      .where(eq(xpBalances.walletAddress, normalized));
+    
+    // Record in XP claims history (maxFlowSignal = -1 indicates face verification vouch unlock)
+    await db.insert(xpClaims).values({
+      walletAddress: normalized,
+      xpAmount: pendingXp,
+      maxFlowSignal: -1,
+      claimedAt: now,
+    });
+    
+    console.log(`[XP] Awarded pending face XP to ${normalized}: ${pendingXp} centi-XP (${pendingXp / 100} XP), new balance: ${newBalance}`);
+    return { awarded: true, xpAmount: pendingXp };
   }
 
   async getGdDailySpending(walletAddress: string, date: string): Promise<{ gdSpent: bigint; xpEarned: number } | null> {

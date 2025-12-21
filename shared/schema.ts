@@ -419,6 +419,7 @@ export const xpBalances = pgTable("xp_balances", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   walletAddress: text("wallet_address").notNull().unique(),
   totalXp: integer("total_xp").notNull().default(0),
+  pendingFaceXp: integer("pending_face_xp").notNull().default(0), // XP pending until user vouches someone
   lastClaimTime: timestamp("last_claim_time"),
   claimCount: integer("claim_count").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),

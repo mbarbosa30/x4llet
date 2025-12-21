@@ -701,13 +701,25 @@ export default function MaxFlow() {
         chainId: chainId,
       });
     },
-    onSuccess: () => {
-      toast({ 
-        title: "Vouch submitted",
-        description: `You vouched for ${vouchAddress.slice(0, 6)}...${vouchAddress.slice(-4)}`,
-      });
+    onSuccess: (data) => {
+      const pendingXpAwarded = data?.pendingXpAwarded || 0;
+      
+      if (pendingXpAwarded > 0) {
+        toast({ 
+          title: `+${pendingXpAwarded} XP unlocked!`,
+          description: `Your face verification reward has been claimed. Keep building trust!`,
+        });
+      } else {
+        toast({ 
+          title: "Vouch submitted",
+          description: `You vouched for ${vouchAddress.slice(0, 6)}...${vouchAddress.slice(-4)}`,
+        });
+      }
+      
       queryClient.invalidateQueries({ queryKey: ['/maxflow/score', address] });
       queryClient.invalidateQueries({ queryKey: ['/maxflow/score', vouchAddress.toLowerCase()] });
+      queryClient.invalidateQueries({ queryKey: ['/api/trust-profile', address] });
+      queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
       setVouchAddress('');
       setShowVouchInput(false);
     },

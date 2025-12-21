@@ -18,12 +18,14 @@ export interface TrustProfile {
     score: number;
     tier: 'new' | 'standard' | 'trusted' | 'verified';
     vouches: number;
+    outgoingVouches: number;
   };
   limits: {
     dailyXpCap: number;
     canRedeemUsdc: boolean;
     usdcBlockReason: string | null;
     currentXp: number | null;
+    pendingFaceXp: number;
   };
   updatedAt: string;
 }
