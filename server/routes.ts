@@ -5870,20 +5870,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const claim = await storage.claimXp(address, xpCenti, Math.round(rawSignal));
+      const result = await storage.claimXp(address, xpCenti, Math.round(rawSignal));
 
       // Log IP event for sybil detection
       logIpEvent(req, address, 'xp_claim');
 
+      // Check if blocked by sybil tier
+      if (result.blocked) {
+        return res.status(403).json({
+          error: 'XP claim blocked',
+          message: 'Your account has been flagged. XP earning is restricted.',
+          sybilTier: result.sybilTier,
+        });
+      }
+
       // Return XP as decimal for display
       res.json({
         success: true,
-        xpEarned: xpCenti / 100,
+        xpEarned: result.appliedXp / 100,
+        xpRequested: result.requestedXp / 100,
+        multiplier: result.multiplier,
+        sybilTier: result.sybilTier,
+        dailyCapReached: result.dailyCapReached,
         claim: {
-          id: claim.id,
-          xpAmount: claim.xpAmount / 100,
-          maxFlowSignal: claim.maxFlowSignal,
-          claimedAt: claim.claimedAt,
+          id: result.claim.id,
+          xpAmount: result.claim.xpAmount / 100,
+          maxFlowSignal: result.claim.maxFlowSignal,
+          claimedAt: result.claim.claimedAt,
         },
       });
     } catch (error) {
@@ -7237,36 +7250,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (status === 'verified') {
         try {
-          // Calculate unified sybil confidence score
+          // Calculate unified sybil confidence score (for display only - claimXp enforces)
           const scoreResult = await storage.calculateSybilScore(normalizedAddress);
           sybilTier = scoreResult.manualOverride ? scoreResult.manualTier || scoreResult.tier : scoreResult.tier;
           sybilScore = scoreResult.score;
           
           // Base XP for Face Check is 120 (12000 centi-XP)
+          // NOTE: Do NOT pre-multiply here - claimXp applies sybil multiplier internally
           const baseXp = 12000;
-          const multiplier = parseFloat(scoreResult.xpMultiplier) || 1.0;
-          const adjustedXp = Math.round(baseXp * multiplier);
           
-          if (adjustedXp > 0) {
+          // Block tier check (claimXp also checks, but we want to set xpSkipReason)
+          if (sybilTier === 'block') {
+            xpSkipReason = 'sybil_blocked';
+            console.log(`[FaceVerification] Blocked XP for sybil tier: ${normalizedAddress} (tier: ${sybilTier}, score: ${sybilScore})`);
+          } else {
             // Check if user has given at least one vouch (outgoing_total > 0)
             const cachedScore = await storage.getMaxFlowScoreRaw(normalizedAddress);
             const outgoingVouches = cachedScore?.vouch_counts?.outgoing_total || 0;
             
             if (outgoingVouches > 0) {
               // User has vouched someone - award XP immediately
-              await storage.claimXp(normalizedAddress, adjustedXp, 0);
-              xpAwarded = adjustedXp / 100;
-              console.log(`[FaceVerification] Awarded ${xpAwarded} XP to ${normalizedAddress} (has ${outgoingVouches} vouches, tier: ${sybilTier})`);
+              // claimXp will apply sybil multiplier and daily cap
+              const claimResult = await storage.claimXp(normalizedAddress, baseXp, 0);
+              xpAwarded = claimResult.appliedXp / 100;
+              console.log(`[FaceVerification] Awarded ${xpAwarded} XP to ${normalizedAddress} (has ${outgoingVouches} vouches, tier: ${sybilTier}, mult: ${claimResult.multiplier})`);
             } else {
               // User hasn't vouched anyone - set pending XP, they'll get it when they vouch
-              await storage.setPendingFaceXp(normalizedAddress, adjustedXp);
-              pendingXp = adjustedXp / 100;
+              // Store base XP - multiplier will be applied when awarded via claimXp
+              await storage.setPendingFaceXp(normalizedAddress, baseXp);
+              pendingXp = baseXp / 100; // Show base amount as pending
               xpSkipReason = 'pending_vouch';
               console.log(`[FaceVerification] Set ${pendingXp} pending XP for ${normalizedAddress} (must vouch someone to claim)`);
             }
-          } else {
-            xpSkipReason = 'sybil_blocked';
-            console.log(`[FaceVerification] Blocked XP for sybil tier: ${normalizedAddress} (tier: ${sybilTier}, score: ${sybilScore})`);
           }
           
           // Log reason codes for monitoring

@@ -1,4 +1,15 @@
 import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, type XpAction, type XpActionCompletion, type AiConversation, type AiMessage, type IpEvent, type InsertIpEvent, type FaceVerification, type SybilScore, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, xpActions, xpActionCompletions, globalSettings, aiConversations, ipEvents, faceVerifications, gdDailySpending, usdcDailyRedemptions, sybilScores } from "@shared/schema";
+
+// XP claim result with sybil enforcement
+export interface XpClaimResult {
+  claim: XpClaim;
+  requestedXp: number;      // Original XP requested
+  appliedXp: number;        // XP actually awarded after multiplier
+  sybilTier: string;        // The tier at time of claim
+  multiplier: number;       // The multiplier applied
+  blocked: boolean;         // True if tier='block' and no XP awarded
+  dailyCapReached?: boolean; // True if daily cap was hit
+}
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo, gnosis, arbitrum } from 'viem/chains';
@@ -470,7 +481,7 @@ export interface IStorage {
   
   // XP System methods
   getXpBalance(walletAddress: string): Promise<XpBalance | null>;
-  claimXp(walletAddress: string, xpAmount: number, maxFlowSignal: number): Promise<XpClaim>;
+  claimXp(walletAddress: string, xpAmount: number, maxFlowSignal: number): Promise<XpClaimResult>;
   deductXp(walletAddress: string, xpAmount: number): Promise<{ success: boolean; newBalance: number }>;
   refundXp(walletAddress: string, xpAmount: number): Promise<{ success: boolean; newBalance: number }>;
   creditXpFromGdExchange(walletAddress: string, xpAmountCenti: number, gdAmount: string): Promise<{ success: boolean; newBalance: number }>;
@@ -1061,7 +1072,7 @@ export class MemStorage implements IStorage {
     return null;
   }
 
-  async claimXp(walletAddress: string, xpAmount: number, maxFlowSignal: number): Promise<XpClaim> {
+  async claimXp(walletAddress: string, xpAmount: number, maxFlowSignal: number): Promise<XpClaimResult> {
     throw new Error('XP claiming not available in MemStorage');
   }
 
@@ -4498,17 +4509,106 @@ export class DbStorage extends MemStorage {
     }
   }
 
-  async claimXp(walletAddress: string, xpAmount: number, maxFlowSignal: number): Promise<XpClaim> {
+  async claimXp(walletAddress: string, xpAmount: number, maxFlowSignal: number): Promise<XpClaimResult> {
     const normalized = walletAddress.toLowerCase();
     const now = new Date();
     
+    // === SYBIL GATING: Fetch score and apply multiplier ===
+    let sybilScore: SybilScore | null = null;
+    let effectiveTier = 'clear';
+    let multiplier = 1.0;
+    
+    try {
+      sybilScore = await this.getSybilScore(normalized);
+      
+      // If no score exists, try to calculate it (first-time user)
+      if (!sybilScore) {
+        try {
+          sybilScore = await this.calculateSybilScore(normalized);
+        } catch (calcError) {
+          console.error(`[XP] Error calculating sybil score for ${normalized}, defaulting to clear:`, calcError);
+          // Fallback to clear tier on calculation error
+        }
+      }
+      
+      // Get effective tier (respect manual overrides), with null-safe fallback
+      if (sybilScore) {
+        effectiveTier = sybilScore.manualOverride 
+          ? (sybilScore.manualTier || sybilScore.tier) 
+          : sybilScore.tier;
+      }
+    } catch (error) {
+      console.error(`[XP] Error fetching sybil score for ${normalized}, defaulting to clear:`, error);
+      // Fallback to clear tier on error to avoid blocking legitimate users
+    }
+    
+    // Get multiplier from tier
+    const tierMultipliers: Record<string, number> = {
+      clear: 1.0,
+      warn: 0.5,
+      limit: 0.167,
+      block: 0,
+    };
+    multiplier = tierMultipliers[effectiveTier] ?? 1.0;
+    
+    // If blocked, return zero XP result
+    if (multiplier === 0) {
+      console.log(`[XP] BLOCKED: ${normalized} tier=${effectiveTier}, 0 XP awarded (requested: ${xpAmount})`);
+      
+      // Still create a claim record for audit trail (with 0 XP)
+      const [claim] = await db.insert(xpClaims).values({
+        walletAddress: normalized,
+        xpAmount: 0,
+        maxFlowSignal,
+        claimedAt: now,
+      }).returning();
+      
+      return {
+        claim,
+        requestedXp: xpAmount,
+        appliedXp: 0,
+        sybilTier: effectiveTier,
+        multiplier: 0,
+        blocked: true,
+      };
+    }
+    
+    // NOTE: xpAmount passed in is the raw requested amount (not pre-multiplied)
+    // We apply multiplier here once - callers should NOT pre-multiply
+    const appliedXp = Math.floor(xpAmount * multiplier);
+    
+    // === DAILY CAP CHECK ===
+    // Daily cap is 100 XP (10000 centi-XP) for clear tier, scaled by multiplier for other tiers
+    // Cap applies to the actual awarded amounts (post-multiplier)
+    const today = now.toISOString().split('T')[0];
+    const todayStart = new Date(today);
+    const todaysClaims = await db.select({ total: sum(xpClaims.xpAmount) })
+      .from(xpClaims)
+      .where(and(
+        eq(xpClaims.walletAddress, normalized),
+        gte(xpClaims.claimedAt, todayStart)
+      ));
+    
+    const todaysTotal = Number(todaysClaims[0]?.total || 0);
+    // Daily cap: 100 XP base (10000 centi-XP), scaled by tier multiplier
+    const dailyCap = 10000; // Fixed 100 XP cap for all tiers (simplifies logic)
+    let dailyCapReached = false;
+    let finalXp = appliedXp;
+    
+    if (todaysTotal + appliedXp > dailyCap) {
+      finalXp = Math.max(0, dailyCap - todaysTotal);
+      dailyCapReached = true;
+      console.log(`[XP] Daily cap hit: ${normalized} cap=${dailyCap}, already=${todaysTotal}, requested=${appliedXp}, awarded=${finalXp}`);
+    }
+    
+    // Update or create balance
     const existingBalance = await this.getXpBalance(normalized);
     
     if (existingBalance) {
       await db
         .update(xpBalances)
         .set({
-          totalXp: existingBalance.totalXp + xpAmount,
+          totalXp: existingBalance.totalXp + finalXp,
           lastClaimTime: now,
           claimCount: existingBalance.claimCount + 1,
           updatedAt: now,
@@ -4517,7 +4617,7 @@ export class DbStorage extends MemStorage {
     } else {
       await db.insert(xpBalances).values({
         walletAddress: normalized,
-        totalXp: xpAmount,
+        totalXp: finalXp,
         lastClaimTime: now,
         claimCount: 1,
         createdAt: now,
@@ -4525,15 +4625,29 @@ export class DbStorage extends MemStorage {
       });
     }
     
+    // Create claim record with actual awarded amount
     const [claim] = await db.insert(xpClaims).values({
       walletAddress: normalized,
-      xpAmount,
+      xpAmount: finalXp,
       maxFlowSignal,
       claimedAt: now,
     }).returning();
     
-    console.log(`[XP] Claimed ${xpAmount} XP for ${normalized} (signal: ${maxFlowSignal})`);
-    return claim;
+    if (multiplier < 1.0 || dailyCapReached) {
+      console.log(`[XP] Claimed ${finalXp} XP for ${normalized} (requested: ${xpAmount}, tier: ${effectiveTier}, mult: ${multiplier}${dailyCapReached ? ', CAP HIT' : ''})`);
+    } else {
+      console.log(`[XP] Claimed ${finalXp} XP for ${normalized} (signal: ${maxFlowSignal})`);
+    }
+    
+    return {
+      claim,
+      requestedXp: xpAmount,
+      appliedXp: finalXp,
+      sybilTier: effectiveTier,
+      multiplier,
+      blocked: false,
+      dailyCapReached,
+    };
   }
 
   async deductXp(walletAddress: string, xpAmount: number): Promise<{ success: boolean; newBalance: number }> {
@@ -4692,29 +4806,23 @@ export class DbStorage extends MemStorage {
     }
     
     const pendingXp = existingBalance.pendingFaceXp;
-    const newBalance = existingBalance.totalXp + pendingXp;
     
-    // Update balance and clear pending XP
+    // Clear pending XP first (before claimXp, to prevent double-awards on retry)
     await db
       .update(xpBalances)
       .set({
-        totalXp: newBalance,
         pendingFaceXp: 0,
-        claimCount: existingBalance.claimCount + 1,
         updatedAt: now,
       })
       .where(eq(xpBalances.walletAddress, normalized));
     
-    // Record in XP claims history (maxFlowSignal = -1 indicates face verification vouch unlock)
-    await db.insert(xpClaims).values({
-      walletAddress: normalized,
-      xpAmount: pendingXp,
-      maxFlowSignal: -1,
-      claimedAt: now,
-    });
+    // Award through claimXp which applies sybil multiplier and daily cap
+    // pendingXp is the BASE amount - claimXp will apply appropriate multiplier
+    // Use maxFlowSignal = -1 to indicate face verification vouch unlock
+    const claimResult = await this.claimXp(normalized, pendingXp, -1);
     
-    console.log(`[XP] Awarded pending face XP to ${normalized}: ${pendingXp} centi-XP (${pendingXp / 100} XP), new balance: ${newBalance}`);
-    return { awarded: true, xpAmount: pendingXp };
+    console.log(`[XP] Awarded pending face XP to ${normalized}: requested=${pendingXp} (${pendingXp / 100} XP), applied=${claimResult.appliedXp} (${claimResult.appliedXp / 100} XP), mult=${claimResult.multiplier}`);
+    return { awarded: true, xpAmount: claimResult.appliedXp };
   }
 
   // ===== XP ACTION SYSTEM =====
@@ -4804,20 +4912,27 @@ export class DbStorage extends MemStorage {
         }
       }
 
-      // Record completion
+      // Award XP (reuse claimXp with maxFlowSignal = -2 for action-based rewards)
+      // claimXp now enforces sybil multiplier and daily caps
+      const claimResult = await this.claimXp(normalized, action.xpAmount, -2);
+      
+      // If blocked, don't record completion
+      if (claimResult.blocked) {
+        console.log(`[XP Action] ${normalized} blocked from ${actionType} (tier: ${claimResult.sybilTier})`);
+        return { success: false, xpAwarded: 0, alreadyCompleted: false };
+      }
+
+      // Record completion with actual awarded amount
       await db.insert(xpActionCompletions).values({
         walletAddress: normalized,
         actionType: actionType,
-        xpAwarded: action.xpAmount,
+        xpAwarded: claimResult.appliedXp,
         metadata: metadata ? JSON.stringify(metadata) : null,
         completedAt: now,
       });
 
-      // Award XP (reuse claimXp with maxFlowSignal = -2 for action-based rewards)
-      await this.claimXp(normalized, action.xpAmount, -2);
-
-      console.log(`[XP Action] ${normalized} completed ${actionType}: +${action.xpAmount} centi-XP (${action.xpAmount / 100} XP)`);
-      return { success: true, xpAwarded: action.xpAmount, alreadyCompleted: false };
+      console.log(`[XP Action] ${normalized} completed ${actionType}: +${claimResult.appliedXp} centi-XP (${claimResult.appliedXp / 100} XP, multiplier: ${claimResult.multiplier})`);
+      return { success: true, xpAwarded: claimResult.appliedXp, alreadyCompleted: false };
     } catch (error) {
       console.error('[XP Action] Error completing action:', error);
       return { success: false, xpAwarded: 0, alreadyCompleted: false };
