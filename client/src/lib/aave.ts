@@ -156,7 +156,8 @@ export async function supplyToAaveGasless(
 
     if (!response.ok) {
       console.error('[Aave Gasless Supply] Backend error:', result);
-      return { success: false, error: result.error || result.details || 'Supply failed' };
+      const backendError = result.error || result.details || 'Supply failed';
+      return { success: false, error: getFriendlySupplyError(backendError) };
     }
 
     console.log('[Aave Gasless Supply] Success! TX:', result.txHash);
@@ -164,8 +165,61 @@ export async function supplyToAaveGasless(
   } catch (error) {
     console.error('[Aave Gasless Supply] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return { success: false, error: errorMessage };
+    return { success: false, error: getFriendlySupplyError(errorMessage) };
   }
+}
+
+// Helper function to convert technical supply errors to user-friendly messages
+function getFriendlySupplyError(errorMessage: string): string {
+  const msg = errorMessage.toLowerCase();
+  
+  // Preserve known explicit backend messages that are already user-friendly
+  const preservePatterns = [
+    'aave not supported',
+    'unsupported chain',
+    'invalid wallet',
+    'missing required',
+  ];
+  for (const pattern of preservePatterns) {
+    if (msg.includes(pattern)) {
+      return errorMessage; // Return original - it's already clear
+    }
+  }
+  
+  // Short, simple messages without hex codes are likely already friendly
+  if (errorMessage.length < 80 && !msg.includes('0x') && !msg.includes('error code') && 
+      !msg.includes('reverted') && !msg.includes('exception')) {
+    return errorMessage;
+  }
+  
+  // Network/connectivity issues (specific patterns only)
+  if (msg.includes('fetch failed') || msg.includes('failed to fetch') ||
+      msg.includes('econnrefused') || msg.includes('etimedout') || msg.includes('getaddrinfo')) {
+    return 'Network connection issue. Please check your internet and try again.';
+  }
+  
+  // Authorization/signature issues
+  if (msg.includes('signature') && msg.includes('expired')) {
+    return 'The transaction signature expired. Please try again.';
+  }
+  
+  // Reverted transactions with hex data
+  if ((msg.includes('reverted') || msg.includes('revert')) && msg.includes('0x')) {
+    return 'The deposit could not be completed. Please try again.';
+  }
+  
+  // RPC/backend errors with technical details
+  if (msg.includes('internal json-rpc') || msg.includes('rate limit') || msg.includes('502') || msg.includes('503')) {
+    return 'The blockchain network is busy. Please try again in a moment.';
+  }
+  
+  // Long technical messages - provide generic friendly message
+  if (errorMessage.length > 100) {
+    return 'Something went wrong with the deposit. Please try again.';
+  }
+  
+  // Default: return original if reasonably short
+  return errorMessage;
 }
 
 export async function withdrawFromAave(
@@ -376,14 +430,14 @@ export async function withdrawFromAave(
       name?: string;
     };
     
-    // Log all available error information
+    // Log all available error information for debugging
     console.error('[Aave Withdraw] Error name:', viemError.name);
     console.error('[Aave Withdraw] Error message:', viemError.message);
     console.error('[Aave Withdraw] Short message:', viemError.shortMessage);
     console.error('[Aave Withdraw] Details:', viemError.details);
     console.error('[Aave Withdraw] Cause:', viemError.cause);
     
-    // Build comprehensive error string from all available properties
+    // Build comprehensive error string for matching
     const errorParts = [
       viemError.shortMessage,
       viemError.details,
@@ -396,44 +450,103 @@ export async function withdrawFromAave(
     const errorMessage = errorParts.join(' | ') || 'Unknown error';
     console.error('[Aave Withdraw] Combined error:', errorMessage);
     
-    if (errorMessage.includes('insufficient funds') || errorMessage.includes('Insufficient funds')) {
-      return { success: false, error: 'Insufficient gas for transaction - please try again in a moment' };
-    }
-    if (errorMessage.includes('execution reverted') || errorMessage.includes('reverted')) {
-      console.error('[Aave Withdraw] Revert error message:', errorMessage);
-      
-      if (errorMessage.includes('INSUFFICIENT_BALANCE') || errorMessage.includes('insufficient balance')) {
-        return { success: false, error: 'Insufficient aUSDC balance for withdrawal' };
-      }
-      if (errorMessage.includes('NOT_ENOUGH_AVAILABLE_USER_BALANCE')) {
-        return { success: false, error: 'Not enough available balance in Aave pool' };
-      }
-      if (errorMessage.includes('HEALTH_FACTOR_LOWER_THAN_LIQUIDATION_THRESHOLD')) {
-        return { success: false, error: 'Cannot withdraw - this would put your account at risk of liquidation' };
-      }
-      if (errorMessage.includes('NOT_ENOUGH_LIQUIDITY')) {
-        return { success: false, error: 'Not enough liquidity in the pool. Try a smaller amount.' };
-      }
-      if (errorMessage.includes('INVALID_AMOUNT')) {
-        return { success: false, error: 'Invalid withdrawal amount. Please try a different amount.' };
-      }
-      if (errorMessage.includes('32') || errorMessage.includes('0x32')) {
-        // Error code 32 in Aave means "Invalid amount" 
-        return { success: false, error: 'Invalid withdrawal amount - please try a different value' };
-      }
-      console.error('[Aave Withdraw] Full revert details:', errorMessage);
-      return { success: false, error: `Transaction reverted: ${errorMessage.substring(0, 150)}` };
-    }
-    if (errorMessage.includes('User rejected') || errorMessage.includes('user rejected')) {
-      return { success: false, error: 'Transaction cancelled' };
-    }
-    if (errorMessage.includes('nonce')) {
-      return { success: false, error: 'Transaction nonce error - please try again' };
-    }
-    
-    // For unknown errors, provide a cleaner message with more context
-    return { success: false, error: `Withdrawal failed: ${errorMessage.substring(0, 150)}` };
+    // Convert technical errors to user-friendly messages
+    const friendlyError = getFriendlyWithdrawError(errorMessage);
+    return { success: false, error: friendlyError };
   }
+}
+
+// Helper function to convert technical blockchain errors to user-friendly messages
+function getFriendlyWithdrawError(errorMessage: string): string {
+  const msg = errorMessage.toLowerCase();
+  
+  // Preserve known explicit backend messages that are already user-friendly
+  const preservePatterns = [
+    'aave not supported',
+    'unsupported chain',
+    'invalid wallet',
+    'no ausdc balance',
+    'gas drip',
+    'gas request limit',
+    'gas service',
+  ];
+  for (const pattern of preservePatterns) {
+    if (msg.includes(pattern)) {
+      return errorMessage; // Return original - it's already clear
+    }
+  }
+  
+  // Short, simple messages without hex codes are likely already friendly
+  if (errorMessage.length < 80 && !msg.includes('0x') && !msg.includes('error code') && 
+      !msg.includes('reverted') && !msg.includes('exception')) {
+    return errorMessage;
+  }
+  
+  // User cancelled
+  if (msg.includes('user rejected') || msg.includes('user denied') || msg.includes('user cancelled')) {
+    return 'Transaction cancelled';
+  }
+  
+  // Gas/funding issues
+  if (msg.includes('insufficient funds') || msg.includes('insufficient balance for gas')) {
+    return 'Insufficient gas for this transaction. Please wait a moment and try again.';
+  }
+  
+  // Nonce issues
+  if (msg.includes('nonce')) {
+    return 'Transaction conflict detected. Please wait a moment and try again.';
+  }
+  
+  // Network/connectivity issues (specific patterns only - not generic "network")
+  if (msg.includes('fetch failed') || msg.includes('failed to fetch') ||
+      msg.includes('econnrefused') || msg.includes('etimedout') ||
+      msg.includes('getaddrinfo') || msg.includes('socket hang up')) {
+    return 'Network connection issue. Please check your internet and try again.';
+  }
+  
+  // RPC specific errors
+  if (msg.includes('internal json-rpc') || msg.includes('rpc error') || msg.includes('rate limit') ||
+      msg.includes('too many requests') || msg.includes('503') || msg.includes('502')) {
+    return 'The blockchain network is busy. Please try again in a few moments.';
+  }
+  
+  // Aave-specific revert reasons
+  if (msg.includes('execution reverted') || msg.includes('reverted')) {
+    if (msg.includes('insufficient_balance') || msg.includes('not enough balance')) {
+      return 'Your savings balance is lower than expected. Please refresh and try again.';
+    }
+    if (msg.includes('not_enough_available_user_balance')) {
+      return 'Insufficient available balance. Some funds may be temporarily locked.';
+    }
+    if (msg.includes('health_factor') || msg.includes('liquidation')) {
+      return 'Cannot withdraw this amount - it would put your account at risk.';
+    }
+    if (msg.includes('not_enough_liquidity')) {
+      return 'The pool has low liquidity right now. Try withdrawing a smaller amount.';
+    }
+    if (msg.includes('invalid_amount') || msg.includes('0x32') || msg.includes('error code 32')) {
+      return 'Invalid amount. Please try a different withdrawal amount.';
+    }
+    if (msg.includes('paused')) {
+      return 'Withdrawals are temporarily paused. Please try again later.';
+    }
+    // Generic revert - don't expose technical details
+    return 'The withdrawal could not be completed. Please try again or contact support if the issue persists.';
+  }
+  
+  // Contract call failures
+  if (msg.includes('call exception') || msg.includes('contract call')) {
+    return 'Unable to complete the transaction. Please try again.';
+  }
+  
+  // Gas estimation failures
+  if (msg.includes('gas required exceeds') || msg.includes('out of gas') || msg.includes('gas estimation')) {
+    return 'Transaction requires too much gas. Please try a smaller amount.';
+  }
+  
+  // Default: generic user-friendly message (no technical details)
+  console.error('[Aave Withdraw] Unhandled error, returning generic message. Original:', errorMessage);
+  return 'Something went wrong with the withdrawal. Please try again in a few moments.';
 }
 
 export const supplyToAave = supplyToAaveGasless;
