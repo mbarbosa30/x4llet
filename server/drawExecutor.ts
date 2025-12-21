@@ -163,6 +163,37 @@ export async function executePoolDraw(weekNumber: number, year: number, dryRun: 
     };
   }
   
+  if (draw.status === 'skipped') {
+    console.log(`[DrawExecutor] Draw for week ${weekNumber}/${year} was marked as skipped`);
+    return {
+      success: false,
+      error: 'Draw was skipped (yield already collected in another draw)',
+      totalParticipants: 0,
+      totalTickets: '0',
+      totalPrizePool: '0',
+      sponsoredPool: '0',
+      winningNumber: '0',
+      unapprovedUsers: 0,
+    };
+  }
+  
+  const now = new Date();
+  const weekEndDate = new Date(draw.weekEnd);
+  if (weekEndDate > now) {
+    const hoursRemaining = Math.ceil((weekEndDate.getTime() - now.getTime()) / (1000 * 60 * 60));
+    console.error(`[DrawExecutor] BLOCKED: Cannot execute draw for week ${weekNumber}/${year} - week hasn't ended yet. ${hoursRemaining} hours remaining until ${weekEndDate.toISOString()}`);
+    return {
+      success: false,
+      error: `Week ${weekNumber}/${year} has not ended yet. Draw blocked - ${hoursRemaining} hours remaining.`,
+      totalParticipants: 0,
+      totalTickets: '0',
+      totalPrizePool: '0',
+      sponsoredPool: '0',
+      winningNumber: '0',
+      unapprovedUsers: 0,
+    };
+  }
+  
   const celoNetwork = getNetworkByChainId(42220);
   if (!celoNetwork?.aUsdcAddress) {
     throw new Error('Celo aUSDC address not configured');
