@@ -839,10 +839,22 @@ export default function MaxFlow() {
                         queryClient.invalidateQueries({ queryKey: ['/api/face-verification', address] });
                         queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
                         setAutoFaceCheck(false);
-                        toast({
-                          title: "Face Verification Complete",
-                          description: data?.xpAwarded ? `You've earned ${data.xpAwarded} XP!` : "Verification successful!",
-                        });
+                        if (data?.pendingXp && data.pendingXp > 0) {
+                          toast({
+                            title: "Face Verified!",
+                            description: `${data.pendingXp} XP waiting - vouch for someone to claim it.`,
+                          });
+                        } else if (data?.xpAwarded && data.xpAwarded > 0) {
+                          toast({
+                            title: "Face Verification Complete",
+                            description: `You've earned ${data.xpAwarded} XP!`,
+                          });
+                        } else {
+                          toast({
+                            title: "Face Verification Complete",
+                            description: "Verification successful!",
+                          });
+                        }
                       }
                     }}
                     onReset={() => {
@@ -852,6 +864,33 @@ export default function MaxFlow() {
                 </Suspense>
               </Card>
             ) : null}
+
+            {/* Pending XP Banner - Shows when user is face verified but has pending XP (hasn't vouched yet) */}
+            {faceVerificationData?.verified && xpData?.pendingFaceXp && xpData.pendingFaceXp > 0 && (
+              <Card className="p-4 border-2 border-primary bg-primary/5" data-testid="card-pending-xp">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-foreground" data-testid="text-pending-xp-amount">
+                      {xpData.pendingFaceXp} XP waiting!
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Vouch for a friend or whoever invited you to unlock your reward.
+                    </p>
+                  </div>
+                  <Button 
+                    size="sm"
+                    onClick={() => setShowVouchInput(true)}
+                    data-testid="button-pending-xp-vouch"
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    Vouch
+                  </Button>
+                </div>
+              </Card>
+            )}
 
             <Card className="p-6 space-y-6">
               {!isLoadingMaxFlow && score === 0 ? (

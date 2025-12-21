@@ -81,6 +81,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [videoAspect, setVideoAspect] = useState<number>(3/4); // Default portrait ratio
   const [loadingMessage, setLoadingMessage] = useState<string>('Initializing...');
+  const [verificationResult, setVerificationResult] = useState<{ xpAwarded?: number; pendingXp?: number } | null>(null);
   const [faceQuality, setFaceQuality] = useState<FaceQuality>({
     confidence: false,
     faceSize: false,
@@ -625,7 +626,10 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
       cleanup();
       
       // Show toast based on result
+      // Note: xpAwarded and pendingXp from backend are already in user-facing XP (not centi-XP)
       const xpAwarded = result.xpAwarded || 0;
+      const pendingXp = result.pendingXp || 0;
+      
       if (result.isLikelySpoof) {
         toast({
           title: 'Verification Complete',
@@ -637,6 +641,11 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
           title: 'Verification Complete!',
           description: `Face verification successful! +${xpAwarded} XP earned.`,
         });
+      } else if (pendingXp > 0) {
+        toast({
+          title: 'Verification Complete!',
+          description: `Face verified! ${pendingXp} XP waiting - vouch for someone to claim it.`,
+        });
       } else {
         toast({
           title: 'Verification Complete',
@@ -646,6 +655,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
       
       // Update state only if still mounted
       if (isMountedRef.current) {
+        setVerificationResult({ xpAwarded, pendingXp });
         setStatus('complete');
         setIsSubmitting(false);
       }
@@ -891,11 +901,23 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
 
         {status === 'complete' && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-            <div className="text-center text-white space-y-3">
+            <div className="text-center text-white space-y-3 px-6">
               <div className="h-16 w-16 rounded-full bg-emerald-500 flex items-center justify-center mx-auto">
                 <Check className="h-10 w-10" />
               </div>
               <p className="font-semibold text-lg">Verified!</p>
+              
+              {verificationResult?.pendingXp && verificationResult.pendingXp > 0 && (
+                <p className="text-sm text-white/80">
+                  {verificationResult.pendingXp} XP waiting - vouch for someone to unlock it
+                </p>
+              )}
+              
+              {verificationResult?.xpAwarded && verificationResult.xpAwarded > 0 && (
+                <p className="text-emerald-400 font-semibold">
+                  +{verificationResult.xpAwarded} XP earned!
+                </p>
+              )}
             </div>
           </div>
         )}

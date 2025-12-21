@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 export interface XpData {
   totalXp: number;
+  pendingFaceXp: number;
   claimCount: number;
   lastClaimTime: string | null;
   canClaim: boolean;
