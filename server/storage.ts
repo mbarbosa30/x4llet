@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, type AiConversation, type AiMessage, type IpEvent, type InsertIpEvent, type FaceVerification, type SybilScore, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, globalSettings, aiConversations, ipEvents, faceVerifications, gdDailySpending, usdcDailyRedemptions, sybilScores } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, type XpAction, type XpActionCompletion, type AiConversation, type AiMessage, type IpEvent, type InsertIpEvent, type FaceVerification, type SybilScore, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, xpActions, xpActionCompletions, globalSettings, aiConversations, ipEvents, faceVerifications, gdDailySpending, usdcDailyRedemptions, sybilScores } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { createPublicClient, http, type Address } from 'viem';
 import { base, celo, gnosis, arbitrum } from 'viem/chains';
@@ -2799,6 +2799,21 @@ export class DbStorage extends MemStorage {
     }
   }
 
+  async getUserAaveOperations(userAddress: string, limit: number = 100): Promise<AaveOperation[]> {
+    try {
+      const normalizedAddress = userAddress.toLowerCase();
+      return await db
+        .select()
+        .from(aaveOperations)
+        .where(sql`lower(${aaveOperations.userAddress}) = ${normalizedAddress}`)
+        .orderBy(desc(aaveOperations.createdAt))
+        .limit(limit);
+    } catch (error) {
+      console.error('[AaveOps] Error fetching user operations:', error);
+      return [];
+    }
+  }
+
   async getAaveNetPrincipal(userAddress: string): Promise<{ chainId: number; netPrincipalMicro: string; trackingStarted: string | null }[]> {
     const chainIds = [8453, 42220, 100, 42161]; // Base, Celo, Gnosis, Arbitrum
     const results: { chainId: number; netPrincipalMicro: string; trackingStarted: string | null }[] = [];
@@ -4700,6 +4715,113 @@ export class DbStorage extends MemStorage {
     
     console.log(`[XP] Awarded pending face XP to ${normalized}: ${pendingXp} centi-XP (${pendingXp / 100} XP), new balance: ${newBalance}`);
     return { awarded: true, xpAmount: pendingXp };
+  }
+
+  // ===== XP ACTION SYSTEM =====
+  
+  async getXpAction(actionType: string): Promise<XpAction | null> {
+    try {
+      const result = await db
+        .select()
+        .from(xpActions)
+        .where(eq(xpActions.actionType, actionType))
+        .limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error('[XP Action] Error getting action:', error);
+      return null;
+    }
+  }
+
+  async getAllXpActions(): Promise<XpAction[]> {
+    try {
+      const result = await db
+        .select()
+        .from(xpActions)
+        .orderBy(xpActions.actionType);
+      return result;
+    } catch (error) {
+      console.error('[XP Action] Error getting all actions:', error);
+      return [];
+    }
+  }
+
+  async hasCompletedAction(walletAddress: string, actionType: string): Promise<boolean> {
+    try {
+      const normalized = walletAddress.toLowerCase();
+      const result = await db
+        .select()
+        .from(xpActionCompletions)
+        .where(and(
+          eq(xpActionCompletions.walletAddress, normalized),
+          eq(xpActionCompletions.actionType, actionType)
+        ))
+        .limit(1);
+      return result.length > 0;
+    } catch (error) {
+      console.error('[XP Action] Error checking completion:', error);
+      return false;
+    }
+  }
+
+  async getActionCompletions(walletAddress: string): Promise<XpActionCompletion[]> {
+    try {
+      const normalized = walletAddress.toLowerCase();
+      const result = await db
+        .select()
+        .from(xpActionCompletions)
+        .where(eq(xpActionCompletions.walletAddress, normalized))
+        .orderBy(desc(xpActionCompletions.completedAt));
+      return result;
+    } catch (error) {
+      console.error('[XP Action] Error getting completions:', error);
+      return [];
+    }
+  }
+
+  async completeXpAction(
+    walletAddress: string, 
+    actionType: string, 
+    metadata?: Record<string, any>
+  ): Promise<{ success: boolean; xpAwarded: number; alreadyCompleted: boolean }> {
+    const normalized = walletAddress.toLowerCase();
+    const now = new Date();
+
+    try {
+      // Check if action exists and is active
+      const action = await this.getXpAction(actionType);
+      if (!action || !action.isActive) {
+        console.log(`[XP Action] Action ${actionType} not found or inactive`);
+        return { success: false, xpAwarded: 0, alreadyCompleted: false };
+      }
+
+      // Check if already completed (for one-time actions)
+      if (action.isOneTime) {
+        const alreadyDone = await this.hasCompletedAction(normalized, actionType);
+        if (alreadyDone) {
+          console.log(`[XP Action] ${normalized} already completed ${actionType}`);
+          return { success: false, xpAwarded: 0, alreadyCompleted: true };
+        }
+      }
+
+      // Record completion
+      await db.insert(xpActionCompletions).values({
+        walletAddress: normalized,
+        actionType: actionType,
+        xpAwarded: action.xpAmount,
+        metadata: metadata ? JSON.stringify(metadata) : null,
+        completedAt: now,
+      });
+
+      // Award XP (reuse claimXp with maxFlowSignal = -2 for action-based rewards)
+      await this.claimXp(normalized, action.xpAmount, -2);
+
+      console.log(`[XP Action] ${normalized} completed ${actionType}: +${action.xpAmount} centi-XP (${action.xpAmount / 100} XP)`);
+      return { success: true, xpAwarded: action.xpAmount, alreadyCompleted: false };
+    } catch (error) {
+      console.error('[XP Action] Error completing action:', error);
+      return { success: false, xpAwarded: 0, alreadyCompleted: false };
+    }
   }
 
   async getGdDailySpending(walletAddress: string, date: string): Promise<{ gdSpent: bigint; xpEarned: number } | null> {

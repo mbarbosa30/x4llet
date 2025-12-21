@@ -5918,6 +5918,166 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== XP ACTION REWARDS =====
+  // Get all available XP actions with user's completion status
+  app.get('/api/xp/actions/:address', async (req, res) => {
+    try {
+      const { address } = req.params;
+
+      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+
+      const allActions = await storage.getAllXpActions();
+      const completions = await storage.getActionCompletions(address);
+      const completedTypes = new Set(completions.map(c => c.actionType));
+
+      const actionsWithStatus = allActions.map(action => ({
+        actionType: action.actionType,
+        xpAmount: action.xpAmount / 100, // Convert centi-XP to display
+        description: action.description,
+        isOneTime: action.isOneTime,
+        isActive: action.isActive,
+        completed: completedTypes.has(action.actionType),
+        completedAt: completions.find(c => c.actionType === action.actionType)?.completedAt || null,
+      }));
+
+      res.json({ actions: actionsWithStatus });
+    } catch (error) {
+      console.error('[XP Action] Error fetching actions:', error);
+      res.status(500).json({ error: 'Failed to fetch XP actions' });
+    }
+  });
+
+  // Check and award first transfer received bonus
+  app.post('/api/xp/check-first-transfer', async (req, res) => {
+    try {
+      const { address } = req.body;
+
+      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+
+      // Check if already claimed this bonus
+      const alreadyCompleted = await storage.hasCompletedAction(address, 'first_transfer_received');
+      if (alreadyCompleted) {
+        return res.json({ 
+          success: false, 
+          alreadyCompleted: true,
+          message: 'First transfer bonus already claimed' 
+        });
+      }
+
+      // Check if user has any incoming transactions (need to verify they received a transfer)
+      let hasIncoming = false;
+      
+      // Check all chains for incoming USDC transfers
+      for (const chainId of [8453, 42220, 100, 42161]) {
+        const transactions = await storage.getTransactions(address, chainId);
+        const chainHasIncoming = transactions.some((tx: { to?: string; methodId?: string }) => 
+          tx.to?.toLowerCase() === address.toLowerCase() &&
+          tx.methodId && tx.methodId !== '0x' // Token transfer, not simple ETH
+        );
+        if (chainHasIncoming) {
+          hasIncoming = true;
+          break;
+        }
+      }
+
+      if (!hasIncoming) {
+        return res.json({
+          success: false,
+          alreadyCompleted: false,
+          message: 'No incoming transfers detected yet',
+        });
+      }
+
+      // Award the bonus
+      const result = await storage.completeXpAction(address, 'first_transfer_received');
+      
+      res.json({
+        success: result.success,
+        xpAwarded: result.xpAwarded / 100,
+        alreadyCompleted: result.alreadyCompleted,
+      });
+    } catch (error) {
+      console.error('[XP Action] Error checking first transfer:', error);
+      res.status(500).json({ error: 'Failed to check first transfer' });
+    }
+  });
+
+  // Check and award savings duration bonus (3+ days)
+  app.post('/api/xp/check-savings-duration', async (req, res) => {
+    try {
+      const { address } = req.body;
+
+      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+
+      // Check if already claimed this bonus
+      const alreadyCompleted = await storage.hasCompletedAction(address, 'savings_3_days');
+      if (alreadyCompleted) {
+        return res.json({ 
+          success: false, 
+          alreadyCompleted: true,
+          message: 'Savings duration bonus already claimed' 
+        });
+      }
+
+      // Get user's Aave operations to find first deposit date
+      const operations = await storage.getUserAaveOperations(address, 100);
+      // Filter for completed supply operations only
+      const deposits = operations.filter((op) => 
+        (op.operationType === 'supply' || op.operationType === 'deposit') &&
+        op.status === 'completed' &&
+        op.createdAt
+      );
+      
+      if (deposits.length === 0) {
+        return res.json({
+          success: false,
+          alreadyCompleted: false,
+          message: 'No completed savings deposits found',
+        });
+      }
+
+      // Find the oldest deposit (use createdAt for AaveOperation)
+      const oldestDeposit = deposits.reduce((oldest, current) => 
+        new Date(current.createdAt!) < new Date(oldest.createdAt!) ? current : oldest
+      );
+
+      const depositDate = new Date(oldestDeposit.createdAt!);
+      const now = new Date();
+      const daysSinceDeposit = (now.getTime() - depositDate.getTime()) / (1000 * 60 * 60 * 24);
+
+      if (daysSinceDeposit < 3) {
+        return res.json({
+          success: false,
+          alreadyCompleted: false,
+          message: `Only ${Math.floor(daysSinceDeposit)} days since first deposit. Need 3+ days.`,
+          daysSinceDeposit: Math.floor(daysSinceDeposit),
+          daysRemaining: Math.ceil(3 - daysSinceDeposit),
+        });
+      }
+
+      // Award the bonus
+      const result = await storage.completeXpAction(address, 'savings_3_days', {
+        firstDepositDate: oldestDeposit.createdAt.toISOString(),
+        daysSinceDeposit: Math.floor(daysSinceDeposit),
+      });
+      
+      res.json({
+        success: result.success,
+        xpAwarded: result.xpAwarded / 100,
+        alreadyCompleted: result.alreadyCompleted,
+      });
+    } catch (error) {
+      console.error('[XP Action] Error checking savings duration:', error);
+      res.status(500).json({ error: 'Failed to check savings duration' });
+    }
+  });
+
   // ===== XP REDEMPTION: Exchange 100 XP for 1 USDC deposited to Aave on Celo =====
   // Requires: Face verification + max 1 per day
   
