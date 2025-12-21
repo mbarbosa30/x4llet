@@ -36,6 +36,31 @@ function getCurrentWeekInfo() {
   };
 }
 
+function getPreviousWeekInfo() {
+  const now = new Date();
+  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  
+  const startOfYear = new Date(Date.UTC(oneWeekAgo.getUTCFullYear(), 0, 1));
+  const days = Math.floor((oneWeekAgo.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
+  const weekNumber = Math.ceil((days + startOfYear.getUTCDay() + 1) / 7);
+  
+  const dayOfWeek = oneWeekAgo.getUTCDay() || 7;
+  const weekStart = new Date(oneWeekAgo);
+  weekStart.setUTCDate(oneWeekAgo.getUTCDate() - dayOfWeek + 1);
+  weekStart.setUTCHours(0, 0, 0, 0);
+  
+  const weekEnd = new Date(weekStart);
+  weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
+  weekEnd.setUTCHours(23, 59, 59, 999);
+  
+  return {
+    weekNumber,
+    year: oneWeekAgo.getUTCFullYear(),
+    weekStart,
+    weekEnd,
+  };
+}
+
 function getFacilitatorAccount() {
   const privateKey = process.env.FACILITATOR_PRIVATE_KEY;
   if (!privateKey) {
@@ -137,13 +162,13 @@ export async function triggerAutomaticDraw(): Promise<{
   error?: string;
   result?: any;
 }> {
-  const { weekNumber, year } = getCurrentWeekInfo();
+  const { weekNumber, year } = getPreviousWeekInfo();
   const drawKey = `${weekNumber}-${year}`;
   
   if (lastExecutedDrawKey === drawKey) {
     return {
       success: false,
-      message: 'Draw already executed for this week',
+      message: 'Draw already executed for previous week',
       drawKey,
     };
   }
@@ -152,7 +177,7 @@ export async function triggerAutomaticDraw(): Promise<{
   if (!draw) {
     return {
       success: false,
-      message: 'No draw found for current week',
+      message: `No draw found for previous week ${weekNumber}/${year}`,
       drawKey,
     };
   }
@@ -187,7 +212,7 @@ export async function triggerAutomaticDraw(): Promise<{
     };
   }
   
-  console.log(`[PoolScheduler] Executing automatic draw for week ${weekNumber}/${year}...`);
+  console.log(`[PoolScheduler] Executing automatic draw for PREVIOUS week ${weekNumber}/${year}...`);
   
   try {
     const result = await executePoolDraw(weekNumber, year, false);
@@ -198,7 +223,7 @@ export async function triggerAutomaticDraw(): Promise<{
       console.log(`[PoolScheduler] Draw executed successfully. Winner: ${result.winner?.address}, Prize: ${result.winner?.prizeFormatted} USDC`);
       return {
         success: true,
-        message: `Draw completed. Winner: ${result.winner?.address}`,
+        message: `Draw completed for week ${weekNumber}/${year}. Winner: ${result.winner?.address}`,
         drawKey,
         result,
       };
@@ -228,11 +253,11 @@ async function schedulerTick(): Promise<void> {
     await ensureCurrentWeekDraw();
     
     if (shouldExecuteDraw()) {
-      const { weekNumber, year } = getCurrentWeekInfo();
+      const { weekNumber, year } = getPreviousWeekInfo();
       const drawKey = `${weekNumber}-${year}`;
       
       if (lastExecutedDrawKey !== drawKey) {
-        console.log(`[PoolScheduler] Draw time detected (Sunday ${DRAW_HOUR_UTC}:00 UTC)`);
+        console.log(`[PoolScheduler] Draw time detected (Sunday ${DRAW_HOUR_UTC}:00 UTC) - executing for previous week ${weekNumber}/${year}`);
         const result = await triggerAutomaticDraw();
         console.log(`[PoolScheduler] Trigger result: ${result.message}`);
       }
@@ -242,6 +267,8 @@ async function schedulerTick(): Promise<void> {
     console.error('[PoolScheduler] Error in scheduler tick:', error);
   }
 }
+
+export { getPreviousWeekInfo };
 
 export function startPoolScheduler(): void {
   if (schedulerRunning) {
