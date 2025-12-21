@@ -29,6 +29,9 @@ Designed as an offline-first PWA with a service worker for asset caching, Indexe
 ### UI/UX Decisions
 The UI features a unified fixed header and bottom navigation. The Trust Hub (MaxFlow Page) includes a two-tab interface for MaxFlow (score, Face Check, vouch, XP/USDC/SENADOR redemption) and GoodDollar (identity verification, G$ claiming, G$ → XP exchange). Multi-chain UX includes aggregated USDC balances, chain badges, and network auto-selection. A Pool (Prize-Linked Savings) feature allows users to opt-in a percentage of their Aave savings yield for weekly prize pools. Face verification uses face-api.js for neural network embeddings and MediaPipe for liveness detection.
 
+### Pool Scheduler
+The pool prize draw scheduler runs at Sunday 00:00 UTC and executes draws for the **previous week** (the week that just ended), not the current week. This ensures all yield contributions for the completed week are properly counted. Tickets are based on YIELD only (not principal) - calculated as `interest = totalBalance - netDeposits`. After each draw, yield snapshots are updated so the next week's calculation starts fresh. Admin can manually trigger draws for any week via `/api/admin/pool/draw` with `weekNumber` and `year` parameters.
+
 ## External Dependencies
 
 ### Blockchain Infrastructure
