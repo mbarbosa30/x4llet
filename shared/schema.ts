@@ -437,6 +437,39 @@ export const xpClaims = pgTable("xp_claims", {
 export type XpBalance = typeof xpBalances.$inferSelect;
 export type XpClaim = typeof xpClaims.$inferSelect;
 
+// XP Action Configuration - Defines action-based XP rewards
+export const xpActions = pgTable("xp_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  actionType: text("action_type").notNull().unique(), // e.g., 'face_verification', 'first_transfer_received', 'savings_3_days'
+  xpAmount: integer("xp_amount").notNull(), // XP reward in centi-XP (e.g., 5000 = 50 XP)
+  description: text("description").notNull(),
+  isOneTime: boolean("is_one_time").notNull().default(true), // Can only be earned once per user
+  isActive: boolean("is_active").notNull().default(true), // Can be toggled on/off
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// XP Action Completions - Tracks which actions each user has completed
+export const xpActionCompletions = pgTable("xp_action_completions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: text("wallet_address").notNull(),
+  actionType: text("action_type").notNull(),
+  xpAwarded: integer("xp_awarded").notNull(), // Centi-XP awarded at time of completion
+  metadata: text("metadata"), // JSON: optional context like txHash, chainId, etc.
+  completedAt: timestamp("completed_at").notNull().defaultNow(),
+}, (table) => ({
+  walletActionUnique: unique().on(table.walletAddress, table.actionType),
+}));
+
+export type XpAction = typeof xpActions.$inferSelect;
+export type XpActionCompletion = typeof xpActionCompletions.$inferSelect;
+
+export const insertXpActionSchema = createInsertSchema(xpActions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertXpAction = z.infer<typeof insertXpActionSchema>;
 
 // Global Settings table for cached metrics and configuration
 export const globalSettings = pgTable("global_settings", {
