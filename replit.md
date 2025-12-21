@@ -32,6 +32,16 @@ The UI features a unified fixed header and bottom navigation. The Trust Hub (Max
 ### Pool Scheduler
 The pool prize draw scheduler runs at Sunday 00:00 UTC and executes draws for the **previous week** (the week that just ended), not the current week. This ensures all yield contributions for the completed week are properly counted. Tickets are based on YIELD only (not principal) - calculated as `interest = totalBalance - netDeposits`. After each draw, yield snapshots are updated so the next week's calculation starts fresh. Admin can manually trigger draws for any week via `/api/admin/pool/draw` with `weekNumber` and `year` parameters.
 
+### Sybil Detection & XP System
+The XP system uses a unified sybil detection approach with graduated multipliers:
+- **Tiers**: clear (1.0x), warn (0.5x), limit (0.167x), block (0x)
+- **Scoring**: Combines device fingerprint uniqueness, face verification status, and MaxFlow trust signals
+- **Enforcement**: All XP awards flow through `claimXp()` which applies sybil multiplier and enforces daily cap (100 XP)
+- **Null Safety**: If sybil score calculation fails, defaults to 'clear' tier to avoid blocking legitimate users
+- **XP Actions**: first_transfer_received and savings_3_days are on-demand endpoints (no cron job needed)
+- **AI Chat**: Deducts 1 XP per message with refund on errors
+- **Face Verification XP**: Awards 120 XP base, but requires user to vouch someone first (stored as pendingFaceXp)
+
 ## External Dependencies
 
 ### Blockchain Infrastructure
