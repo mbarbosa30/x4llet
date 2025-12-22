@@ -7186,9 +7186,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // STEP 2: Fuzzy match - cosine similarity on embeddings (catches same person with variations)
       // DATA GATHERING PHASE - No blocking, just logging and sybil points
-      // - > 0.97: Mark as duplicate in DB (for tracking) but still allow verification
-      // - < 0.97: Mark as verified
-      const DUPLICATE_THRESHOLD = 0.97; // Above this = mark as duplicate (but don't block)
+      // - >= 0.85: Mark as duplicate in DB AND block XP award (same biometric)
+      // - < 0.85: Mark as verified
+      const DUPLICATE_THRESHOLD = 0.85; // Above this = mark as duplicate and block XP
       
       // Pass request start time to prevent self-race conditions
       const requestStartTime = new Date();
@@ -7204,7 +7204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Hash IP for comparison
       const hashedIp = ipHash ? await hashIp(ipHash) : undefined;
       
-      // Determine status and log suspicious patterns (but never block)
+      // Determine status - duplicates (>=85% similarity) are blocked from XP
       let status: 'verified' | 'duplicate' = 'verified';
       let duplicateOf: string | undefined;
       let matchSimilarity: number | undefined;
@@ -7220,15 +7220,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log(`[FaceVerification] Match found: ${(similarity * 100).toFixed(1)}% similarity, sameDevice: ${sameDevice}, matchWallet: ${matchWallet.slice(0, 8)}...`);
         
-        // Mark as duplicate if above threshold (but still allow verification)
+        // Mark as duplicate if above threshold - BLOCKS XP award
         if (similarity >= DUPLICATE_THRESHOLD) {
           status = 'duplicate';
           duplicateOf = matchWallet;
-          console.warn(`[FaceVerification] HIGH similarity (${(similarity * 100).toFixed(1)}%) - marking as duplicate but allowing: ${normalizedAddress} matches ${matchWallet}`);
+          console.warn(`[FaceVerification] DUPLICATE BLOCKED (${(similarity * 100).toFixed(1)}% >= ${DUPLICATE_THRESHOLD * 100}%): ${normalizedAddress} matches ${matchWallet} - XP will NOT be awarded`);
         }
         
-        // Log sybil warning for any suspicious pattern (same device OR high similarity)
-        if (sameDevice || similarity >= 0.90) {
+        // Log sybil warning for any suspicious pattern (same device OR moderate similarity)
+        // Lower threshold (0.75) for monitoring to catch borderline cases
+        if (sameDevice || similarity >= 0.75) {
           try {
             await storage.logIpEvent({
               walletAddress: normalizedAddress,
@@ -7247,7 +7248,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate processing time
       const processingTimeMs = Date.now() - processingStartTime;
       
-      // Create verification record - ALWAYS allow through (data gathering phase)
+      // Create verification record - records status (verified/duplicate) for audit
       const verification = await storage.createFaceVerification({
         walletAddress: normalizedAddress,
         embeddingHash,
@@ -7406,6 +7407,148 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('[FaceVerification] Error getting diagnostics:', error);
       res.status(500).json({ error: 'Failed to get diagnostics' });
+    }
+  });
+  
+  // Admin: Detect duplicate faces and optionally claw back XP
+  // GET: Preview duplicates without making changes
+  // POST with execute=true: Actually claw back XP from duplicates
+  app.post('/api/admin/face-verification/detect-duplicates', adminAuthMiddleware, async (req, res) => {
+    try {
+      const { execute, threshold } = req.body;
+      const similarityThreshold = threshold || 0.85;
+      
+      console.log(`[Admin] Detecting duplicate faces (threshold: ${similarityThreshold}, execute: ${execute})`);
+      
+      // Get all face verifications with embeddings
+      const allVerifications = await storage.getAllFaceVerificationsWithEmbeddings();
+      
+      if (!allVerifications || allVerifications.length === 0) {
+        return res.json({
+          success: true,
+          message: 'No face verifications found',
+          duplicates: [],
+          totalAffected: 0,
+          totalXpToClawBack: 0,
+        });
+      }
+      
+      console.log(`[Admin] Analyzing ${allVerifications.length} face verifications for duplicates`);
+      
+      // Find duplicates by comparing embeddings
+      const duplicates: Array<{
+        walletAddress: string;
+        matchesWallet: string;
+        similarity: number;
+        xpBalance: number;
+        clawBackAmount: number;
+        verifiedAt: Date;
+      }> = [];
+      
+      const processedPairs = new Set<string>();
+      const duplicateWallets = new Set<string>();
+      
+      for (let i = 0; i < allVerifications.length; i++) {
+        const v1 = allVerifications[i];
+        if (!v1.embedding) continue;
+        
+        let embedding1: number[];
+        try {
+          embedding1 = typeof v1.embedding === 'string' ? JSON.parse(v1.embedding) : v1.embedding;
+        } catch { continue; }
+        
+        for (let j = i + 1; j < allVerifications.length; j++) {
+          const v2 = allVerifications[j];
+          if (!v2.embedding) continue;
+          
+          // Skip if already processed this pair
+          const pairKey = [v1.walletAddress, v2.walletAddress].sort().join('|');
+          if (processedPairs.has(pairKey)) continue;
+          processedPairs.add(pairKey);
+          
+          let embedding2: number[];
+          try {
+            embedding2 = typeof v2.embedding === 'string' ? JSON.parse(v2.embedding) : v2.embedding;
+          } catch { continue; }
+          
+          // Calculate cosine similarity
+          const dotProduct = embedding1.reduce((sum, a, idx) => sum + a * embedding2[idx], 0);
+          const norm1 = Math.sqrt(embedding1.reduce((sum, a) => sum + a * a, 0));
+          const norm2 = Math.sqrt(embedding2.reduce((sum, a) => sum + a * a, 0));
+          const similarity = dotProduct / (norm1 * norm2);
+          
+          if (similarity >= similarityThreshold) {
+            // The later verification is the duplicate
+            const [original, duplicate] = v1.createdAt < v2.createdAt ? [v1, v2] : [v2, v1];
+            
+            if (!duplicateWallets.has(duplicate.walletAddress)) {
+              duplicateWallets.add(duplicate.walletAddress);
+              
+              // Get XP balance for the duplicate wallet
+              const xpBalance = await storage.getXpBalance(duplicate.walletAddress);
+              const currentXp = xpBalance?.totalXp || 0;
+              
+              // Claw back the face verification XP (120 XP = 12000 centi-XP)
+              const clawBackAmount = Math.min(currentXp, 12000);
+              
+              duplicates.push({
+                walletAddress: duplicate.walletAddress,
+                matchesWallet: original.walletAddress,
+                similarity: Math.round(similarity * 100) / 100,
+                xpBalance: currentXp / 100,
+                clawBackAmount: clawBackAmount / 100,
+                verifiedAt: duplicate.createdAt,
+              });
+            }
+          }
+        }
+      }
+      
+      const totalXpToClawBack = duplicates.reduce((sum, d) => sum + d.clawBackAmount, 0);
+      
+      console.log(`[Admin] Found ${duplicates.length} duplicate faces, total XP to claw back: ${totalXpToClawBack}`);
+      
+      // If execute=true, actually claw back the XP
+      let clawedBack: string[] = [];
+      if (execute === true && duplicates.length > 0) {
+        console.log(`[Admin] EXECUTING XP clawback for ${duplicates.length} duplicate wallets`);
+        
+        for (const dup of duplicates) {
+          if (dup.clawBackAmount > 0) {
+            try {
+              // Deduct XP from the duplicate wallet
+              const clawBackCenti = Math.round(dup.clawBackAmount * 100);
+              const result = await storage.deductXp(dup.walletAddress, clawBackCenti);
+              
+              if (result.success) {
+                clawedBack.push(dup.walletAddress);
+                console.log(`[Admin] Clawed back ${dup.clawBackAmount} XP from ${dup.walletAddress} (matched ${dup.matchesWallet} at ${dup.similarity * 100}%)`);
+                
+                // Update the face verification record to mark as duplicate
+                await storage.updateFaceVerificationStatus(dup.walletAddress, 'duplicate', dup.matchesWallet);
+              }
+            } catch (err) {
+              console.error(`[Admin] Failed to claw back XP from ${dup.walletAddress}:`, err);
+            }
+          }
+        }
+        
+        console.log(`[Admin] XP clawback complete: ${clawedBack.length}/${duplicates.length} wallets processed`);
+      }
+      
+      res.json({
+        success: true,
+        executed: execute === true,
+        threshold: similarityThreshold,
+        totalVerifications: allVerifications.length,
+        duplicates,
+        totalAffected: duplicates.length,
+        totalXpToClawBack,
+        clawedBack: execute === true ? clawedBack : undefined,
+      });
+    } catch (error) {
+      console.error('[Admin] Error detecting duplicate faces:', error);
+      res.status(500).json({ error: 'Failed to detect duplicate faces' });
     }
   });
 

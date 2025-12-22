@@ -538,6 +538,14 @@ export interface IStorage {
     challengesPassed: string;
     createdAt: Date;
   }>>;
+  getAllFaceVerificationsWithEmbeddings(): Promise<Array<{
+    walletAddress: string;
+    embedding: string | null;
+    status: string;
+    duplicateOf: string | null;
+    createdAt: Date;
+  }>>;
+  updateFaceVerificationStatus(walletAddress: string, status: string, duplicateOf?: string): Promise<void>;
   
   // Face Verification Attempt Limits (max 3 per week)
   recordFaceVerificationAttempt(walletAddress: string, success: boolean, failureReason?: string, ipHash?: string, storageToken?: string): Promise<void>;
@@ -1182,6 +1190,20 @@ export class MemStorage implements IStorage {
     createdAt: Date;
   }>> {
     return [];
+  }
+
+  async getAllFaceVerificationsWithEmbeddings(): Promise<Array<{
+    walletAddress: string;
+    embedding: string | null;
+    status: string;
+    duplicateOf: string | null;
+    createdAt: Date;
+  }>> {
+    return [];
+  }
+
+  async updateFaceVerificationStatus(walletAddress: string, status: string, duplicateOf?: string): Promise<void> {
+    // MemStorage stub - no-op
   }
 
   async recordFaceVerificationAttempt(
@@ -6055,6 +6077,49 @@ export class DbStorage extends MemStorage {
     } catch (error) {
       console.error('[FaceVerification] Error getting diagnostics:', error);
       return [];
+    }
+  }
+
+  async getAllFaceVerificationsWithEmbeddings(): Promise<Array<{
+    walletAddress: string;
+    embedding: string | null;
+    status: string;
+    duplicateOf: string | null;
+    createdAt: Date;
+  }>> {
+    try {
+      const results = await db.select({
+        walletAddress: faceVerifications.walletAddress,
+        embedding: faceVerifications.embedding,
+        status: faceVerifications.status,
+        duplicateOf: faceVerifications.duplicateOf,
+        createdAt: faceVerifications.createdAt,
+      })
+      .from(faceVerifications)
+      .orderBy(faceVerifications.createdAt);
+      
+      return results;
+    } catch (error) {
+      console.error('[FaceVerification] Error getting all verifications:', error);
+      return [];
+    }
+  }
+
+  async updateFaceVerificationStatus(walletAddress: string, status: string, duplicateOf?: string): Promise<void> {
+    const normalized = walletAddress.toLowerCase();
+    
+    try {
+      await db.update(faceVerifications)
+        .set({
+          status,
+          duplicateOf: duplicateOf || null,
+        })
+        .where(eq(faceVerifications.walletAddress, normalized));
+      
+      console.log(`[FaceVerification] Updated status for ${normalized}: ${status}${duplicateOf ? ` (duplicate of ${duplicateOf})` : ''}`);
+    } catch (error) {
+      console.error('[FaceVerification] Error updating status:', error);
+      throw error;
     }
   }
 
