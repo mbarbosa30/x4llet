@@ -3,7 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startPoolScheduler } from "./poolScheduler";
 import { startGasScanScheduler } from "./gasScanScheduler";
-import { seedXpActions } from "./storage";
+import { seedXpActions, migrateBackfillXpSpent } from "./storage";
 
 // Increase DNS threadpool size for better DNS resolution performance
 // Must be set before any async I/O operations
@@ -101,6 +101,11 @@ app.use((req, res, next) => {
       // Seed XP actions after server is running (non-blocking)
       seedXpActions().catch(err => {
         console.error('[Seed] Failed to seed XP actions:', err);
+      });
+      
+      // Run database migrations (non-blocking, idempotent)
+      migrateBackfillXpSpent().catch(err => {
+        console.error('[Migration] Failed to backfill XP spent:', err);
       });
     });
   } catch (error) {

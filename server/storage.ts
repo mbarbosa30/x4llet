@@ -6658,3 +6658,44 @@ export async function seedXpActions(): Promise<void> {
 
   console.log('[Seed] XP actions check complete');
 }
+
+// Migration: Backfill totalXpSpent from historical data
+// XP Spent = Total XP Claimed - Current XP Balance
+// Idempotent: Only updates wallets where calculated spent > stored spent (handles partial backfills)
+export async function migrateBackfillXpSpent(): Promise<void> {
+  console.log('[Migration] Checking XP spent backfill...');
+  
+  try {
+    // Run the backfill SQL
+    // This calculates historical spending by comparing claimed XP to current balance
+    // Updates any wallet where the calculated spending exceeds what's currently stored
+    const result = await db.execute(sql`
+      WITH claimed AS (
+        SELECT wallet_address, SUM(xp_amount) as total_claimed
+        FROM xp_claims
+        GROUP BY wallet_address
+      ),
+      calculated AS (
+        SELECT 
+          b.wallet_address,
+          GREATEST(COALESCE(c.total_claimed, 0) - b.total_xp, 0) as calculated_spent
+        FROM xp_balances b
+        LEFT JOIN claimed c ON b.wallet_address = c.wallet_address
+        WHERE GREATEST(COALESCE(c.total_claimed, 0) - b.total_xp, 0) > COALESCE(b.total_xp_spent, 0)
+      )
+      UPDATE xp_balances xb
+      SET total_xp_spent = calculated.calculated_spent
+      FROM calculated
+      WHERE xb.wallet_address = calculated.wallet_address
+    `);
+    
+    const rowCount = result?.rowCount || 0;
+    if (rowCount > 0) {
+      console.log(`[Migration] XP spent backfill complete - updated ${rowCount} wallet(s)`);
+    } else {
+      console.log('[Migration] XP spent backfill complete - no updates needed');
+    }
+  } catch (error) {
+    console.error('[Migration] Error backfilling XP spent:', error);
+  }
+}
