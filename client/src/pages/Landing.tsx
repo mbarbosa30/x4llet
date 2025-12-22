@@ -25,6 +25,7 @@ interface GlobalStats {
   totalUsers: number;
   totalTransfers: number;
   totalXp: number;
+  totalXpSpent: number;
   gasSponsoredUsd: number;
   stellar?: {
     currentApy: number;
@@ -279,9 +280,9 @@ function MobileLanding({
                   <Sparkles className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <p className="text-2xl font-bold tabular-nums" data-testid="text-global-xp">
-                  {Math.floor(globalStats.totalXp).toLocaleString()}
+                  {Math.floor(globalStats.totalXpSpent || 0).toLocaleString()}
                 </p>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">XP Earned</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">XP Spent</p>
               </div>
             </div>
           </div>
@@ -469,9 +470,9 @@ function DesktopLanding({
                   <Sparkles className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <p className="text-4xl font-black tabular-nums" data-testid="text-desktop-xp">
-                  {globalStats.totalXp.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  {(globalStats.totalXpSpent || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </p>
-                <p className="text-sm text-muted-foreground uppercase tracking-wide font-mono">XP Earned</p>
+                <p className="text-sm text-muted-foreground uppercase tracking-wide font-mono">XP Spent</p>
               </div>
             </div>
           </div>

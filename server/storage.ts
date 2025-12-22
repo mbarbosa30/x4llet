@@ -5092,12 +5092,16 @@ export class DbStorage extends MemStorage {
     totalUsers: number;
     totalTransfers: number;
     totalXp: number;
+    totalXpSpent: number;
     totalConnections: number;
     gasSponsoredUsd: number;
   }> {
     try {
       const [walletsResult] = await db.select({ count: count() }).from(wallets);
       const [xpResult] = await db.select({ total: sum(xpBalances.totalXp) }).from(xpBalances);
+      
+      // Sum total XP spent from USDC redemptions
+      const [xpSpentResult] = await db.select({ total: sum(usdcDailyRedemptions.xpSpent) }).from(usdcDailyRedemptions);
       
       // Count ALL transaction types for comprehensive "Transactions" metric
       const [usdcTxResult] = await db.select({ count: count() }).from(cachedTransactions);
@@ -5141,16 +5145,18 @@ export class DbStorage extends MemStorage {
       }
 
       const totalXpCenti = Number(xpResult?.total) || 0;
+      const totalXpSpentCenti = Number(xpSpentResult?.total) || 0;
       return {
         totalUsers: walletsResult?.count || 0,
         totalTransfers: totalTransactions,
         totalXp: Math.round(totalXpCenti) / 100,
+        totalXpSpent: Math.round(totalXpSpentCenti) / 100,
         totalConnections,
         gasSponsoredUsd,
       };
     } catch (error) {
       console.error('[Stats] Error getting global stats:', error);
-      return { totalUsers: 0, totalTransfers: 0, totalXp: 0, totalConnections: 0, gasSponsoredUsd: 0 };
+      return { totalUsers: 0, totalTransfers: 0, totalXp: 0, totalXpSpent: 0, totalConnections: 0, gasSponsoredUsd: 0 };
     }
   }
 
