@@ -534,7 +534,7 @@ export const faceVerifications = pgTable("face_verifications", {
   embedding: text("embedding"), // Raw face embedding as JSON array for fuzzy matching
   storageToken: text("storage_token"), // Device fingerprint token
   challengesPassed: text("challenges_passed").notNull(), // JSON array of passed challenges
-  status: text("status").notNull().default('verified'), // 'verified', 'duplicate', 'failed'
+  status: text("status").notNull().default('verified'), // 'verified', 'needs_review', 'duplicate', 'failed'
   duplicateOf: text("duplicate_of"), // If this face matches another wallet, store it here
   similarityScore: text("similarity_score"), // If duplicate, store the similarity score
   ipHash: text("ip_hash"),

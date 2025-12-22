@@ -7185,10 +7185,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // STEP 2: Fuzzy match - cosine similarity on embeddings (catches same person with variations)
-      // DATA GATHERING PHASE - No blocking, just logging and sybil points
-      // - >= 0.85: Mark as duplicate in DB AND block XP award (same biometric)
-      // - < 0.85: Mark as verified
-      const DUPLICATE_THRESHOLD = 0.85; // Above this = mark as duplicate and block XP
+      // Tiered status system:
+      // - >= 0.92: 'duplicate' - auto-blocked, XP denied (high confidence same person)
+      // - 0.85-0.92: 'needs_review' - XP withheld pending admin review (borderline)
+      // - < 0.85: 'verified' - XP awarded normally
+      const DUPLICATE_THRESHOLD = 0.92; // Above this = auto-block as duplicate
+      const REVIEW_THRESHOLD = 0.85;    // 0.85-0.92 = needs_review (borderline)
       
       // Pass request start time to prevent self-race conditions
       const requestStartTime = new Date();
@@ -7204,8 +7206,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Hash IP for comparison
       const hashedIp = ipHash ? await hashIp(ipHash) : undefined;
       
-      // Determine status - duplicates (>=85% similarity) are blocked from XP
-      let status: 'verified' | 'duplicate' = 'verified';
+      // Determine status - tiered system for duplicates
+      let status: 'verified' | 'needs_review' | 'duplicate' = 'verified';
       let duplicateOf: string | undefined;
       let matchSimilarity: number | undefined;
       
@@ -7220,11 +7222,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log(`[FaceVerification] Match found: ${(similarity * 100).toFixed(1)}% similarity, sameDevice: ${sameDevice}, matchWallet: ${matchWallet.slice(0, 8)}...`);
         
-        // Mark as duplicate if above threshold - BLOCKS XP award
+        // Tiered status based on similarity score
         if (similarity >= DUPLICATE_THRESHOLD) {
+          // >= 0.92: High confidence duplicate - auto-block
           status = 'duplicate';
           duplicateOf = matchWallet;
           console.warn(`[FaceVerification] DUPLICATE BLOCKED (${(similarity * 100).toFixed(1)}% >= ${DUPLICATE_THRESHOLD * 100}%): ${normalizedAddress} matches ${matchWallet} - XP will NOT be awarded`);
+        } else if (similarity >= REVIEW_THRESHOLD) {
+          // 0.85-0.92: Borderline - needs admin review
+          status = 'needs_review';
+          duplicateOf = matchWallet;
+          console.log(`[FaceVerification] NEEDS REVIEW (${(similarity * 100).toFixed(1)}% in ${REVIEW_THRESHOLD * 100}%-${DUPLICATE_THRESHOLD * 100}%): ${normalizedAddress} matches ${matchWallet} - XP withheld pending review`);
         }
         
         // Log sybil warning for any suspicious pattern (same device OR moderate similarity)
@@ -7337,17 +7345,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             xpSkipReason = 'pending_vouch';
           } catch {}
         }
+      } else if (status === 'needs_review') {
+        xpSkipReason = 'needs_review';
+        console.log(`[FaceVerification] Skipping XP for needs_review face: ${normalizedAddress} (pending admin review)`);
       } else {
         xpSkipReason = 'duplicate';
         console.log(`[FaceVerification] Skipping XP for duplicate face: ${normalizedAddress}`);
       }
       
-      // Record attempt (successful verification - either 'verified' or 'duplicate')
+      // Record attempt (successful verification - only 'verified' counts as success)
       const ipHashForAttempt = clientIp ? await hashIp(clientIp) : undefined;
       await storage.recordFaceVerificationAttempt(
         normalizedAddress,
-        status === 'verified', // Only count as success if fully verified (not duplicate)
-        status === 'duplicate' ? 'duplicate' : undefined,
+        status === 'verified', // Only count as success if fully verified
+        status !== 'verified' ? status : undefined, // Record status as failure reason
         ipHashForAttempt,
         storageToken
       );
@@ -7549,6 +7560,198 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('[Admin] Error detecting duplicate faces:', error);
       res.status(500).json({ error: 'Failed to detect duplicate faces' });
+    }
+  });
+
+  // Admin: Reclassify production data with new thresholds
+  // Moves records with scores 0.85-0.92 from 'duplicate' to 'needs_review'
+  app.post('/api/admin/face-verification/reclassify', adminAuthMiddleware, async (req, res) => {
+    try {
+      const { execute } = req.body;
+      const DUPLICATE_THRESHOLD = 0.92;
+      const REVIEW_THRESHOLD = 0.85;
+      
+      console.log(`[Admin] Reclassifying face verifications (thresholds: review=${REVIEW_THRESHOLD}, duplicate=${DUPLICATE_THRESHOLD}, execute=${execute})`);
+      
+      // Fetch diagnostics ONCE (not in a loop) - get all records
+      const allDiagnostics = await storage.getFaceVerificationDiagnostics(10000);
+      
+      // Filter to only records marked as 'duplicate' that have similarity scores
+      const duplicateRecords = allDiagnostics.filter((d: any) => 
+        d.status === 'duplicate' && d.similarityScore !== null
+      );
+      
+      console.log(`[Admin] Found ${duplicateRecords.length} duplicate records to analyze`);
+      
+      // Find records that need reclassification based on new thresholds
+      const toReclassify: Array<{
+        walletAddress: string;
+        currentStatus: string;
+        similarityScore: number;
+        newStatus: string;
+      }> = [];
+      
+      const keptAsDuplicate: string[] = [];
+      
+      for (const record of duplicateRecords) {
+        const similarityScore = parseFloat(record.similarityScore);
+        
+        if (isNaN(similarityScore)) continue;
+        
+        if (similarityScore >= DUPLICATE_THRESHOLD) {
+          // Keep as duplicate (>= 0.92)
+          keptAsDuplicate.push(record.walletAddress);
+        } else if (similarityScore >= REVIEW_THRESHOLD) {
+          // Reclassify to needs_review (0.85-0.92)
+          toReclassify.push({
+            walletAddress: record.walletAddress,
+            currentStatus: record.status,
+            similarityScore,
+            newStatus: 'needs_review',
+          });
+        } else {
+          // Reclassify to verified (< 0.85)
+          toReclassify.push({
+            walletAddress: record.walletAddress,
+            currentStatus: record.status,
+            similarityScore,
+            newStatus: 'verified',
+          });
+        }
+      }
+      
+      console.log(`[Admin] Analysis: ${keptAsDuplicate.length} kept as duplicate, ${toReclassify.length} to reclassify`);
+      
+      // If execute=true, actually update the records
+      let updated: string[] = [];
+      let errors: string[] = [];
+      if (execute === true && toReclassify.length > 0) {
+        console.log(`[Admin] EXECUTING reclassification for ${toReclassify.length} records`);
+        
+        for (const record of toReclassify) {
+          try {
+            await storage.updateFaceVerificationStatus(
+              record.walletAddress,
+              record.newStatus,
+              record.newStatus === 'verified' ? undefined : undefined
+            );
+            updated.push(record.walletAddress);
+            console.log(`[Admin] Reclassified ${record.walletAddress}: ${record.currentStatus} -> ${record.newStatus} (${(record.similarityScore * 100).toFixed(1)}%)`);
+          } catch (err) {
+            console.error(`[Admin] Failed to reclassify ${record.walletAddress}:`, err);
+            errors.push(record.walletAddress);
+          }
+        }
+        
+        console.log(`[Admin] Reclassification complete: ${updated.length}/${toReclassify.length} records updated`);
+      }
+      
+      res.json({
+        success: true,
+        executed: execute === true,
+        thresholds: { review: REVIEW_THRESHOLD, duplicate: DUPLICATE_THRESHOLD },
+        totalDuplicates: duplicateRecords.length,
+        keptAsDuplicate: keptAsDuplicate.length,
+        toReclassify,
+        totalToReclassify: toReclassify.length,
+        updated: execute === true ? updated : undefined,
+        errors: execute === true && errors.length > 0 ? errors : undefined,
+      });
+    } catch (error) {
+      console.error('[Admin] Error reclassifying face verifications:', error);
+      res.status(500).json({ error: 'Failed to reclassify face verifications' });
+    }
+  });
+
+  // Admin: Get review queue (all needs_review records)
+  app.get('/api/admin/face-verification/review-queue', adminAuthMiddleware, async (req, res) => {
+    try {
+      const diagnostics = await storage.getFaceVerificationDiagnostics(500);
+      const reviewQueue = diagnostics.filter((d: any) => d.status === 'needs_review');
+      
+      res.json({
+        success: true,
+        queue: reviewQueue,
+        total: reviewQueue.length,
+      });
+    } catch (error) {
+      console.error('[Admin] Error getting review queue:', error);
+      res.status(500).json({ error: 'Failed to get review queue' });
+    }
+  });
+
+  // Admin: Approve or reject a needs_review case
+  app.post('/api/admin/face-verification/review/:address', adminAuthMiddleware, async (req, res) => {
+    try {
+      const { address } = req.params;
+      const { decision, reason } = req.body; // decision: 'approve' | 'reject'
+      
+      if (!address || !/^0x[a-fA-F0-9]{40}$/i.test(address)) {
+        return res.status(400).json({ error: 'Invalid wallet address' });
+      }
+      
+      if (!decision || !['approve', 'reject'].includes(decision)) {
+        return res.status(400).json({ error: 'Invalid decision. Must be "approve" or "reject"' });
+      }
+      
+      const normalizedAddress = address.toLowerCase();
+      
+      // Get current verification status
+      const diagnostics = await storage.getFaceVerificationDiagnostics(500);
+      const record = diagnostics.find((d: any) => d.walletAddress === normalizedAddress);
+      
+      if (!record) {
+        return res.status(404).json({ error: 'Face verification record not found' });
+      }
+      
+      if (record.status !== 'needs_review') {
+        return res.status(400).json({ error: `Record is not in needs_review status (current: ${record.status})` });
+      }
+      
+      if (decision === 'approve') {
+        // Change to verified and award pending XP
+        await storage.updateFaceVerificationStatus(normalizedAddress, 'verified');
+        
+        // Award the face verification XP (120 XP base)
+        const baseXp = 12000;
+        try {
+          const claimResult = await storage.claimXp(normalizedAddress, baseXp, 0);
+          console.log(`[Admin] Approved and awarded ${claimResult.appliedXp / 100} XP to ${normalizedAddress}`);
+          
+          res.json({
+            success: true,
+            decision: 'approve',
+            walletAddress: normalizedAddress,
+            xpAwarded: claimResult.appliedXp / 100,
+            reason,
+          });
+        } catch (xpError) {
+          // Even if XP fails, the status is updated
+          console.error(`[Admin] XP award failed for ${normalizedAddress}:`, xpError);
+          res.json({
+            success: true,
+            decision: 'approve',
+            walletAddress: normalizedAddress,
+            xpAwarded: 0,
+            xpError: 'Failed to award XP',
+            reason,
+          });
+        }
+      } else {
+        // Reject - mark as duplicate
+        await storage.updateFaceVerificationStatus(normalizedAddress, 'duplicate');
+        console.log(`[Admin] Rejected ${normalizedAddress} as duplicate`);
+        
+        res.json({
+          success: true,
+          decision: 'reject',
+          walletAddress: normalizedAddress,
+          reason,
+        });
+      }
+    } catch (error) {
+      console.error('[Admin] Error reviewing face verification:', error);
+      res.status(500).json({ error: 'Failed to review face verification' });
     }
   });
 
