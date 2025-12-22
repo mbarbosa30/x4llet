@@ -5158,32 +5158,65 @@ export class DbStorage extends MemStorage {
       // Count ALL unique on-chain transactions across all tables
       // Uses UNION to gather tx hashes from: cached_transactions, gas_drips, gooddollar_claims, 
       // aave_operations, gd_daily_spending, senador_redemptions
-      const distinctTxResult = await db.execute(sql`
-        SELECT COUNT(*) as count FROM (
-          SELECT DISTINCT tx_hash FROM (
-            SELECT tx_hash FROM cached_transactions WHERE tx_hash IS NOT NULL
-            UNION ALL
-            SELECT tx_hash FROM gas_drips WHERE tx_hash IS NOT NULL
-            UNION ALL
-            SELECT tx_hash FROM gooddollar_claims WHERE tx_hash IS NOT NULL
-            UNION ALL
-            SELECT transfer_tx_hash FROM aave_operations WHERE transfer_tx_hash IS NOT NULL
-            UNION ALL
-            SELECT approve_tx_hash FROM aave_operations WHERE approve_tx_hash IS NOT NULL
-            UNION ALL
-            SELECT supply_tx_hash FROM aave_operations WHERE supply_tx_hash IS NOT NULL
-            UNION ALL
-            SELECT withdraw_tx_hash FROM aave_operations WHERE withdraw_tx_hash IS NOT NULL
-            UNION ALL
-            SELECT refund_tx_hash FROM aave_operations WHERE refund_tx_hash IS NOT NULL
-            UNION ALL
-            SELECT tx_hash FROM gd_daily_spending WHERE tx_hash IS NOT NULL
-            UNION ALL
-            SELECT tx_hash FROM senador_redemptions WHERE tx_hash IS NOT NULL
-          ) all_hashes
-        ) unique_hashes
-      `);
-      const totalTransactions = Number(distinctTxResult.rows[0]?.count || 0);
+      // Wrapped in try/catch to gracefully handle missing tables (e.g., during production migration)
+      let totalTransactions = 0;
+      try {
+        const distinctTxResult = await db.execute(sql`
+          SELECT COUNT(*) as count FROM (
+            SELECT DISTINCT tx_hash FROM (
+              SELECT tx_hash FROM cached_transactions WHERE tx_hash IS NOT NULL
+              UNION ALL
+              SELECT tx_hash FROM gas_drips WHERE tx_hash IS NOT NULL
+              UNION ALL
+              SELECT tx_hash FROM gooddollar_claims WHERE tx_hash IS NOT NULL
+              UNION ALL
+              SELECT transfer_tx_hash FROM aave_operations WHERE transfer_tx_hash IS NOT NULL
+              UNION ALL
+              SELECT approve_tx_hash FROM aave_operations WHERE approve_tx_hash IS NOT NULL
+              UNION ALL
+              SELECT supply_tx_hash FROM aave_operations WHERE supply_tx_hash IS NOT NULL
+              UNION ALL
+              SELECT withdraw_tx_hash FROM aave_operations WHERE withdraw_tx_hash IS NOT NULL
+              UNION ALL
+              SELECT refund_tx_hash FROM aave_operations WHERE refund_tx_hash IS NOT NULL
+              UNION ALL
+              SELECT tx_hash FROM gd_daily_spending WHERE tx_hash IS NOT NULL AND tx_hash != ''
+              UNION ALL
+              SELECT tx_hash FROM senador_redemptions WHERE tx_hash IS NOT NULL AND tx_hash != ''
+            ) all_hashes
+          ) unique_hashes
+        `);
+        totalTransactions = Number(distinctTxResult.rows[0]?.count || 0);
+      } catch (txCountError) {
+        console.error('[Stats] Error counting transactions (new tables may not exist yet), falling back to core tables:', txCountError);
+        // Fallback: count only from core tables that definitely exist
+        try {
+          const fallbackResult = await db.execute(sql`
+            SELECT COUNT(*) as count FROM (
+              SELECT DISTINCT tx_hash FROM (
+                SELECT tx_hash FROM cached_transactions WHERE tx_hash IS NOT NULL
+                UNION ALL
+                SELECT tx_hash FROM gas_drips WHERE tx_hash IS NOT NULL
+                UNION ALL
+                SELECT tx_hash FROM gooddollar_claims WHERE tx_hash IS NOT NULL
+                UNION ALL
+                SELECT transfer_tx_hash FROM aave_operations WHERE transfer_tx_hash IS NOT NULL
+                UNION ALL
+                SELECT approve_tx_hash FROM aave_operations WHERE approve_tx_hash IS NOT NULL
+                UNION ALL
+                SELECT supply_tx_hash FROM aave_operations WHERE supply_tx_hash IS NOT NULL
+                UNION ALL
+                SELECT withdraw_tx_hash FROM aave_operations WHERE withdraw_tx_hash IS NOT NULL
+                UNION ALL
+                SELECT refund_tx_hash FROM aave_operations WHERE refund_tx_hash IS NOT NULL
+              ) all_hashes
+            ) unique_hashes
+          `);
+          totalTransactions = Number(fallbackResult.rows[0]?.count || 0);
+        } catch (fallbackError) {
+          console.error('[Stats] Fallback transaction count also failed:', fallbackError);
+        }
+      }
 
       // Count connections (vouches) by parsing all MaxFlow score data
       let totalConnections = 0;
