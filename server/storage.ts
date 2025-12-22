@@ -5125,10 +5125,28 @@ export class DbStorage extends MemStorage {
       // Sum total XP spent from all sources (USDC redemptions, SENADOR exchange, AI chat)
       const [xpSpentResult] = await db.select({ total: sum(xpBalances.totalXpSpent) }).from(xpBalances);
       
-      // Count distinct transactions by txHash to avoid duplicates across wallets
-      // Only counts actual blockchain transactions from user wallets (USDC transfers)
+      // Count ALL unique on-chain transactions across all tables
+      // Uses UNION to gather tx hashes from: cached_transactions, gas_drips, gooddollar_claims, aave_operations
       const distinctTxResult = await db.execute(sql`
-        SELECT COUNT(DISTINCT tx_hash) as count FROM cached_transactions WHERE tx_hash IS NOT NULL
+        SELECT COUNT(*) as count FROM (
+          SELECT DISTINCT tx_hash FROM (
+            SELECT tx_hash FROM cached_transactions WHERE tx_hash IS NOT NULL
+            UNION ALL
+            SELECT tx_hash FROM gas_drips WHERE tx_hash IS NOT NULL
+            UNION ALL
+            SELECT tx_hash FROM gooddollar_claims WHERE tx_hash IS NOT NULL
+            UNION ALL
+            SELECT transfer_tx_hash FROM aave_operations WHERE transfer_tx_hash IS NOT NULL
+            UNION ALL
+            SELECT approve_tx_hash FROM aave_operations WHERE approve_tx_hash IS NOT NULL
+            UNION ALL
+            SELECT supply_tx_hash FROM aave_operations WHERE supply_tx_hash IS NOT NULL
+            UNION ALL
+            SELECT withdraw_tx_hash FROM aave_operations WHERE withdraw_tx_hash IS NOT NULL
+            UNION ALL
+            SELECT refund_tx_hash FROM aave_operations WHERE refund_tx_hash IS NOT NULL
+          ) all_hashes
+        ) unique_hashes
       `);
       const totalTransactions = Number(distinctTxResult.rows[0]?.count || 0);
 
