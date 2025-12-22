@@ -2514,10 +2514,11 @@ export class DbStorage extends MemStorage {
         }
         
         // Use case-insensitive matching for transactions
+        // Use NUMERIC instead of BIGINT to handle large token amounts (e.g., G$ with 18 decimals)
         const txData = await db
           .select({
             count: sql<number>`count(*)`,
-            volume: sql<string>`COALESCE(SUM(CAST(amount AS BIGINT)), 0)`,
+            volume: sql<string>`COALESCE(SUM(CAST(amount AS NUMERIC)), 0)::TEXT`,
           })
           .from(cachedTransactions)
           .where(
