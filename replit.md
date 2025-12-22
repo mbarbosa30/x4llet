@@ -18,7 +18,7 @@ Uses Express.js (TypeScript), Drizzle ORM, and PostgreSQL (via Neon serverless a
 Wallet generation uses `viem` for secp256k1 private keys, encrypted with WebCrypto API (AES-GCM with PBKDF2) and stored in IndexedDB. EIP-712 typed data signing enables gasless transfers. Session persistence stores the DEK in sessionStorage, with configurable auto-lock timers. WebAuthn passkey support is integrated for biometric unlock using a Data Encryption Key (DEK) pattern.
 
 ### Data Storage
-A PostgreSQL database with Drizzle ORM caches user data, wallets, authorizations, and blockchain data (balances, transactions, MaxFlow scores, exchange rates). USDC amounts are standardized to micro-USDC integers.
+A PostgreSQL database with Drizzle ORM caches user data, wallets, authorizations, and blockchain data (balances, transactions, MaxFlow scores, exchange rates). USDC amounts are standardized to micro-USDC integers. GoodDollar (G$) uses 18 decimals - cached balance_formatted values are calculated by dividing raw balance by 10^18. Startup migrations (`migrateBackfillXpSpent`, `migrateFixGdBalanceFormatted`) run automatically and are idempotent.
 
 ### Network Configuration
 Supports Base (chainId: 8453), Celo (chainId: 42220), Gnosis (chainId: 100), and Arbitrum (chainId: 42161), with full gasless support for native USDC and USDC.e where applicable via EIP-3009.
