@@ -505,7 +505,7 @@ export interface IStorage {
   // Face Verification methods
   getFaceVerification(walletAddress: string): Promise<FaceVerification | null>;
   findDuplicateFace(embeddingHash: string, excludeWallet?: string): Promise<FaceVerification | null>;
-  findSimilarFace(embedding: number[], excludeWallet?: string, threshold?: number, requestStartTime?: Date): Promise<{ match: FaceVerification; similarity: number } | null>;
+  findSimilarFace(embedding: number[], excludeWallet?: string, threshold?: number, requestStartTime?: Date): Promise<{ match: FaceVerification; distance: number } | null>;
   createFaceVerification(data: {
     walletAddress: string;
     embeddingHash: string;
@@ -1148,7 +1148,7 @@ export class MemStorage implements IStorage {
     return null;
   }
 
-  async findSimilarFace(embedding: number[], excludeWallet?: string, threshold?: number, requestStartTime?: Date): Promise<{ match: FaceVerification; similarity: number } | null> {
+  async findSimilarFace(embedding: number[], excludeWallet?: string, threshold?: number, requestStartTime?: Date): Promise<{ match: FaceVerification; distance: number } | null> {
     return null;
   }
 
@@ -5919,22 +5919,26 @@ export class DbStorage extends MemStorage {
     return embedding.map(v => v / norm);
   }
 
-  // Cosine similarity for face embedding comparison
-  // Expects pre-normalized vectors (stored normalized, incoming normalized before comparison)
-  private cosineSimilarity(a: number[], b: number[]): number {
+  // Euclidean distance for face embedding comparison (face-api.js native metric)
+  // Lower values = more similar faces. Typical threshold: 0.6 (same person if < 0.6)
+  // face-api.js embeddings are 128D and normalized, so distance range is typically 0-1.4
+  private euclideanDistance(a: number[], b: number[]): number {
     if (a.length !== b.length) {
       console.warn(`[FaceVerification] Embedding length mismatch: ${a.length} vs ${b.length}`);
-      return 0;
+      return Infinity; // Return large distance if invalid
     }
-    // Both vectors should already be normalized - just compute dot product
-    let dotProduct = 0;
+    let sum = 0;
     for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
+      const diff = a[i] - b[i];
+      sum += diff * diff;
     }
-    return dotProduct;
+    return Math.sqrt(sum);
   }
 
-  async findSimilarFace(embedding: number[], excludeWallet?: string, threshold: number = 0.75, requestStartTime?: Date): Promise<{ match: FaceVerification; similarity: number } | null> {
+  // Returns the closest match based on Euclidean distance
+  // Note: threshold is now a MAXIMUM distance (lower = stricter match requirement)
+  // For face-api.js: < 0.4 very confident, 0.4-0.6 likely same, > 0.6 different
+  async findSimilarFace(embedding: number[], excludeWallet?: string, threshold: number = 0.6, requestStartTime?: Date): Promise<{ match: FaceVerification; distance: number } | null> {
     try {
       // Normalize incoming embedding for consistent comparison with stored (normalized) embeddings
       const normalizedInput = this.normalizeEmbedding(embedding);
@@ -5955,10 +5959,10 @@ export class DbStorage extends MemStorage {
         .from(faceVerifications)
         .where(and(...whereConditions));
       
-      console.log(`[FaceVerification] Checking against ${allVerifications.length} verified faces (threshold: ${threshold}, before: ${requestStartTime?.toISOString() || 'none'})`);
+      console.log(`[FaceVerification] Checking against ${allVerifications.length} verified faces (distance threshold: ${threshold}, before: ${requestStartTime?.toISOString() || 'none'})`);
       
-      let bestMatch: { match: FaceVerification; similarity: number } | null = null;
-      const allScores: { wallet: string; similarity: number }[] = [];
+      let bestMatch: { match: FaceVerification; distance: number } | null = null;
+      const allScores: { wallet: string; distance: number }[] = [];
       
       for (const verification of allVerifications) {
         // Skip the wallet we're checking
@@ -5981,28 +5985,28 @@ export class DbStorage extends MemStorage {
           continue;
         }
         
-        // Calculate similarity - both vectors are now normalized
-        const similarity = this.cosineSimilarity(normalizedInput, storedEmbedding);
-        allScores.push({ wallet: verification.walletAddress.slice(0, 8), similarity });
+        // Calculate Euclidean distance - lower = more similar
+        const distance = this.euclideanDistance(normalizedInput, storedEmbedding);
+        allScores.push({ wallet: verification.walletAddress.slice(0, 8), distance });
         
-        // Check if this is a match above threshold
-        if (similarity >= threshold) {
-          if (!bestMatch || similarity > bestMatch.similarity) {
-            bestMatch = { match: verification, similarity };
+        // Check if this is a match below threshold (lower distance = closer match)
+        if (distance <= threshold) {
+          if (!bestMatch || distance < bestMatch.distance) {
+            bestMatch = { match: verification, distance };
           }
         }
       }
       
-      // Log all similarity scores for debugging
+      // Log all distance scores for debugging (sort ascending - closest first)
       if (allScores.length > 0) {
-        const sortedScores = allScores.sort((a, b) => b.similarity - a.similarity).slice(0, 5);
-        console.log(`[FaceVerification] Top similarity scores: ${sortedScores.map(s => `${s.wallet}:${(s.similarity * 100).toFixed(1)}%`).join(', ')}`);
+        const sortedScores = allScores.sort((a, b) => a.distance - b.distance).slice(0, 5);
+        console.log(`[FaceVerification] Top matches (Euclidean distance): ${sortedScores.map(s => `${s.wallet}:${s.distance.toFixed(3)}`).join(', ')}`);
       }
       
       if (bestMatch) {
-        console.log(`[FaceVerification] DUPLICATE DETECTED with ${(bestMatch.similarity * 100).toFixed(1)}% similarity to ${bestMatch.match.walletAddress}`);
+        console.log(`[FaceVerification] DUPLICATE DETECTED with distance ${bestMatch.distance.toFixed(3)} to ${bestMatch.match.walletAddress}`);
       } else {
-        console.log(`[FaceVerification] No duplicates found above threshold ${threshold * 100}%`);
+        console.log(`[FaceVerification] No duplicates found below threshold ${threshold}`);
       }
       
       return bestMatch;

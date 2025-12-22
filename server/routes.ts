@@ -7184,21 +7184,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // STEP 2: Fuzzy match - cosine similarity on embeddings (catches same person with variations)
-      // Tiered status system:
-      // - >= 0.92: 'duplicate' - auto-blocked, XP denied (high confidence same person)
-      // - 0.85-0.92: 'needs_review' - XP withheld pending admin review (borderline)
-      // - < 0.85: 'verified' - XP awarded normally
-      const DUPLICATE_THRESHOLD = 0.92; // Above this = auto-block as duplicate
-      const REVIEW_THRESHOLD = 0.85;    // 0.85-0.92 = needs_review (borderline)
+      // STEP 2: Fuzzy match - Euclidean distance on embeddings (face-api.js native metric)
+      // Tiered status system based on Euclidean distance (lower = more similar):
+      // - < 0.4: 'duplicate' - auto-blocked, XP denied (very high confidence same person)
+      // - 0.4-0.6: 'needs_review' - XP withheld pending admin review (borderline)
+      // - > 0.6: 'verified' - XP awarded normally (different people)
+      const DUPLICATE_THRESHOLD = 0.4;  // Below this = auto-block as duplicate
+      const REVIEW_THRESHOLD = 0.6;     // 0.4-0.6 = needs_review (borderline)
       
       // Pass request start time to prevent self-race conditions
       const requestStartTime = new Date();
-      let similarFace: { match: any; similarity: number } | null = null;
+      let similarFace: { match: any; distance: number } | null = null;
       if (Array.isArray(embedding) && embedding.length > 0) {
         console.log(`[FaceVerification] Checking fuzzy match for ${normalizedAddress}, embedding length: ${embedding.length}`);
-        // Use 0.80 threshold to catch all potential matches for logging
-        similarFace = await storage.findSimilarFace(embedding, normalizedAddress, 0.80, requestStartTime);
+        // Use 0.7 threshold to catch potential matches for logging (slightly beyond review threshold)
+        similarFace = await storage.findSimilarFace(embedding, normalizedAddress, 0.7, requestStartTime);
       } else {
         console.warn(`[FaceVerification] No embedding provided for ${normalizedAddress}, skipping fuzzy match`);
       }
@@ -7209,44 +7209,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Determine status - tiered system for duplicates
       let status: 'verified' | 'needs_review' | 'duplicate' = 'verified';
       let duplicateOf: string | undefined;
-      let matchSimilarity: number | undefined;
+      let matchDistance: number | undefined;
       
       if (similarFace) {
-        const similarity = similarFace.similarity;
+        const distance = similarFace.distance;
         const matchWallet = similarFace.match.walletAddress;
-        matchSimilarity = similarity;
+        matchDistance = distance;
         
         // Check if same device (matching IP hash or storage token)
         const sameDevice = (hashedIp && similarFace.match.ipHash === hashedIp) || 
                           (storageToken && similarFace.match.storageToken === storageToken);
         
-        console.log(`[FaceVerification] Match found: ${(similarity * 100).toFixed(1)}% similarity, sameDevice: ${sameDevice}, matchWallet: ${matchWallet.slice(0, 8)}...`);
+        console.log(`[FaceVerification] Match found: distance=${distance.toFixed(3)}, sameDevice: ${sameDevice}, matchWallet: ${matchWallet.slice(0, 8)}...`);
         
-        // Tiered status based on similarity score
-        if (similarity >= DUPLICATE_THRESHOLD) {
-          // >= 0.92: High confidence duplicate - auto-block
+        // Tiered status based on Euclidean distance (lower = more similar)
+        if (distance < DUPLICATE_THRESHOLD) {
+          // < 0.4: Very high confidence duplicate - auto-block
           status = 'duplicate';
           duplicateOf = matchWallet;
-          console.warn(`[FaceVerification] DUPLICATE BLOCKED (${(similarity * 100).toFixed(1)}% >= ${DUPLICATE_THRESHOLD * 100}%): ${normalizedAddress} matches ${matchWallet} - XP will NOT be awarded`);
-        } else if (similarity >= REVIEW_THRESHOLD) {
-          // 0.85-0.92: Borderline - needs admin review
+          console.warn(`[FaceVerification] DUPLICATE BLOCKED (distance ${distance.toFixed(3)} < ${DUPLICATE_THRESHOLD}): ${normalizedAddress} matches ${matchWallet} - XP will NOT be awarded`);
+        } else if (distance < REVIEW_THRESHOLD) {
+          // 0.4-0.6: Borderline - needs admin review
           status = 'needs_review';
           duplicateOf = matchWallet;
-          console.log(`[FaceVerification] NEEDS REVIEW (${(similarity * 100).toFixed(1)}% in ${REVIEW_THRESHOLD * 100}%-${DUPLICATE_THRESHOLD * 100}%): ${normalizedAddress} matches ${matchWallet} - XP withheld pending review`);
+          console.log(`[FaceVerification] NEEDS REVIEW (distance ${distance.toFixed(3)} in ${DUPLICATE_THRESHOLD}-${REVIEW_THRESHOLD}): ${normalizedAddress} matches ${matchWallet} - XP withheld pending review`);
         }
         
-        // Log sybil warning for any suspicious pattern (same device OR moderate similarity)
-        // Lower threshold (0.75) for monitoring to catch borderline cases
-        if (sameDevice || similarity >= 0.75) {
+        // Log sybil warning for any suspicious pattern (same device OR close distance)
+        // Use 0.7 threshold for monitoring to catch borderline cases
+        if (sameDevice || distance < 0.7) {
           try {
             await storage.logIpEvent({
               walletAddress: normalizedAddress,
               ipHash: hashedIp || 'unknown',
-              eventType: 'face_similarity_warning',
+              eventType: 'face_distance_warning',
               storageToken: storageToken || undefined,
               userAgent: req.get('user-agent') || undefined,
             });
-            console.log(`[FaceVerification] Logged sybil warning: ${normalizedAddress} (${Math.round(similarity * 100)}% similar to ${matchWallet.slice(0, 8)}, sameDevice: ${sameDevice})`);
+            console.log(`[FaceVerification] Logged sybil warning: ${normalizedAddress} (distance ${distance.toFixed(3)} to ${matchWallet.slice(0, 8)}, sameDevice: ${sameDevice})`);
           } catch (logError) {
             console.error('[FaceVerification] Error logging sybil warning:', logError);
           }
@@ -7266,11 +7266,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ipHash: hashedIp,
         status,
         duplicateOf,
-        similarityScore: matchSimilarity,
+        similarityScore: matchDistance,
         qualityMetrics: qualityMetrics ? JSON.stringify(qualityMetrics) : undefined,
         userAgent,
         processingTimeMs,
-        matchedWalletScore: similarFace ? JSON.stringify([{ wallet: similarFace.match.walletAddress, score: similarFace.similarity }]) : undefined,
+        matchedWalletScore: similarFace ? JSON.stringify([{ wallet: similarFace.match.walletAddress, distance: similarFace.distance }]) : undefined,
       });
       
       // Award XP based on sybil confidence score
@@ -7374,7 +7374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         xpSkipReason,
         sybilTier,
         sybilScore,
-        similarityScore: matchSimilarity ? Math.round(matchSimilarity * 100) : undefined,
+        euclideanDistance: matchDistance ? matchDistance.toFixed(3) : undefined,
         attemptsRemaining: WEEKLY_ATTEMPT_LIMIT - weeklyAttempts.count - 1,
       });
     } catch (error) {
@@ -7563,58 +7563,133 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin: Reclassify production data with new thresholds
-  // Moves records with scores 0.85-0.92 from 'duplicate' to 'needs_review'
+  // Admin: Reclassify production data with Euclidean distance thresholds
+  // Old data used cosine similarity (higher = more similar), new uses Euclidean (lower = more similar)
+  // This endpoint recalculates distances from stored embeddings and reclassifies
   app.post('/api/admin/face-verification/reclassify', adminAuthMiddleware, async (req, res) => {
     try {
-      const { execute } = req.body;
-      const DUPLICATE_THRESHOLD = 0.92;
-      const REVIEW_THRESHOLD = 0.85;
+      const { execute, recalculate } = req.body;
+      // Euclidean distance thresholds (lower = more similar)
+      const DUPLICATE_THRESHOLD = 0.4;  // < 0.4 = duplicate
+      const REVIEW_THRESHOLD = 0.6;     // 0.4-0.6 = needs_review
       
-      console.log(`[Admin] Reclassifying face verifications (thresholds: review=${REVIEW_THRESHOLD}, duplicate=${DUPLICATE_THRESHOLD}, execute=${execute})`);
+      console.log(`[Admin] Reclassifying face verifications (Euclidean thresholds: duplicate<${DUPLICATE_THRESHOLD}, review<${REVIEW_THRESHOLD}, execute=${execute}, recalculate=${recalculate})`);
       
-      // Fetch diagnostics ONCE (not in a loop) - get all records
-      const allDiagnostics = await storage.getFaceVerificationDiagnostics(10000);
+      // Get all face verifications with embeddings for recalculation
+      const allVerifications = await storage.getAllFaceVerificationsWithEmbeddings();
       
-      // Filter to only records marked as 'duplicate' that have similarity scores
-      const duplicateRecords = allDiagnostics.filter((d: any) => 
-        d.status === 'duplicate' && d.similarityScore !== null
+      console.log(`[Admin] Found ${allVerifications.length} verifications with embeddings`);
+      
+      // Build embedding lookup for distance calculation
+      const embeddingMap = new Map<string, number[]>();
+      for (const v of allVerifications) {
+        if (v.embedding) {
+          try {
+            const parsed = JSON.parse(v.embedding);
+            if (Array.isArray(parsed)) {
+              embeddingMap.set(v.walletAddress, parsed);
+            }
+          } catch {}
+        }
+      }
+      
+      // Helper: normalize embedding
+      const normalize = (emb: number[]): number[] => {
+        let norm = 0;
+        for (const v of emb) norm += v * v;
+        norm = Math.sqrt(norm);
+        if (norm === 0) return emb;
+        return emb.map(v => v / norm);
+      };
+      
+      // Helper: Euclidean distance
+      const euclideanDistance = (a: number[], b: number[]): number => {
+        if (a.length !== b.length) return Infinity;
+        let sum = 0;
+        for (let i = 0; i < a.length; i++) {
+          const diff = a[i] - b[i];
+          sum += diff * diff;
+        }
+        return Math.sqrt(sum);
+      };
+      
+      // Filter to records that are duplicate or needs_review for analysis
+      const recordsToAnalyze = allVerifications.filter(v => 
+        v.status === 'duplicate' || v.status === 'needs_review'
       );
       
-      console.log(`[Admin] Found ${duplicateRecords.length} duplicate records to analyze`);
+      console.log(`[Admin] Found ${recordsToAnalyze.length} duplicate/needs_review records to analyze`);
       
-      // Find records that need reclassification based on new thresholds
+      // Recalculate distances for each record
       const toReclassify: Array<{
         walletAddress: string;
         currentStatus: string;
-        similarityScore: number;
+        oldScore: string | null;
+        newDistance: number | null;
+        matchedWallet: string | null;
         newStatus: string;
       }> = [];
       
       const keptAsDuplicate: string[] = [];
       
-      for (const record of duplicateRecords) {
-        const similarityScore = parseFloat(record.similarityScore);
+      for (const record of recordsToAnalyze) {
+        const embedding = embeddingMap.get(record.walletAddress);
         
-        if (isNaN(similarityScore)) continue;
+        if (!embedding) {
+          // No embedding - can't recalculate, keep current status
+          continue;
+        }
         
-        if (similarityScore >= DUPLICATE_THRESHOLD) {
-          // Keep as duplicate (>= 0.92)
+        // Find closest match from verified records (excluding self)
+        let closestDistance = Infinity;
+        let closestWallet: string | null = null;
+        
+        const normalizedInput = normalize(embedding);
+        
+        for (const [wallet, emb] of embeddingMap.entries()) {
+          if (wallet === record.walletAddress) continue;
+          // Only compare against verified records
+          const otherRecord = allVerifications.find(v => v.walletAddress === wallet);
+          if (!otherRecord || otherRecord.status !== 'verified') continue;
+          if (otherRecord.createdAt >= record.createdAt) continue; // Only older records
+          
+          const normalizedStored = normalize(emb);
+          const dist = euclideanDistance(normalizedInput, normalizedStored);
+          
+          if (dist < closestDistance) {
+            closestDistance = dist;
+            closestWallet = wallet;
+          }
+        }
+        
+        // Skip if no valid comparison could be made (no verified records to compare against)
+        if (closestDistance === Infinity) {
+          console.log(`[Admin] Skipping ${record.walletAddress}: no verified records to compare against`);
+          continue;
+        }
+        
+        // Determine new status based on Euclidean distance
+        if (closestDistance < DUPLICATE_THRESHOLD) {
+          // Still a duplicate - keep it
           keptAsDuplicate.push(record.walletAddress);
-        } else if (similarityScore >= REVIEW_THRESHOLD) {
-          // Reclassify to needs_review (0.85-0.92)
+        } else if (closestDistance < REVIEW_THRESHOLD) {
+          // Borderline - move to needs_review
           toReclassify.push({
             walletAddress: record.walletAddress,
             currentStatus: record.status,
-            similarityScore,
+            oldScore: record.duplicateOf || null,
+            newDistance: closestDistance,
+            matchedWallet: closestWallet,
             newStatus: 'needs_review',
           });
         } else {
-          // Reclassify to verified (< 0.85)
+          // Different person - move to verified (award XP)
           toReclassify.push({
             walletAddress: record.walletAddress,
             currentStatus: record.status,
-            similarityScore,
+            oldScore: record.duplicateOf || null,
+            newDistance: closestDistance,
+            matchedWallet: closestWallet,
             newStatus: 'verified',
           });
         }
@@ -7630,13 +7705,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         for (const record of toReclassify) {
           try {
+            // For verified status, clear duplicateOf; for needs_review, preserve the matched wallet
+            const newDuplicateOf = record.newStatus === 'verified' ? undefined : record.matchedWallet || undefined;
             await storage.updateFaceVerificationStatus(
               record.walletAddress,
               record.newStatus,
-              record.newStatus === 'verified' ? undefined : undefined
+              newDuplicateOf
             );
+            
+            // If reclassifying to verified, award pending XP
+            if (record.newStatus === 'verified') {
+              try {
+                const baseXp = 12000; // 120 XP in centi-XP
+                await storage.setPendingFaceXp(record.walletAddress, baseXp);
+                console.log(`[Admin] Set pending XP for ${record.walletAddress} (was falsely flagged)`);
+              } catch (xpErr) {
+                console.error(`[Admin] Failed to set pending XP for ${record.walletAddress}:`, xpErr);
+              }
+            }
             updated.push(record.walletAddress);
-            console.log(`[Admin] Reclassified ${record.walletAddress}: ${record.currentStatus} -> ${record.newStatus} (${(record.similarityScore * 100).toFixed(1)}%)`);
+            console.log(`[Admin] Reclassified ${record.walletAddress}: ${record.currentStatus} -> ${record.newStatus} (distance: ${record.newDistance?.toFixed(3) || 'N/A'})`);
           } catch (err) {
             console.error(`[Admin] Failed to reclassify ${record.walletAddress}:`, err);
             errors.push(record.walletAddress);
@@ -7649,8 +7737,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: true,
         executed: execute === true,
-        thresholds: { review: REVIEW_THRESHOLD, duplicate: DUPLICATE_THRESHOLD },
-        totalDuplicates: duplicateRecords.length,
+        thresholds: { duplicate: DUPLICATE_THRESHOLD, review: REVIEW_THRESHOLD, metric: 'euclidean' },
+        totalAnalyzed: recordsToAnalyze.length,
         keptAsDuplicate: keptAsDuplicate.length,
         toReclassify,
         totalToReclassify: toReclassify.length,

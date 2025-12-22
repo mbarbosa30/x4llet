@@ -42,7 +42,7 @@ The XP system uses a unified sybil detection approach with graduated multipliers
 - **AI Chat**: Deducts 1 XP per message with refund on errors
 - **Face Verification XP**: Awards 120 XP base, but requires user to vouch someone first (stored as pendingFaceXp)
 - **Face Check Rate Limits**: Max 3 attempts per wallet per 7 days (tracked in `face_verification_attempts` table), plus 5 attempts per IP per 10 minutes
-- **Face Duplicate Detection**: Tiered cosine similarity thresholds: >=0.92 auto-blocked as duplicate, 0.85-0.92 flagged as 'needs_review' (XP withheld pending admin), <0.85 verified normally. Admin endpoints: `/api/admin/face-verification/reclassify` to reclassify production data, `/api/admin/face-verification/review-queue` to list borderline cases, `/api/admin/face-verification/review/:address` to approve/reject
+- **Face Duplicate Detection**: Uses Euclidean distance (face-api.js native metric, lower = more similar). Thresholds: <0.4 auto-blocked as duplicate, 0.4-0.6 flagged as 'needs_review' (XP withheld pending admin), >0.6 verified normally. Admin endpoints: `/api/admin/face-verification/reclassify` to recalculate distances and reclassify production data, `/api/admin/face-verification/review-queue` to list borderline cases, `/api/admin/face-verification/review/:address` to approve/reject
 
 ## External Dependencies
 
