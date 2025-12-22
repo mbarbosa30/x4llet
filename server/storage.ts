@@ -6700,3 +6700,47 @@ export async function migrateBackfillXpSpent(): Promise<void> {
     console.error('[Migration] Error backfilling XP spent:', error);
   }
 }
+
+// Fix GoodDollar balance_formatted values - divide by 10^18 not 100
+export async function migrateFixGdBalanceFormatted(): Promise<void> {
+  console.log('[Migration] Checking GoodDollar balance formatting...');
+  
+  try {
+    // Check if any balances are incorrectly formatted (still showing huge numbers)
+    // Correctly formatted values should be < 1 billion (most users have < 10k G$)
+    // Incorrectly formatted values would be > 1 trillion (raw balance / 100 instead of / 10^18)
+    const checkResult = await db.execute(sql`
+      SELECT COUNT(*) as count
+      FROM cached_gd_balances
+      WHERE balance != '0' 
+        AND CAST(REPLACE(balance_formatted, ',', '') AS NUMERIC) > 1000000000
+    `);
+    
+    const needsFix = (checkResult.rows[0] as any)?.count > 0;
+    
+    if (!needsFix) {
+      console.log('[Migration] GoodDollar balance formatting - no fixes needed');
+      return;
+    }
+    
+    // Fix the balance_formatted values by properly dividing by 10^18
+    // G$ has 18 decimals, so we divide by 10^18 and show 2 decimal places
+    const result = await db.execute(sql`
+      UPDATE cached_gd_balances
+      SET 
+        balance_formatted = CASE 
+          WHEN balance = '0' THEN '0.00'
+          ELSE TRIM(TRAILING '.' FROM TO_CHAR(
+            TRUNC(CAST(balance AS NUMERIC) / POWER(10::NUMERIC, 18::NUMERIC), 2),
+            'FM999999999999999990.00'
+          ))
+        END,
+        decimals = 18
+    `);
+    
+    const rowCount = result?.rowCount || 0;
+    console.log(`[Migration] GoodDollar balance formatting - fixed ${rowCount} record(s)`);
+  } catch (error) {
+    console.error('[Migration] Error fixing GoodDollar balance formatting:', error);
+  }
+}

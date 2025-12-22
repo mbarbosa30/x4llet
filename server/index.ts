@@ -3,7 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startPoolScheduler } from "./poolScheduler";
 import { startGasScanScheduler } from "./gasScanScheduler";
-import { seedXpActions, migrateBackfillXpSpent } from "./storage";
+import { seedXpActions, migrateBackfillXpSpent, migrateFixGdBalanceFormatted } from "./storage";
 
 // Increase DNS threadpool size for better DNS resolution performance
 // Must be set before any async I/O operations
@@ -106,6 +106,10 @@ app.use((req, res, next) => {
       // Run database migrations (non-blocking, idempotent)
       migrateBackfillXpSpent().catch(err => {
         console.error('[Migration] Failed to backfill XP spent:', err);
+      });
+      
+      migrateFixGdBalanceFormatted().catch(err => {
+        console.error('[Migration] Failed to fix GoodDollar balance formatting:', err);
       });
     });
   } catch (error) {
