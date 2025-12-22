@@ -4674,10 +4674,12 @@ export class DbStorage extends MemStorage {
     
     // Use atomic UPDATE with WHERE clause to prevent race conditions
     // This ensures balance check and deduction happen in a single atomic operation
+    // Also increment totalXpSpent to track cumulative spending
     const result = await db
       .update(xpBalances)
       .set({
         totalXp: sql`"total_xp" - ${xpAmount}`,
+        totalXpSpent: sql`COALESCE("total_xp_spent", 0) + ${xpAmount}`,
         updatedAt: now,
       })
       .where(
@@ -4725,10 +4727,12 @@ export class DbStorage extends MemStorage {
     
     const newBalance = existingBalance.totalXp + xpAmount;
     
+    // Decrement totalXpSpent to reverse the spending (clamp at 0)
     await db
       .update(xpBalances)
       .set({
         totalXp: newBalance,
+        totalXpSpent: sql`GREATEST(COALESCE("total_xp_spent", 0) - ${xpAmount}, 0)`,
         updatedAt: now,
       })
       .where(eq(xpBalances.walletAddress, normalized));
@@ -5100,8 +5104,8 @@ export class DbStorage extends MemStorage {
       const [walletsResult] = await db.select({ count: count() }).from(wallets);
       const [xpResult] = await db.select({ total: sum(xpBalances.totalXp) }).from(xpBalances);
       
-      // Sum total XP spent from USDC redemptions
-      const [xpSpentResult] = await db.select({ total: sum(usdcDailyRedemptions.xpSpent) }).from(usdcDailyRedemptions);
+      // Sum total XP spent from all sources (USDC redemptions, SENADOR exchange, AI chat)
+      const [xpSpentResult] = await db.select({ total: sum(xpBalances.totalXpSpent) }).from(xpBalances);
       
       // Count ALL transaction types for comprehensive "Transactions" metric
       const [usdcTxResult] = await db.select({ count: count() }).from(cachedTransactions);
