@@ -41,6 +41,7 @@ The XP system uses a unified sybil detection approach with graduated multipliers
 - **XP Actions**: first_transfer_received and savings_3_days are on-demand endpoints (no cron job needed)
 - **AI Chat**: Deducts 1 XP per message with refund on errors
 - **Face Verification XP**: Awards 120 XP base, but requires user to vouch someone first (stored as pendingFaceXp)
+- **Face Check Rate Limits**: Max 3 attempts per wallet per 7 days (tracked in `face_verification_attempts` table), plus 5 attempts per IP per 10 minutes
 
 ## External Dependencies
 

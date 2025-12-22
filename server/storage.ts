@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, type XpAction, type XpActionCompletion, type AiConversation, type AiMessage, type IpEvent, type InsertIpEvent, type FaceVerification, type SybilScore, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, xpActions, xpActionCompletions, globalSettings, aiConversations, ipEvents, faceVerifications, gdDailySpending, usdcDailyRedemptions, sybilScores } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, type XpAction, type XpActionCompletion, type AiConversation, type AiMessage, type IpEvent, type InsertIpEvent, type FaceVerification, type FaceVerificationAttempt, type SybilScore, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, xpActions, xpActionCompletions, globalSettings, aiConversations, ipEvents, faceVerifications, faceVerificationAttempts, gdDailySpending, usdcDailyRedemptions, sybilScores } from "@shared/schema";
 
 // XP claim result with sybil enforcement
 export interface XpClaimResult {
@@ -538,6 +538,10 @@ export interface IStorage {
     challengesPassed: string;
     createdAt: Date;
   }>>;
+  
+  // Face Verification Attempt Limits (max 3 per week)
+  recordFaceVerificationAttempt(walletAddress: string, success: boolean, failureReason?: string, ipHash?: string, storageToken?: string): Promise<void>;
+  getFaceVerificationAttemptsThisWeek(walletAddress: string): Promise<{ count: number; oldestExpiry: Date | null }>;
   
   // Sybil scoring methods
   getSybilScore(walletAddress: string): Promise<SybilScore | null>;
@@ -1178,6 +1182,20 @@ export class MemStorage implements IStorage {
     createdAt: Date;
   }>> {
     return [];
+  }
+
+  async recordFaceVerificationAttempt(
+    walletAddress: string,
+    success: boolean,
+    failureReason?: string,
+    ipHash?: string,
+    storageToken?: string
+  ): Promise<void> {
+    // MemStorage doesn't persist attempts
+  }
+
+  async getFaceVerificationAttemptsThisWeek(walletAddress: string): Promise<{ count: number; oldestExpiry: Date | null }> {
+    return { count: 0, oldestExpiry: null };
   }
 
   async getSybilScore(walletAddress: string): Promise<SybilScore | null> {
@@ -6026,6 +6044,71 @@ export class DbStorage extends MemStorage {
     } catch (error) {
       console.error('[FaceVerification] Error getting diagnostics:', error);
       return [];
+    }
+  }
+
+  // =============================================
+  // Face Verification Attempt Limits (max 3 per week)
+  // =============================================
+  
+  async recordFaceVerificationAttempt(
+    walletAddress: string,
+    success: boolean,
+    failureReason?: string,
+    ipHash?: string,
+    storageToken?: string
+  ): Promise<void> {
+    const normalized = walletAddress.toLowerCase();
+    
+    try {
+      await db.insert(faceVerificationAttempts).values({
+        walletAddress: normalized,
+        success,
+        failureReason,
+        ipHash,
+        storageToken,
+      });
+      
+      console.log(`[FaceVerification] Recorded attempt for ${normalized}: success=${success}${failureReason ? `, reason=${failureReason}` : ''}`);
+    } catch (error) {
+      console.error('[FaceVerification] Error recording attempt:', error);
+      throw error;
+    }
+  }
+  
+  async getFaceVerificationAttemptsThisWeek(walletAddress: string): Promise<{ count: number; oldestExpiry: Date | null }> {
+    const normalized = walletAddress.toLowerCase();
+    
+    try {
+      // Get date 7 days ago
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      
+      // Count attempts in the last 7 days
+      const results = await db.select({
+        count: count(),
+        oldest: sql<Date>`MIN(${faceVerificationAttempts.createdAt})`,
+      })
+      .from(faceVerificationAttempts)
+      .where(and(
+        eq(faceVerificationAttempts.walletAddress, normalized),
+        gte(faceVerificationAttempts.createdAt, oneWeekAgo)
+      ));
+      
+      const attemptCount = Number(results[0]?.count || 0);
+      const oldestAttempt = results[0]?.oldest;
+      
+      // Calculate when the oldest attempt expires (7 days after it was made)
+      let oldestExpiry: Date | null = null;
+      if (oldestAttempt && attemptCount >= 3) {
+        oldestExpiry = new Date(oldestAttempt);
+        oldestExpiry.setDate(oldestExpiry.getDate() + 7);
+      }
+      
+      return { count: attemptCount, oldestExpiry };
+    } catch (error) {
+      console.error('[FaceVerification] Error getting weekly attempts:', error);
+      return { count: 0, oldestExpiry: null };
     }
   }
 

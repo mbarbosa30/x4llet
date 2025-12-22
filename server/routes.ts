@@ -7078,6 +7078,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid wallet address' });
       }
       
+      const normalizedAddressEarly = walletAddress.toLowerCase();
+      
+      // Check per-wallet weekly limit (max 3 attempts per 7 days)
+      const WEEKLY_ATTEMPT_LIMIT = 3;
+      const weeklyAttempts = await storage.getFaceVerificationAttemptsThisWeek(normalizedAddressEarly);
+      
+      if (weeklyAttempts.count >= WEEKLY_ATTEMPT_LIMIT) {
+        const retryAfter = weeklyAttempts.oldestExpiry 
+          ? Math.ceil((weeklyAttempts.oldestExpiry.getTime() - Date.now()) / 1000)
+          : 0;
+        const retryDays = Math.ceil(retryAfter / 86400);
+        
+        console.log(`[FaceVerification] Weekly limit exceeded for ${normalizedAddressEarly}: ${weeklyAttempts.count}/${WEEKLY_ATTEMPT_LIMIT} attempts`);
+        
+        return res.status(429).json({
+          error: 'Weekly verification limit reached',
+          message: `You've used all ${WEEKLY_ATTEMPT_LIMIT} face check attempts for this week. Try again in ${retryDays} day${retryDays !== 1 ? 's' : ''}.`,
+          retryAfter,
+          weeklyLimit: WEEKLY_ATTEMPT_LIMIT,
+          attemptsUsed: weeklyAttempts.count,
+        });
+      }
+      
       if (!embeddingHash || typeof embeddingHash !== 'string') {
         return res.status(400).json({ error: 'Invalid embedding hash' });
       }
@@ -7141,12 +7164,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           similarityScore: 1.0,
         });
         
+        // Record the attempt (counts against weekly limit)
+        const ipHashForDuplicate = ipHash ? await hashIp(ipHash) : undefined;
+        await storage.recordFaceVerificationAttempt(
+          normalizedAddress,
+          false,
+          'exact_duplicate',
+          ipHashForDuplicate,
+          storageToken
+        );
+        
         console.warn(`[FaceVerification] Exact duplicate rejected: ${normalizedAddress} matches ${exactDuplicate.walletAddress}`);
         
         return res.status(409).json({
           error: 'This face has already been verified with another wallet',
           isDuplicate: true,
           duplicateOf: exactDuplicate.walletAddress.slice(0, 6) + '...' + exactDuplicate.walletAddress.slice(-4),
+          attemptsRemaining: WEEKLY_ATTEMPT_LIMIT - weeklyAttempts.count - 1,
         });
       }
       
@@ -7307,6 +7341,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[FaceVerification] Skipping XP for duplicate face: ${normalizedAddress}`);
       }
       
+      // Record attempt (successful verification - either 'verified' or 'duplicate')
+      const ipHashForAttempt = clientIp ? await hashIp(clientIp) : undefined;
+      await storage.recordFaceVerificationAttempt(
+        normalizedAddress,
+        status === 'verified', // Only count as success if fully verified (not duplicate)
+        status === 'duplicate' ? 'duplicate' : undefined,
+        ipHashForAttempt,
+        storageToken
+      );
+      
       res.json({
         success: true,
         verified: true,
@@ -7319,9 +7363,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sybilTier,
         sybilScore,
         similarityScore: matchSimilarity ? Math.round(matchSimilarity * 100) : undefined,
+        attemptsRemaining: WEEKLY_ATTEMPT_LIMIT - weeklyAttempts.count - 1,
       });
     } catch (error) {
       console.error('[FaceVerification] Error submitting:', error);
+      
+      // Record failed attempt on error (if we have wallet address)
+      if (req.body?.walletAddress) {
+        try {
+          const errorIpHash = getClientIp(req) ? await hashIp(getClientIp(req)!) : undefined;
+          await storage.recordFaceVerificationAttempt(
+            req.body.walletAddress.toLowerCase(),
+            false,
+            'error',
+            errorIpHash,
+            req.body?.storageToken
+          );
+        } catch {}
+      }
+      
       res.status(500).json({ error: 'Failed to submit verification' });
     }
   });

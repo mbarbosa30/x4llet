@@ -554,6 +554,19 @@ export const insertFaceVerificationSchema = createInsertSchema(faceVerifications
 });
 export type InsertFaceVerification = z.infer<typeof insertFaceVerificationSchema>;
 
+// Face Verification Attempts - tracks attempts per wallet for rate limiting (max 3 per week)
+export const faceVerificationAttempts = pgTable("face_verification_attempts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: text("wallet_address").notNull(),
+  success: boolean("success").notNull().default(false), // Whether verification succeeded
+  failureReason: text("failure_reason"), // 'duplicate', 'quality', 'liveness', etc.
+  ipHash: text("ip_hash"),
+  storageToken: text("storage_token"), // Device fingerprint
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type FaceVerificationAttempt = typeof faceVerificationAttempts.$inferSelect;
+
 // Daily G$ to XP exchange tracking (1000 G$ per day limit)
 export const gdDailySpending = pgTable("gd_daily_spending", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
