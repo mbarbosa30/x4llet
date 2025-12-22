@@ -3637,6 +3637,53 @@ function FaceCheckDashboard({ authHeader }: { authHeader: string | null }) {
   const [diagnostics, setDiagnostics] = useState<FaceCheckDiagnostic[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [limit, setLimit] = useState(50);
+  const [isReclassifying, setIsReclassifying] = useState(false);
+  const [reclassifyResult, setReclassifyResult] = useState<any>(null);
+  const { toast } = useToast();
+
+  const handleReclassify = async (execute: boolean) => {
+    if (!authHeader) return;
+    setIsReclassifying(true);
+    setReclassifyResult(null);
+    try {
+      const response = await fetch('/api/admin/face-verification/reclassify', {
+        method: 'POST',
+        headers: { 
+          'Authorization': authHeader,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ execute })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setReclassifyResult(data);
+        toast({
+          title: execute ? 'Reclassification Complete' : 'Preview Ready',
+          description: execute 
+            ? `Updated ${data.updated?.length || 0} records` 
+            : `Found ${data.totalToReclassify} records to reclassify`,
+        });
+        if (execute) {
+          fetchDiagnostics();
+        }
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Failed to reclassify records',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('Reclassify error:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to reclassify records',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsReclassifying(false);
+    }
+  };
 
   const fetchDiagnostics = async () => {
     if (!authHeader) return;
@@ -3717,6 +3764,7 @@ function FaceCheckDashboard({ authHeader }: { authHeader: string | null }) {
   // Status breakdown
   const statusCounts = {
     verified: parsedDiagnostics.filter(d => d.status === 'verified').length,
+    needs_review: parsedDiagnostics.filter(d => d.status === 'needs_review').length,
     duplicate: parsedDiagnostics.filter(d => d.status === 'duplicate').length,
     failed: parsedDiagnostics.filter(d => d.status === 'failed').length,
   };
@@ -3776,10 +3824,14 @@ function FaceCheckDashboard({ authHeader }: { authHeader: string | null }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-green-500" />
               <span className="text-sm">Verified: {statusCounts.verified}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-blue-500" />
+              <span className="text-sm">Needs Review: {statusCounts.needs_review}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-amber-500" />
@@ -3790,6 +3842,75 @@ function FaceCheckDashboard({ authHeader }: { authHeader: string | null }) {
               <span className="text-sm">Failed: {statusCounts.failed}</span>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Reclassify Tool */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <RefreshCw className="h-5 w-5" />
+            Recalculate Distances (Euclidean)
+          </CardTitle>
+          <CardDescription>
+            Recalculate face similarity using Euclidean distance and reclassify records.
+            Thresholds: &lt;0.4 = duplicate, 0.4-0.6 = needs_review, &gt;0.6 = verified
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => handleReclassify(false)} 
+              disabled={isReclassifying}
+              variant="outline"
+              data-testid="button-reclassify-preview"
+            >
+              {isReclassifying ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Preview Changes
+            </Button>
+            <Button 
+              onClick={() => handleReclassify(true)} 
+              disabled={isReclassifying}
+              variant="default"
+              data-testid="button-reclassify-execute"
+            >
+              {isReclassifying ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Execute Reclassification
+            </Button>
+          </div>
+          
+          {reclassifyResult && (
+            <div className="p-4 bg-muted rounded-md space-y-2">
+              <div className="flex gap-4 text-sm">
+                <span>Analyzed: <strong>{reclassifyResult.totalAnalyzed}</strong></span>
+                <span>Kept as duplicate: <strong>{reclassifyResult.keptAsDuplicate}</strong></span>
+                <span>To reclassify: <strong>{reclassifyResult.totalToReclassify}</strong></span>
+              </div>
+              {reclassifyResult.executed && (
+                <div className="text-sm text-green-600">
+                  Updated {reclassifyResult.updated?.length || 0} records
+                </div>
+              )}
+              {reclassifyResult.toReclassify?.length > 0 && (
+                <div className="mt-2">
+                  <div className="text-sm font-medium mb-1">Records to reclassify:</div>
+                  <div className="max-h-40 overflow-y-auto text-xs space-y-1">
+                    {reclassifyResult.toReclassify.map((r: any, i: number) => (
+                      <div key={i} className="flex gap-2 items-center">
+                        <span className="font-mono">{r.walletAddress.slice(0, 10)}...</span>
+                        <Badge variant={r.newStatus === 'verified' ? 'default' : 'secondary'}>
+                          {r.currentStatus} → {r.newStatus}
+                        </Badge>
+                        <span className="text-muted-foreground">
+                          distance: {r.newDistance?.toFixed(3) || 'N/A'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
