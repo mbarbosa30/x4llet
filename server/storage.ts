@@ -5125,17 +5125,12 @@ export class DbStorage extends MemStorage {
       // Sum total XP spent from all sources (USDC redemptions, SENADOR exchange, AI chat)
       const [xpSpentResult] = await db.select({ total: sum(xpBalances.totalXpSpent) }).from(xpBalances);
       
-      // Count ALL transaction types for comprehensive "Transactions" metric
-      const [usdcTxResult] = await db.select({ count: count() }).from(cachedTransactions);
-      const [gasDripResult] = await db.select({ count: count() }).from(gasDrips);
-      const [aaveOpsResult] = await db.select({ count: count() }).from(aaveOperations);
-      const [gdClaimsResult] = await db.select({ count: count() }).from(gooddollarClaims);
-      
-      const totalTransactions = 
-        (usdcTxResult?.count || 0) + 
-        (gasDripResult?.count || 0) + 
-        (aaveOpsResult?.count || 0) + 
-        (gdClaimsResult?.count || 0);
+      // Count distinct transactions by txHash to avoid duplicates across wallets
+      // Only counts actual blockchain transactions from user wallets (USDC transfers)
+      const distinctTxResult = await db.execute(sql`
+        SELECT COUNT(DISTINCT tx_hash) as count FROM cached_transactions WHERE tx_hash IS NOT NULL
+      `);
+      const totalTransactions = Number(distinctTxResult.rows[0]?.count || 0);
 
       // Count connections (vouches) by parsing all MaxFlow score data
       let totalConnections = 0;
