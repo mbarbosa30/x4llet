@@ -289,7 +289,7 @@ async function fetchNativeTransactions(address: string, chainId: number): Promis
 }
 
 // Etherscan v2 unified API with chain-specific fallback for rate limit resilience
-// Now fetches USDC, SENADOR (on Celo), and native token transactions
+// Fetches USDC and native token transactions (SENADOR excluded from activity feed)
 async function fetchTransactionsFromEtherscan(address: string, chainId: number): Promise<Transaction[]> {
   const tokens = TOKEN_ADDRESSES[chainId];
   if (!tokens) {
@@ -300,16 +300,11 @@ async function fetchTransactionsFromEtherscan(address: string, chainId: number):
   const chainName = chainId === 8453 ? 'Base' : chainId === 42220 ? 'Celo' : chainId === 100 ? 'Gnosis' : chainId === 42161 ? 'Arbitrum' : `Chain ${chainId}`;
   console.log(`[Explorer] Fetching all transactions for ${address} on ${chainName}`);
 
-  // Fetch all transaction types in parallel
+  // Fetch USDC and native token transactions only (SENADOR excluded from activity feed)
   const fetchPromises: Promise<Transaction[]>[] = [
     fetchTokenTransactions(address, chainId, tokens.usdc, 'USDC'),
     fetchNativeTransactions(address, chainId),
   ];
-
-  // Add SENADOR fetch for Celo
-  if (tokens.senador) {
-    fetchPromises.push(fetchTokenTransactions(address, chainId, tokens.senador, 'SENADOR'));
-  }
 
   const results = await Promise.all(fetchPromises);
   
