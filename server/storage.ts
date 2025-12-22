@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, type XpAction, type XpActionCompletion, type AiConversation, type AiMessage, type IpEvent, type InsertIpEvent, type FaceVerification, type FaceVerificationAttempt, type SybilScore, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, xpActions, xpActionCompletions, globalSettings, aiConversations, ipEvents, faceVerifications, faceVerificationAttempts, gdDailySpending, usdcDailyRedemptions, sybilScores } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, type XpAction, type XpActionCompletion, type AiConversation, type AiMessage, type IpEvent, type InsertIpEvent, type FaceVerification, type FaceVerificationAttempt, type SybilScore, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, xpActions, xpActionCompletions, globalSettings, aiConversations, ipEvents, faceVerifications, faceVerificationAttempts, gdDailySpending, usdcDailyRedemptions, senadorRedemptions, sybilScores } from "@shared/schema";
 
 // XP claim result with sybil enforcement
 export interface XpClaimResult {
@@ -486,7 +486,10 @@ export interface IStorage {
   
   // G$ Daily Spending methods (1000 G$ per day limit)
   getGdDailySpending(walletAddress: string, date: string): Promise<{ gdSpent: bigint; xpEarned: number } | null>;
-  recordGdSpending(walletAddress: string, gdAmountRaw: bigint, xpEarned: number): Promise<{ success: boolean; newDailyTotal: bigint }>;
+  recordGdSpending(walletAddress: string, gdAmountRaw: bigint, xpEarned: number, txHash?: string): Promise<{ success: boolean; newDailyTotal: bigint }>;
+  
+  // SENADOR redemption tracking
+  recordSenadorRedemption(walletAddress: string, xpSpent: number, senadorReceived: string, txHash?: string): Promise<{ success: boolean }>;
   
   // USDC Daily Redemption methods (max 1 per day)
   getUsdcDailyRedemption(walletAddress: string, date: string): Promise<{ count: number } | null>;
@@ -1111,8 +1114,12 @@ export class MemStorage implements IStorage {
     return null;
   }
 
-  async recordGdSpending(walletAddress: string, gdAmountRaw: bigint, xpEarned: number): Promise<{ success: boolean; newDailyTotal: bigint }> {
+  async recordGdSpending(walletAddress: string, gdAmountRaw: bigint, xpEarned: number, txHash?: string): Promise<{ success: boolean; newDailyTotal: bigint }> {
     throw new Error('G$ spending tracking not available in MemStorage');
+  }
+
+  async recordSenadorRedemption(walletAddress: string, xpSpent: number, senadorReceived: string, txHash?: string): Promise<{ success: boolean }> {
+    throw new Error('SENADOR redemption tracking not available in MemStorage');
   }
 
   async getUsdcDailyRedemption(walletAddress: string, date: string): Promise<{ count: number } | null> {
@@ -5005,7 +5012,7 @@ export class DbStorage extends MemStorage {
     }
   }
 
-  async recordGdSpending(walletAddress: string, gdAmountRaw: bigint, xpEarnedCenti: number): Promise<{ success: boolean; newDailyTotal: bigint }> {
+  async recordGdSpending(walletAddress: string, gdAmountRaw: bigint, xpEarnedCenti: number, txHash?: string): Promise<{ success: boolean; newDailyTotal: bigint }> {
     const normalized = walletAddress.toLowerCase();
     const now = new Date();
     const today = now.toISOString().split('T')[0]; // YYYY-MM-DD format
@@ -5024,6 +5031,7 @@ export class DbStorage extends MemStorage {
           .set({
             gdSpent: newTotal.toString(),
             xpEarned: newXpTotal,
+            txHash: txHash || null,
             updatedAt: now,
           })
           .where(and(
@@ -5040,6 +5048,7 @@ export class DbStorage extends MemStorage {
           date: today,
           gdSpent: gdAmountRaw.toString(),
           xpEarned: xpEarnedCenti,
+          txHash: txHash || null,
           createdAt: now,
           updatedAt: now,
         });
@@ -5110,6 +5119,27 @@ export class DbStorage extends MemStorage {
     }
   }
 
+  async recordSenadorRedemption(walletAddress: string, xpSpent: number, senadorReceived: string, txHash?: string): Promise<{ success: boolean }> {
+    const normalized = walletAddress.toLowerCase();
+    const now = new Date();
+    
+    try {
+      await db.insert(senadorRedemptions).values({
+        walletAddress: normalized,
+        xpSpent,
+        senadorReceived,
+        txHash: txHash || null,
+        createdAt: now,
+      });
+      
+      console.log(`[SENADOR Redemption] Recorded: ${normalized} spent ${xpSpent} centi-XP for ${senadorReceived} SENADOR (tx: ${txHash || 'none'})`);
+      return { success: true };
+    } catch (error) {
+      console.error('[SENADOR Redemption] Error recording redemption:', error);
+      return { success: false };
+    }
+  }
+
   async getGlobalStats(): Promise<{
     totalUsers: number;
     totalTransfers: number;
@@ -5126,7 +5156,8 @@ export class DbStorage extends MemStorage {
       const [xpSpentResult] = await db.select({ total: sum(xpBalances.totalXpSpent) }).from(xpBalances);
       
       // Count ALL unique on-chain transactions across all tables
-      // Uses UNION to gather tx hashes from: cached_transactions, gas_drips, gooddollar_claims, aave_operations
+      // Uses UNION to gather tx hashes from: cached_transactions, gas_drips, gooddollar_claims, 
+      // aave_operations, gd_daily_spending, senador_redemptions
       const distinctTxResult = await db.execute(sql`
         SELECT COUNT(*) as count FROM (
           SELECT DISTINCT tx_hash FROM (
@@ -5145,6 +5176,10 @@ export class DbStorage extends MemStorage {
             SELECT withdraw_tx_hash FROM aave_operations WHERE withdraw_tx_hash IS NOT NULL
             UNION ALL
             SELECT refund_tx_hash FROM aave_operations WHERE refund_tx_hash IS NOT NULL
+            UNION ALL
+            SELECT tx_hash FROM gd_daily_spending WHERE tx_hash IS NOT NULL
+            UNION ALL
+            SELECT tx_hash FROM senador_redemptions WHERE tx_hash IS NOT NULL
           ) all_hashes
         ) unique_hashes
       `);

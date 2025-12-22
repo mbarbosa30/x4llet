@@ -575,6 +575,7 @@ export const gdDailySpending = pgTable("gd_daily_spending", {
   date: text("date").notNull(), // YYYY-MM-DD format for easy daily tracking
   gdSpent: text("gd_spent").notNull().default('0'), // Amount spent in raw units (18 decimals)
   xpEarned: integer("xp_earned").notNull().default(0), // XP earned in centi-XP
+  txHash: text("tx_hash"), // On-chain tx hash of G$ transfer to facilitator
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({
@@ -597,6 +598,18 @@ export const usdcDailyRedemptions = pgTable("usdc_daily_redemptions", {
 }));
 
 export type UsdcDailyRedemption = typeof usdcDailyRedemptions.$inferSelect;
+
+// SENADOR redemption tracking (XP → SENADOR exchanges)
+export const senadorRedemptions = pgTable("senador_redemptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: text("wallet_address").notNull(),
+  xpSpent: integer("xp_spent").notNull(), // XP spent in centi-XP
+  senadorReceived: text("senador_received").notNull(), // SENADOR received in raw units (18 decimals)
+  txHash: text("tx_hash"), // On-chain tx hash of SENADOR transfer from facilitator
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type SenadorRedemption = typeof senadorRedemptions.$inferSelect;
 
 // Unified Sybil Confidence Scores
 // Combines all signals into a weighted confidence score with graduated tiers

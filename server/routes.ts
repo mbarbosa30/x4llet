@@ -6508,6 +6508,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[XP → SENADOR] Success! ${xpToSpend} XP → ${xpToSpend} SENADOR transferred to ${address}`);
 
+      // Record SENADOR redemption with tx hash for transaction counting
+      await storage.recordSenadorRedemption(normalizedAddress, xpCentiRequired, senadorAmount.toString(), transferHash);
+
       res.json({
         success: true,
         xpDeducted: xpToSpend,
@@ -6928,8 +6931,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: 'Failed to credit XP' });
       }
       
-      // Record daily spending
-      await storage.recordGdSpending(normalizedAddress, gdRaw, xpCenti);
+      // Record daily spending with tx hash for transaction counting
+      await storage.recordGdSpending(normalizedAddress, gdRaw, xpCenti, txHash);
       
       const newDailyTotal = currentDailySpent + gdRaw;
       const newRemainingDaily = Number(GD_DAILY_LIMIT - newDailyTotal) / 1e18;
