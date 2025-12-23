@@ -97,7 +97,7 @@ export default function MaxFlow() {
   
   const [isVerifyingFace, setIsVerifyingFace] = useState(false);
   const [showGdExchangeDialog, setShowGdExchangeDialog] = useState(false);
-  const [gdExchangeAmount, setGdExchangeAmount] = useState('10');
+  const [gdExchangeAmount, setGdExchangeAmount] = useState('50');
   const [isRefreshingIdentity, setIsRefreshingIdentity] = useState(false);
   const [pendingFvResult, setPendingFvResult] = useState<{ isVerified: boolean; reason?: string } | null>(null);
   
@@ -1496,15 +1496,15 @@ export default function MaxFlow() {
                       size="lg"
                       className="w-full bg-orange-500 hover:bg-orange-600 text-white disabled:bg-neutral-300 disabled:text-neutral-700"
                       onClick={() => setShowGdExchangeDialog(true)}
-                      disabled={parseFloat((gdBalance?.balanceFormatted || '0').replace(/,/g, '')) < 10}
+                      disabled={parseFloat((gdBalance?.balanceFormatted || '0').replace(/,/g, '')) < 50}
                       data-testid="button-buy-xp-gd-unverified"
                     >
                       <Sparkles className="h-4 w-4" />
                       BUY XP WITH G$
                     </Button>
-                    {parseFloat((gdBalance?.balanceFormatted || '0').replace(/,/g, '')) < 10 && (
+                    {parseFloat((gdBalance?.balanceFormatted || '0').replace(/,/g, '')) < 50 && (
                       <p className="text-xs text-muted-foreground text-center mt-2">
-                        Need at least 10 G$ to exchange for XP
+                        Need at least 50 G$ to exchange for XP
                       </p>
                     )}
                   </div>
@@ -1675,8 +1675,8 @@ export default function MaxFlow() {
                     id="gd-amount"
                     type="number"
                     inputMode="decimal"
-                    min="10"
-                    step="10"
+                    min="50"
+                    step="50"
                     max={gdDailyStatus?.remaining || 1000}
                     value={gdExchangeAmount}
                     onChange={(e) => setGdExchangeAmount(e.target.value)}
@@ -1694,7 +1694,7 @@ export default function MaxFlow() {
               <div className="flex items-center justify-between p-2 border rounded bg-muted/30">
                 <span className="text-sm text-muted-foreground">You get:</span>
                 <span className="font-mono font-bold" data-testid="text-xp-preview">
-                  {Math.floor(parseFloat(gdExchangeAmount || '0') / 10)} XP
+                  {Math.floor(parseFloat(gdExchangeAmount || '0') / 50)} XP
                 </span>
               </div>
 
@@ -1702,8 +1702,8 @@ export default function MaxFlow() {
                 <p className="text-xs text-destructive">Insufficient balance</p>
               )}
 
-              {parseFloat(gdExchangeAmount || '0') < 10 && parseFloat(gdExchangeAmount || '0') > 0 && (
-                <p className="text-xs text-amber-600 dark:text-amber-400">Min: 10 G$</p>
+              {parseFloat(gdExchangeAmount || '0') < 50 && parseFloat(gdExchangeAmount || '0') > 0 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">Min: 50 G$</p>
               )}
 
               {gdDailyStatus && parseFloat(gdExchangeAmount || '0') > gdDailyStatus.remaining && (
@@ -1716,7 +1716,7 @@ export default function MaxFlow() {
                   className="flex-1"
                   onClick={() => {
                     setShowGdExchangeDialog(false);
-                    setGdExchangeAmount('10');
+                    setGdExchangeAmount('50');
                   }}
                   disabled={exchangeGdMutation.isPending}
                 >
@@ -1727,7 +1727,7 @@ export default function MaxFlow() {
                   onClick={() => exchangeGdMutation.mutate(gdExchangeAmount)}
                   disabled={
                     exchangeGdMutation.isPending ||
-                    parseFloat(gdExchangeAmount || '0') < 10 ||
+                    parseFloat(gdExchangeAmount || '0') < 50 ||
                     parseFloat(gdExchangeAmount || '0') > parseFloat(gdBalance?.balanceFormatted?.replace(/,/g, '') || '0') ||
                     (gdDailyStatus && parseFloat(gdExchangeAmount || '0') > gdDailyStatus.remaining)
                   }

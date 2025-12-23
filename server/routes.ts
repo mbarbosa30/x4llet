@@ -6763,7 +6763,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ===== XP EXCHANGE: Buy XP with G$ (10 G$ = 1 XP) =====
+  // ===== XP EXCHANGE: Buy XP with G$ (50 G$ = 1 XP) =====
   // Requirements: Face verified + GoodDollar verified + Max 1000 G$ per day
   const GD_DAILY_LIMIT = BigInt(1000) * BigInt(1e18); // 1000 G$ in raw units (18 decimals)
   
@@ -6887,16 +6887,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // === AMOUNT VALIDATION ===
       
-      // G$ has 18 decimals, so we expect gdAmount in raw units (e.g., "10000000000000000000" = 10 G$)
-      // Exchange rate: 10 G$ = 1 XP = 100 centi-XP
+      // G$ has 18 decimals, so we expect gdAmount in raw units (e.g., "50000000000000000000" = 50 G$)
+      // Exchange rate: 50 G$ = 1 XP = 100 centi-XP
       const gdRaw = BigInt(gdAmount);
       const oneGd = BigInt(1e18);
-      const minGdRaw = BigInt(10) * oneGd; // 10 G$ minimum
+      const minGdRaw = BigInt(50) * oneGd; // 50 G$ minimum
       
       if (gdRaw < minGdRaw) {
         return res.status(400).json({ 
-          error: 'Minimum exchange is 10 G$ for 1 XP',
-          minGdRequired: '10.00',
+          error: 'Minimum exchange is 50 G$ for 1 XP',
+          minGdRequired: '50.00',
         });
       }
       
@@ -6920,12 +6920,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Calculate XP: 10 G$ = 1 XP, stored as centi-XP (×100)
+      // Calculate XP: 50 G$ = 1 XP, stored as centi-XP (×100)
       // gdRaw / 1e18 = G$ in display units
-      // G$ / 10 = XP in display units
+      // G$ / 50 = XP in display units
       // XP * 100 = centi-XP
-      // So: xpCenti = (gdRaw / 1e18) / 10 * 100 = gdRaw / 1e17
-      const xpCenti = Number(gdRaw / BigInt(1e17));
+      // So: xpCenti = (gdRaw / 1e18) / 50 * 100 = gdRaw / 5e17
+      const xpCenti = Number(gdRaw / BigInt(5e17));
       const gdFormatted = (Number(gdRaw) / 1e18).toFixed(2); // For logging
 
       console.log(`[XP Exchange] Processing ${gdFormatted} G$ → ${xpCenti / 100} XP for ${normalizedAddress} (tx: ${txHash})`);

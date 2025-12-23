@@ -496,7 +496,7 @@ export default function Faqs() {
                       <li><span className="font-medium">Signal 10:</span> 2.08 XP per day</li>
                     </ul>
                     <p className="text-sm text-muted-foreground mb-2">
-                      <span className="font-medium">2. GoodDollar to XP:</span> Verified GoodDollar users can exchange G$ tokens for XP in the Trust Hub at a rate of 10 G$ = 1 XP. This lets you convert your daily UBI claims into XP toward USDC redemption.
+                      <span className="font-medium">2. GoodDollar to XP:</span> Verified GoodDollar users can exchange G$ tokens for XP in the Trust Hub at a rate of 50 G$ = 1 XP. This lets you convert your daily UBI claims into XP toward USDC redemption.
                     </p>
                     <p className="text-sm text-muted-foreground mt-2">
                       Both methods let you accumulate XP toward the 100 XP threshold for USDC redemption.

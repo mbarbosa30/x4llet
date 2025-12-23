@@ -900,10 +900,10 @@ export async function exchangeGdForXp(
     const gdFloat = parseFloat(gdAmount);
     const gdRaw = BigInt(Math.floor(gdFloat * 1e18));
     
-    // Minimum 10 G$ for 1 XP
-    const minGdRaw = BigInt(10) * BigInt(1e18);
+    // Minimum 50 G$ for 1 XP
+    const minGdRaw = BigInt(50) * BigInt(1e18);
     if (gdRaw < minGdRaw) {
-      return { success: false, error: 'Minimum exchange is 10 G$' };
+      return { success: false, error: 'Minimum exchange is 50 G$' };
     }
     
     // Get facilitator address
