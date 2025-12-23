@@ -7195,11 +7195,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // STEP 2: Fuzzy match - Euclidean distance on embeddings (face-api.js native metric)
       // Tiered status system based on Euclidean distance (lower = more similar):
-      // - < 0.4: 'duplicate' - auto-blocked, XP denied (very high confidence same person)
-      // - 0.4-0.6: 'needs_review' - XP withheld pending admin review (borderline)
+      // - < 0.5: 'duplicate' - auto-blocked, XP denied (high confidence same person)
+      // - 0.5-0.6: 'needs_review' - XP withheld pending admin review (borderline)
       // - > 0.6: 'verified' - XP awarded normally (different people)
-      const DUPLICATE_THRESHOLD = 0.4;  // Below this = auto-block as duplicate
-      const REVIEW_THRESHOLD = 0.6;     // 0.4-0.6 = needs_review (borderline)
+      const DUPLICATE_THRESHOLD = 0.5;  // Below this = auto-block as duplicate
+      const REVIEW_THRESHOLD = 0.6;     // 0.5-0.6 = needs_review (borderline)
       
       // Pass request start time to prevent self-race conditions
       const requestStartTime = new Date();
@@ -7233,12 +7233,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Tiered status based on Euclidean distance (lower = more similar)
         if (distance < DUPLICATE_THRESHOLD) {
-          // < 0.4: Very high confidence duplicate - auto-block
+          // < 0.5: High confidence duplicate - auto-block
           status = 'duplicate';
           duplicateOf = matchWallet;
           console.warn(`[FaceVerification] DUPLICATE BLOCKED (distance ${distance.toFixed(3)} < ${DUPLICATE_THRESHOLD}): ${normalizedAddress} matches ${matchWallet} - XP will NOT be awarded`);
         } else if (distance < REVIEW_THRESHOLD) {
-          // 0.4-0.6: Borderline - needs admin review
+          // 0.5-0.6: Borderline - needs admin review
           status = 'needs_review';
           duplicateOf = matchWallet;
           console.log(`[FaceVerification] NEEDS REVIEW (distance ${distance.toFixed(3)} in ${DUPLICATE_THRESHOLD}-${REVIEW_THRESHOLD}): ${normalizedAddress} matches ${matchWallet} - XP withheld pending review`);
@@ -7322,6 +7322,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Track pending XP for users who haven't vouched yet
       let pendingXp = 0;
       
+      // Check if user is already an established user (not eligible for onboarding XP bonus)
+      // The 120 XP face verification bonus is only for NEW users to incentivize onboarding
+      // Established users still get face verification for sybil protection, but no XP bonus
+      let isEstablishedUser = false;
+      let establishedReason: string | undefined;
+      
+      try {
+        // Check 1: MaxFlow score > 0 (user already has trust network)
+        const cachedMaxflow = await storage.getMaxFlowScoreRaw(normalizedAddress);
+        if (cachedMaxflow && Number(cachedMaxflow.local_health || 0) > 0) {
+          isEstablishedUser = true;
+          establishedReason = 'has_maxflow';
+        }
+        
+        // Check 2: GoodDollar verified and not expired
+        if (!isEstablishedUser) {
+          const gdIdentity = await storage.getGoodDollarIdentity(normalizedAddress);
+          if (gdIdentity?.isWhitelisted && !gdIdentity?.isExpired) {
+            isEstablishedUser = true;
+            establishedReason = 'gd_verified';
+          }
+        }
+        
+        // Check 3: Has any USDC balance (actively using wallet)
+        if (!isEstablishedUser) {
+          const balances = await db.select()
+            .from(cachedBalances)
+            .where(eq(cachedBalances.address, normalizedAddress));
+          const totalUsdc = balances.reduce((sum: number, b: { balance: string | null }) => sum + Number(b.balance || 0), 0);
+          if (totalUsdc > 0) {
+            isEstablishedUser = true;
+            establishedReason = 'has_usdc';
+          }
+        }
+        
+        if (isEstablishedUser) {
+          console.log(`[FaceVerification] User ${normalizedAddress} is established (${establishedReason}) - skipping onboarding XP bonus`);
+        }
+      } catch (eligibilityError) {
+        console.error('[FaceVerification] Error checking eligibility, assuming new user:', eligibilityError);
+        // On error, assume new user to avoid blocking legitimate XP awards
+      }
+      
       // CRITICAL: Check if user already received face verification XP (one-time only)
       // We check for xpAwarded > 0 because xpAwarded=0 means pending (waiting for vouch)
       const existingCompletion = await db
@@ -7335,7 +7378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const alreadyClaimedFaceXp = existingCompletion.length > 0 && existingCompletion[0].xpAwarded > 0;
       const hasPendingCompletion = existingCompletion.length > 0 && existingCompletion[0].xpAwarded === 0;
       
-      if (status === 'verified') {
+      if (status === 'verified' && !isEstablishedUser) {
         if (alreadyClaimedFaceXp) {
           // User already received face verification XP - skip awarding
           xpSkipReason = 'already_claimed';
@@ -7429,6 +7472,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } catch {}
           }
         }
+      } else if (status === 'verified' && isEstablishedUser) {
+        // Established user - verified but no XP bonus
+        xpSkipReason = `established_user_${establishedReason}`;
+        console.log(`[FaceVerification] Verified ${normalizedAddress} but skipping XP (established user: ${establishedReason})`);
       } else if (status === 'needs_review') {
         xpSkipReason = 'needs_review';
         console.log(`[FaceVerification] Skipping XP for needs_review face: ${normalizedAddress} (pending admin review)`);
@@ -7450,6 +7497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         verified: status === 'verified',
         isDuplicate: false, // Duplicates return 409 early
         isNeedsReview: status === 'needs_review',
+        isEstablishedUser, // If true, user is already onboarded - no XP bonus eligible
         isLikelySpoof,
         status: verification.status,
         xpAwarded,
