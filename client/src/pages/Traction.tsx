@@ -17,7 +17,7 @@ import { apiRequest, queryClient } from '@/lib/queryClient';
 type SortDirection = 'asc' | 'desc' | null;
 type WalletSortColumn = 'address' | 'lastSeen' | 'usdc' | 'xp' | 'sybil' | 'face' | 'goodDollar';
 type SybilSortColumn = 'address' | 'score' | 'tier' | 'xpMultiplier';
-type XpSortColumn = 'address' | 'totalXp' | 'totalSpent' | 'claimCount';
+type XpSortColumn = 'address' | 'xpBalance' | 'totalXp' | 'totalSpent' | 'claimCount';
 
 interface OverviewData {
   wallets: { total: number };
@@ -142,7 +142,7 @@ export default function Traction() {
   const [sybilSortDir, setSybilSortDir] = useState<SortDirection>('desc');
   
   // XP table sorting
-  const [xpSortCol, setXpSortCol] = useState<XpSortColumn | null>('totalXp');
+  const [xpSortCol, setXpSortCol] = useState<XpSortColumn | null>('xpBalance');
   const [xpSortDir, setXpSortDir] = useState<SortDirection>('desc');
   
   const toggleSort = <T extends string>(col: T, currentCol: T | null, currentDir: SortDirection, setCol: (c: T | null) => void, setDir: (d: SortDirection) => void) => {
@@ -275,7 +275,7 @@ export default function Traction() {
           case 'address': cmp = a.address.localeCompare(b.address); break;
           case 'lastSeen': cmp = new Date(a.lastSeen).getTime() - new Date(b.lastSeen).getTime(); break;
           case 'usdc': cmp = BigInt(a.balance.usdc || '0') > BigInt(b.balance.usdc || '0') ? 1 : -1; break;
-          case 'xp': cmp = a.xp.totalXp - b.xp.totalXp; break;
+          case 'xp': cmp = (a.xp.totalXp - a.xp.totalSpent) - (b.xp.totalXp - b.xp.totalSpent); break;
           case 'sybil': cmp = a.sybil.score - b.sybil.score; break;
           case 'face': {
             const getVal = (s: string | undefined) => s === 'verified' ? 2 : s === 'duplicate' ? 1 : 0;
@@ -319,6 +319,7 @@ export default function Traction() {
       let cmp = 0;
       switch (xpSortCol) {
         case 'address': cmp = a.walletAddress.localeCompare(b.walletAddress); break;
+        case 'xpBalance': cmp = (a.totalXp - a.totalSpent) - (b.totalXp - b.totalSpent); break;
         case 'totalXp': cmp = a.totalXp - b.totalXp; break;
         case 'totalSpent': cmp = a.totalSpent - b.totalSpent; break;
         case 'claimCount': cmp = a.claimCount - b.claimCount; break;
@@ -523,7 +524,7 @@ export default function Traction() {
                               <div className="flex items-center">USDC<SortIcon column="usdc" sortColumn={walletsSortCol} sortDir={walletsSortDir} /></div>
                             </th>
                             <th className="text-left p-3 font-mono text-xs uppercase cursor-pointer hover:bg-muted/50" onClick={() => toggleSort('xp', walletsSortCol, walletsSortDir, setWalletsSortCol, setWalletsSortDir)}>
-                              <div className="flex items-center">XP<SortIcon column="xp" sortColumn={walletsSortCol} sortDir={walletsSortDir} /></div>
+                              <div className="flex items-center">XP Bal<SortIcon column="xp" sortColumn={walletsSortCol} sortDir={walletsSortDir} /></div>
                             </th>
                             <th className="text-left p-3 font-mono text-xs uppercase cursor-pointer hover:bg-muted/50" onClick={() => toggleSort('sybil', walletsSortCol, walletsSortDir, setWalletsSortCol, setWalletsSortDir)}>
                               <div className="flex items-center">Sybil<SortIcon column="sybil" sortColumn={walletsSortCol} sortDir={walletsSortDir} /></div>
@@ -549,7 +550,9 @@ export default function Traction() {
                               </td>
                               <td className="p-3 text-xs text-muted-foreground">{timeAgo(wallet.lastSeen)}</td>
                               <td className="p-3 font-mono text-xs">${formatMicroUsdc(wallet.balance.usdc)}</td>
-                              <td className="p-3 font-mono text-xs">{formatXp(wallet.xp.totalXp)}</td>
+                              <td className="p-3 font-mono text-xs" title={`Earned: ${formatXp(wallet.xp.totalXp)} | Spent: ${formatXp(wallet.xp.totalSpent)}`}>
+                                {formatXp(wallet.xp.totalXp - wallet.xp.totalSpent)}
+                              </td>
                               <td className="p-3">
                                 <Badge className={`text-xs ${getTierColor(wallet.sybil.tier)}`}>
                                   {wallet.sybil.tier}
@@ -753,7 +756,7 @@ export default function Traction() {
 
                 <Card className="border-foreground">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-mono uppercase">Top XP Earners</CardTitle>
+                    <CardTitle className="text-sm font-mono uppercase">Top XP Balances</CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
                     <div className="overflow-x-auto">
@@ -763,8 +766,11 @@ export default function Traction() {
                             <th className="text-left p-3 font-mono text-xs uppercase cursor-pointer hover:bg-muted/50" onClick={() => toggleSort('address', xpSortCol, xpSortDir, setXpSortCol, setXpSortDir)}>
                               <div className="flex items-center">Address<SortIcon column="address" sortColumn={xpSortCol} sortDir={xpSortDir} /></div>
                             </th>
+                            <th className="text-left p-3 font-mono text-xs uppercase cursor-pointer hover:bg-muted/50" onClick={() => toggleSort('xpBalance', xpSortCol, xpSortDir, setXpSortCol, setXpSortDir)}>
+                              <div className="flex items-center">Balance<SortIcon column="xpBalance" sortColumn={xpSortCol} sortDir={xpSortDir} /></div>
+                            </th>
                             <th className="text-left p-3 font-mono text-xs uppercase cursor-pointer hover:bg-muted/50" onClick={() => toggleSort('totalXp', xpSortCol, xpSortDir, setXpSortCol, setXpSortDir)}>
-                              <div className="flex items-center">Total<SortIcon column="totalXp" sortColumn={xpSortCol} sortDir={xpSortDir} /></div>
+                              <div className="flex items-center">Earned<SortIcon column="totalXp" sortColumn={xpSortCol} sortDir={xpSortDir} /></div>
                             </th>
                             <th className="text-left p-3 font-mono text-xs uppercase cursor-pointer hover:bg-muted/50" onClick={() => toggleSort('totalSpent', xpSortCol, xpSortDir, setXpSortCol, setXpSortDir)}>
                               <div className="flex items-center">Spent<SortIcon column="totalSpent" sortColumn={xpSortCol} sortDir={xpSortDir} /></div>
@@ -775,7 +781,8 @@ export default function Traction() {
                           {sortedTopEarners.map((earner, idx) => (
                             <tr key={earner.walletAddress} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
                               <td className="p-3 font-mono text-xs">{formatAddress(earner.walletAddress)}</td>
-                              <td className="p-3 font-mono text-xs font-bold">{formatXp(earner.totalXp)}</td>
+                              <td className="p-3 font-mono text-xs font-bold">{formatXp(earner.totalXp - earner.totalSpent)}</td>
+                              <td className="p-3 font-mono text-xs text-muted-foreground">{formatXp(earner.totalXp)}</td>
                               <td className="p-3 font-mono text-xs text-muted-foreground">{formatXp(earner.totalSpent)}</td>
                             </tr>
                           ))}
