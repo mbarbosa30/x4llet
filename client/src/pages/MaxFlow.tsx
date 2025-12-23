@@ -834,28 +834,15 @@ export default function MaxFlow() {
                   <FaceVerification
                     key={faceVerificationKey}
                     walletAddress={address || ''}
-                    onComplete={(success, data) => {
-                      if (success) {
+                    onComplete={(success, _data) => {
+                      setAutoFaceCheck(false);
+                      // Delay query invalidation to let the FaceVerification component
+                      // show its internal feedback (success/error overlay) before the parent re-renders
+                      setTimeout(() => {
                         queryClient.invalidateQueries({ queryKey: ['/api/face-verification', address] });
                         queryClient.invalidateQueries({ queryKey: ['/api/xp', address] });
-                        setAutoFaceCheck(false);
-                        if (data?.pendingXp && data.pendingXp > 0) {
-                          toast({
-                            title: "Face Verified!",
-                            description: `${data.pendingXp} XP waiting - vouch for someone to claim it.`,
-                          });
-                        } else if (data?.xpAwarded && data.xpAwarded > 0) {
-                          toast({
-                            title: "Face Verification Complete",
-                            description: `You've earned ${data.xpAwarded} XP!`,
-                          });
-                        } else {
-                          toast({
-                            title: "Face Verification Complete",
-                            description: "Verification successful!",
-                          });
-                        }
-                      }
+                      }, 1500);
+                      // FaceVerification component already shows appropriate toasts
                     }}
                     onReset={() => {
                       setFaceVerificationKey(prev => prev + 1);
