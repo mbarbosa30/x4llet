@@ -275,7 +275,7 @@ export default function Traction() {
           case 'address': cmp = a.address.localeCompare(b.address); break;
           case 'lastSeen': cmp = new Date(a.lastSeen).getTime() - new Date(b.lastSeen).getTime(); break;
           case 'usdc': cmp = BigInt(a.balance.usdc || '0') > BigInt(b.balance.usdc || '0') ? 1 : -1; break;
-          case 'xp': cmp = (a.xp.totalXp - a.xp.totalSpent) - (b.xp.totalXp - b.xp.totalSpent); break;
+          case 'xp': cmp = a.xp.totalXp - b.xp.totalXp; break;
           case 'sybil': cmp = a.sybil.score - b.sybil.score; break;
           case 'face': {
             const getVal = (s: string | undefined) => s === 'verified' ? 2 : s === 'duplicate' ? 1 : 0;
@@ -319,8 +319,8 @@ export default function Traction() {
       let cmp = 0;
       switch (xpSortCol) {
         case 'address': cmp = a.walletAddress.localeCompare(b.walletAddress); break;
-        case 'xpBalance': cmp = (a.totalXp - a.totalSpent) - (b.totalXp - b.totalSpent); break;
-        case 'totalXp': cmp = a.totalXp - b.totalXp; break;
+        case 'xpBalance': cmp = a.totalXp - b.totalXp; break;
+        case 'totalXp': cmp = (a.totalXp + a.totalSpent) - (b.totalXp + b.totalSpent); break;
         case 'totalSpent': cmp = a.totalSpent - b.totalSpent; break;
         case 'claimCount': cmp = a.claimCount - b.claimCount; break;
       }
@@ -550,8 +550,8 @@ export default function Traction() {
                               </td>
                               <td className="p-3 text-xs text-muted-foreground">{timeAgo(wallet.lastSeen)}</td>
                               <td className="p-3 font-mono text-xs">${formatMicroUsdc(wallet.balance.usdc)}</td>
-                              <td className="p-3 font-mono text-xs" title={`Earned: ${formatXp(wallet.xp.totalXp)} | Spent: ${formatXp(wallet.xp.totalSpent)}`}>
-                                {formatXp(wallet.xp.totalXp - wallet.xp.totalSpent)}
+                              <td className="p-3 font-mono text-xs" title={`Total earned: ${formatXp(wallet.xp.totalXp + wallet.xp.totalSpent)} | Spent: ${formatXp(wallet.xp.totalSpent)}`}>
+                                {formatXp(wallet.xp.totalXp)}
                               </td>
                               <td className="p-3">
                                 <Badge className={`text-xs ${getTierColor(wallet.sybil.tier)}`}>
@@ -781,8 +781,8 @@ export default function Traction() {
                           {sortedTopEarners.map((earner, idx) => (
                             <tr key={earner.walletAddress} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
                               <td className="p-3 font-mono text-xs">{formatAddress(earner.walletAddress)}</td>
-                              <td className="p-3 font-mono text-xs font-bold">{formatXp(earner.totalXp - earner.totalSpent)}</td>
-                              <td className="p-3 font-mono text-xs text-muted-foreground">{formatXp(earner.totalXp)}</td>
+                              <td className="p-3 font-mono text-xs font-bold">{formatXp(earner.totalXp)}</td>
+                              <td className="p-3 font-mono text-xs text-muted-foreground">{formatXp(earner.totalXp + earner.totalSpent)}</td>
                               <td className="p-3 font-mono text-xs text-muted-foreground">{formatXp(earner.totalSpent)}</td>
                             </tr>
                           ))}

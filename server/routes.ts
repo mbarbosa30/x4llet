@@ -9,7 +9,7 @@ import {
   aiConversations, faceVerifications, sybilScores, gooddollarIdentities,
   cachedBalances, cachedMaxflowScores
 } from "@shared/schema";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and } from "drizzle-orm";
 import { randomUUID, createHash } from "crypto";
 import { getNetworkConfig, getNetworkByChainId } from "@shared/networks";
 
