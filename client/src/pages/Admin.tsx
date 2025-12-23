@@ -296,6 +296,9 @@ export default function Admin() {
   const [sortField, setSortField] = useState<SortField>('lastSeen');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [expandedWallet, setExpandedWallet] = useState<string | null>(null);
+  const [walletPage, setWalletPage] = useState(1);
+  const [walletTotalPages, setWalletTotalPages] = useState(1);
+  const [walletTotalCount, setWalletTotalCount] = useState(0);
   const [trustedUnfundedWallets, setTrustedUnfundedWallets] = useState<TrustedUnfundedWallet[]>([]);
   const [isLoadingTrustedUnfunded, setIsLoadingTrustedUnfunded] = useState(false);
   
@@ -374,12 +377,21 @@ export default function Admin() {
     }
   };
 
-  const loadWalletList = async (auth: string) => {
+  const loadWalletList = async (auth: string, page = 1, sort = sortField, order = sortDirection) => {
     setIsLoadingWallets(true);
     try {
-      const res = await authenticatedRequest('GET', '/api/admin/wallets', auth);
-      const wallets = await res.json();
-      setWalletList(wallets);
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: '50',
+        sortBy: sort,
+        sortOrder: order,
+      });
+      const res = await authenticatedRequest('GET', `/api/admin/wallets?${params}`, auth);
+      const data = await res.json();
+      setWalletList(data.wallets);
+      setWalletPage(data.pagination.page);
+      setWalletTotalPages(data.pagination.totalPages);
+      setWalletTotalCount(data.pagination.total);
     } catch (error) {
       console.error('Failed to load wallet list:', error);
       toast({
@@ -563,52 +575,18 @@ export default function Admin() {
     }
   };
 
-  const sortedWallets = [...walletList].sort((a, b) => {
-    let comparison = 0;
-    const safeBalance = (val: string) => {
-      try { return BigInt(val || '0'); } catch { return BigInt(0); }
-    };
-    switch (sortField) {
-      case 'balance': {
-        const aVal = safeBalance(a.totalBalance);
-        const bVal = safeBalance(b.totalBalance);
-        comparison = aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
-        break;
-      }
-      case 'transfers':
-        comparison = a.transferCount - b.transferCount;
-        break;
-      case 'maxflow': {
-        const aScore = a.maxFlowScore ?? -1;
-        const bScore = b.maxFlowScore ?? -1;
-        comparison = aScore - bScore;
-        break;
-      }
-      case 'volume': {
-        const aVol = safeBalance(a.totalVolume);
-        const bVol = safeBalance(b.totalVolume);
-        comparison = aVol > bVol ? 1 : aVol < bVol ? -1 : 0;
-        break;
-      }
-      case 'created':
-        comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        break;
-      case 'lastSeen':
-        comparison = new Date(a.lastSeen).getTime() - new Date(b.lastSeen).getTime();
-        break;
-      case 'pool':
-        comparison = a.poolOptInPercent - b.poolOptInPercent;
-        break;
-    }
-    return sortDirection === 'asc' ? comparison : -comparison;
-  });
-
   const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('desc');
+    if (!authHeader) return;
+    const newOrder = sortField === field && sortDirection === 'desc' ? 'asc' : 'desc';
+    setSortField(field);
+    setSortDirection(newOrder);
+    loadWalletList(authHeader, 1, field, newOrder);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (!authHeader) return;
+    if (newPage >= 1 && newPage <= walletTotalPages) {
+      loadWalletList(authHeader, newPage, sortField, sortDirection);
     }
   };
 
@@ -1829,6 +1807,7 @@ export default function Admin() {
                 </CardTitle>
                 <CardDescription>
                   Complete list of registered wallets with balances, activity, and pool status
+                  {walletTotalCount > 0 && ` (${walletTotalCount.toLocaleString()} total)`}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -1844,7 +1823,7 @@ export default function Admin() {
                       <SortButton field="pool" label="Pool %" />
                     </div>
                     <div className="space-y-1 max-h-96 overflow-y-auto">
-                      {sortedWallets.map((wallet) => (
+                      {walletList.map((wallet) => (
                         <div key={wallet.address} className="text-xs">
                           <div
                             className="grid grid-cols-8 gap-2 p-2 bg-muted cursor-pointer hover:bg-muted/80"
@@ -1929,6 +1908,51 @@ export default function Admin() {
                         </div>
                       ))}
                     </div>
+                    {walletTotalPages > 1 && (
+                      <div className="flex items-center justify-between pt-3 border-t">
+                        <div className="text-xs text-muted-foreground">
+                          Page {walletPage} of {walletTotalPages}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handlePageChange(1)}
+                            disabled={walletPage === 1 || isLoadingWallets}
+                            data-testid="button-page-first"
+                          >
+                            First
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handlePageChange(walletPage - 1)}
+                            disabled={walletPage === 1 || isLoadingWallets}
+                            data-testid="button-page-prev"
+                          >
+                            Prev
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handlePageChange(walletPage + 1)}
+                            disabled={walletPage === walletTotalPages || isLoadingWallets}
+                            data-testid="button-page-next"
+                          >
+                            Next
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handlePageChange(walletTotalPages)}
+                            disabled={walletPage === walletTotalPages || isLoadingWallets}
+                            data-testid="button-page-last"
+                          >
+                            Last
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </>
                 ) : null}
                 <Button

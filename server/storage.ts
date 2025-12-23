@@ -2666,6 +2666,226 @@ export class DbStorage extends MemStorage {
     }
   }
 
+  async getWalletsPaginated(options: {
+    page?: number;
+    limit?: number;
+    sortBy?: 'lastSeen' | 'balance' | 'transfers' | 'maxflow' | 'volume' | 'created' | 'pool';
+    sortOrder?: 'asc' | 'desc';
+  }): Promise<{
+    wallets: Array<{
+      address: string;
+      createdAt: string;
+      lastSeen: string;
+      totalBalance: string;
+      balanceByChain: { base: string; celo: string; gnosis: string; arbitrum: string };
+      aUsdcBalance: string;
+      aUsdcByChain: { base: string; celo: string; gnosis: string; arbitrum: string };
+      transferCount: number;
+      totalVolume: string;
+      savingsBalance: string;
+      poolOptInPercent: number;
+      poolApproved: boolean;
+      maxFlowScore: number | null;
+      isGoodDollarVerified: boolean;
+      gdBalance: string;
+      gdBalanceFormatted: string;
+      isFaceChecked: boolean;
+      faceCheckedAt: string | null;
+      faceCheckStatus: 'verified' | 'duplicate' | 'failed' | null;
+    }>;
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    const page = Math.max(1, options.page || 1);
+    const limit = Math.min(100, Math.max(1, options.limit || 50));
+    const offset = (page - 1) * limit;
+    const sortBy = options.sortBy || 'lastSeen';
+    const sortOrder = options.sortOrder || 'desc';
+
+    const orderDir = sortOrder === 'asc' ? 'ASC' : 'DESC';
+    
+    let orderByClause: string;
+    switch (sortBy) {
+      case 'balance':
+        orderByClause = `total_usdc ${orderDir} NULLS LAST`;
+        break;
+      case 'transfers':
+        orderByClause = `transfer_count ${orderDir} NULLS LAST`;
+        break;
+      case 'maxflow':
+        orderByClause = `maxflow_score ${orderDir} NULLS LAST`;
+        break;
+      case 'volume':
+        orderByClause = `total_volume ${orderDir} NULLS LAST`;
+        break;
+      case 'created':
+        orderByClause = `w.created_at ${orderDir}`;
+        break;
+      case 'pool':
+        orderByClause = `pool_opt_in ${orderDir} NULLS LAST`;
+        break;
+      case 'lastSeen':
+      default:
+        orderByClause = `w.last_seen ${orderDir}`;
+        break;
+    }
+
+    try {
+      const result = await db.execute(sql`
+        WITH balance_agg AS (
+          SELECT 
+            LOWER(address) as addr,
+            COALESCE(SUM(CASE WHEN chain_id > 0 THEN balance::numeric ELSE 0 END), 0) as total_usdc,
+            COALESCE(SUM(CASE WHEN chain_id < 0 THEN balance::numeric ELSE 0 END), 0) as total_ausdc,
+            MAX(CASE WHEN chain_id = 8453 THEN balance ELSE '0' END) as base_balance,
+            MAX(CASE WHEN chain_id = 42220 THEN balance ELSE '0' END) as celo_balance,
+            MAX(CASE WHEN chain_id = 100 THEN balance ELSE '0' END) as gnosis_balance,
+            MAX(CASE WHEN chain_id = 42161 THEN balance ELSE '0' END) as arbitrum_balance,
+            MAX(CASE WHEN chain_id = -8453 THEN balance ELSE '0' END) as base_ausdc,
+            MAX(CASE WHEN chain_id = -42220 THEN balance ELSE '0' END) as celo_ausdc,
+            MAX(CASE WHEN chain_id = -100 THEN balance ELSE '0' END) as gnosis_ausdc,
+            MAX(CASE WHEN chain_id = -42161 THEN balance ELSE '0' END) as arbitrum_ausdc
+          FROM cached_balances
+          GROUP BY LOWER(address)
+        ),
+        tx_agg AS (
+          SELECT 
+            LOWER(COALESCE("from", "to")) as addr,
+            COUNT(*) as transfer_count,
+            COALESCE(SUM(amount::numeric), 0) as total_volume
+          FROM cached_transactions
+          GROUP BY LOWER(COALESCE("from", "to"))
+        ),
+        pool_agg AS (
+          SELECT 
+            LOWER(wallet_address) as addr,
+            opt_in_percent as pool_opt_in,
+            facilitator_approved as pool_approved
+          FROM pool_settings
+        ),
+        maxflow_agg AS (
+          SELECT 
+            LOWER(address) as addr,
+            (score_data::json->>'local_health')::numeric as maxflow_score
+          FROM cached_maxflow_scores
+        ),
+        gd_agg AS (
+          SELECT 
+            LOWER(wallet_address) as addr,
+            is_whitelisted AND NOT is_expired as is_verified
+          FROM gooddollar_identities
+        ),
+        gd_bal AS (
+          SELECT 
+            LOWER(address) as addr,
+            balance as gd_balance,
+            balance_formatted as gd_balance_formatted
+          FROM cached_gd_balances
+        ),
+        face_agg AS (
+          SELECT DISTINCT ON (LOWER(wallet_address))
+            LOWER(wallet_address) as addr,
+            status as face_status,
+            created_at as face_checked_at
+          FROM face_verifications
+          ORDER BY LOWER(wallet_address), created_at DESC
+        ),
+        total_count AS (
+          SELECT COUNT(*) as cnt FROM wallets
+        )
+        SELECT 
+          w.address,
+          w.created_at,
+          w.last_seen,
+          COALESCE(b.total_usdc, 0)::text as total_usdc,
+          COALESCE(b.total_ausdc, 0)::text as total_ausdc,
+          COALESCE(b.base_balance, '0') as base_balance,
+          COALESCE(b.celo_balance, '0') as celo_balance,
+          COALESCE(b.gnosis_balance, '0') as gnosis_balance,
+          COALESCE(b.arbitrum_balance, '0') as arbitrum_balance,
+          COALESCE(b.base_ausdc, '0') as base_ausdc,
+          COALESCE(b.celo_ausdc, '0') as celo_ausdc,
+          COALESCE(b.gnosis_ausdc, '0') as gnosis_ausdc,
+          COALESCE(b.arbitrum_ausdc, '0') as arbitrum_ausdc,
+          COALESCE(t.transfer_count, 0)::int as transfer_count,
+          COALESCE(t.total_volume, 0)::text as total_volume,
+          COALESCE(p.pool_opt_in, 0) as pool_opt_in,
+          COALESCE(p.pool_approved, false) as pool_approved,
+          m.maxflow_score,
+          COALESCE(g.is_verified, false) as is_gd_verified,
+          COALESCE(gb.gd_balance, '0') as gd_balance,
+          COALESCE(gb.gd_balance_formatted, '0.00') as gd_balance_formatted,
+          f.face_status,
+          f.face_checked_at,
+          tc.cnt as total_count
+        FROM wallets w
+        CROSS JOIN total_count tc
+        LEFT JOIN balance_agg b ON LOWER(w.address) = b.addr
+        LEFT JOIN tx_agg t ON LOWER(w.address) = t.addr
+        LEFT JOIN pool_agg p ON LOWER(w.address) = p.addr
+        LEFT JOIN maxflow_agg m ON LOWER(w.address) = m.addr
+        LEFT JOIN gd_agg g ON LOWER(w.address) = g.addr
+        LEFT JOIN gd_bal gb ON LOWER(w.address) = gb.addr
+        LEFT JOIN face_agg f ON LOWER(w.address) = f.addr
+        ORDER BY ${sql.raw(orderByClause)}
+        LIMIT ${limit}
+        OFFSET ${offset}
+      `);
+
+      const rows = result.rows as any[];
+      const total = rows.length > 0 ? Number(rows[0].total_count) : 0;
+
+      const wallets = rows.map(row => ({
+        address: row.address,
+        createdAt: new Date(row.created_at).toISOString(),
+        lastSeen: new Date(row.last_seen).toISOString(),
+        totalBalance: row.total_usdc || '0',
+        balanceByChain: {
+          base: row.base_balance || '0',
+          celo: row.celo_balance || '0',
+          gnosis: row.gnosis_balance || '0',
+          arbitrum: row.arbitrum_balance || '0',
+        },
+        aUsdcBalance: row.total_ausdc || '0',
+        aUsdcByChain: {
+          base: row.base_ausdc || '0',
+          celo: row.celo_ausdc || '0',
+          gnosis: row.gnosis_ausdc || '0',
+          arbitrum: row.arbitrum_ausdc || '0',
+        },
+        transferCount: Number(row.transfer_count) || 0,
+        totalVolume: row.total_volume || '0',
+        savingsBalance: row.total_ausdc || '0',
+        poolOptInPercent: Number(row.pool_opt_in) || 0,
+        poolApproved: Boolean(row.pool_approved),
+        maxFlowScore: row.maxflow_score !== null ? Number(row.maxflow_score) : null,
+        isGoodDollarVerified: Boolean(row.is_gd_verified),
+        gdBalance: row.gd_balance || '0',
+        gdBalanceFormatted: row.gd_balance_formatted || '0.00',
+        isFaceChecked: row.face_status === 'verified',
+        faceCheckedAt: row.face_checked_at ? new Date(row.face_checked_at).toISOString() : null,
+        faceCheckStatus: row.face_status as 'verified' | 'duplicate' | 'failed' | null ?? null,
+      }));
+
+      return {
+        wallets,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      console.error('[Admin] Error fetching paginated wallets:', error);
+      throw error;
+    }
+  }
+
   async getRecentActivity(): Promise<Array<{
     txHash: string;
     from: string;

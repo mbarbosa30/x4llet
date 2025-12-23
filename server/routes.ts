@@ -3462,8 +3462,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/admin/wallets', adminAuthMiddleware, async (req, res) => {
     try {
-      const wallets = await storage.getAllWalletsWithDetails();
-      res.json(wallets);
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const sortBy = (req.query.sortBy as string) || 'lastSeen';
+      const sortOrder = (req.query.sortOrder as string) || 'desc';
+      
+      const validSortFields = ['lastSeen', 'balance', 'transfers', 'maxflow', 'volume', 'created', 'pool'];
+      const validSortOrders = ['asc', 'desc'];
+      
+      const result = await storage.getWalletsPaginated({
+        page,
+        limit,
+        sortBy: validSortFields.includes(sortBy) ? sortBy as any : 'lastSeen',
+        sortOrder: validSortOrders.includes(sortOrder) ? sortOrder as any : 'desc',
+      });
+      
+      res.json(result);
     } catch (error) {
       console.error('Error fetching wallet details:', error);
       res.status(500).json({ error: 'Failed to fetch wallet details' });
