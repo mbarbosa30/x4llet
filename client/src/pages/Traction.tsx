@@ -125,7 +125,7 @@ export default function Traction() {
   });
 
   const walletsQuery = useQuery<WalletsResponse>({
-    queryKey: ['/api/traction/wallets', walletsPage],
+    queryKey: [`/api/traction/wallets?page=${walletsPage}&limit=50`],
     staleTime: 60000,
     retry: 2,
   });
