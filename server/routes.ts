@@ -7282,6 +7282,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         matchedWalletScore: similarFace ? JSON.stringify([{ wallet: similarFace.match.walletAddress, distance: similarFace.distance }]) : undefined,
       });
       
+      // If fuzzy match detected duplicate (distance < 0.4), return 409 like exact duplicates
+      // This ensures frontend shows error state instead of success
+      if (status === 'duplicate') {
+        // Record the attempt (counts against weekly limit)
+        const ipHashForDuplicate = clientIp ? await hashIp(clientIp) : undefined;
+        await storage.recordFaceVerificationAttempt(
+          normalizedAddress,
+          false,
+          'fuzzy_duplicate',
+          ipHashForDuplicate,
+          storageToken
+        );
+        
+        return res.status(409).json({
+          error: 'This face has already been verified with another wallet',
+          isDuplicate: true,
+          duplicateOf: duplicateOf ? duplicateOf.slice(0, 6) + '...' + duplicateOf.slice(-4) : undefined,
+          euclideanDistance: matchDistance?.toFixed(3),
+          attemptsRemaining: WEEKLY_ATTEMPT_LIMIT - weeklyAttempts.count - 1,
+        });
+      }
+      
       // Award XP based on sybil confidence score
       // Calculates weighted score from device fingerprint, face similarity, trust signals
       let xpAwarded = 0;
@@ -7410,10 +7432,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (status === 'needs_review') {
         xpSkipReason = 'needs_review';
         console.log(`[FaceVerification] Skipping XP for needs_review face: ${normalizedAddress} (pending admin review)`);
-      } else {
-        xpSkipReason = 'duplicate';
-        console.log(`[FaceVerification] Skipping XP for duplicate face: ${normalizedAddress}`);
       }
+      // Note: 'duplicate' status returns 409 early, so we only reach here for 'verified' or 'needs_review'
       
       // Record attempt (successful verification - only 'verified' counts as success)
       const ipHashForAttempt = clientIp ? await hashIp(clientIp) : undefined;
@@ -7427,8 +7447,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({
         success: true,
-        verified: true,
-        isDuplicate: status === 'duplicate',
+        verified: status === 'verified',
+        isDuplicate: false, // Duplicates return 409 early
+        isNeedsReview: status === 'needs_review',
         isLikelySpoof,
         status: verification.status,
         xpAwarded,
