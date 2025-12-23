@@ -2,8 +2,14 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { transferRequestSchema, transferResponseSchema, paymentRequestSchema, submitAuthorizationSchema, authorizationSchema, type Authorization, aaveOperations, poolDraws } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { 
+  transferRequestSchema, transferResponseSchema, paymentRequestSchema, 
+  submitAuthorizationSchema, authorizationSchema, type Authorization, 
+  aaveOperations, poolDraws, wallets, xpBalances, xpClaims, xpActionCompletions,
+  aiConversations, faceVerifications, sybilScores, gooddollarIdentities,
+  cachedBalances, cachedMaxflowScores
+} from "@shared/schema";
+import { eq, desc, sql } from "drizzle-orm";
 import { randomUUID, createHash } from "crypto";
 import { getNetworkConfig, getNetworkByChainId } from "@shared/networks";
 
@@ -8291,58 +8297,480 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ===== TRACTION DASHBOARD ENDPOINT (PUBLIC) =====
-  app.get('/api/traction/users', async (_req, res) => {
+  // ===== TRACTION DASHBOARD V2 - BATCHED ENDPOINTS =====
+  
+  // Overview metrics - aggregated counts
+  app.get('/api/traction/overview', async (_req, res) => {
     try {
-      const walletsData = await storage.getAllWalletsWithDetails();
-      
-      // Enrich with G$ balance and XP data
-      // Wrapped in individual try/catch to be resilient to missing tables
-      const enrichedData = await Promise.all(walletsData.map(async (wallet) => {
-        let gdBalanceValue = wallet.gdBalance || '0';
-        let gdBalanceFormattedValue = wallet.gdBalanceFormatted || '0';
-        let xpBalanceValue = 0;
-        let xpClaimCountValue = 0;
-        
-        // Get G$ balance (already in wallet data from getAllWalletsWithDetails, but get fresh if needed)
-        try {
-          const gdBalance = await storage.getGdBalance(wallet.address);
-          if (gdBalance) {
-            gdBalanceValue = gdBalance.balance || '0';
-            gdBalanceFormattedValue = gdBalance.balanceFormatted || '0';
-          }
-        } catch {
-          // Table may not exist, use defaults from wallet data
-        }
-        
-        // Get XP balance
-        try {
-          const xpBalance = await storage.getXpBalance(wallet.address);
-          if (xpBalance) {
-            xpBalanceValue = xpBalance.totalXp || 0;
-            xpClaimCountValue = xpBalance.claimCount || 0;
-          }
-        } catch {
-          // Table may not exist, use defaults
-        }
-        
-        return {
-          ...wallet,
-          gdBalance: gdBalanceValue,
-          gdBalanceFormatted: gdBalanceFormattedValue,
-          xpBalance: xpBalanceValue,
-          xpClaimCount: xpClaimCountValue,
-        };
-      }));
-      
+      // Use parallel queries for efficiency
+      const [
+        totalWallets,
+        xpStats,
+        aiStats,
+        savingsStats,
+        faceStats,
+        sybilStats,
+        gdStats
+      ] = await Promise.all([
+        // Total wallets
+        db.select({ count: sql<number>`count(*)` }).from(wallets).then(r => r[0]?.count || 0),
+        // XP stats
+        (async () => {
+          try {
+            const result = await db.select({
+              totalXp: sql<number>`coalesce(sum(total_xp), 0)`,
+              totalSpent: sql<number>`coalesce(sum(total_xp_spent), 0)`,
+              usersWithXp: sql<number>`count(case when total_xp > 0 then 1 end)`
+            }).from(xpBalances);
+            return result[0] || { totalXp: 0, totalSpent: 0, usersWithXp: 0 };
+          } catch { return { totalXp: 0, totalSpent: 0, usersWithXp: 0 }; }
+        })(),
+        // AI stats
+        (async () => {
+          try {
+            const result = await db.select({
+              conversations: sql<number>`count(*)`,
+              totalMessages: sql<number>`coalesce(sum(json_array_length(messages::json)), 0)`
+            }).from(aiConversations);
+            return result[0] || { conversations: 0, totalMessages: 0 };
+          } catch { return { conversations: 0, totalMessages: 0 }; }
+        })(),
+        // Savings stats
+        (async () => {
+          try {
+            const result = await db.select({
+              totalDeposits: sql<number>`count(case when operation_type = 'supply' and status = 'completed' then 1 end)`,
+              totalWithdrawals: sql<number>`count(case when operation_type = 'withdraw' and status = 'completed' then 1 end)`,
+              depositVolume: sql<string>`coalesce(sum(case when operation_type = 'supply' and status = 'completed' then amount::bigint else 0 end)::text, '0')`,
+            }).from(aaveOperations);
+            return result[0] || { totalDeposits: 0, totalWithdrawals: 0, depositVolume: '0' };
+          } catch { return { totalDeposits: 0, totalWithdrawals: 0, depositVolume: '0' }; }
+        })(),
+        // Face verification stats
+        (async () => {
+          try {
+            const result = await db.select({
+              verified: sql<number>`count(case when status = 'verified' then 1 end)`,
+              duplicate: sql<number>`count(case when status = 'duplicate' then 1 end)`,
+              needsReview: sql<number>`count(case when status = 'needs_review' then 1 end)`,
+              total: sql<number>`count(*)`
+            }).from(faceVerifications);
+            return result[0] || { verified: 0, duplicate: 0, needsReview: 0, total: 0 };
+          } catch { return { verified: 0, duplicate: 0, needsReview: 0, total: 0 }; }
+        })(),
+        // Sybil tier stats
+        (async () => {
+          try {
+            const result = await db.select({
+              clear: sql<number>`count(case when tier = 'clear' then 1 end)`,
+              warn: sql<number>`count(case when tier = 'warn' then 1 end)`,
+              limit: sql<number>`count(case when tier = 'limit' then 1 end)`,
+              block: sql<number>`count(case when tier = 'block' then 1 end)`,
+              total: sql<number>`count(*)`
+            }).from(sybilScores);
+            return result[0] || { clear: 0, warn: 0, limit: 0, block: 0, total: 0 };
+          } catch { return { clear: 0, warn: 0, limit: 0, block: 0, total: 0 }; }
+        })(),
+        // GoodDollar stats
+        (async () => {
+          try {
+            const result = await db.select({
+              verified: sql<number>`count(case when is_verified = true then 1 end)`,
+              total: sql<number>`count(*)`
+            }).from(gooddollarIdentities);
+            return result[0] || { verified: 0, total: 0 };
+          } catch { return { verified: 0, total: 0 }; }
+        })()
+      ]);
+
       res.json({
-        users: enrichedData,
-        totalCount: enrichedData.length,
-        fetchedAt: new Date().toISOString(),
+        wallets: { total: totalWallets },
+        xp: xpStats,
+        ai: aiStats,
+        savings: savingsStats,
+        faceVerification: faceStats,
+        sybil: sybilStats,
+        goodDollar: gdStats,
+        fetchedAt: new Date().toISOString()
       });
     } catch (error) {
-      console.error('[Traction] Error fetching user data:', error);
-      res.status(500).json({ error: 'Failed to fetch traction data' });
+      console.error('[Traction] Overview error:', error);
+      res.status(500).json({ error: 'Failed to fetch overview' });
+    }
+  });
+
+  // Wallets list with basic data (paginated)
+  app.get('/api/traction/wallets', async (req, res) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      const offset = (page - 1) * limit;
+
+      // Get total count
+      const countResult = await db.select({ count: sql<number>`count(*)` }).from(wallets);
+      const total = countResult[0]?.count || 0;
+
+      // Get wallets with left joins to avoid N+1
+      const walletsData = await db.select({
+        address: wallets.address,
+        createdAt: wallets.createdAt,
+        lastSeen: wallets.lastSeen,
+      })
+        .from(wallets)
+        .orderBy(desc(wallets.lastSeen))
+        .limit(limit)
+        .offset(offset);
+
+      // Get XP balances for these wallets in one query
+      const addresses = walletsData.map(w => w.address.toLowerCase());
+      let xpMap: Record<string, { totalXp: number; totalSpent: number; pendingFaceXp: number }> = {};
+      let sybilMap: Record<string, { tier: string; score: number; xpMultiplier: string }> = {};
+      let faceMap: Record<string, { status: string; createdAt: Date | null }> = {};
+      let gdMap: Record<string, { isVerified: boolean }> = {};
+      let balanceMap: Record<string, { usdc: string }> = {};
+
+      if (addresses.length > 0) {
+        // XP balances
+        try {
+          const xpResults = await db.select()
+            .from(xpBalances)
+            .where(sql`lower(wallet_address) = ANY(${addresses})`);
+          xpResults.forEach(xp => {
+            xpMap[xp.walletAddress.toLowerCase()] = {
+              totalXp: xp.totalXp,
+              totalSpent: xp.totalXpSpent,
+              pendingFaceXp: xp.pendingFaceXp
+            };
+          });
+        } catch { /* table may not exist */ }
+
+        // Sybil scores
+        try {
+          const sybilResults = await db.select()
+            .from(sybilScores)
+            .where(sql`lower(wallet_address) = ANY(${addresses})`);
+          sybilResults.forEach(s => {
+            sybilMap[s.walletAddress.toLowerCase()] = {
+              tier: s.tier,
+              score: s.score,
+              xpMultiplier: s.xpMultiplier
+            };
+          });
+        } catch { /* table may not exist */ }
+
+        // Face verifications (get latest per wallet)
+        try {
+          const faceResults = await db.select()
+            .from(faceVerifications)
+            .where(sql`lower(wallet_address) = ANY(${addresses})`)
+            .orderBy(desc(faceVerifications.createdAt));
+          // Group by wallet, keeping first (latest) only
+          const seen = new Set<string>();
+          faceResults.forEach(f => {
+            const addr = f.walletAddress.toLowerCase();
+            if (!seen.has(addr)) {
+              seen.add(addr);
+              faceMap[addr] = { status: f.status, createdAt: f.createdAt };
+            }
+          });
+        } catch { /* table may not exist */ }
+
+        // GoodDollar identities
+        try {
+          const gdResults = await db.select()
+            .from(gooddollarIdentities)
+            .where(sql`lower(wallet_address) = ANY(${addresses})`);
+          gdResults.forEach(g => {
+            gdMap[g.walletAddress.toLowerCase()] = { isVerified: g.isWhitelisted };
+          });
+        } catch { /* table may not exist */ }
+
+        // Cached balances (aggregated USDC and aUSDC)
+        try {
+          const balanceResults = await db.select({
+            address: cachedBalances.address,
+            totalUsdc: sql<string>`coalesce(sum(balance::bigint)::text, '0')`
+          })
+            .from(cachedBalances)
+            .where(sql`lower(address) = ANY(${addresses})`)
+            .groupBy(cachedBalances.address);
+          balanceResults.forEach(b => {
+            balanceMap[b.address.toLowerCase()] = {
+              usdc: b.totalUsdc
+            };
+          });
+        } catch { /* table may not exist */ }
+      }
+
+      // Combine results
+      const enrichedWallets = walletsData.map(w => {
+        const addr = w.address.toLowerCase();
+        return {
+          address: w.address,
+          createdAt: w.createdAt,
+          lastSeen: w.lastSeen,
+          xp: xpMap[addr] || { totalXp: 0, totalSpent: 0, pendingFaceXp: 0 },
+          sybil: sybilMap[addr] || { tier: 'unknown', score: 0, xpMultiplier: '1.0' },
+          face: faceMap[addr] || null,
+          goodDollar: gdMap[addr] || { isVerified: false },
+          balance: balanceMap[addr] || { usdc: '0' }
+        };
+      });
+
+      res.json({
+        wallets: enrichedWallets,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit)
+        },
+        fetchedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('[Traction] Wallets error:', error);
+      res.status(500).json({ error: 'Failed to fetch wallets' });
+    }
+  });
+
+  // XP activity - claims by action type
+  app.get('/api/traction/xp', async (_req, res) => {
+    try {
+      // XP claims by action type
+      let claimsByAction: { actionType: string; count: number; totalXp: number }[] = [];
+      let recentClaims: any[] = [];
+      let topEarners: any[] = [];
+
+      try {
+        // Get claims grouped by action (using xpActionCompletions)
+        claimsByAction = await db.select({
+          actionType: xpActionCompletions.actionType,
+          count: sql<number>`count(*)`,
+          totalXp: sql<number>`coalesce(sum(xp_awarded), 0)`
+        })
+          .from(xpActionCompletions)
+          .groupBy(xpActionCompletions.actionType)
+          .orderBy(desc(sql`count(*)`));
+      } catch { /* table may not exist */ }
+
+      try {
+        // Recent claims
+        recentClaims = await db.select({
+          walletAddress: xpClaims.walletAddress,
+          xpAmount: xpClaims.xpAmount,
+          claimedAt: xpClaims.claimedAt
+        })
+          .from(xpClaims)
+          .orderBy(desc(xpClaims.claimedAt))
+          .limit(20);
+      } catch { /* table may not exist */ }
+
+      try {
+        // Top XP earners
+        topEarners = await db.select({
+          walletAddress: xpBalances.walletAddress,
+          totalXp: xpBalances.totalXp,
+          totalSpent: xpBalances.totalXpSpent,
+          claimCount: xpBalances.claimCount
+        })
+          .from(xpBalances)
+          .orderBy(desc(xpBalances.totalXp))
+          .limit(20);
+      } catch { /* table may not exist */ }
+
+      res.json({
+        claimsByAction,
+        recentClaims,
+        topEarners,
+        fetchedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('[Traction] XP error:', error);
+      res.status(500).json({ error: 'Failed to fetch XP data' });
+    }
+  });
+
+  // AI usage stats
+  app.get('/api/traction/ai', async (_req, res) => {
+    try {
+      let conversations: any[] = [];
+      let summary = { totalConversations: 0, totalMessages: 0, xpSpentOnAi: 0 };
+
+      try {
+        // Get recent AI conversations
+        conversations = await db.select({
+          walletAddress: aiConversations.walletAddress,
+          messageCount: sql<number>`json_array_length(messages::json)`,
+          createdAt: aiConversations.createdAt,
+          updatedAt: aiConversations.updatedAt
+        })
+          .from(aiConversations)
+          .orderBy(desc(aiConversations.updatedAt))
+          .limit(50);
+
+        // Summary
+        const summaryResult = await db.select({
+          totalConversations: sql<number>`count(*)`,
+          totalMessages: sql<number>`coalesce(sum(json_array_length(messages::json)), 0)`
+        }).from(aiConversations);
+        
+        summary.totalConversations = summaryResult[0]?.totalConversations || 0;
+        summary.totalMessages = summaryResult[0]?.totalMessages || 0;
+      } catch { /* table may not exist */ }
+
+      res.json({
+        conversations,
+        summary,
+        fetchedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('[Traction] AI error:', error);
+      res.status(500).json({ error: 'Failed to fetch AI data' });
+    }
+  });
+
+  // Savings (Aave operations)
+  app.get('/api/traction/savings', async (_req, res) => {
+    try {
+      let recentOperations: any[] = [];
+      let summary = { totalDeposits: 0, totalWithdrawals: 0, depositVolume: '0', withdrawalVolume: '0' };
+
+      try {
+        // Recent operations
+        recentOperations = await db.select({
+          userAddress: aaveOperations.userAddress,
+          chainId: aaveOperations.chainId,
+          operationType: aaveOperations.operationType,
+          amount: aaveOperations.amount,
+          status: aaveOperations.status,
+          createdAt: aaveOperations.createdAt
+        })
+          .from(aaveOperations)
+          .orderBy(desc(aaveOperations.createdAt))
+          .limit(50);
+
+        // Summary
+        const summaryResult = await db.select({
+          totalDeposits: sql<number>`count(case when operation_type = 'supply' and status = 'completed' then 1 end)`,
+          totalWithdrawals: sql<number>`count(case when operation_type = 'withdraw' and status = 'completed' then 1 end)`,
+          depositVolume: sql<string>`coalesce(sum(case when operation_type = 'supply' and status = 'completed' then amount::bigint else 0 end)::text, '0')`,
+          withdrawalVolume: sql<string>`coalesce(sum(case when operation_type = 'withdraw' and status = 'completed' then amount::bigint else 0 end)::text, '0')`
+        }).from(aaveOperations);
+
+        summary = {
+          totalDeposits: summaryResult[0]?.totalDeposits || 0,
+          totalWithdrawals: summaryResult[0]?.totalWithdrawals || 0,
+          depositVolume: summaryResult[0]?.depositVolume || '0',
+          withdrawalVolume: summaryResult[0]?.withdrawalVolume || '0'
+        };
+      } catch { /* table may not exist */ }
+
+      res.json({
+        recentOperations,
+        summary,
+        fetchedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('[Traction] Savings error:', error);
+      res.status(500).json({ error: 'Failed to fetch savings data' });
+    }
+  });
+
+  // Sybil/trust data
+  app.get('/api/traction/sybil', async (_req, res) => {
+    try {
+      let scores: any[] = [];
+      let tierCounts = { clear: 0, warn: 0, limit: 0, block: 0 };
+
+      try {
+        // Get all sybil scores
+        scores = await db.select({
+          walletAddress: sybilScores.walletAddress,
+          score: sybilScores.score,
+          tier: sybilScores.tier,
+          xpMultiplier: sybilScores.xpMultiplier,
+          signalBreakdown: sybilScores.signalBreakdown,
+          reasonCodes: sybilScores.reasonCodes,
+          manualOverride: sybilScores.manualOverride,
+          updatedAt: sybilScores.updatedAt
+        })
+          .from(sybilScores)
+          .orderBy(desc(sybilScores.score))
+          .limit(100);
+
+        // Tier counts
+        const counts = await db.select({
+          clear: sql<number>`count(case when tier = 'clear' then 1 end)`,
+          warn: sql<number>`count(case when tier = 'warn' then 1 end)`,
+          limit: sql<number>`count(case when tier = 'limit' then 1 end)`,
+          block: sql<number>`count(case when tier = 'block' then 1 end)`
+        }).from(sybilScores);
+        
+        tierCounts = counts[0] || tierCounts;
+      } catch { /* table may not exist */ }
+
+      res.json({
+        scores,
+        tierCounts,
+        fetchedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('[Traction] Sybil error:', error);
+      res.status(500).json({ error: 'Failed to fetch sybil data' });
+    }
+  });
+
+  // MaxFlow data
+  app.get('/api/traction/maxflow', async (_req, res) => {
+    try {
+      let scores: any[] = [];
+      let summary = { totalScored: 0, avgScore: 0, maxScore: 0 };
+
+      try {
+        // Get cached MaxFlow scores (scoreData is JSON with score inside)
+        const rawScores = await db.select({
+          address: cachedMaxflowScores.address,
+          scoreData: cachedMaxflowScores.scoreData,
+          updatedAt: cachedMaxflowScores.updatedAt
+        })
+          .from(cachedMaxflowScores)
+          .limit(100);
+
+        // Parse scoreData JSON to extract score
+        scores = rawScores.map(s => {
+          let score = 0;
+          try {
+            const parsed = JSON.parse(s.scoreData);
+            score = parsed?.score || 0;
+          } catch {}
+          return {
+            walletAddress: s.address,
+            score,
+            updatedAt: s.updatedAt
+          };
+        }).sort((a, b) => b.score - a.score);
+
+        // Summary
+        const summaryResult = await db.select({
+          totalScored: sql<number>`count(*)`
+        }).from(cachedMaxflowScores);
+
+        const allScores = scores.map(s => s.score);
+        summary = {
+          totalScored: summaryResult[0]?.totalScored || 0,
+          avgScore: allScores.length > 0 ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length) : 0,
+          maxScore: allScores.length > 0 ? Math.max(...allScores) : 0
+        };
+      } catch { /* table may not exist */ }
+
+      res.json({
+        scores,
+        summary,
+        fetchedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('[Traction] MaxFlow error:', error);
+      res.status(500).json({ error: 'Failed to fetch MaxFlow data' });
     }
   });
 
