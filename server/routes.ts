@@ -8297,19 +8297,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const walletsData = await storage.getAllWalletsWithDetails();
       
       // Enrich with G$ balance and XP data
+      // Wrapped in individual try/catch to be resilient to missing tables
       const enrichedData = await Promise.all(walletsData.map(async (wallet) => {
-        // Get G$ balance
-        const gdBalance = await storage.getGdBalance(wallet.address);
+        let gdBalanceValue = wallet.gdBalance || '0';
+        let gdBalanceFormattedValue = wallet.gdBalanceFormatted || '0';
+        let xpBalanceValue = 0;
+        let xpClaimCountValue = 0;
+        
+        // Get G$ balance (already in wallet data from getAllWalletsWithDetails, but get fresh if needed)
+        try {
+          const gdBalance = await storage.getGdBalance(wallet.address);
+          if (gdBalance) {
+            gdBalanceValue = gdBalance.balance || '0';
+            gdBalanceFormattedValue = gdBalance.balanceFormatted || '0';
+          }
+        } catch {
+          // Table may not exist, use defaults from wallet data
+        }
         
         // Get XP balance
-        const xpBalance = await storage.getXpBalance(wallet.address);
+        try {
+          const xpBalance = await storage.getXpBalance(wallet.address);
+          if (xpBalance) {
+            xpBalanceValue = xpBalance.totalXp || 0;
+            xpClaimCountValue = xpBalance.claimCount || 0;
+          }
+        } catch {
+          // Table may not exist, use defaults
+        }
         
         return {
           ...wallet,
-          gdBalance: gdBalance?.balance || '0',
-          gdBalanceFormatted: gdBalance?.balanceFormatted || '0',
-          xpBalance: xpBalance?.totalXp || 0,
-          xpClaimCount: xpBalance?.claimCount || 0,
+          gdBalance: gdBalanceValue,
+          gdBalanceFormatted: gdBalanceFormattedValue,
+          xpBalance: xpBalanceValue,
+          xpClaimCount: xpClaimCountValue,
         };
       }));
       

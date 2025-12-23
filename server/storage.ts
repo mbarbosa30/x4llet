@@ -2585,36 +2585,56 @@ export class DbStorage extends MemStorage {
         }
         
         // Check GoodDollar verification status
-        const gdIdentity = await db
-          .select()
-          .from(gooddollarIdentities)
-          .where(sql`LOWER(${gooddollarIdentities.walletAddress}) = ${normalizedAddress}`)
-          .limit(1);
-        
-        const isGoodDollarVerified = gdIdentity.length > 0 && gdIdentity[0].isWhitelisted && !gdIdentity[0].isExpired;
+        // Wrapped in try/catch to gracefully handle if tables don't exist yet
+        let isGoodDollarVerified = false;
+        let gdBalance = '0';
+        let gdBalanceFormatted = '0.00';
+        try {
+          const gdIdentity = await db
+            .select()
+            .from(gooddollarIdentities)
+            .where(sql`LOWER(${gooddollarIdentities.walletAddress}) = ${normalizedAddress}`)
+            .limit(1);
+          
+          isGoodDollarVerified = gdIdentity.length > 0 && gdIdentity[0].isWhitelisted && !gdIdentity[0].isExpired;
+        } catch {
+          // Table may not exist yet
+        }
         
         // Fetch G$ balance from cache
-        const gdBalanceData = await db
-          .select()
-          .from(cachedGdBalances)
-          .where(sql`LOWER(${cachedGdBalances.address}) = ${normalizedAddress}`)
-          .limit(1);
-        
-        const gdBalance = gdBalanceData[0]?.balance || '0';
-        const gdBalanceFormatted = gdBalanceData[0]?.balanceFormatted || '0.00';
+        try {
+          const gdBalanceData = await db
+            .select()
+            .from(cachedGdBalances)
+            .where(sql`LOWER(${cachedGdBalances.address}) = ${normalizedAddress}`)
+            .limit(1);
+          
+          gdBalance = gdBalanceData[0]?.balance || '0';
+          gdBalanceFormatted = gdBalanceData[0]?.balanceFormatted || '0.00';
+        } catch {
+          // Table may not exist yet
+        }
         
         // Check Face Verification status - get latest verification for this wallet
-        const faceVerificationData = await db
-          .select()
-          .from(faceVerifications)
-          .where(sql`LOWER(${faceVerifications.walletAddress}) = ${normalizedAddress}`)
-          .orderBy(desc(faceVerifications.createdAt))
-          .limit(1);
-        
-        const faceVerification = faceVerificationData[0];
-        const isFaceChecked = faceVerification?.status === 'verified';
-        const faceCheckedAt = faceVerification?.createdAt ? faceVerification.createdAt.toISOString() : null;
-        const faceCheckStatus = faceVerification?.status as 'verified' | 'duplicate' | 'failed' | null ?? null;
+        // Wrapped in try/catch to gracefully handle if faceVerifications table doesn't exist yet
+        let isFaceChecked = false;
+        let faceCheckedAt: string | null = null;
+        let faceCheckStatus: 'verified' | 'duplicate' | 'failed' | null = null;
+        try {
+          const faceVerificationData = await db
+            .select()
+            .from(faceVerifications)
+            .where(sql`LOWER(${faceVerifications.walletAddress}) = ${normalizedAddress}`)
+            .orderBy(desc(faceVerifications.createdAt))
+            .limit(1);
+          
+          const faceVerification = faceVerificationData[0];
+          isFaceChecked = faceVerification?.status === 'verified';
+          faceCheckedAt = faceVerification?.createdAt ? faceVerification.createdAt.toISOString() : null;
+          faceCheckStatus = faceVerification?.status as 'verified' | 'duplicate' | 'failed' | null ?? null;
+        } catch (faceError) {
+          // Table may not exist in production yet, use defaults
+        }
         
         return {
           address: wallet.address,
