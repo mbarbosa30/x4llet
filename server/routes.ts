@@ -8375,7 +8375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         (async () => {
           try {
             const result = await db.select({
-              verified: sql<number>`count(case when is_verified = true then 1 end)`,
+              verified: sql<number>`count(case when is_whitelisted = true then 1 end)`,
               total: sql<number>`count(*)`
             }).from(gooddollarIdentities);
             return result[0] || { verified: 0, total: 0 };

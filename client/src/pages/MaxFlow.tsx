@@ -866,7 +866,7 @@ export default function MaxFlow() {
             ) : null}
 
             {/* Pending XP Banner - Shows when user is face verified but has pending XP (hasn't vouched yet) */}
-            {faceVerificationData?.verified && xpData?.pendingFaceXp && xpData.pendingFaceXp > 0 && (
+            {faceVerificationData?.verified && xpData && xpData.pendingFaceXp > 0 && (
               <Card className="p-4 border-2 border-primary bg-primary/5" data-testid="card-pending-xp">
                 <div className="flex items-center gap-4">
                   <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">

@@ -1,17 +1,23 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Loader2, Users, DollarSign, Sparkles, PiggyBank, Search, 
   RefreshCw, Copy, ScanFace, CheckCircle, XCircle, AlertTriangle,
-  Shield, Bot, TrendingUp, ChevronLeft, ChevronRight
+  Shield, Bot, TrendingUp, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
+
+type SortDirection = 'asc' | 'desc' | null;
+type WalletSortColumn = 'address' | 'lastSeen' | 'usdc' | 'xp' | 'sybil' | 'face' | 'goodDollar';
+type SybilSortColumn = 'address' | 'score' | 'tier' | 'xpMultiplier';
+type XpSortColumn = 'address' | 'totalXp' | 'totalSpent' | 'claimCount';
 
 interface OverviewData {
   wallets: { total: number };
@@ -112,11 +118,44 @@ function getTierColor(tier: string): string {
   }
 }
 
+function SortIcon({ column, sortColumn, sortDir }: { column: string; sortColumn: string | null; sortDir: SortDirection }) {
+  if (sortColumn !== column) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-40" />;
+  if (sortDir === 'asc') return <ArrowUp className="h-3 w-3 ml-1" />;
+  return <ArrowDown className="h-3 w-3 ml-1" />;
+}
+
 export default function Traction() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [walletsPage, setWalletsPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Wallets table sorting & filtering
+  const [walletsSortCol, setWalletsSortCol] = useState<WalletSortColumn | null>(null);
+  const [walletsSortDir, setWalletsSortDir] = useState<SortDirection>(null);
+  const [sybilFilter, setSybilFilter] = useState<string>('all');
+  const [faceFilter, setFaceFilter] = useState<string>('all');
+  const [gdFilter, setGdFilter] = useState<string>('all');
+  
+  // Sybil table sorting
+  const [sybilSortCol, setSybilSortCol] = useState<SybilSortColumn | null>('score');
+  const [sybilSortDir, setSybilSortDir] = useState<SortDirection>('desc');
+  
+  // XP table sorting
+  const [xpSortCol, setXpSortCol] = useState<XpSortColumn | null>('totalXp');
+  const [xpSortDir, setXpSortDir] = useState<SortDirection>('desc');
+  
+  const toggleSort = <T extends string>(col: T, currentCol: T | null, currentDir: SortDirection, setCol: (c: T | null) => void, setDir: (d: SortDirection) => void) => {
+    if (currentCol !== col) {
+      setCol(col);
+      setDir('desc');
+    } else if (currentDir === 'desc') {
+      setDir('asc');
+    } else {
+      setCol(null);
+      setDir(null);
+    }
+  };
 
   const overviewQuery = useQuery<OverviewData>({
     queryKey: ['/api/traction/overview'],
@@ -195,9 +234,98 @@ export default function Traction() {
     });
   };
 
-  const filteredWallets = walletsQuery.data?.wallets.filter(w => 
-    !searchQuery || w.address.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  const filteredAndSortedWallets = useMemo(() => {
+    let result = walletsQuery.data?.wallets || [];
+    
+    // Apply search filter
+    if (searchQuery) {
+      result = result.filter(w => w.address.toLowerCase().includes(searchQuery.toLowerCase()));
+    }
+    
+    // Apply sybil tier filter
+    if (sybilFilter !== 'all') {
+      result = result.filter(w => w.sybil.tier === sybilFilter);
+    }
+    
+    // Apply face filter
+    if (faceFilter !== 'all') {
+      if (faceFilter === 'verified') {
+        result = result.filter(w => w.face?.status === 'verified');
+      } else if (faceFilter === 'duplicate') {
+        result = result.filter(w => w.face?.status === 'duplicate');
+      } else if (faceFilter === 'none') {
+        result = result.filter(w => !w.face);
+      }
+    }
+    
+    // Apply GoodDollar filter
+    if (gdFilter !== 'all') {
+      if (gdFilter === 'verified') {
+        result = result.filter(w => w.goodDollar.isVerified);
+      } else {
+        result = result.filter(w => !w.goodDollar.isVerified);
+      }
+    }
+    
+    // Apply sorting
+    if (walletsSortCol && walletsSortDir) {
+      result = [...result].sort((a, b) => {
+        let cmp = 0;
+        switch (walletsSortCol) {
+          case 'address': cmp = a.address.localeCompare(b.address); break;
+          case 'lastSeen': cmp = new Date(a.lastSeen).getTime() - new Date(b.lastSeen).getTime(); break;
+          case 'usdc': cmp = BigInt(a.balance.usdc || '0') > BigInt(b.balance.usdc || '0') ? 1 : -1; break;
+          case 'xp': cmp = a.xp.totalXp - b.xp.totalXp; break;
+          case 'sybil': cmp = a.sybil.score - b.sybil.score; break;
+          case 'face': {
+            const getVal = (s: string | undefined) => s === 'verified' ? 2 : s === 'duplicate' ? 1 : 0;
+            cmp = getVal(a.face?.status) - getVal(b.face?.status);
+            break;
+          }
+          case 'goodDollar': cmp = (a.goodDollar.isVerified ? 1 : 0) - (b.goodDollar.isVerified ? 1 : 0); break;
+        }
+        return walletsSortDir === 'desc' ? -cmp : cmp;
+      });
+    }
+    
+    return result;
+  }, [walletsQuery.data?.wallets, searchQuery, sybilFilter, faceFilter, gdFilter, walletsSortCol, walletsSortDir]);
+
+  const sortedSybilScores = useMemo(() => {
+    if (!sybilQuery.data?.scores) return [];
+    if (!sybilSortCol || !sybilSortDir) return sybilQuery.data.scores;
+    
+    return [...sybilQuery.data.scores].sort((a, b) => {
+      let cmp = 0;
+      switch (sybilSortCol) {
+        case 'address': cmp = a.walletAddress.localeCompare(b.walletAddress); break;
+        case 'score': cmp = a.score - b.score; break;
+        case 'tier': {
+          const tierOrder = { clear: 0, warn: 1, limit: 2, block: 3 };
+          cmp = (tierOrder[a.tier as keyof typeof tierOrder] ?? 0) - (tierOrder[b.tier as keyof typeof tierOrder] ?? 0);
+          break;
+        }
+        case 'xpMultiplier': cmp = parseFloat(a.xpMultiplier) - parseFloat(b.xpMultiplier); break;
+      }
+      return sybilSortDir === 'desc' ? -cmp : cmp;
+    });
+  }, [sybilQuery.data?.scores, sybilSortCol, sybilSortDir]);
+
+  const sortedTopEarners = useMemo(() => {
+    if (!xpQuery.data?.topEarners) return [];
+    if (!xpSortCol || !xpSortDir) return xpQuery.data.topEarners;
+    
+    return [...xpQuery.data.topEarners].sort((a, b) => {
+      let cmp = 0;
+      switch (xpSortCol) {
+        case 'address': cmp = a.walletAddress.localeCompare(b.walletAddress); break;
+        case 'totalXp': cmp = a.totalXp - b.totalXp; break;
+        case 'totalSpent': cmp = a.totalSpent - b.totalSpent; break;
+        case 'claimCount': cmp = a.claimCount - b.claimCount; break;
+      }
+      return xpSortDir === 'desc' ? -cmp : cmp;
+    });
+  }, [xpQuery.data?.topEarners, xpSortCol, xpSortDir]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -315,8 +443,8 @@ export default function Traction() {
           </TabsContent>
 
           <TabsContent value="wallets" className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="relative flex-1 max-w-md">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative flex-1 min-w-[200px] max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by address..."
@@ -326,9 +454,42 @@ export default function Traction() {
                   data-testid="input-search-wallets"
                 />
               </div>
+              <Select value={sybilFilter} onValueChange={setSybilFilter}>
+                <SelectTrigger className="w-[120px]" data-testid="filter-sybil">
+                  <SelectValue placeholder="Sybil" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Sybil</SelectItem>
+                  <SelectItem value="clear">Clear</SelectItem>
+                  <SelectItem value="warn">Warn</SelectItem>
+                  <SelectItem value="limit">Limit</SelectItem>
+                  <SelectItem value="block">Block</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={faceFilter} onValueChange={setFaceFilter}>
+                <SelectTrigger className="w-[120px]" data-testid="filter-face">
+                  <SelectValue placeholder="Face" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Face</SelectItem>
+                  <SelectItem value="verified">Verified</SelectItem>
+                  <SelectItem value="duplicate">Duplicate</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={gdFilter} onValueChange={setGdFilter}>
+                <SelectTrigger className="w-[100px]" data-testid="filter-gd">
+                  <SelectValue placeholder="G$" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All G$</SelectItem>
+                  <SelectItem value="verified">Verified</SelectItem>
+                  <SelectItem value="not">Not Verified</SelectItem>
+                </SelectContent>
+              </Select>
               {walletsQuery.data && (
-                <span className="text-sm text-muted-foreground">
-                  {filteredWallets.length} of {walletsQuery.data.pagination.total} wallets
+                <span className="text-sm text-muted-foreground ml-auto">
+                  {filteredAndSortedWallets.length} of {walletsQuery.data.pagination.total} wallets
                 </span>
               )}
             </div>
@@ -352,17 +513,31 @@ export default function Traction() {
                       <table className="w-full text-sm">
                         <thead className="border-b border-foreground/20 bg-muted/30">
                           <tr>
-                            <th className="text-left p-3 font-mono text-xs uppercase">Address</th>
-                            <th className="text-left p-3 font-mono text-xs uppercase">Last Seen</th>
-                            <th className="text-left p-3 font-mono text-xs uppercase">USDC</th>
-                            <th className="text-left p-3 font-mono text-xs uppercase">XP</th>
-                            <th className="text-left p-3 font-mono text-xs uppercase">Sybil</th>
-                            <th className="text-left p-3 font-mono text-xs uppercase">Face</th>
-                            <th className="text-left p-3 font-mono text-xs uppercase">G$</th>
+                            <th className="text-left p-3 font-mono text-xs uppercase cursor-pointer hover:bg-muted/50" onClick={() => toggleSort('address', walletsSortCol, walletsSortDir, setWalletsSortCol, setWalletsSortDir)}>
+                              <div className="flex items-center">Address<SortIcon column="address" sortColumn={walletsSortCol} sortDir={walletsSortDir} /></div>
+                            </th>
+                            <th className="text-left p-3 font-mono text-xs uppercase cursor-pointer hover:bg-muted/50" onClick={() => toggleSort('lastSeen', walletsSortCol, walletsSortDir, setWalletsSortCol, setWalletsSortDir)}>
+                              <div className="flex items-center">Last Seen<SortIcon column="lastSeen" sortColumn={walletsSortCol} sortDir={walletsSortDir} /></div>
+                            </th>
+                            <th className="text-left p-3 font-mono text-xs uppercase cursor-pointer hover:bg-muted/50" onClick={() => toggleSort('usdc', walletsSortCol, walletsSortDir, setWalletsSortCol, setWalletsSortDir)}>
+                              <div className="flex items-center">USDC<SortIcon column="usdc" sortColumn={walletsSortCol} sortDir={walletsSortDir} /></div>
+                            </th>
+                            <th className="text-left p-3 font-mono text-xs uppercase cursor-pointer hover:bg-muted/50" onClick={() => toggleSort('xp', walletsSortCol, walletsSortDir, setWalletsSortCol, setWalletsSortDir)}>
+                              <div className="flex items-center">XP<SortIcon column="xp" sortColumn={walletsSortCol} sortDir={walletsSortDir} /></div>
+                            </th>
+                            <th className="text-left p-3 font-mono text-xs uppercase cursor-pointer hover:bg-muted/50" onClick={() => toggleSort('sybil', walletsSortCol, walletsSortDir, setWalletsSortCol, setWalletsSortDir)}>
+                              <div className="flex items-center">Sybil<SortIcon column="sybil" sortColumn={walletsSortCol} sortDir={walletsSortDir} /></div>
+                            </th>
+                            <th className="text-left p-3 font-mono text-xs uppercase cursor-pointer hover:bg-muted/50" onClick={() => toggleSort('face', walletsSortCol, walletsSortDir, setWalletsSortCol, setWalletsSortDir)}>
+                              <div className="flex items-center">Face<SortIcon column="face" sortColumn={walletsSortCol} sortDir={walletsSortDir} /></div>
+                            </th>
+                            <th className="text-left p-3 font-mono text-xs uppercase cursor-pointer hover:bg-muted/50" onClick={() => toggleSort('goodDollar', walletsSortCol, walletsSortDir, setWalletsSortCol, setWalletsSortDir)}>
+                              <div className="flex items-center">G$<SortIcon column="goodDollar" sortColumn={walletsSortCol} sortDir={walletsSortDir} /></div>
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
-                          {filteredWallets.map((wallet, idx) => (
+                          {filteredAndSortedWallets.map((wallet, idx) => (
                             <tr key={wallet.address} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/20'} data-testid={`row-wallet-${idx}`}>
                               <td className="p-3 font-mono text-xs">
                                 <div className="flex items-center gap-1">
@@ -400,7 +575,7 @@ export default function Traction() {
                               </td>
                             </tr>
                           ))}
-                          {filteredWallets.length === 0 && (
+                          {filteredAndSortedWallets.length === 0 && (
                             <tr>
                               <td colSpan={7} className="p-8 text-center text-muted-foreground">No wallets found</td>
                             </tr>
@@ -483,22 +658,30 @@ export default function Traction() {
 
                 <Card className="border-foreground">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-mono uppercase">Sybil Scores (Top 100 by Score)</CardTitle>
+                    <CardTitle className="text-sm font-mono uppercase">Sybil Scores (Top 100)</CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead className="border-b border-foreground/20 bg-muted/30">
                           <tr>
-                            <th className="text-left p-3 font-mono text-xs uppercase">Address</th>
-                            <th className="text-left p-3 font-mono text-xs uppercase">Score</th>
-                            <th className="text-left p-3 font-mono text-xs uppercase">Tier</th>
-                            <th className="text-left p-3 font-mono text-xs uppercase">XP Mult</th>
+                            <th className="text-left p-3 font-mono text-xs uppercase cursor-pointer hover:bg-muted/50" onClick={() => toggleSort('address', sybilSortCol, sybilSortDir, setSybilSortCol, setSybilSortDir)}>
+                              <div className="flex items-center">Address<SortIcon column="address" sortColumn={sybilSortCol} sortDir={sybilSortDir} /></div>
+                            </th>
+                            <th className="text-left p-3 font-mono text-xs uppercase cursor-pointer hover:bg-muted/50" onClick={() => toggleSort('score', sybilSortCol, sybilSortDir, setSybilSortCol, setSybilSortDir)}>
+                              <div className="flex items-center">Score<SortIcon column="score" sortColumn={sybilSortCol} sortDir={sybilSortDir} /></div>
+                            </th>
+                            <th className="text-left p-3 font-mono text-xs uppercase cursor-pointer hover:bg-muted/50" onClick={() => toggleSort('tier', sybilSortCol, sybilSortDir, setSybilSortCol, setSybilSortDir)}>
+                              <div className="flex items-center">Tier<SortIcon column="tier" sortColumn={sybilSortCol} sortDir={sybilSortDir} /></div>
+                            </th>
+                            <th className="text-left p-3 font-mono text-xs uppercase cursor-pointer hover:bg-muted/50" onClick={() => toggleSort('xpMultiplier', sybilSortCol, sybilSortDir, setSybilSortCol, setSybilSortDir)}>
+                              <div className="flex items-center">XP Mult<SortIcon column="xpMultiplier" sortColumn={sybilSortCol} sortDir={sybilSortDir} /></div>
+                            </th>
                             <th className="text-left p-3 font-mono text-xs uppercase">Override</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {sybilQuery.data.scores.map((s, idx) => (
+                          {sortedSybilScores.map((s, idx) => (
                             <tr key={s.walletAddress} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
                               <td className="p-3 font-mono text-xs">
                                 <div className="flex items-center gap-1">
@@ -577,13 +760,19 @@ export default function Traction() {
                       <table className="w-full text-sm">
                         <thead className="border-b border-foreground/20 bg-muted/30">
                           <tr>
-                            <th className="text-left p-3 font-mono text-xs uppercase">Address</th>
-                            <th className="text-left p-3 font-mono text-xs uppercase">Total</th>
-                            <th className="text-left p-3 font-mono text-xs uppercase">Spent</th>
+                            <th className="text-left p-3 font-mono text-xs uppercase cursor-pointer hover:bg-muted/50" onClick={() => toggleSort('address', xpSortCol, xpSortDir, setXpSortCol, setXpSortDir)}>
+                              <div className="flex items-center">Address<SortIcon column="address" sortColumn={xpSortCol} sortDir={xpSortDir} /></div>
+                            </th>
+                            <th className="text-left p-3 font-mono text-xs uppercase cursor-pointer hover:bg-muted/50" onClick={() => toggleSort('totalXp', xpSortCol, xpSortDir, setXpSortCol, setXpSortDir)}>
+                              <div className="flex items-center">Total<SortIcon column="totalXp" sortColumn={xpSortCol} sortDir={xpSortDir} /></div>
+                            </th>
+                            <th className="text-left p-3 font-mono text-xs uppercase cursor-pointer hover:bg-muted/50" onClick={() => toggleSort('totalSpent', xpSortCol, xpSortDir, setXpSortCol, setXpSortDir)}>
+                              <div className="flex items-center">Spent<SortIcon column="totalSpent" sortColumn={xpSortCol} sortDir={xpSortDir} /></div>
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
-                          {xpQuery.data.topEarners.map((earner, idx) => (
+                          {sortedTopEarners.map((earner, idx) => (
                             <tr key={earner.walletAddress} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
                               <td className="p-3 font-mono text-xs">{formatAddress(earner.walletAddress)}</td>
                               <td className="p-3 font-mono text-xs font-bold">{formatXp(earner.totalXp)}</td>
