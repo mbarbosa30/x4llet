@@ -40,7 +40,7 @@ The XP system uses a unified sybil detection approach with graduated multipliers
 - **Null Safety**: If sybil score calculation fails, defaults to 'clear' tier to avoid blocking legitimate users
 - **XP Actions**: first_transfer_received and savings_3_days are on-demand endpoints (no cron job needed)
 - **AI Chat**: Deducts 1 XP per message with refund on errors
-- **Face Verification XP**: Awards 120 XP base, but requires user to vouch someone first (stored as pendingFaceXp)
+- **Face Verification XP**: Awards 120 XP base, but requires user to vouch someone first (stored as pendingFaceXp). One-time only - tracked via `xp_action_completions` table with xpAwarded=0 for pending, xpAwarded>0 for awarded. Prevents duplicate XP on re-verification.
 - **Face Check Rate Limits**: Max 3 attempts per wallet per 7 days (tracked in `face_verification_attempts` table), plus 5 attempts per IP per 10 minutes
 - **Face Duplicate Detection**: Uses Euclidean distance (face-api.js native metric, lower = more similar). Thresholds: <0.4 auto-blocked as duplicate, 0.4-0.6 flagged as 'needs_review' (XP withheld pending admin), >0.6 verified normally. Admin endpoints: `/api/admin/face-verification/reclassify` to recalculate distances and reclassify production data, `/api/admin/face-verification/review-queue` to list borderline cases, `/api/admin/face-verification/review/:address` to approve/reject
 

@@ -4866,6 +4866,30 @@ export class DbStorage extends MemStorage {
     const normalized = walletAddress.toLowerCase();
     const now = new Date();
     
+    // Check if face_verification action was already FULLY awarded (xpAwarded > 0)
+    // A completion with xpAwarded=0 means pending status - we can still award
+    const existingCompletion = await db
+      .select()
+      .from(xpActionCompletions)
+      .where(and(
+        eq(xpActionCompletions.walletAddress, normalized),
+        eq(xpActionCompletions.actionType, 'face_verification')
+      ))
+      .limit(1);
+    
+    if (existingCompletion.length > 0 && existingCompletion[0].xpAwarded > 0) {
+      console.log(`[XP] Skipping pending face XP for ${normalized} - already claimed ${existingCompletion[0].xpAwarded / 100} XP`);
+      // Clear pending XP since they already got it
+      await db
+        .update(xpBalances)
+        .set({
+          pendingFaceXp: 0,
+          updatedAt: now,
+        })
+        .where(eq(xpBalances.walletAddress, normalized));
+      return { awarded: false, xpAmount: 0 };
+    }
+    
     const existingBalance = await this.getXpBalance(normalized);
     
     if (!existingBalance || existingBalance.pendingFaceXp === 0) {
@@ -4887,6 +4911,29 @@ export class DbStorage extends MemStorage {
     // pendingXp is the BASE amount - claimXp will apply appropriate multiplier
     // Use maxFlowSignal = -1 to indicate face verification vouch unlock
     const claimResult = await this.claimXp(normalized, pendingXp, -1);
+    
+    // Update the completion record with actual XP awarded (or insert if doesn't exist)
+    if (existingCompletion.length > 0) {
+      // Update existing pending completion with actual XP awarded
+      await db
+        .update(xpActionCompletions)
+        .set({
+          xpAwarded: claimResult.appliedXp,
+          completedAt: now,
+        })
+        .where(and(
+          eq(xpActionCompletions.walletAddress, normalized),
+          eq(xpActionCompletions.actionType, 'face_verification')
+        ));
+    } else {
+      // Insert new completion if none exists
+      await db.insert(xpActionCompletions).values({
+        walletAddress: normalized,
+        actionType: 'face_verification',
+        xpAwarded: claimResult.appliedXp,
+        completedAt: now,
+      }).onConflictDoNothing();
+    }
     
     console.log(`[XP] Awarded pending face XP to ${normalized}: requested=${pendingXp} (${pendingXp / 100} XP), applied=${claimResult.appliedXp} (${claimResult.appliedXp / 100} XP), mult=${claimResult.multiplier}`);
     return { awarded: true, xpAmount: claimResult.appliedXp };

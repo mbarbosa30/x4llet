@@ -7300,59 +7300,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Track pending XP for users who haven't vouched yet
       let pendingXp = 0;
       
+      // CRITICAL: Check if user already received face verification XP (one-time only)
+      // We check for xpAwarded > 0 because xpAwarded=0 means pending (waiting for vouch)
+      const existingCompletion = await db
+        .select()
+        .from(xpActionCompletions)
+        .where(and(
+          eq(xpActionCompletions.walletAddress, normalizedAddress),
+          eq(xpActionCompletions.actionType, 'face_verification')
+        ))
+        .limit(1);
+      const alreadyClaimedFaceXp = existingCompletion.length > 0 && existingCompletion[0].xpAwarded > 0;
+      const hasPendingCompletion = existingCompletion.length > 0 && existingCompletion[0].xpAwarded === 0;
+      
       if (status === 'verified') {
-        try {
-          // Calculate unified sybil confidence score (for display only - claimXp enforces)
-          const scoreResult = await storage.calculateSybilScore(normalizedAddress);
-          sybilTier = scoreResult.manualOverride ? scoreResult.manualTier || scoreResult.tier : scoreResult.tier;
-          sybilScore = scoreResult.score;
-          
-          // Base XP for Face Check is 120 (12000 centi-XP)
-          // NOTE: Do NOT pre-multiply here - claimXp applies sybil multiplier internally
-          const baseXp = 12000;
-          
-          // Block tier check (claimXp also checks, but we want to set xpSkipReason)
-          if (sybilTier === 'block') {
-            xpSkipReason = 'sybil_blocked';
-            console.log(`[FaceVerification] Blocked XP for sybil tier: ${normalizedAddress} (tier: ${sybilTier}, score: ${sybilScore})`);
-          } else {
-            // Check if user has given at least one vouch (outgoing_total > 0)
-            const cachedScore = await storage.getMaxFlowScoreRaw(normalizedAddress);
-            const outgoingVouches = cachedScore?.vouch_counts?.outgoing_total || 0;
+        if (alreadyClaimedFaceXp) {
+          // User already received face verification XP - skip awarding
+          xpSkipReason = 'already_claimed';
+          console.log(`[FaceVerification] Skipping XP for ${normalizedAddress} - already claimed face verification XP`);
+        } else if (hasPendingCompletion) {
+          // User has pending completion - they verified before but haven't vouched yet
+          xpSkipReason = 'already_pending';
+          console.log(`[FaceVerification] Skipping XP for ${normalizedAddress} - already has pending face verification (vouch to claim)`);
+        } else {
+          try {
+            // Calculate unified sybil confidence score (for display only - claimXp enforces)
+            const scoreResult = await storage.calculateSybilScore(normalizedAddress);
+            sybilTier = scoreResult.manualOverride ? scoreResult.manualTier || scoreResult.tier : scoreResult.tier;
+            sybilScore = scoreResult.score;
             
-            if (outgoingVouches > 0) {
-              // User has vouched someone - award XP immediately
-              // claimXp will apply sybil multiplier and daily cap
-              const claimResult = await storage.claimXp(normalizedAddress, baseXp, 0);
-              xpAwarded = claimResult.appliedXp / 100;
-              console.log(`[FaceVerification] Awarded ${xpAwarded} XP to ${normalizedAddress} (has ${outgoingVouches} vouches, tier: ${sybilTier}, mult: ${claimResult.multiplier})`);
+            // Base XP for Face Check is 120 (12000 centi-XP)
+            // NOTE: Do NOT pre-multiply here - claimXp applies sybil multiplier internally
+            const baseXp = 12000;
+            
+            // Block tier check (claimXp also checks, but we want to set xpSkipReason)
+            if (sybilTier === 'block') {
+              xpSkipReason = 'sybil_blocked';
+              console.log(`[FaceVerification] Blocked XP for sybil tier: ${normalizedAddress} (tier: ${sybilTier}, score: ${sybilScore})`);
             } else {
-              // User hasn't vouched anyone - set pending XP, they'll get it when they vouch
-              // Store base XP - multiplier will be applied when awarded via claimXp
-              await storage.setPendingFaceXp(normalizedAddress, baseXp);
-              pendingXp = baseXp / 100; // Show base amount as pending
-              xpSkipReason = 'pending_vouch';
-              console.log(`[FaceVerification] Set ${pendingXp} pending XP for ${normalizedAddress} (must vouch someone to claim)`);
-            }
-          }
-          
-          // Log reason codes for monitoring
-          if (scoreResult.reasonCodes && scoreResult.reasonCodes !== '[]') {
-            try {
-              const reasons = JSON.parse(scoreResult.reasonCodes);
-              if (reasons.length > 0) {
-                console.log(`[FaceVerification] Sybil reasons for ${normalizedAddress}: ${reasons.join(', ')}`);
+              // Check if user has given at least one vouch (outgoing_total > 0)
+              const cachedScore = await storage.getMaxFlowScoreRaw(normalizedAddress);
+              const outgoingVouches = cachedScore?.vouch_counts?.outgoing_total || 0;
+              
+              if (outgoingVouches > 0) {
+                // User has vouched someone - award XP immediately
+                // claimXp will apply sybil multiplier and daily cap
+                const claimResult = await storage.claimXp(normalizedAddress, baseXp, 0);
+                xpAwarded = claimResult.appliedXp / 100;
+                
+                // Record one-time action completion to prevent re-earning
+                await db.insert(xpActionCompletions).values({
+                  walletAddress: normalizedAddress,
+                  actionType: 'face_verification',
+                  xpAwarded: claimResult.appliedXp,
+                  completedAt: new Date(),
+                }).onConflictDoNothing();
+                
+                console.log(`[FaceVerification] Awarded ${xpAwarded} XP to ${normalizedAddress} (has ${outgoingVouches} vouches, tier: ${sybilTier}, mult: ${claimResult.multiplier})`);
+              } else {
+                // User hasn't vouched anyone - set pending XP, they'll get it when they vouch
+                // Store base XP - multiplier will be applied when awarded via claimXp
+                await storage.setPendingFaceXp(normalizedAddress, baseXp);
+                pendingXp = baseXp / 100; // Show base amount as pending
+                xpSkipReason = 'pending_vouch';
+                
+                // CRITICAL: Record action completion NOW to prevent re-earning on re-verification
+                // The actual XP will be awarded later via awardPendingFaceXp when they vouch
+                // We record with xpAwarded=0 and metadata indicating pending status
+                await db.insert(xpActionCompletions).values({
+                  walletAddress: normalizedAddress,
+                  actionType: 'face_verification',
+                  xpAwarded: 0, // Zero for now - will not update when actually awarded (one record per action)
+                  metadata: JSON.stringify({ status: 'pending_vouch' }),
+                  completedAt: new Date(),
+                }).onConflictDoNothing();
+                
+                console.log(`[FaceVerification] Set ${pendingXp} pending XP for ${normalizedAddress} (must vouch someone to claim)`);
               }
+            }
+            
+            // Log reason codes for monitoring
+            if (scoreResult.reasonCodes && scoreResult.reasonCodes !== '[]') {
+              try {
+                const reasons = JSON.parse(scoreResult.reasonCodes);
+                if (reasons.length > 0) {
+                  console.log(`[FaceVerification] Sybil reasons for ${normalizedAddress}: ${reasons.join(', ')}`);
+                }
+              } catch {}
+            }
+          } catch (xpError) {
+            console.error('[FaceVerification] Error calculating sybil score/awarding XP:', xpError);
+            // Fallback: set pending XP on error to avoid blocking legitimate users
+            try {
+              await storage.setPendingFaceXp(normalizedAddress, 12000);
+              pendingXp = 120;
+              xpSkipReason = 'pending_vouch';
+              
+              // Also record completion to prevent re-earning
+              await db.insert(xpActionCompletions).values({
+                walletAddress: normalizedAddress,
+                actionType: 'face_verification',
+                xpAwarded: 0,
+                metadata: JSON.stringify({ status: 'pending_vouch', error: true }),
+                completedAt: new Date(),
+              }).onConflictDoNothing();
             } catch {}
           }
-        } catch (xpError) {
-          console.error('[FaceVerification] Error calculating sybil score/awarding XP:', xpError);
-          // Fallback: set pending XP on error to avoid blocking legitimate users
-          try {
-            await storage.setPendingFaceXp(normalizedAddress, 12000);
-            pendingXp = 120;
-            xpSkipReason = 'pending_vouch';
-          } catch {}
         }
       } else if (status === 'needs_review') {
         xpSkipReason = 'needs_review';
@@ -7809,30 +7862,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Change to verified and award pending XP
         await storage.updateFaceVerificationStatus(normalizedAddress, 'verified');
         
-        // Award the face verification XP (120 XP base)
-        const baseXp = 12000;
-        try {
-          const claimResult = await storage.claimXp(normalizedAddress, baseXp, 0);
-          console.log(`[Admin] Approved and awarded ${claimResult.appliedXp / 100} XP to ${normalizedAddress}`);
-          
-          res.json({
-            success: true,
-            decision: 'approve',
-            walletAddress: normalizedAddress,
-            xpAwarded: claimResult.appliedXp / 100,
-            reason,
-          });
-        } catch (xpError) {
-          // Even if XP fails, the status is updated
-          console.error(`[Admin] XP award failed for ${normalizedAddress}:`, xpError);
+        // CRITICAL: Check if already received face verification XP (one-time only)
+        // We check for xpAwarded > 0 because xpAwarded=0 means pending (waiting for vouch)
+        const existingCompletion = await db
+          .select()
+          .from(xpActionCompletions)
+          .where(and(
+            eq(xpActionCompletions.walletAddress, normalizedAddress),
+            eq(xpActionCompletions.actionType, 'face_verification')
+          ))
+          .limit(1);
+        const alreadyClaimed = existingCompletion.length > 0 && existingCompletion[0].xpAwarded > 0;
+        
+        if (alreadyClaimed) {
+          console.log(`[Admin] Approved ${normalizedAddress} but skipping XP - already claimed face verification XP`);
           res.json({
             success: true,
             decision: 'approve',
             walletAddress: normalizedAddress,
             xpAwarded: 0,
-            xpError: 'Failed to award XP',
+            xpSkipped: 'already_claimed',
             reason,
           });
+        } else {
+          // Award the face verification XP (120 XP base)
+          const baseXp = 12000;
+          try {
+            const claimResult = await storage.claimXp(normalizedAddress, baseXp, 0);
+            
+            // Update or insert completion record with actual XP awarded
+            if (existingCompletion.length > 0) {
+              await db
+                .update(xpActionCompletions)
+                .set({
+                  xpAwarded: claimResult.appliedXp,
+                  completedAt: new Date(),
+                })
+                .where(and(
+                  eq(xpActionCompletions.walletAddress, normalizedAddress),
+                  eq(xpActionCompletions.actionType, 'face_verification')
+                ));
+            } else {
+              await db.insert(xpActionCompletions).values({
+                walletAddress: normalizedAddress,
+                actionType: 'face_verification',
+                xpAwarded: claimResult.appliedXp,
+                completedAt: new Date(),
+              }).onConflictDoNothing();
+            }
+            
+            console.log(`[Admin] Approved and awarded ${claimResult.appliedXp / 100} XP to ${normalizedAddress}`);
+            
+            res.json({
+              success: true,
+              decision: 'approve',
+              walletAddress: normalizedAddress,
+              xpAwarded: claimResult.appliedXp / 100,
+              reason,
+            });
+          } catch (xpError) {
+            // Even if XP fails, the status is updated
+            console.error(`[Admin] XP award failed for ${normalizedAddress}:`, xpError);
+            res.json({
+              success: true,
+              decision: 'approve',
+              walletAddress: normalizedAddress,
+              xpAwarded: 0,
+              xpError: 'Failed to award XP',
+              reason,
+            });
+          }
         }
       } else {
         // Reject - mark as duplicate
