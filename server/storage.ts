@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, type XpAction, type XpActionCompletion, type AiConversation, type AiMessage, type IpEvent, type InsertIpEvent, type FaceVerification, type FaceVerificationAttempt, type SybilScore, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, xpActions, xpActionCompletions, globalSettings, aiConversations, ipEvents, faceVerifications, faceVerificationAttempts, gdDailySpending, usdcDailyRedemptions, senadorRedemptions, sybilScores } from "@shared/schema";
+import { type User, type InsertUser, type BalanceResponse, type Transaction, type PaymentRequest, type Authorization, type AaveOperation, type PoolSettings, type PoolDraw, type PoolContribution, type PoolYieldSnapshot, type Referral, type GoodDollarIdentity, type GoodDollarClaim, type CachedGdBalance, type InsertGoodDollarIdentity, type InsertGoodDollarClaim, type XpBalance, type XpClaim, type XpAction, type XpActionCompletion, type AiConversation, type AiMessage, type IpEvent, type InsertIpEvent, type FaceVerification, type FaceVerificationAttempt, type SybilScore, type GeoPost, type GeoComment, type GeoLike, type GeoReport, authorizations, wallets, cachedBalances, cachedTransactions, exchangeRates, balanceHistory, cachedMaxflowScores, gasDrips, aaveOperations, poolSettings, poolDraws, poolContributions, poolYieldSnapshots, referrals, gooddollarIdentities, gooddollarClaims, cachedGdBalances, xpBalances, xpClaims, xpActions, xpActionCompletions, globalSettings, aiConversations, ipEvents, faceVerifications, faceVerificationAttempts, gdDailySpending, usdcDailyRedemptions, senadorRedemptions, sybilScores, geoPosts, geoComments, geoLikes, geoReports } from "@shared/schema";
 
 // XP claim result with sybil enforcement
 export interface XpClaimResult {
@@ -552,6 +552,34 @@ export interface IStorage {
   // Sybil scoring methods
   getSybilScore(walletAddress: string): Promise<SybilScore | null>;
   getSybilScoresByTier(tier: string, limit: number, includeOverrides: boolean): Promise<SybilScore[]>;
+  
+  // GeoChat methods
+  createGeoPost(data: {
+    walletAddress: string;
+    content: string;
+    geohash: string;
+    latitude: string;
+    longitude: string;
+    xpCost: number;
+  }): Promise<GeoPost>;
+  getGeoPosts(geohash: string, radiusKm: number, limit?: number, offset?: number): Promise<GeoPost[]>;
+  getGeoPost(postId: string): Promise<GeoPost | null>;
+  createGeoComment(data: {
+    postId: string;
+    walletAddress: string;
+    content: string;
+    xpCost: number;
+  }): Promise<GeoComment>;
+  getGeoComments(postId: string): Promise<GeoComment[]>;
+  toggleGeoLike(postId: string, walletAddress: string): Promise<{ liked: boolean; newCount: number }>;
+  hasUserLikedPost(postId: string, walletAddress: string): Promise<boolean>;
+  reportGeoContent(data: {
+    postId?: string;
+    commentId?: string;
+    reporterAddress: string;
+    reason: string;
+    details?: string;
+  }): Promise<GeoReport>;
 }
 
 export interface GasDrip {
@@ -1228,6 +1256,57 @@ export class MemStorage implements IStorage {
 
   async getSybilScoresByTier(tier: string, limit: number, includeOverrides: boolean): Promise<SybilScore[]> {
     return [];
+  }
+
+  // GeoChat stub implementations
+  async createGeoPost(data: {
+    walletAddress: string;
+    content: string;
+    geohash: string;
+    latitude: string;
+    longitude: string;
+    xpCost: number;
+  }): Promise<GeoPost> {
+    throw new Error('GeoChat not available in MemStorage');
+  }
+
+  async getGeoPosts(geohash: string, radiusKm: number, limit?: number, offset?: number): Promise<GeoPost[]> {
+    return [];
+  }
+
+  async getGeoPost(postId: string): Promise<GeoPost | null> {
+    return null;
+  }
+
+  async createGeoComment(data: {
+    postId: string;
+    walletAddress: string;
+    content: string;
+    xpCost: number;
+  }): Promise<GeoComment> {
+    throw new Error('GeoChat not available in MemStorage');
+  }
+
+  async getGeoComments(postId: string): Promise<GeoComment[]> {
+    return [];
+  }
+
+  async toggleGeoLike(postId: string, walletAddress: string): Promise<{ liked: boolean; newCount: number }> {
+    return { liked: false, newCount: 0 };
+  }
+
+  async hasUserLikedPost(postId: string, walletAddress: string): Promise<boolean> {
+    return false;
+  }
+
+  async reportGeoContent(data: {
+    postId?: string;
+    commentId?: string;
+    reporterAddress: string;
+    reason: string;
+    details?: string;
+  }): Promise<GeoReport> {
+    throw new Error('GeoChat not available in MemStorage');
   }
 }
 
@@ -7029,6 +7108,179 @@ export class DbStorage extends MemStorage {
       console.error('[Sybil] Error getting sybil scores by tier:', error);
       return [];
     }
+  }
+
+  // ===== GeoChat Methods =====
+  
+  async createGeoPost(data: {
+    walletAddress: string;
+    content: string;
+    geohash: string;
+    latitude: string;
+    longitude: string;
+    xpCost: number;
+  }): Promise<GeoPost> {
+    const [post] = await db.insert(geoPosts).values({
+      walletAddress: data.walletAddress.toLowerCase(),
+      content: data.content,
+      geohash: data.geohash,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      xpCost: data.xpCost,
+    }).returning();
+    return post;
+  }
+
+  async getGeoPosts(geohash: string, radiusKm: number, limit: number = 50, offset: number = 0): Promise<GeoPost[]> {
+    // Get geohash prefix for radius-based filtering
+    // 5 chars = ~5km, 4 chars = ~40km, 3 chars = ~150km
+    const prefixLength = radiusKm <= 5 ? 5 : radiusKm <= 25 ? 4 : 3;
+    const geohashPrefix = geohash.substring(0, prefixLength);
+    
+    // Query posts with matching geohash prefix, not hidden
+    const posts = await db.select()
+      .from(geoPosts)
+      .where(
+        and(
+          sql`${geoPosts.geohash} LIKE ${geohashPrefix + '%'}`,
+          eq(geoPosts.isHidden, false)
+        )
+      )
+      .orderBy(desc(geoPosts.createdAt))
+      .limit(limit)
+      .offset(offset);
+    
+    return posts;
+  }
+
+  async getGeoPost(postId: string): Promise<GeoPost | null> {
+    const [post] = await db.select()
+      .from(geoPosts)
+      .where(eq(geoPosts.id, postId))
+      .limit(1);
+    return post || null;
+  }
+
+  async createGeoComment(data: {
+    postId: string;
+    walletAddress: string;
+    content: string;
+    xpCost: number;
+  }): Promise<GeoComment> {
+    // Create comment
+    const [comment] = await db.insert(geoComments).values({
+      postId: data.postId,
+      walletAddress: data.walletAddress.toLowerCase(),
+      content: data.content,
+      xpCost: data.xpCost,
+    }).returning();
+    
+    // Increment comment count on post
+    await db.execute(sql`
+      UPDATE geo_posts 
+      SET comment_count = comment_count + 1 
+      WHERE id = ${data.postId}
+    `);
+    
+    return comment;
+  }
+
+  async getGeoComments(postId: string): Promise<GeoComment[]> {
+    return await db.select()
+      .from(geoComments)
+      .where(
+        and(
+          eq(geoComments.postId, postId),
+          eq(geoComments.isHidden, false)
+        )
+      )
+      .orderBy(geoComments.createdAt);
+  }
+
+  async toggleGeoLike(postId: string, walletAddress: string): Promise<{ liked: boolean; newCount: number }> {
+    const normalized = walletAddress.toLowerCase();
+    
+    // Check if already liked
+    const [existing] = await db.select()
+      .from(geoLikes)
+      .where(
+        and(
+          eq(geoLikes.postId, postId),
+          eq(geoLikes.walletAddress, normalized)
+        )
+      )
+      .limit(1);
+    
+    if (existing) {
+      // Unlike - remove and decrement count
+      await db.delete(geoLikes)
+        .where(
+          and(
+            eq(geoLikes.postId, postId),
+            eq(geoLikes.walletAddress, normalized)
+          )
+        );
+      await db.execute(sql`
+        UPDATE geo_posts 
+        SET like_count = GREATEST(like_count - 1, 0) 
+        WHERE id = ${postId}
+      `);
+      const [post] = await db.select().from(geoPosts).where(eq(geoPosts.id, postId)).limit(1);
+      return { liked: false, newCount: post?.likeCount || 0 };
+    } else {
+      // Like - insert and increment count
+      await db.insert(geoLikes).values({
+        postId,
+        walletAddress: normalized,
+      });
+      await db.execute(sql`
+        UPDATE geo_posts 
+        SET like_count = like_count + 1 
+        WHERE id = ${postId}
+      `);
+      const [post] = await db.select().from(geoPosts).where(eq(geoPosts.id, postId)).limit(1);
+      return { liked: true, newCount: post?.likeCount || 0 };
+    }
+  }
+
+  async hasUserLikedPost(postId: string, walletAddress: string): Promise<boolean> {
+    const [existing] = await db.select()
+      .from(geoLikes)
+      .where(
+        and(
+          eq(geoLikes.postId, postId),
+          eq(geoLikes.walletAddress, walletAddress.toLowerCase())
+        )
+      )
+      .limit(1);
+    return !!existing;
+  }
+
+  async reportGeoContent(data: {
+    postId?: string;
+    commentId?: string;
+    reporterAddress: string;
+    reason: string;
+    details?: string;
+  }): Promise<GeoReport> {
+    const [report] = await db.insert(geoReports).values({
+      postId: data.postId || null,
+      commentId: data.commentId || null,
+      reporterAddress: data.reporterAddress.toLowerCase(),
+      reason: data.reason,
+      details: data.details || null,
+    }).returning();
+    
+    // Increment report count on post if it's a post report
+    if (data.postId) {
+      await db.execute(sql`
+        UPDATE geo_posts 
+        SET report_count = report_count + 1 
+        WHERE id = ${data.postId}
+      `);
+    }
+    
+    return report;
   }
 }
 
