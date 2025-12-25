@@ -1,5 +1,5 @@
 import { useLocation } from 'wouter';
-import { Wallet, TrendingUp, Bot, HandCoins } from 'lucide-react';
+import { Wallet, TrendingUp, MessageCircle, HandCoins } from 'lucide-react';
 
 export default function BottomNav() {
   const [location, setLocation] = useLocation();
@@ -54,15 +54,15 @@ export default function BottomNav() {
         </button>
 
         <button
-          onClick={() => setLocation('/ai')}
+          onClick={() => setLocation('/chat')}
           className={`relative flex-1 flex flex-col items-center justify-center gap-1 min-h-14 text-[10px] font-mono font-semibold uppercase tracking-widest transition-colors ${
-            isActive('/ai') ? 'text-[#0055FF]' : 'text-foreground/60'
+            isActive('/chat') ? 'text-[#0055FF]' : 'text-foreground/60'
           }`}
-          data-testid="nav-ai"
+          data-testid="nav-chat"
         >
-          <Bot className="h-5 w-5" strokeWidth={2} />
-          <span>AI</span>
-          {isActive('/ai') && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#0055FF]" />}
+          <MessageCircle className="h-5 w-5" strokeWidth={2} />
+          <span>CHAT</span>
+          {isActive('/chat') && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#0055FF]" />}
         </button>
       </div>
     </nav>

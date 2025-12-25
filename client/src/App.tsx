@@ -29,7 +29,7 @@ const RestoreWallet = lazy(() => import("@/pages/RestoreWallet"));
 // Secondary features
 const Earn = lazy(() => import("@/pages/Earn"));
 const Pool = lazy(() => import("@/pages/Pool"));
-const AiChat = lazy(() => import("@/pages/AiChat"));
+const Chat = lazy(() => import("@/pages/Chat"));
 // Public/admin pages
 const Admin = lazy(() => import("@/pages/Admin"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
@@ -231,10 +231,10 @@ function Router() {
           </Suspense>
         </ProtectedRoute>
       </Route>
-      <Route path="/ai">
+      <Route path="/chat">
         <ProtectedRoute>
           <Suspense fallback={<LazyLoadFallback />}>
-            <AiChat />
+            <Chat />
           </Suspense>
         </ProtectedRoute>
       </Route>
