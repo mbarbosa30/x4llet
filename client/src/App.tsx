@@ -351,7 +351,7 @@ function App() {
   }
 
   // Only show header and bottom nav on protected routes
-  const protectedRoutes = ['/home', '/send', '/receive', '/settings', '/maxflow', '/earn', '/pool', '/ai'];
+  const protectedRoutes = ['/home', '/send', '/receive', '/settings', '/maxflow', '/earn', '/pool', '/chat'];
   const showLayout = protectedRoutes.includes(location);
 
   return (
