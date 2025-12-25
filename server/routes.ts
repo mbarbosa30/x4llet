@@ -9489,6 +9489,353 @@ You are accessed through nanoPay, a crypto wallet app, but your purpose extends 
     }
   });
 
+  // =============================================
+  // GeoChat Endpoints - Location-Based Social Network
+  // =============================================
+  
+  // Geohash encoding function (pure implementation, no external dependency)
+  const BASE32 = '0123456789bcdefghjkmnpqrstuvwxyz';
+  
+  function encodeGeohash(latitude: number, longitude: number, precision: number = 5): string {
+    let latRange = [-90, 90];
+    let lonRange = [-180, 180];
+    let isEven = true;
+    let bit = 0;
+    let ch = 0;
+    let hash = '';
+    
+    while (hash.length < precision) {
+      if (isEven) {
+        const mid = (lonRange[0] + lonRange[1]) / 2;
+        if (longitude >= mid) {
+          ch |= (1 << (4 - bit));
+          lonRange[0] = mid;
+        } else {
+          lonRange[1] = mid;
+        }
+      } else {
+        const mid = (latRange[0] + latRange[1]) / 2;
+        if (latitude >= mid) {
+          ch |= (1 << (4 - bit));
+          latRange[0] = mid;
+        } else {
+          latRange[1] = mid;
+        }
+      }
+      isEven = !isEven;
+      if (bit < 4) {
+        bit++;
+      } else {
+        hash += BASE32[ch];
+        bit = 0;
+        ch = 0;
+      }
+    }
+    return hash;
+  }
+  
+  // Rate limiting for GeoChat posts (5 posts per hour per wallet)
+  const geoPostRateLimits = new Map<string, { count: number; resetAt: number }>();
+  const GEO_POST_LIMIT = 5;
+  const GEO_POST_WINDOW = 3600000; // 1 hour
+  
+  // XP costs in centi-XP (divide by 100 for display)
+  const GEO_XP_COSTS = {
+    post: 200,    // 2 XP
+    comment: 100, // 1 XP
+    like: 0,      // Free
+  };
+  
+  // GET /api/geo/posts - List posts near a location
+  app.get('/api/geo/posts', async (req, res) => {
+    try {
+      const { lat, lon, radius, limit, offset, wallet } = req.query;
+      
+      if (!lat || !lon) {
+        return res.status(400).json({ error: 'Missing lat and lon parameters' });
+      }
+      
+      const latitude = parseFloat(lat as string);
+      const longitude = parseFloat(lon as string);
+      const radiusKm = Math.min(Math.max(parseInt(radius as string) || 5, 1), 25); // 1-25km
+      const limitNum = Math.min(parseInt(limit as string) || 50, 100);
+      const offsetNum = parseInt(offset as string) || 0;
+      
+      if (isNaN(latitude) || isNaN(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+        return res.status(400).json({ error: 'Invalid coordinates' });
+      }
+      
+      const geohash = encodeGeohash(latitude, longitude, 5);
+      const posts = await storage.getGeoPosts(geohash, radiusKm, limitNum, offsetNum);
+      
+      // If wallet provided, check which posts the user has liked
+      let likedPostIds: Set<string> = new Set();
+      if (wallet && typeof wallet === 'string') {
+        const likeChecks = await Promise.all(
+          posts.map(p => storage.hasUserLikedPost(p.id, wallet))
+        );
+        posts.forEach((p, i) => {
+          if (likeChecks[i]) likedPostIds.add(p.id);
+        });
+      }
+      
+      res.json({
+        posts: posts.map(p => ({
+          id: p.id,
+          content: p.content,
+          likeCount: p.likeCount,
+          commentCount: p.commentCount,
+          createdAt: p.createdAt,
+          hasLiked: likedPostIds.has(p.id),
+          // Don't expose wallet address for privacy - show truncated version
+          authorShort: p.walletAddress.slice(0, 6) + '...' + p.walletAddress.slice(-4),
+        })),
+        total: posts.length,
+        radius: radiusKm,
+        geohash,
+      });
+    } catch (error) {
+      console.error('[GeoChat] Error getting posts:', error);
+      res.status(500).json({ error: 'Failed to get posts' });
+    }
+  });
+  
+  // POST /api/geo/posts - Create a new post
+  app.post('/api/geo/posts', async (req, res) => {
+    try {
+      const { wallet, content, latitude, longitude, fingerprint } = req.body;
+      
+      if (!wallet || !content || latitude === undefined || longitude === undefined) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+      
+      if (typeof content !== 'string' || content.length < 1 || content.length > 500) {
+        return res.status(400).json({ error: 'Content must be 1-500 characters' });
+      }
+      
+      const lat = parseFloat(latitude);
+      const lon = parseFloat(longitude);
+      
+      if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+        return res.status(400).json({ error: 'Invalid coordinates' });
+      }
+      
+      // Rate limit check
+      const now = Date.now();
+      const rateKey = wallet.toLowerCase();
+      const rateLimit = geoPostRateLimits.get(rateKey);
+      
+      if (rateLimit) {
+        if (now < rateLimit.resetAt) {
+          if (rateLimit.count >= GEO_POST_LIMIT) {
+            const retryAfter = Math.ceil((rateLimit.resetAt - now) / 1000);
+            return res.status(429).json({ 
+              error: 'Rate limit exceeded', 
+              retryAfter,
+              limit: GEO_POST_LIMIT,
+              window: '1 hour'
+            });
+          }
+          rateLimit.count++;
+        } else {
+          geoPostRateLimits.set(rateKey, { count: 1, resetAt: now + GEO_POST_WINDOW });
+        }
+      } else {
+        geoPostRateLimits.set(rateKey, { count: 1, resetAt: now + GEO_POST_WINDOW });
+      }
+      
+      // Check XP balance
+      const xpBalance = await storage.getXpBalance(wallet);
+      if (!xpBalance || xpBalance.totalXp < GEO_XP_COSTS.post) {
+        return res.status(400).json({ 
+          error: 'Insufficient XP',
+          required: GEO_XP_COSTS.post / 100,
+          current: (xpBalance?.totalXp || 0) / 100
+        });
+      }
+      
+      // Deduct XP
+      const deductResult = await storage.deductXp(wallet, GEO_XP_COSTS.post);
+      if (!deductResult.success) {
+        return res.status(400).json({ error: 'Failed to deduct XP' });
+      }
+      
+      // Create post
+      const geohash = encodeGeohash(lat, lon, 5);
+      const post = await storage.createGeoPost({
+        walletAddress: wallet,
+        content,
+        geohash,
+        latitude: lat.toFixed(6),
+        longitude: lon.toFixed(6),
+        xpCost: GEO_XP_COSTS.post,
+      });
+      
+      // Log IP event for sybil tracking
+      await logIpEvent(req, wallet, 'xp_claim', fingerprint);
+      
+      res.json({
+        success: true,
+        post: {
+          id: post.id,
+          content: post.content,
+          createdAt: post.createdAt,
+        },
+        xpSpent: GEO_XP_COSTS.post / 100,
+      });
+    } catch (error) {
+      console.error('[GeoChat] Error creating post:', error);
+      res.status(500).json({ error: 'Failed to create post' });
+    }
+  });
+  
+  // GET /api/geo/posts/:id/comments - Get comments for a post
+  app.get('/api/geo/posts/:id/comments', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const comments = await storage.getGeoComments(id);
+      
+      res.json({
+        comments: comments.map(c => ({
+          id: c.id,
+          content: c.content,
+          createdAt: c.createdAt,
+          authorShort: c.walletAddress.slice(0, 6) + '...' + c.walletAddress.slice(-4),
+        })),
+      });
+    } catch (error) {
+      console.error('[GeoChat] Error getting comments:', error);
+      res.status(500).json({ error: 'Failed to get comments' });
+    }
+  });
+  
+  // POST /api/geo/posts/:id/comments - Add a comment
+  app.post('/api/geo/posts/:id/comments', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { wallet, content, fingerprint } = req.body;
+      
+      if (!wallet || !content) {
+        return res.status(400).json({ error: 'Missing wallet or content' });
+      }
+      
+      if (typeof content !== 'string' || content.length < 1 || content.length > 280) {
+        return res.status(400).json({ error: 'Comment must be 1-280 characters' });
+      }
+      
+      // Check post exists
+      const post = await storage.getGeoPost(id);
+      if (!post) {
+        return res.status(404).json({ error: 'Post not found' });
+      }
+      
+      // Check XP balance
+      const xpBalance = await storage.getXpBalance(wallet);
+      if (!xpBalance || xpBalance.totalXp < GEO_XP_COSTS.comment) {
+        return res.status(400).json({ 
+          error: 'Insufficient XP',
+          required: GEO_XP_COSTS.comment / 100,
+          current: (xpBalance?.totalXp || 0) / 100
+        });
+      }
+      
+      // Deduct XP
+      const deductResult = await storage.deductXp(wallet, GEO_XP_COSTS.comment);
+      if (!deductResult.success) {
+        return res.status(400).json({ error: 'Failed to deduct XP' });
+      }
+      
+      // Create comment
+      const comment = await storage.createGeoComment({
+        postId: id,
+        walletAddress: wallet,
+        content,
+        xpCost: GEO_XP_COSTS.comment,
+      });
+      
+      res.json({
+        success: true,
+        comment: {
+          id: comment.id,
+          content: comment.content,
+          createdAt: comment.createdAt,
+        },
+        xpSpent: GEO_XP_COSTS.comment / 100,
+      });
+    } catch (error) {
+      console.error('[GeoChat] Error creating comment:', error);
+      res.status(500).json({ error: 'Failed to create comment' });
+    }
+  });
+  
+  // POST /api/geo/posts/:id/like - Toggle like on a post
+  app.post('/api/geo/posts/:id/like', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { wallet } = req.body;
+      
+      if (!wallet) {
+        return res.status(400).json({ error: 'Missing wallet' });
+      }
+      
+      // Check post exists
+      const post = await storage.getGeoPost(id);
+      if (!post) {
+        return res.status(404).json({ error: 'Post not found' });
+      }
+      
+      // Toggle like (free action)
+      const result = await storage.toggleGeoLike(id, wallet);
+      
+      res.json({
+        success: true,
+        liked: result.liked,
+        likeCount: result.newCount,
+      });
+    } catch (error) {
+      console.error('[GeoChat] Error toggling like:', error);
+      res.status(500).json({ error: 'Failed to toggle like' });
+    }
+  });
+  
+  // POST /api/geo/report - Report content
+  app.post('/api/geo/report', async (req, res) => {
+    try {
+      const { wallet, postId, commentId, reason, details } = req.body;
+      
+      if (!wallet || !reason || (!postId && !commentId)) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+      
+      const validReasons = ['spam', 'harassment', 'inappropriate', 'scam', 'other'];
+      if (!validReasons.includes(reason)) {
+        return res.status(400).json({ error: 'Invalid reason' });
+      }
+      
+      const report = await storage.reportGeoContent({
+        postId: postId || undefined,
+        commentId: commentId || undefined,
+        reporterAddress: wallet,
+        reason,
+        details: details || undefined,
+      });
+      
+      res.json({ success: true, reportId: report.id });
+    } catch (error) {
+      console.error('[GeoChat] Error reporting content:', error);
+      res.status(500).json({ error: 'Failed to report content' });
+    }
+  });
+  
+  // GET /api/geo/costs - Get XP costs for actions
+  app.get('/api/geo/costs', (_req, res) => {
+    res.json({
+      post: GEO_XP_COSTS.post / 100,
+      comment: GEO_XP_COSTS.comment / 100,
+      like: GEO_XP_COSTS.like / 100,
+    });
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
