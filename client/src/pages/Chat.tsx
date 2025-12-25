@@ -6,10 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { Slider } from '@/components/ui/slider';
 import { 
   Bot, Send, Loader2, Zap, User, AlertCircle, Trash2, 
-  MapPin, Heart, MessageCircle, Navigation, RefreshCw 
+  MapPin, Heart, MessageCircle, Navigation, RefreshCw, ChevronDown, ChevronUp, Globe
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
@@ -138,6 +137,7 @@ function GeoChatTab({ walletAddress, xpBalance, xpLoading }: TabProps) {
   const [radius, setRadius] = useState(5);
   const [newPostContent, setNewPostContent] = useState('');
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
+  const [showComposer, setShowComposer] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -219,6 +219,7 @@ function GeoChatTab({ walletAddress, xpBalance, xpLoading }: TabProps) {
     },
     onSuccess: () => {
       setNewPostContent('');
+      setShowComposer(false);
       queryClient.invalidateQueries({ queryKey: ['/api/geo/posts'] });
       queryClient.invalidateQueries({ queryKey: ['/api/xp', walletAddress] });
       toast({ title: 'Post created!', description: `Spent ${postCost} XP` });
@@ -252,114 +253,217 @@ function GeoChatTab({ walletAddress, xpBalance, xpLoading }: TabProps) {
     createPostMutation.mutate(newPostContent.trim());
   };
 
+  const radiusOptions = [1, 5, 10, 25];
+
+  // Loading state - brutalist style
   if (locationLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-4">
-        <Navigation className="h-12 w-12 text-muted-foreground animate-pulse mb-4" />
-        <p className="text-muted-foreground font-mono text-sm">Acquiring location...</p>
+      <div className="flex flex-col h-full">
+        <div className="flex-1 flex flex-col items-center justify-center p-6">
+          <div className="border-2 border-foreground p-8 bg-background">
+            <Navigation className="h-12 w-12 mx-auto mb-4 animate-pulse" />
+            <p className="font-mono text-xs uppercase tracking-widest text-center">
+              // ACQUIRING_LOCATION
+            </p>
+            <div className="mt-4 h-1 bg-foreground/20 overflow-hidden">
+              <div className="h-full bg-[#0055FF] animate-pulse w-1/2" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
+  // Permission request - brutalist banner style
   if (locationError || !location) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-4">
-        <MapPin className="h-12 w-12 text-muted-foreground mb-4" />
-        <p className="text-muted-foreground text-center mb-4 max-w-xs">
-          {locationError || 'Location required to view nearby posts'}
-        </p>
-        <Button onClick={requestLocation} data-testid="button-enable-location">
-          <Navigation className="h-4 w-4 mr-2" />
-          Enable Location
-        </Button>
+      <div className="flex flex-col h-full">
+        <div className="flex-1 flex flex-col items-center justify-center p-6">
+          <div className="border-2 border-foreground p-6 bg-background max-w-sm w-full">
+            <div className="border-b-2 border-foreground pb-3 mb-4">
+              <p className="font-mono text-xs uppercase tracking-widest text-[#0055FF]">
+                // LOCATION_REQUIRED
+              </p>
+            </div>
+            <MapPin className="h-16 w-16 mx-auto mb-4" strokeWidth={1.5} />
+            <p className="text-center mb-4 text-sm">
+              {locationError || 'GeoChat needs your location to show posts from people nearby.'}
+            </p>
+            <Button 
+              onClick={requestLocation} 
+              className="w-full uppercase tracking-wide"
+              data-testid="button-enable-location"
+            >
+              <Navigation className="h-4 w-4 mr-2" />
+              ENABLE LOCATION
+            </Button>
+            <p className="text-xs text-muted-foreground text-center mt-3 font-mono">
+              Your exact location is never shared
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-shrink-0 p-4 space-y-4 border-b border-foreground/10">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 flex-1">
-            <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <Slider
-              value={[radius]}
-              onValueChange={([v]) => setRadius(v)}
-              min={1}
-              max={25}
-              step={1}
-              className="flex-1"
-              data-testid="slider-radius"
-            />
-            <span className="font-mono text-xs text-muted-foreground w-12">{radius}km</span>
+      {/* Control Bar - Brutalist Style */}
+      <div className="flex-shrink-0 border-b-2 border-foreground bg-background">
+        {/* Top row: Location + XP */}
+        <div className="flex items-center justify-between px-4 py-2 border-b border-foreground/20">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-[#0055FF]" />
+            <span className="font-mono text-xs uppercase tracking-wide">NEARBY</span>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => refetchPosts()} data-testid="button-refresh-posts">
+          <div className="flex items-center gap-2">
+            <Zap className="h-4 w-4 text-[#0055FF]" />
+            <span className="font-mono text-xs font-semibold" data-testid="xp-badge">
+              {xpLoading ? '...' : `${xpBalance.toFixed(0)} XP`}
+            </span>
+          </div>
+        </div>
+        
+        {/* Radius Pills */}
+        <div className="flex items-center justify-between px-4 py-2 gap-2">
+          <div className="flex items-center gap-1">
+            {radiusOptions.map((r) => (
+              <button
+                key={r}
+                onClick={() => setRadius(r)}
+                className={`px-3 py-1 font-mono text-xs uppercase tracking-wide border transition-colors ${
+                  radius === r 
+                    ? 'bg-foreground text-background border-foreground' 
+                    : 'bg-background text-foreground border-foreground/30 hover:border-foreground'
+                }`}
+                data-testid={`radius-${r}km`}
+              >
+                {r}km
+              </button>
+            ))}
+          </div>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => refetchPosts()} 
+            className="h-8 w-8"
+            data-testid="button-refresh-posts"
+          >
             <RefreshCw className="h-4 w-4" />
           </Button>
-          <Badge variant="outline" className="font-mono text-xs" data-testid="xp-badge">
-            <Zap className="h-3 w-3 mr-1" />
-            {xpLoading ? '...' : `${xpBalance.toFixed(2)} XP`}
-          </Badge>
         </div>
 
-        <div className="space-y-2">
-          <Textarea
-            placeholder="What's happening nearby?"
-            value={newPostContent}
-            onChange={(e) => setNewPostContent(e.target.value.slice(0, 500))}
-            className="resize-none text-sm"
-            rows={2}
-            disabled={xpBalance < postCost}
-            data-testid="input-new-post"
-          />
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground font-mono">
-              {newPostContent.length}/500 • Costs {postCost} XP
-            </span>
-            <Button
-              size="sm"
-              onClick={handleCreatePost}
-              disabled={!newPostContent.trim() || createPostMutation.isPending || xpBalance < postCost}
-              data-testid="button-create-post"
-            >
-              {createPostMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-1" />
-                  Post
-                </>
-              )}
-            </Button>
+        {/* Composer Toggle */}
+        <button
+          onClick={() => setShowComposer(!showComposer)}
+          className="w-full flex items-center justify-between px-4 py-2 border-t border-foreground/20 hover:bg-foreground/5 transition-colors"
+          data-testid="button-toggle-composer"
+        >
+          <span className="font-mono text-xs uppercase tracking-wide text-[#0055FF]">
+            + NEW POST ({postCost} XP)
+          </span>
+          {showComposer ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
+
+        {/* Composer Panel */}
+        {showComposer && (
+          <div className="px-4 py-3 border-t border-foreground/20 bg-secondary/30">
+            <Textarea
+              placeholder="What's happening nearby?"
+              value={newPostContent}
+              onChange={(e) => setNewPostContent(e.target.value.slice(0, 500))}
+              className="resize-none text-sm border-foreground/30 focus:border-[#0055FF] bg-background"
+              rows={3}
+              disabled={xpBalance < postCost}
+              data-testid="input-new-post"
+            />
+            <div className="flex items-center justify-between mt-2">
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-xs text-muted-foreground">
+                  {newPostContent.length}/500
+                </span>
+                {xpBalance < postCost && (
+                  <span className="font-mono text-xs text-destructive">
+                    NEED {postCost} XP
+                  </span>
+                )}
+              </div>
+              <Button
+                size="sm"
+                onClick={handleCreatePost}
+                disabled={!newPostContent.trim() || createPostMutation.isPending || xpBalance < postCost}
+                className="uppercase tracking-wide"
+                data-testid="button-create-post"
+              >
+                {createPostMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-1" />
+                    POST
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      {/* Feed */}
+      <div className="flex-1 overflow-y-auto">
         {postsLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="p-4 space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="border border-foreground/20 p-4 animate-pulse">
+                <div className="h-3 bg-foreground/10 w-24 mb-3" />
+                <div className="space-y-2">
+                  <div className="h-4 bg-foreground/10 w-full" />
+                  <div className="h-4 bg-foreground/10 w-3/4" />
+                </div>
+                <div className="flex gap-4 mt-4">
+                  <div className="h-3 bg-foreground/10 w-12" />
+                  <div className="h-3 bg-foreground/10 w-12" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : postsData?.posts.length === 0 ? (
-          <div className="text-center py-8">
-            <MapPin className="h-10 w-10 mx-auto mb-2 text-muted-foreground/30" />
-            <p className="text-muted-foreground text-sm">No posts nearby</p>
-            <p className="text-xs text-muted-foreground mt-1">Be the first to post in your area!</p>
+          <div className="flex flex-col items-center justify-center h-full p-6">
+            <div className="border-2 border-foreground/30 p-8 text-center max-w-sm">
+              <div className="border-b border-foreground/20 pb-3 mb-4">
+                <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                  // NO_POSTS_NEARBY
+                </p>
+              </div>
+              <MapPin className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" strokeWidth={1.5} />
+              <p className="text-sm text-muted-foreground mb-4">
+                No one has posted within {radius}km yet.
+              </p>
+              <Button
+                onClick={() => setShowComposer(true)}
+                variant="outline"
+                className="uppercase tracking-wide"
+              >
+                BE THE FIRST
+              </Button>
+            </div>
           </div>
         ) : (
-          postsData?.posts.map((post) => (
-            <GeoPostCard
-              key={post.id}
-              post={post}
-              walletAddress={walletAddress}
-              xpBalance={xpBalance}
-              commentCost={commentCost}
-              isExpanded={expandedPostId === post.id}
-              onToggleExpand={() => setExpandedPostId(expandedPostId === post.id ? null : post.id)}
-              onLike={() => likeMutation.mutate(post.id)}
-              likePending={likeMutation.isPending}
-            />
-          ))
+          <div className="divide-y divide-foreground/10">
+            {postsData?.posts.map((post) => (
+              <GeoPostCard
+                key={post.id}
+                post={post}
+                walletAddress={walletAddress}
+                xpBalance={xpBalance}
+                commentCost={commentCost}
+                isExpanded={expandedPostId === post.id}
+                onToggleExpand={() => setExpandedPostId(expandedPostId === post.id ? null : post.id)}
+                onLike={() => likeMutation.mutate(post.id)}
+                likePending={likeMutation.isPending}
+              />
+            ))}
+          </div>
         )}
       </div>
     </div>
@@ -419,87 +523,126 @@ function GeoPostCard({ post, walletAddress, xpBalance, commentCost, isExpanded, 
   };
 
   return (
-    <Card className="p-3 space-y-2" data-testid={`post-card-${post.id}`}>
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-sm flex-1 whitespace-pre-wrap">{post.content}</p>
-      </div>
-      
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span className="font-mono">{post.authorShort}</span>
-        <span>{formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}</span>
+    <div 
+      className="p-4 border-l-4 border-l-transparent hover:border-l-[#0055FF] transition-colors bg-background"
+      data-testid={`post-card-${post.id}`}
+    >
+      {/* Author & Time Header */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="h-6 w-6 bg-foreground/10 flex items-center justify-center">
+            <User className="h-3 w-3 text-foreground/50" />
+          </div>
+          <span className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
+            {post.authorShort}
+          </span>
+        </div>
+        <span className="font-mono text-xs text-muted-foreground">
+          {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
+        </span>
       </div>
 
-      <div className="flex items-center gap-3 pt-1">
-        <Button
-          variant="ghost"
-          size="sm"
+      {/* Content */}
+      <p className="text-sm whitespace-pre-wrap mb-3 leading-relaxed">{post.content}</p>
+
+      {/* Actions */}
+      <div className="flex items-center gap-4">
+        <button
           onClick={onLike}
           disabled={likePending}
-          className={post.hasLiked ? 'text-red-500' : ''}
+          className={`flex items-center gap-1.5 font-mono text-xs uppercase tracking-wide transition-colors ${
+            post.hasLiked ? 'text-[#0055FF]' : 'text-muted-foreground hover:text-foreground'
+          }`}
           data-testid={`button-like-${post.id}`}
         >
-          <Heart className={`h-4 w-4 mr-1 ${post.hasLiked ? 'fill-current' : ''}`} />
-          {post.likeCount}
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
+          <Heart className={`h-4 w-4 ${post.hasLiked ? 'fill-[#0055FF]' : ''}`} />
+          <span>{post.likeCount} {post.likeCount === 1 ? 'LIKE' : 'LIKES'}</span>
+        </button>
+        <button
           onClick={onToggleExpand}
+          className={`flex items-center gap-1.5 font-mono text-xs uppercase tracking-wide transition-colors ${
+            isExpanded ? 'text-[#0055FF]' : 'text-muted-foreground hover:text-foreground'
+          }`}
           data-testid={`button-comments-${post.id}`}
         >
-          <MessageCircle className="h-4 w-4 mr-1" />
-          {post.commentCount}
-        </Button>
+          <MessageCircle className={`h-4 w-4 ${isExpanded ? 'fill-[#0055FF]/20' : ''}`} />
+          <span>{post.commentCount} {post.commentCount === 1 ? 'REPLY' : 'REPLIES'}</span>
+          {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        </button>
       </div>
 
+      {/* Comments Section */}
       {isExpanded && (
-        <div className="pt-2 border-t border-foreground/10 space-y-2">
+        <div className="mt-4 pt-3 border-t border-foreground/10">
+          {/* Comment Input */}
+          <div className="mb-3">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Add a reply..."
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value.slice(0, 280))}
+                className="flex-1 text-sm border-foreground/20 focus:border-[#0055FF]"
+                disabled={xpBalance < commentCost}
+                data-testid={`input-comment-${post.id}`}
+              />
+              <Button
+                size="icon"
+                onClick={handleSubmitComment}
+                disabled={!newComment.trim() || createCommentMutation.isPending || xpBalance < commentCost}
+                data-testid={`button-submit-comment-${post.id}`}
+              >
+                {createCommentMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <div className="flex items-center justify-between mt-1">
+              <span className="font-mono text-xs text-muted-foreground">
+                {newComment.length}/280
+              </span>
+              <span className="font-mono text-xs text-muted-foreground">
+                {xpBalance < commentCost ? (
+                  <span className="text-destructive">NEED {commentCost} XP</span>
+                ) : (
+                  `COSTS ${commentCost} XP`
+                )}
+              </span>
+            </div>
+          </div>
+
+          {/* Comments List */}
           {commentsLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+            <div className="py-4 flex justify-center">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            </div>
           ) : commentsData?.comments.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center">No comments yet</p>
+            <p className="font-mono text-xs text-muted-foreground text-center py-3">
+              // NO_REPLIES_YET
+            </p>
           ) : (
-            <div className="space-y-2 max-h-40 overflow-y-auto">
+            <div className="space-y-2 max-h-48 overflow-y-auto">
               {commentsData?.comments.map((comment) => (
-                <div key={comment.id} className="bg-muted/50 p-2 rounded-sm" data-testid={`comment-${comment.id}`}>
-                  <p className="text-sm">{comment.content}</p>
-                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                    <span className="font-mono">{comment.authorShort}</span>
-                    <span>{formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}</span>
+                <div 
+                  key={comment.id} 
+                  className="pl-3 border-l-2 border-foreground/10"
+                  data-testid={`comment-${comment.id}`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-mono text-xs text-muted-foreground">{comment.authorShort}</span>
+                    <span className="font-mono text-xs text-muted-foreground/50">
+                      {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                    </span>
                   </div>
+                  <p className="text-sm">{comment.content}</p>
                 </div>
               ))}
             </div>
           )}
-
-          <div className="flex gap-2">
-            <Input
-              placeholder="Add a comment..."
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value.slice(0, 280))}
-              className="flex-1 text-sm"
-              disabled={xpBalance < commentCost}
-              data-testid={`input-comment-${post.id}`}
-            />
-            <Button
-              size="icon"
-              onClick={handleSubmitComment}
-              disabled={!newComment.trim() || createCommentMutation.isPending || xpBalance < commentCost}
-              data-testid={`button-submit-comment-${post.id}`}
-            >
-              {createCommentMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground font-mono">
-            {newComment.length}/280 • Costs {commentCost} XP
-          </p>
         </div>
       )}
-    </Card>
+    </div>
   );
 }
 
