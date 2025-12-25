@@ -645,3 +645,83 @@ export const insertSybilScoreSchema = createInsertSchema(sybilScores).omit({
   updatedAt: true,
 });
 export type InsertSybilScore = z.infer<typeof insertSybilScoreSchema>;
+
+// ===== GeoChat - Location-Based Anonymous Social Network =====
+
+export const geoPosts = pgTable("geo_posts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: text("wallet_address").notNull(),
+  content: text("content").notNull(),
+  // Location stored as geohash for privacy (5 chars = ~5km precision)
+  geohash: text("geohash").notNull(),
+  // Store approximate lat/lng for radius filtering (rounded to ~1km)
+  latitude: text("latitude").notNull(),
+  longitude: text("longitude").notNull(),
+  // XP cost for posting (stored in centi-XP)
+  xpCost: integer("xp_cost").notNull().default(200), // 2 XP
+  // Engagement counters (denormalized for performance)
+  likeCount: integer("like_count").notNull().default(0),
+  commentCount: integer("comment_count").notNull().default(0),
+  // Moderation
+  isHidden: boolean("is_hidden").notNull().default(false),
+  reportCount: integer("report_count").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const geoComments = pgTable("geo_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  postId: varchar("post_id").notNull(),
+  walletAddress: text("wallet_address").notNull(),
+  content: text("content").notNull(),
+  xpCost: integer("xp_cost").notNull().default(100), // 1 XP
+  isHidden: boolean("is_hidden").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const geoLikes = pgTable("geo_likes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  postId: varchar("post_id").notNull(),
+  walletAddress: text("wallet_address").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  postWalletUnique: unique().on(table.postId, table.walletAddress),
+}));
+
+export const geoReports = pgTable("geo_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  postId: varchar("post_id"),
+  commentId: varchar("comment_id"),
+  reporterAddress: text("reporter_address").notNull(),
+  reason: text("reason").notNull(), // 'spam', 'abuse', 'inappropriate', 'other'
+  details: text("details"),
+  status: text("status").notNull().default('pending'), // 'pending', 'reviewed', 'actioned'
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type GeoPost = typeof geoPosts.$inferSelect;
+export type GeoComment = typeof geoComments.$inferSelect;
+export type GeoLike = typeof geoLikes.$inferSelect;
+export type GeoReport = typeof geoReports.$inferSelect;
+
+export const insertGeoPostSchema = createInsertSchema(geoPosts).omit({
+  id: true,
+  likeCount: true,
+  commentCount: true,
+  isHidden: true,
+  reportCount: true,
+  createdAt: true,
+});
+export type InsertGeoPost = z.infer<typeof insertGeoPostSchema>;
+
+export const insertGeoCommentSchema = createInsertSchema(geoComments).omit({
+  id: true,
+  isHidden: true,
+  createdAt: true,
+});
+export type InsertGeoComment = z.infer<typeof insertGeoCommentSchema>;
+
+export const insertGeoLikeSchema = createInsertSchema(geoLikes).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertGeoLike = z.infer<typeof insertGeoLikeSchema>;
