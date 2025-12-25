@@ -612,12 +612,34 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
           setError(result.error || 'Verification failed');
           setIsSubmitting(false);
         }
+        // Determine appropriate error message based on response
+        let errorDescription = result.error || 'Verification failed. Please try again.';
+        const isDuplicate = result.isDuplicate === true || response.status === 409;
+        
         toast({
-          title: 'Verification Failed',
-          description: result.error || 'This face has already been verified with another wallet.',
+          title: isDuplicate ? 'Duplicate Face Detected' : 'Verification Failed',
+          description: errorDescription,
           variant: 'destructive',
         });
-        // Notify parent that verification failed (duplicate)
+        // Notify parent with accurate duplicate status
+        onComplete(false, { isDuplicate, ...result });
+        return;
+      }
+      
+      // Check if this is an "already verified as duplicate" case (200 response with duplicate status)
+      const isAlreadyDuplicate = result.alreadyVerified === true && result.isDuplicate === true;
+      if (isAlreadyDuplicate) {
+        cleanup();
+        if (isMountedRef.current) {
+          setStatus('error');
+          setError('This face was already verified with another wallet');
+          setIsSubmitting(false);
+        }
+        toast({
+          title: 'Duplicate Face Detected',
+          description: 'This face was previously verified with another wallet.',
+          variant: 'destructive',
+        });
         onComplete(false, { isDuplicate: true, ...result });
         return;
       }

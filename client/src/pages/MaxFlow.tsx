@@ -1268,10 +1268,12 @@ export default function MaxFlow() {
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
                       EXCHANGING...
                     </>
-                  ) : (
+                  ) : senadorAmount && parseFloat(senadorAmount) >= 1 ? (
                     <>
-                      GET {senadorAmount || '0'} SENADOR FOR {senadorAmount || '0'} XP
+                      GET {Math.floor(parseFloat(senadorAmount))} SENADOR FOR {Math.floor(parseFloat(senadorAmount))} XP
                     </>
+                  ) : (
+                    <>GET SENADOR</>
                   )}
                 </Button>
               </div>
