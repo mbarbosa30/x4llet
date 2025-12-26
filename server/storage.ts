@@ -414,6 +414,7 @@ export interface IStorage {
   clearBalanceHistory(): Promise<void>;
   clearTransactionsAndBalances(): Promise<void>;
   backfillAllWallets(): Promise<{ walletsProcessed: number; totalSnapshots: number; errors: string[] }>;
+  backfillSignupBonus(): Promise<{ walletsProcessed: number; walletsAwarded: number; totalXpAwarded: number }>;
   migrateToMicroUsdc(): Promise<{ migratedTransactions: number; migratedBalances: number }>;
   
   // Gas drip methods
