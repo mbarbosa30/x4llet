@@ -440,4 +440,14 @@
   [role="alertdialog"] button:active {
     transform: none !important;
   }
+  
+  /* ============================================
+     TEXT OVERFLOW UTILITIES
+     For handling long wallet addresses in chat
+     ============================================ */
+  
+  .overflow-wrap-anywhere {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
 }

@@ -558,7 +558,7 @@ function GeoPostCard({ post, walletAddress, xpBalance, commentCost, isExpanded, 
       </div>
 
       {/* Content */}
-      <p className="text-sm whitespace-pre-wrap mb-3 leading-relaxed font-medium">{post.content}</p>
+      <p className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere mb-3 leading-relaxed font-medium">{post.content}</p>
 
       {/* Actions - Simple icons with counts */}
       <div className="flex items-center gap-4 text-muted-foreground">
@@ -649,7 +649,7 @@ function GeoPostCard({ post, walletAddress, xpBalance, commentCost, isExpanded, 
                       {formatCompactTime(comment.createdAt)}
                     </span>
                   </div>
-                  <p className="text-sm">{comment.content}</p>
+                  <p className="text-sm break-words overflow-wrap-anywhere">{comment.content}</p>
                 </div>
               ))}
             </div>
