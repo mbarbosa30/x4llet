@@ -10,6 +10,13 @@ import {
   Bot, Send, Loader2, Zap, User, AlertCircle, Trash2, 
   MapPin, Heart, MessageCircle, Navigation, RefreshCw, ChevronDown, ChevronUp, Globe
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useXp } from '@/hooks/useXp';
@@ -310,34 +317,25 @@ function GeoChatTab({ walletAddress, xpBalance, xpLoading }: TabProps) {
     <div className="flex flex-col h-full">
       {/* Header Bar - Clean Style */}
       <div className="flex-shrink-0 bg-background">
-        {/* Top row: Location + XP info */}
+        {/* Top row: Location + Radius selector + Refresh */}
         <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-[#0055FF]" />
-            <span className="font-mono text-xs uppercase tracking-widest">NEARBY</span>
-          </div>
-          <span className="text-xs text-muted-foreground" data-testid="xp-cost-label">
-            {postCost} XP / post · Earn {commentCost} XP per reply
-          </span>
-        </div>
-        
-        {/* Radius Pills */}
-        <div className="flex items-center justify-between px-4 pb-3">
-          <div className="flex items-center gap-1">
-            {radiusOptions.map((r) => (
-              <button
-                key={r}
-                onClick={() => setRadius(r)}
-                className={`px-3 py-1.5 font-mono text-xs uppercase border transition-colors ${
-                  radius === r 
-                    ? 'bg-foreground text-background border-foreground' 
-                    : 'bg-background text-foreground border-foreground/20 hover:border-foreground'
-                }`}
-                data-testid={`radius-${r}km`}
-              >
-                {r}KM
-              </button>
-            ))}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-[#0055FF]" />
+              <span className="font-mono text-xs uppercase tracking-widest">NEARBY</span>
+            </div>
+            <Select value={radius.toString()} onValueChange={(val) => setRadius(parseInt(val))}>
+              <SelectTrigger className="h-7 w-20 font-mono text-xs" data-testid="select-radius">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {radiusOptions.map((r) => (
+                  <SelectItem key={r} value={r.toString()} className="font-mono text-xs">
+                    {r} km
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <button
             onClick={() => refetchPosts()}
