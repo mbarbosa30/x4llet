@@ -253,7 +253,7 @@ function GeoChatTab({ walletAddress, xpBalance, xpLoading }: TabProps) {
     createPostMutation.mutate(newPostContent.trim());
   };
 
-  const radiusOptions = [1, 5, 10, 25];
+  const radiusOptions = [1, 5, 10, 25, 50, 100];
 
   // Loading state - brutalist style
   if (locationLoading) {
