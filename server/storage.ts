@@ -929,6 +929,11 @@ export class MemStorage implements IStorage {
     return { walletsProcessed: 0, totalSnapshots: 0, errors: [] };
   }
 
+  async backfillSignupBonus(): Promise<{ walletsProcessed: number; walletsAwarded: number; totalXpAwarded: number }> {
+    // MemStorage doesn't track XP, no-op
+    return { walletsProcessed: 0, walletsAwarded: 0, totalXpAwarded: 0 };
+  }
+
   async migrateToMicroUsdc(): Promise<{ migratedTransactions: number; migratedBalances: number }> {
     // MemStorage doesn't use database, no-op
     return { migratedTransactions: 0, migratedBalances: 0 };
@@ -2496,6 +2501,61 @@ export class DbStorage extends MemStorage {
       return snapshotsCreated;
     } catch (error) {
       console.error('[Admin] Error reconstructing aggregated history:', error);
+      throw error;
+    }
+  }
+
+  async backfillSignupBonus(): Promise<{ walletsProcessed: number; walletsAwarded: number; totalXpAwarded: number }> {
+    try {
+      console.log('[Admin] Starting signup bonus backfill');
+      
+      // Get all wallets
+      const allWallets = await db
+        .select({ address: wallets.address })
+        .from(wallets);
+      
+      console.log(`[Admin] Found ${allWallets.length} wallets to check`);
+      
+      let walletsProcessed = 0;
+      let walletsAwarded = 0;
+      let totalXpAwarded = 0;
+      
+      for (const wallet of allWallets) {
+        walletsProcessed++;
+        const address = wallet.address.toLowerCase();
+        
+        // Check if already has signup_bonus completion
+        const existing = await db
+          .select()
+          .from(xpActionCompletions)
+          .where(and(
+            eq(xpActionCompletions.walletAddress, address),
+            eq(xpActionCompletions.actionType, 'signup_bonus')
+          ))
+          .limit(1);
+        
+        if (existing.length > 0) {
+          continue; // Already has signup bonus
+        }
+        
+        // Award signup bonus via completeXpAction
+        const result = await this.completeXpAction(address, 'signup_bonus');
+        if (result.success) {
+          walletsAwarded++;
+          totalXpAwarded += result.xpAwarded;
+          console.log(`[Admin] Awarded signup bonus to ${address}: ${result.xpAwarded / 100} XP`);
+        }
+      }
+      
+      console.log(`[Admin] Signup bonus backfill complete: ${walletsProcessed} processed, ${walletsAwarded} awarded, ${totalXpAwarded / 100} total XP`);
+      
+      return {
+        walletsProcessed,
+        walletsAwarded,
+        totalXpAwarded,
+      };
+    } catch (error) {
+      console.error('[Admin] Error backfilling signup bonus:', error);
       throw error;
     }
   }

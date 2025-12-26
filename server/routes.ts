@@ -3283,6 +3283,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/admin/backfill-signup-bonus', adminAuthMiddleware, async (req, res) => {
+    try {
+      const result = await storage.backfillSignupBonus();
+      
+      res.json({
+        walletsProcessed: result.walletsProcessed,
+        walletsAwarded: result.walletsAwarded,
+        totalXpAwarded: result.totalXpAwarded,
+      });
+    } catch (error) {
+      console.error('Error backfilling signup bonus:', error);
+      res.status(500).json({ error: 'Failed to backfill signup bonus' });
+    }
+  });
+
   app.post('/api/admin/prune-old-data', adminAuthMiddleware, async (req, res) => {
     try {
       const result = await storage.pruneOldBalanceHistory();

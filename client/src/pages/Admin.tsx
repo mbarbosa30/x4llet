@@ -280,6 +280,7 @@ export default function Admin() {
   const [isBackfillingBalances, setIsBackfillingBalances] = useState(false);
   const [isBackfillingRates, setIsBackfillingRates] = useState(false);
   const [isBackfillingAllWallets, setIsBackfillingAllWallets] = useState(false);
+  const [isBackfillingSignupBonus, setIsBackfillingSignupBonus] = useState(false);
   const [isClearingCaches, setIsClearingCaches] = useState(false);
   const [isClearingBalances, setIsClearingBalances] = useState(false);
   const [isClearingHistory, setIsClearingHistory] = useState(false);
@@ -722,6 +723,33 @@ export default function Admin() {
       });
     } finally {
       setIsRefetchingMaxFlow(false);
+    }
+  };
+
+  const handleBackfillSignupBonus = async () => {
+    if (!confirm('This will award 10 XP signup bonus to all wallets that haven\'t received it yet. Continue?')) {
+      return;
+    }
+
+    setIsBackfillingSignupBonus(true);
+    try {
+      const res = await authenticatedRequest('POST', '/api/admin/backfill-signup-bonus', authHeader);
+      const result = await res.json();
+
+      toast({
+        title: 'Signup Bonus Backfill Complete',
+        description: `Processed ${result.walletsProcessed || 0} wallets, awarded ${result.walletsAwarded || 0} wallets (${(result.totalXpAwarded || 0) / 100} XP total)`,
+      });
+
+      loadDashboardData(authHeader);
+    } catch (error: any) {
+      toast({
+        title: 'Backfill Failed',
+        description: error.message || 'Failed to backfill signup bonus',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsBackfillingSignupBonus(false);
     }
   };
 
@@ -2079,6 +2107,29 @@ export default function Admin() {
                   >
                     {isRefetchingMaxFlow && <Loader2 className="h-4 w-4 animate-spin" />}
                     Refetch MaxFlow Scores
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Gift className="h-5 w-5" />
+                    Backfill Signup Bonus
+                  </CardTitle>
+                  <CardDescription>
+                    Award 10 XP signup bonus to all existing wallets that haven't received it
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    onClick={handleBackfillSignupBonus}
+                    disabled={isBackfillingSignupBonus}
+                    className="w-full"
+                    data-testid="button-backfill-signup-bonus"
+                  >
+                    {isBackfillingSignupBonus && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Backfill Signup Bonus
                   </Button>
                 </CardContent>
               </Card>
