@@ -1327,14 +1327,35 @@ export class DbStorage extends MemStorage {
 
   async registerWallet(address: string): Promise<void> {
     try {
+      const normalized = address.toLowerCase();
+      
+      // Check if wallet already exists
+      const existing = await db
+        .select()
+        .from(wallets)
+        .where(eq(wallets.address, normalized))
+        .limit(1);
+      
+      const isNewWallet = existing.length === 0;
+      
+      // Upsert the wallet
       await db.insert(wallets).values({
-        address,
+        address: normalized,
       }).onConflictDoUpdate({
         target: wallets.address,
         set: {
           lastSeen: new Date(),
         },
       });
+      
+      // Award signup bonus for new wallets
+      if (isNewWallet) {
+        console.log(`[XP] Awarding signup bonus to new wallet: ${normalized}`);
+        const result = await this.completeXpAction(normalized, 'signup_bonus');
+        if (result.success) {
+          console.log(`[XP] Signup bonus awarded: ${result.xpAwarded / 100} XP`);
+        }
+      }
     } catch (error) {
       console.error('[DB] Error registering wallet:', error);
     }
@@ -7326,6 +7347,13 @@ export const storage = new DbStorage();
 // Seed default XP actions on startup
 export async function seedXpActions(): Promise<void> {
   const defaultActions = [
+    {
+      actionType: 'signup_bonus',
+      xpAmount: 1000, // 10 XP in centi-XP
+      description: 'Welcome bonus for creating your wallet',
+      isOneTime: true,
+      isActive: true,
+    },
     {
       actionType: 'face_verification',
       xpAmount: 12000, // 120 XP in centi-XP
