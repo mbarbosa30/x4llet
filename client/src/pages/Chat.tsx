@@ -501,7 +501,7 @@ function GeoPostCard({ post, walletAddress, xpBalance, commentCost, isExpanded, 
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const authorPrefix = post.authorShort.split('…')[0].toLowerCase();
+  const authorPrefix = post.authorShort.split('...')[0].toLowerCase();
   const isOwnPost = walletAddress.toLowerCase().startsWith(authorPrefix);
 
   const { data: commentsData, isLoading: commentsLoading } = useQuery<{ comments: GeoComment[] }>({
@@ -547,8 +547,8 @@ function GeoPostCard({ post, walletAddress, xpBalance, commentCost, isExpanded, 
       }`}
       data-testid={`post-card-${post.id}`}
     >
-      {/* Author & Time - Simple inline */}
-      <div className="flex items-center gap-2 mb-2 text-muted-foreground">
+      {/* Author & Time */}
+      <div className="flex items-center justify-between mb-2 text-muted-foreground">
         <span className="font-mono text-xs">
           {post.authorShort}
         </span>
@@ -643,7 +643,7 @@ function GeoPostCard({ post, walletAddress, xpBalance, commentCost, isExpanded, 
                   className="pl-3 border-l-2 border-foreground/10"
                   data-testid={`comment-${comment.id}`}
                 >
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center justify-between mb-1">
                     <span className="font-mono text-xs text-muted-foreground">{comment.authorShort}</span>
                     <span className="font-mono text-xs text-muted-foreground/50">
                       {formatCompactTime(comment.createdAt)}
