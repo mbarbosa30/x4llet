@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Marquee, MarqueeItem } from '@/components/ui/marquee';
-import { WifiOff, Wifi, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap, Users, ArrowRightLeft, ArrowRight, Shield, Coins, TrendingUp, Wallet, ScanFace, Fingerprint, CircleDollarSign, Cpu, Clock, Rocket, Stamp, Fuel } from 'lucide-react';
+import { WifiOff, Wifi, Lock, Sparkles, Sliders, Gift, Layers, Network, Zap, Users, ArrowRightLeft, ArrowRight, Shield, Coins, TrendingUp, Wallet, ScanFace, Fingerprint, CircleDollarSign, Cpu, Clock, Rocket, Stamp, Fuel, MapPin, MessageCircle, Heart } from 'lucide-react';
 import { SiTelegram } from 'react-icons/si';
 import { hasWallet, isWalletUnlocked } from '@/lib/wallet';
 import Footer from '@/components/Footer';
@@ -729,8 +729,88 @@ function DesktopLanding({
         </div>
       </section>
 
-      {/* Setup Section */}
+      {/* GeoChat Section */}
       <section className="py-20 px-8 bg-white">
+        <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
+          <div className="order-2 lg:order-1 space-y-6">
+            <h2 className="text-4xl font-black uppercase tracking-tight">
+              Talk Local.<br />Stay Anonymous.
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              Discover what's happening around you. Post, comment, and connect with your community — no names, no tracking, just real conversations with real neighbors.
+            </p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-[#0055FF]" />
+                <span className="font-medium">Location-based posts up to 100km</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-[#0055FF]" />
+                <span className="font-medium">XP-gated posting (anti-spam built in)</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-[#0055FF]" />
+                <span className="font-medium">Your exact location is never shared</span>
+              </div>
+            </div>
+            <Button size="lg" variant="outline" onClick={() => setLocation('/create')}>
+              Join GeoChat <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="order-1 lg:order-2 flex justify-center">
+            <Card className="p-6 max-w-sm shadow-[8px_8px_0px_0px_rgb(0,0,0)] w-full">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-[#0055FF]" />
+                  <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">Nearby</span>
+                </div>
+                <span className="text-xs font-mono text-muted-foreground">2 XP / post</span>
+              </div>
+              {/* Radius Pills */}
+              <div className="flex gap-1 mb-4">
+                {[1, 5, 10, 25].map((r, i) => (
+                  <div 
+                    key={r}
+                    className={`px-2 py-1 text-[10px] font-mono uppercase border ${
+                      i === 1 ? 'bg-foreground text-background border-foreground' : 'border-foreground/30'
+                    }`}
+                  >
+                    {r}km
+                  </div>
+                ))}
+              </div>
+              {/* Sample Posts */}
+              <div className="space-y-3 border-t border-foreground/10 pt-4">
+                <div className="border-l-2 border-[#0055FF] pl-3 py-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-mono text-muted-foreground">0x8f...2a</span>
+                    <span className="text-[10px] text-muted-foreground">2m ago</span>
+                  </div>
+                  <p className="text-sm">Anyone know a good lunch spot near the park?</p>
+                  <div className="flex gap-3 mt-2 text-[10px] font-mono text-muted-foreground">
+                    <span className="flex items-center gap-1"><Heart className="h-3 w-3" /> 4</span>
+                    <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3" /> 2</span>
+                  </div>
+                </div>
+                <div className="pl-3 py-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-mono text-muted-foreground">0x3c...9b</span>
+                    <span className="text-[10px] text-muted-foreground">15m ago</span>
+                  </div>
+                  <p className="text-sm">Free yoga class at the community center tomorrow 9am!</p>
+                  <div className="flex gap-3 mt-2 text-[10px] font-mono text-muted-foreground">
+                    <span className="flex items-center gap-1"><Heart className="h-3 w-3" /> 12</span>
+                    <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3" /> 5</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Setup Section */}
+      <section className="py-20 px-8">
         <div className="max-w-4xl mx-auto text-center mb-16">
           <h2 className="text-4xl font-black uppercase tracking-tight mb-4">
             Setup in Seconds
