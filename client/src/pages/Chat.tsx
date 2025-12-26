@@ -6,22 +6,31 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { 
   Bot, Send, Loader2, Zap, User, AlertCircle, Trash2, 
-  MapPin, Heart, MessageCircle, Navigation, RefreshCw, ChevronDown, ChevronUp, Globe
+  MapPin, Heart, MessageCircle, Navigation, RefreshCw, ChevronDown, ChevronUp, Globe, Plus
 } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useXp } from '@/hooks/useXp';
 import { useWallet } from '@/hooks/useWallet';
-import { formatDistanceToNow } from 'date-fns';
+
+function formatCompactTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHr = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHr / 24);
+  
+  if (diffSec < 60) return 'now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return `${Math.floor(diffDay / 7)}w ago`;
+}
 
 interface Message {
   id: string;
@@ -316,27 +325,54 @@ function GeoChatTab({ walletAddress, xpBalance, xpLoading }: TabProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header Bar - Clean Style */}
-      <div className="flex-shrink-0 bg-background">
-        {/* Top row: Location + Radius selector + Refresh */}
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-[#0055FF]" />
-              <span className="font-mono text-xs uppercase tracking-widest">NEARBY</span>
-            </div>
-            <Select value={radius.toString()} onValueChange={(val) => setRadius(parseInt(val))}>
-              <SelectTrigger className="h-7 w-20 font-mono text-xs" data-testid="select-radius">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {radiusOptions.map((r) => (
-                  <SelectItem key={r} value={r.toString()} className="font-mono text-xs">
-                    {r} km
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      <div className="flex-shrink-0 bg-background border-b border-foreground/10">
+        {/* Single row: Location/Radius + Post button + Refresh */}
+        <div className="flex items-center justify-between px-4 py-2">
+          <div className="flex items-center gap-4">
+            <Popover>
+              <PopoverTrigger asChild>
+                <button 
+                  className="flex items-center gap-2 hover:text-[#0055FF] transition-colors"
+                  data-testid="select-radius"
+                >
+                  <MapPin className="h-4 w-4 text-[#0055FF]" />
+                  <span className="font-mono text-xs uppercase tracking-widest">
+                    NEARBY · {radius} km
+                  </span>
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-2" align="start">
+                <div className="flex flex-col gap-1">
+                  {radiusOptions.map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => setRadius(r)}
+                      className={`px-4 py-2 text-left font-mono text-xs transition-colors ${
+                        radius === r 
+                          ? 'bg-foreground text-background' 
+                          : 'hover:bg-foreground/10'
+                      }`}
+                    >
+                      {r} km
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+            
+            <Button
+              size="sm"
+              variant={showComposer ? "default" : "outline"}
+              onClick={() => setShowComposer(!showComposer)}
+              className="font-mono text-xs uppercase"
+              data-testid="button-toggle-composer"
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              POST
+            </Button>
           </div>
+          
           <button
             onClick={() => refetchPosts()}
             className="p-1.5 text-muted-foreground hover:text-foreground transition-colors"
@@ -345,24 +381,10 @@ function GeoChatTab({ walletAddress, xpBalance, xpLoading }: TabProps) {
             <RefreshCw className="h-4 w-4" />
           </button>
         </div>
-        
-        <div className="border-t border-foreground/10" />
-
-        {/* Composer Toggle */}
-        <button
-          onClick={() => setShowComposer(!showComposer)}
-          className="w-full flex items-center justify-between px-4 py-2 border-t border-foreground/20 hover:bg-foreground/5 transition-colors"
-          data-testid="button-toggle-composer"
-        >
-          <span className="font-mono text-xs uppercase tracking-wide text-[#0055FF]">
-            + NEW POST ({postCost} XP)
-          </span>
-          {showComposer ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-        </button>
 
         {/* Composer Panel */}
         {showComposer && (
-          <div className="px-4 py-3 border-t border-foreground/20 bg-secondary/30">
+          <div className="px-4 py-3 border-t border-foreground/10 bg-secondary/30">
             <Textarea
               placeholder="What's happening nearby?"
               value={newPostContent}
@@ -373,16 +395,14 @@ function GeoChatTab({ walletAddress, xpBalance, xpLoading }: TabProps) {
               data-testid="input-new-post"
             />
             <div className="flex items-center justify-between mt-2">
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-xs text-muted-foreground">
-                  {newPostContent.length}/500
-                </span>
+              <span className="font-mono text-xs text-muted-foreground">
+                {newPostContent.length}/500 · {postCost} XP
                 {xpBalance < postCost && (
-                  <span className="font-mono text-xs text-destructive">
-                    NEED {postCost} XP
+                  <span className="text-destructive ml-2">
+                    (NEED MORE XP)
                   </span>
                 )}
-              </div>
+              </span>
               <Button
                 size="sm"
                 onClick={handleCreatePost}
@@ -480,6 +500,9 @@ function GeoPostCard({ post, walletAddress, xpBalance, commentCost, isExpanded, 
   const [newComment, setNewComment] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  const authorPrefix = post.authorShort.split('…')[0].toLowerCase();
+  const isOwnPost = walletAddress.toLowerCase().startsWith(authorPrefix);
 
   const { data: commentsData, isLoading: commentsLoading } = useQuery<{ comments: GeoComment[] }>({
     queryKey: ['/api/geo/posts', post.id, 'comments'],
@@ -519,7 +542,9 @@ function GeoPostCard({ post, walletAddress, xpBalance, commentCost, isExpanded, 
 
   return (
     <div 
-      className="py-4 px-4 border-l-2 border-l-[#0055FF] hover:bg-foreground/[0.02] transition-colors"
+      className={`py-4 px-4 border-l-2 hover:bg-foreground/[0.02] transition-colors ${
+        isOwnPost ? 'border-l-[#0055FF]' : 'border-l-transparent'
+      }`}
       data-testid={`post-card-${post.id}`}
     >
       {/* Author & Time - Simple inline */}
@@ -528,7 +553,7 @@ function GeoPostCard({ post, walletAddress, xpBalance, commentCost, isExpanded, 
           {post.authorShort}
         </span>
         <span className="text-xs">
-          {formatDistanceToNow(new Date(post.createdAt), { addSuffix: false })} ago
+          {formatCompactTime(post.createdAt)}
         </span>
       </div>
 
@@ -621,7 +646,7 @@ function GeoPostCard({ post, walletAddress, xpBalance, commentCost, isExpanded, 
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-mono text-xs text-muted-foreground">{comment.authorShort}</span>
                     <span className="font-mono text-xs text-muted-foreground/50">
-                      {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                      {formatCompactTime(comment.createdAt)}
                     </span>
                   </div>
                   <p className="text-sm">{comment.content}</p>
