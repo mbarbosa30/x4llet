@@ -746,7 +746,7 @@ function DesktopLanding({
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 bg-[#0055FF]" />
-                <span className="font-medium">XP-gated posting (anti-spam built in)</span>
+                <span className="font-medium">Earn XP when others reply to your posts</span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 bg-[#0055FF]" />

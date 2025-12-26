@@ -310,14 +310,14 @@ function GeoChatTab({ walletAddress, xpBalance, xpLoading }: TabProps) {
     <div className="flex flex-col h-full">
       {/* Header Bar - Clean Style */}
       <div className="flex-shrink-0 bg-background">
-        {/* Top row: Location + XP cost */}
+        {/* Top row: Location + XP info */}
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4 text-[#0055FF]" />
             <span className="font-mono text-xs uppercase tracking-widest">NEARBY</span>
           </div>
-          <span className="text-sm text-muted-foreground" data-testid="xp-cost-label">
-            {postCost} XP / post
+          <span className="text-xs text-muted-foreground" data-testid="xp-cost-label">
+            {postCost} XP / post · Earn {commentCost} XP per reply
           </span>
         </div>
         

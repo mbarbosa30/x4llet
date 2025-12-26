@@ -9739,19 +9739,46 @@ You are accessed through nanoPay, a crypto wallet app, but your purpose extends 
         });
       }
       
-      // Deduct XP
+      // Deduct XP from commenter
       const deductResult = await storage.deductXp(wallet, GEO_XP_COSTS.comment);
       if (!deductResult.success) {
         return res.status(400).json({ error: 'Failed to deduct XP' });
       }
       
-      // Create comment
-      const comment = await storage.createGeoComment({
-        postId: id,
-        walletAddress: wallet,
-        content,
-        xpCost: GEO_XP_COSTS.comment,
-      });
+      const isOwnPost = wallet.toLowerCase() === post.walletAddress.toLowerCase();
+      let comment;
+      
+      // Create comment first (atomic with deduction)
+      try {
+        comment = await storage.createGeoComment({
+          postId: id,
+          walletAddress: wallet,
+          content,
+          xpCost: GEO_XP_COSTS.comment,
+        });
+      } catch (commentError) {
+        // Refund the commenter if comment creation fails
+        console.error('[GeoChat] Comment creation failed, refunding XP:', commentError);
+        try {
+          await storage.refundXp(wallet, GEO_XP_COSTS.comment);
+        } catch (refundError) {
+          console.error('[GeoChat] Failed to refund XP:', refundError);
+        }
+        throw commentError;
+      }
+      
+      // Credit XP to post author (best effort - comment already created)
+      // Only credit if commenter is not the post author
+      let authorRewarded = false;
+      if (!isOwnPost) {
+        try {
+          await storage.creditXpReward(post.walletAddress, GEO_XP_COSTS.comment, 'comment_reward');
+          authorRewarded = true;
+        } catch (creditError) {
+          // Log but don't fail - comment is already created
+          console.error('[GeoChat] Failed to credit author XP (non-fatal):', creditError);
+        }
+      }
       
       res.json({
         success: true,
@@ -9761,6 +9788,7 @@ You are accessed through nanoPay, a crypto wallet app, but your purpose extends 
           createdAt: comment.createdAt,
         },
         xpSpent: GEO_XP_COSTS.comment / 100,
+        xpRewardedToAuthor: authorRewarded ? GEO_XP_COSTS.comment / 100 : 0,
       });
     } catch (error) {
       console.error('[GeoChat] Error creating comment:', error);
