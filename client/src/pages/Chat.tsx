@@ -308,50 +308,47 @@ function GeoChatTab({ walletAddress, xpBalance, xpLoading }: TabProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Control Bar - Brutalist Style */}
-      <div className="flex-shrink-0 border-b-2 border-foreground bg-background">
-        {/* Top row: Location + XP */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-foreground/20">
+      {/* Header Bar - Clean Style */}
+      <div className="flex-shrink-0 bg-background">
+        {/* Top row: Location + XP cost */}
+        <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4 text-[#0055FF]" />
-            <span className="font-mono text-xs uppercase tracking-wide">NEARBY</span>
+            <span className="font-mono text-xs uppercase tracking-widest">NEARBY</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Zap className="h-4 w-4 text-[#0055FF]" />
-            <span className="font-mono text-xs font-semibold" data-testid="xp-badge">
-              {xpLoading ? '...' : `${xpBalance.toFixed(0)} XP`}
-            </span>
-          </div>
+          <span className="text-sm text-muted-foreground" data-testid="xp-cost-label">
+            {postCost} XP / post
+          </span>
         </div>
         
         {/* Radius Pills */}
-        <div className="flex items-center justify-between px-4 py-2 gap-2">
+        <div className="flex items-center justify-between px-4 pb-3">
           <div className="flex items-center gap-1">
             {radiusOptions.map((r) => (
               <button
                 key={r}
                 onClick={() => setRadius(r)}
-                className={`px-3 py-1 font-mono text-xs uppercase tracking-wide border transition-colors ${
+                className={`px-3 py-1.5 font-mono text-xs uppercase border transition-colors ${
                   radius === r 
                     ? 'bg-foreground text-background border-foreground' 
-                    : 'bg-background text-foreground border-foreground/30 hover:border-foreground'
+                    : 'bg-background text-foreground border-foreground/20 hover:border-foreground'
                 }`}
                 data-testid={`radius-${r}km`}
               >
-                {r}km
+                {r}KM
               </button>
             ))}
           </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => refetchPosts()} 
-            className="h-8 w-8"
+          <button
+            onClick={() => refetchPosts()}
+            className="p-1.5 text-muted-foreground hover:text-foreground transition-colors"
             data-testid="button-refresh-posts"
           >
             <RefreshCw className="h-4 w-4" />
-          </Button>
+          </button>
         </div>
+        
+        <div className="border-t border-foreground/10" />
 
         {/* Composer Toggle */}
         <button
@@ -524,50 +521,44 @@ function GeoPostCard({ post, walletAddress, xpBalance, commentCost, isExpanded, 
 
   return (
     <div 
-      className="p-4 border-l-4 border-l-transparent hover:border-l-[#0055FF] transition-colors bg-background"
+      className="py-4 px-4 border-l-2 border-l-[#0055FF] hover:bg-foreground/[0.02] transition-colors"
       data-testid={`post-card-${post.id}`}
     >
-      {/* Author & Time Header */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <div className="h-6 w-6 bg-foreground/10 flex items-center justify-center">
-            <User className="h-3 w-3 text-foreground/50" />
-          </div>
-          <span className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
-            {post.authorShort}
-          </span>
-        </div>
-        <span className="font-mono text-xs text-muted-foreground">
-          {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
+      {/* Author & Time - Simple inline */}
+      <div className="flex items-center gap-2 mb-2 text-muted-foreground">
+        <span className="font-mono text-xs">
+          {post.authorShort}
+        </span>
+        <span className="text-xs">
+          {formatDistanceToNow(new Date(post.createdAt), { addSuffix: false })} ago
         </span>
       </div>
 
       {/* Content */}
-      <p className="text-sm whitespace-pre-wrap mb-3 leading-relaxed">{post.content}</p>
+      <p className="text-sm whitespace-pre-wrap mb-3 leading-relaxed font-medium">{post.content}</p>
 
-      {/* Actions */}
-      <div className="flex items-center gap-4">
+      {/* Actions - Simple icons with counts */}
+      <div className="flex items-center gap-4 text-muted-foreground">
         <button
           onClick={onLike}
           disabled={likePending}
-          className={`flex items-center gap-1.5 font-mono text-xs uppercase tracking-wide transition-colors ${
-            post.hasLiked ? 'text-[#0055FF]' : 'text-muted-foreground hover:text-foreground'
+          className={`flex items-center gap-1 text-sm transition-colors ${
+            post.hasLiked ? 'text-[#0055FF]' : 'hover:text-foreground'
           }`}
           data-testid={`button-like-${post.id}`}
         >
           <Heart className={`h-4 w-4 ${post.hasLiked ? 'fill-[#0055FF]' : ''}`} />
-          <span>{post.likeCount} {post.likeCount === 1 ? 'LIKE' : 'LIKES'}</span>
+          <span>{post.likeCount}</span>
         </button>
         <button
           onClick={onToggleExpand}
-          className={`flex items-center gap-1.5 font-mono text-xs uppercase tracking-wide transition-colors ${
-            isExpanded ? 'text-[#0055FF]' : 'text-muted-foreground hover:text-foreground'
+          className={`flex items-center gap-1 text-sm transition-colors ${
+            isExpanded ? 'text-[#0055FF]' : 'hover:text-foreground'
           }`}
           data-testid={`button-comments-${post.id}`}
         >
           <MessageCircle className={`h-4 w-4 ${isExpanded ? 'fill-[#0055FF]/20' : ''}`} />
-          <span>{post.commentCount} {post.commentCount === 1 ? 'REPLY' : 'REPLIES'}</span>
-          {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          <span>{post.commentCount}</span>
         </button>
       </div>
 
