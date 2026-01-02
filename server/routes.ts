@@ -5254,6 +5254,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get GeoChat analytics
+  app.get('/api/admin/analytics/geochat', adminAuthMiddleware, async (req, res) => {
+    try {
+      const geoChatAnalytics = await storage.getGeoChatAnalytics();
+      res.json(geoChatAnalytics);
+    } catch (error) {
+      console.error('[Analytics] Error getting GeoChat analytics:', error);
+      res.status(500).json({ error: 'Failed to get GeoChat analytics' });
+    }
+  });
+
   // Get XP analytics
   app.get('/api/admin/analytics/xp', adminAuthMiddleware, async (req, res) => {
     try {

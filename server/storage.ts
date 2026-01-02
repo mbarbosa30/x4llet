@@ -471,6 +471,30 @@ export interface IStorage {
     activeClaimers: number;
   }>;
   
+  // GeoChat analytics
+  getGeoChatAnalytics(): Promise<{
+    totalPosts: number;
+    totalComments: number;
+    totalLikes: number;
+    uniqueAuthors: number;
+    postsToday: number;
+    postsThisWeek: number;
+    totalXpSpent: number;
+    topPosters: Array<{
+      walletAddress: string;
+      postCount: number;
+      commentCount: number;
+    }>;
+    recentPosts: Array<{
+      id: string;
+      authorShort: string;
+      content: string;
+      likeCount: number;
+      commentCount: number;
+      createdAt: Date;
+    }>;
+  }>;
+  
   // aUSDC balance caching (uses negative chainIds to distinguish from USDC)
   cacheAUsdcBalance(address: string, chainId: number, balance: string): Promise<void>;
   getCachedAUsdcBalance(address: string, chainId: number): Promise<string>;
@@ -1102,6 +1126,30 @@ export class MemStorage implements IStorage {
       totalGdClaimedFormatted: '0.00',
       recentClaims: [],
       activeClaimers: 0,
+    };
+  }
+
+  async getGeoChatAnalytics(): Promise<{
+    totalPosts: number;
+    totalComments: number;
+    totalLikes: number;
+    uniqueAuthors: number;
+    postsToday: number;
+    postsThisWeek: number;
+    totalXpSpent: number;
+    topPosters: Array<{ walletAddress: string; postCount: number; commentCount: number }>;
+    recentPosts: Array<{ id: string; authorShort: string; content: string; likeCount: number; commentCount: number; createdAt: Date }>;
+  }> {
+    return {
+      totalPosts: 0,
+      totalComments: 0,
+      totalLikes: 0,
+      uniqueAuthors: 0,
+      postsToday: 0,
+      postsThisWeek: 0,
+      totalXpSpent: 0,
+      topPosters: [],
+      recentPosts: [],
     };
   }
 
@@ -4902,6 +4950,129 @@ export class DbStorage extends MemStorage {
         totalGdClaimedFormatted: '0.00',
         recentClaims: [],
         activeClaimers: 0,
+      };
+    }
+  }
+
+  async getGeoChatAnalytics(): Promise<{
+    totalPosts: number;
+    totalComments: number;
+    totalLikes: number;
+    uniqueAuthors: number;
+    postsToday: number;
+    postsThisWeek: number;
+    totalXpSpent: number;
+    topPosters: Array<{ walletAddress: string; postCount: number; commentCount: number }>;
+    recentPosts: Array<{ id: string; authorShort: string; content: string; likeCount: number; commentCount: number; createdAt: Date }>;
+  }> {
+    try {
+      // Get total posts
+      const [postsCount] = await db.select({ count: sql<number>`count(*)` })
+        .from(geoPosts)
+        .where(eq(geoPosts.isHidden, false));
+
+      // Get total comments
+      const [commentsCount] = await db.select({ count: sql<number>`count(*)` })
+        .from(geoComments)
+        .where(eq(geoComments.isHidden, false));
+
+      // Get total likes
+      const [likesCount] = await db.select({ count: sql<number>`count(*)` })
+        .from(geoLikes);
+
+      // Get unique authors (from posts)
+      const uniqueAuthorsResult = await db.execute(sql`
+        SELECT COUNT(DISTINCT wallet_address) as "uniqueAuthors"
+        FROM geo_posts
+        WHERE is_hidden = false
+      `);
+
+      // Posts today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const [postsTodayCount] = await db.select({ count: sql<number>`count(*)` })
+        .from(geoPosts)
+        .where(and(eq(geoPosts.isHidden, false), sql`created_at >= ${today}`));
+
+      // Posts this week
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      const [postsWeekCount] = await db.select({ count: sql<number>`count(*)` })
+        .from(geoPosts)
+        .where(and(eq(geoPosts.isHidden, false), sql`created_at >= ${weekAgo}`));
+
+      // Total XP spent (sum of xp_cost from posts and comments, in centi-XP)
+      const xpSpentResult = await db.execute(sql`
+        SELECT 
+          COALESCE((SELECT SUM(xp_cost) FROM geo_posts WHERE is_hidden = false), 0) +
+          COALESCE((SELECT SUM(xp_cost) FROM geo_comments WHERE is_hidden = false), 0) as "totalXpSpent"
+      `);
+
+      // Top posters (top 10 by post count)
+      const topPostersResult = await db.execute(sql`
+        SELECT 
+          p.wallet_address as "walletAddress",
+          COUNT(DISTINCT p.id) as "postCount",
+          COALESCE((SELECT COUNT(*) FROM geo_comments c WHERE c.wallet_address = p.wallet_address AND c.is_hidden = false), 0) as "commentCount"
+        FROM geo_posts p
+        WHERE p.is_hidden = false
+        GROUP BY p.wallet_address
+        ORDER BY "postCount" DESC
+        LIMIT 10
+      `);
+
+      // Recent posts (last 10)
+      const recentPosts = await db
+        .select({
+          id: geoPosts.id,
+          walletAddress: geoPosts.walletAddress,
+          content: geoPosts.content,
+          likeCount: geoPosts.likeCount,
+          commentCount: geoPosts.commentCount,
+          createdAt: geoPosts.createdAt,
+        })
+        .from(geoPosts)
+        .where(eq(geoPosts.isHidden, false))
+        .orderBy(desc(geoPosts.createdAt))
+        .limit(10);
+
+      // Format recent posts with shortened addresses
+      const formattedRecentPosts = recentPosts.map(post => ({
+        id: post.id,
+        authorShort: `${post.walletAddress.slice(0, 6)}...${post.walletAddress.slice(-4)}`,
+        content: post.content.length > 100 ? post.content.slice(0, 100) + '...' : post.content,
+        likeCount: post.likeCount,
+        commentCount: post.commentCount,
+        createdAt: post.createdAt,
+      }));
+
+      return {
+        totalPosts: Number(postsCount?.count || 0),
+        totalComments: Number(commentsCount?.count || 0),
+        totalLikes: Number(likesCount?.count || 0),
+        uniqueAuthors: Number(uniqueAuthorsResult.rows[0]?.uniqueAuthors || 0),
+        postsToday: Number(postsTodayCount?.count || 0),
+        postsThisWeek: Number(postsWeekCount?.count || 0),
+        totalXpSpent: Number(xpSpentResult.rows[0]?.totalXpSpent || 0),
+        topPosters: (topPostersResult.rows as any[]).map(row => ({
+          walletAddress: row.walletAddress,
+          postCount: Number(row.postCount),
+          commentCount: Number(row.commentCount),
+        })),
+        recentPosts: formattedRecentPosts,
+      };
+    } catch (error) {
+      console.error('[GeoChat] Error getting analytics:', error);
+      return {
+        totalPosts: 0,
+        totalComments: 0,
+        totalLikes: 0,
+        uniqueAuthors: 0,
+        postsToday: 0,
+        postsThisWeek: 0,
+        totalXpSpent: 0,
+        topPosters: [],
+        recentPosts: [],
       };
     }
   }

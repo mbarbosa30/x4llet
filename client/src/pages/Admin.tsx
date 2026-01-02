@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock, Users, ArrowUpDown, ChevronDown, ChevronUp, Network, UserCheck, PiggyBank, Coins, Shield, Settings, BarChart3, Clock, DollarSign, Wallet, Gift, RefreshCw, HandHeart, Check, Info, ScanFace } from 'lucide-react';
+import { Loader2, Database, TrendingUp, Trash2, Activity, CheckCircle2, AlertCircle, Lock, Users, ArrowUpDown, ChevronDown, ChevronUp, Network, UserCheck, PiggyBank, Coins, Shield, Settings, BarChart3, Clock, DollarSign, Wallet, Gift, RefreshCw, HandHeart, Check, Info, ScanFace, MapPin, MessageSquare, Heart } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { formatAmount } from '@/lib/formatAmount';
 
@@ -134,6 +134,29 @@ interface SybilAnalytics {
   uniqueWallets: number;
   suspiciousIps: number;
   eventsByType: Record<string, number>;
+}
+
+interface GeoChatAnalytics {
+  totalPosts: number;
+  totalComments: number;
+  totalLikes: number;
+  uniqueAuthors: number;
+  postsToday: number;
+  postsThisWeek: number;
+  totalXpSpent: number;
+  topPosters: Array<{
+    walletAddress: string;
+    postCount: number;
+    commentCount: number;
+  }>;
+  recentPosts: Array<{
+    id: string;
+    authorShort: string;
+    content: string;
+    likeCount: number;
+    commentCount: number;
+    createdAt: string;
+  }>;
 }
 
 interface SuspiciousIpPattern {
@@ -310,11 +333,13 @@ export default function Admin() {
   const [facilitatorAnalytics, setFacilitatorAnalytics] = useState<FacilitatorAnalytics | null>(null);
   const [maxFlowAnalytics, setMaxFlowAnalytics] = useState<MaxFlowAnalytics | null>(null);
   const [goodDollarAnalytics, setGoodDollarAnalytics] = useState<GoodDollarAnalytics | null>(null);
+  const [geoChatAnalytics, setGeoChatAnalytics] = useState<GeoChatAnalytics | null>(null);
   const [schedulerStatus, setSchedulerStatus] = useState<SchedulerStatus | null>(null);
   const [aaveOperations, setAaveOperations] = useState<AaveOperationsResponse | null>(null);
   const [isLoadingPoolAnalytics, setIsLoadingPoolAnalytics] = useState(false);
   const [isLoadingAaveAnalytics, setIsLoadingAaveAnalytics] = useState(false);
   const [isLoadingFacilitatorAnalytics, setIsLoadingFacilitatorAnalytics] = useState(false);
+  const [isLoadingGeoChatAnalytics, setIsLoadingGeoChatAnalytics] = useState(false);
   const [isLoadingMaxFlowAnalytics, setIsLoadingMaxFlowAnalytics] = useState(false);
   const [isLoadingGoodDollarAnalytics, setIsLoadingGoodDollarAnalytics] = useState(false);
   const [isLoadingSchedulerStatus, setIsLoadingSchedulerStatus] = useState(false);
@@ -483,6 +508,18 @@ export default function Admin() {
     }
   };
 
+  const loadGeoChatAnalytics = async (auth: string) => {
+    setIsLoadingGeoChatAnalytics(true);
+    try {
+      const res = await authenticatedRequest('GET', '/api/admin/analytics/geochat', auth);
+      setGeoChatAnalytics(await res.json());
+    } catch (error) {
+      console.error('Failed to load geochat analytics:', error);
+    } finally {
+      setIsLoadingGeoChatAnalytics(false);
+    }
+  };
+
   const handleSyncGoodDollarClaims = async () => {
     if (!syncClaimsAddress || !/^0x[a-fA-F0-9]{40}$/.test(syncClaimsAddress)) {
       toast({
@@ -573,6 +610,8 @@ export default function Admin() {
       loadWalletList(authHeader);
     } else if (tab === 'gooddollar' && !goodDollarAnalytics && !isLoadingGoodDollarAnalytics) {
       loadGoodDollarAnalytics(authHeader);
+    } else if (tab === 'geochat' && !geoChatAnalytics && !isLoadingGeoChatAnalytics) {
+      loadGeoChatAnalytics(authHeader);
     }
   };
 
@@ -1060,7 +1099,7 @@ export default function Admin() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-9 mb-6" data-testid="admin-tabs">
+          <TabsList className="grid w-full grid-cols-10 mb-6" data-testid="admin-tabs">
             <TabsTrigger value="overview" className="flex items-center gap-1.5" data-testid="tab-overview">
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Overview</span>
@@ -1080,6 +1119,10 @@ export default function Admin() {
             <TabsTrigger value="gooddollar" className="flex items-center gap-1.5" data-testid="tab-gooddollar">
               <HandHeart className="h-4 w-4" />
               <span className="hidden sm:inline">GoodDollar</span>
+            </TabsTrigger>
+            <TabsTrigger value="geochat" className="flex items-center gap-1.5" data-testid="tab-geochat">
+              <MapPin className="h-4 w-4" />
+              <span className="hidden sm:inline">GeoChat</span>
             </TabsTrigger>
             <TabsTrigger value="sybil" className="flex items-center gap-1.5" data-testid="tab-sybil">
               <AlertCircle className="h-4 w-4" />
@@ -1808,6 +1851,159 @@ export default function Admin() {
                   <p className="text-muted-foreground mb-4">GoodDollar analytics not loaded</p>
                   <Button onClick={() => loadGoodDollarAnalytics(authHeader)} data-testid="button-load-gooddollar-analytics">
                     Load GoodDollar Analytics
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* GeoChat Tab */}
+          <TabsContent value="geochat" className="space-y-6">
+            {isLoadingGeoChatAnalytics ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : geoChatAnalytics ? (
+              <>
+                <div className="grid md:grid-cols-4 gap-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Total Posts</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold" data-testid="text-geochat-total-posts">{geoChatAnalytics.totalPosts}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Total Comments</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold" data-testid="text-geochat-total-comments">{geoChatAnalytics.totalComments}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Total Likes</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold" data-testid="text-geochat-total-likes">{geoChatAnalytics.totalLikes}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Unique Authors</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold" data-testid="text-geochat-unique-authors">{geoChatAnalytics.uniqueAuthors}</div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Posts Today</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-green-600" data-testid="text-geochat-posts-today">{geoChatAnalytics.postsToday}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Posts This Week</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold" data-testid="text-geochat-posts-week">{geoChatAnalytics.postsThisWeek}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">XP Spent</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold" data-testid="text-geochat-xp-spent">{(geoChatAnalytics.totalXpSpent / 100).toFixed(0)} XP</div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Top Posters */}
+                {geoChatAnalytics.topPosters.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Users className="h-5 w-5" />
+                        Top Posters
+                      </CardTitle>
+                      <CardDescription>Most active content creators</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {geoChatAnalytics.topPosters.map((poster, idx) => (
+                          <div key={poster.walletAddress} className="flex items-center justify-between p-2 bg-muted" data-testid={`row-top-poster-${idx}`}>
+                            <span className="font-mono text-sm">{poster.walletAddress.slice(0, 8)}...{poster.walletAddress.slice(-6)}</span>
+                            <div className="flex items-center gap-4 text-sm">
+                              <span className="flex items-center gap-1">
+                                <MessageSquare className="h-4 w-4" /> {poster.postCount}
+                              </span>
+                              <span className="flex items-center gap-1 text-muted-foreground">
+                                <MessageSquare className="h-3 w-3" /> {poster.commentCount} replies
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Recent Posts */}
+                {geoChatAnalytics.recentPosts.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Clock className="h-5 w-5" />
+                        Recent Posts
+                      </CardTitle>
+                      <CardDescription>Latest GeoChat activity</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {geoChatAnalytics.recentPosts.map((post) => (
+                          <div key={post.id} className="p-3 border" data-testid={`row-recent-post-${post.id}`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-mono text-xs text-muted-foreground">{post.authorShort}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(post.createdAt).toLocaleString()}
+                              </span>
+                            </div>
+                            <p className="text-sm mb-2">{post.content}</p>
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Heart className="h-3 w-3" /> {post.likeCount}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <MessageSquare className="h-3 w-3" /> {post.commentCount}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <Button onClick={() => loadGeoChatAnalytics(authHeader)} variant="outline" className="w-full" data-testid="button-refresh-geochat">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh GeoChat Analytics
+                </Button>
+              </>
+            ) : (
+              <Card>
+                <CardContent className="py-8 text-center">
+                  <p className="text-muted-foreground mb-4">GeoChat analytics not loaded</p>
+                  <Button onClick={() => loadGeoChatAnalytics(authHeader)} data-testid="button-load-geochat-analytics">
+                    Load GeoChat Analytics
                   </Button>
                 </CardContent>
               </Card>
