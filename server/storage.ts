@@ -4976,9 +4976,13 @@ export class DbStorage extends MemStorage {
         .from(geoComments)
         .where(eq(geoComments.isHidden, false));
 
-      // Get total likes
-      const [likesCount] = await db.select({ count: sql<number>`count(*)` })
-        .from(geoLikes);
+      // Get total likes (only on visible posts)
+      const likesResult = await db.execute(sql`
+        SELECT COUNT(*) as count
+        FROM geo_likes l
+        JOIN geo_posts p ON l.post_id = p.id
+        WHERE p.is_hidden = false
+      `);
 
       // Get unique authors (from posts)
       const uniqueAuthorsResult = await db.execute(sql`
@@ -5049,7 +5053,7 @@ export class DbStorage extends MemStorage {
       return {
         totalPosts: Number(postsCount?.count || 0),
         totalComments: Number(commentsCount?.count || 0),
-        totalLikes: Number(likesCount?.count || 0),
+        totalLikes: Number(likesResult.rows[0]?.count || 0),
         uniqueAuthors: Number(uniqueAuthorsResult.rows[0]?.uniqueAuthors || 0),
         postsToday: Number(postsTodayCount?.count || 0),
         postsThisWeek: Number(postsWeekCount?.count || 0),
