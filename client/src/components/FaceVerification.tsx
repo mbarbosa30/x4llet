@@ -992,13 +992,13 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
               </div>
               <p className="font-semibold text-lg">Verified!</p>
               
-              {verificationResult?.pendingXp && verificationResult.pendingXp > 0 && (
+              {verificationResult?.pendingXp != null && verificationResult.pendingXp > 0 && (
                 <p className="text-sm text-white/80">
                   {verificationResult.pendingXp} XP waiting - vouch for someone to unlock it
                 </p>
               )}
               
-              {verificationResult?.xpAwarded && verificationResult.xpAwarded > 0 && (
+              {verificationResult?.xpAwarded != null && verificationResult.xpAwarded > 0 && (
                 <p className="text-emerald-400 font-semibold">
                   +{verificationResult.xpAwarded} XP earned!
                 </p>
