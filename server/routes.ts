@@ -7235,11 +7235,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // STEP 2: Fuzzy match - Euclidean distance on embeddings (face-api.js native metric)
       // Tiered status system based on Euclidean distance (lower = more similar):
-      // - < 0.5: 'duplicate' - auto-blocked, XP denied (high confidence same person)
-      // - 0.5-0.6: 'needs_review' - XP withheld pending admin review (borderline)
-      // - > 0.6: 'verified' - XP awarded normally (different people)
-      const DUPLICATE_THRESHOLD = 0.5;  // Below this = auto-block as duplicate
-      const REVIEW_THRESHOLD = 0.6;     // 0.5-0.6 = needs_review (borderline)
+      // - < 0.3: 'duplicate' - auto-blocked, XP denied (very high confidence same person)
+      // - 0.3-0.45: 'needs_review' - XP withheld pending admin review (borderline)
+      // - > 0.45: 'verified' - XP awarded normally (different people)
+      const DUPLICATE_THRESHOLD = 0.3;  // Below this = auto-block as duplicate
+      const REVIEW_THRESHOLD = 0.45;    // 0.3-0.45 = needs_review (borderline)
       
       // Pass request start time to prevent self-race conditions
       const requestStartTime = new Date();
@@ -7273,12 +7273,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Tiered status based on Euclidean distance (lower = more similar)
         if (distance < DUPLICATE_THRESHOLD) {
-          // < 0.5: High confidence duplicate - auto-block
+          // < 0.3: Very high confidence duplicate - auto-block
           status = 'duplicate';
           duplicateOf = matchWallet;
           console.warn(`[FaceVerification] DUPLICATE BLOCKED (distance ${distance.toFixed(3)} < ${DUPLICATE_THRESHOLD}): ${normalizedAddress} matches ${matchWallet} - XP will NOT be awarded`);
         } else if (distance < REVIEW_THRESHOLD) {
-          // 0.5-0.6: Borderline - needs admin review
+          // 0.3-0.45: Borderline - needs admin review
           status = 'needs_review';
           duplicateOf = matchWallet;
           console.log(`[FaceVerification] NEEDS REVIEW (distance ${distance.toFixed(3)} in ${DUPLICATE_THRESHOLD}-${REVIEW_THRESHOLD}): ${normalizedAddress} matches ${matchWallet} - XP withheld pending review`);
@@ -7322,7 +7322,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         matchedWalletScore: similarFace ? JSON.stringify([{ wallet: similarFace.match.walletAddress, distance: similarFace.distance }]) : undefined,
       });
       
-      // If fuzzy match detected duplicate (distance < 0.4), return 409 like exact duplicates
+      // If fuzzy match detected duplicate (distance < 0.3), return 409 like exact duplicates
       // This ensures frontend shows error state instead of success
       if (status === 'duplicate') {
         // Record the attempt (counts against weekly limit)
@@ -7741,8 +7741,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { execute, recalculate } = req.body;
       // Euclidean distance thresholds (lower = more similar)
-      const DUPLICATE_THRESHOLD = 0.4;  // < 0.4 = duplicate
-      const REVIEW_THRESHOLD = 0.6;     // 0.4-0.6 = needs_review
+      const DUPLICATE_THRESHOLD = 0.3;  // < 0.3 = duplicate (very high confidence)
+      const REVIEW_THRESHOLD = 0.45;    // 0.3-0.45 = needs_review (borderline)
       
       console.log(`[Admin] Reclassifying face verifications (Euclidean thresholds: duplicate<${DUPLICATE_THRESHOLD}, review<${REVIEW_THRESHOLD}, execute=${execute}, recalculate=${recalculate})`);
       

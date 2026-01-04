@@ -6673,7 +6673,7 @@ export class DbStorage extends MemStorage {
 
   // Returns the closest match based on Euclidean distance
   // Note: threshold is now a MAXIMUM distance (lower = stricter match requirement)
-  // For face-api.js: < 0.4 very confident, 0.4-0.6 likely same, > 0.6 different
+  // For face-api.js: < 0.3 very confident duplicate, 0.3-0.45 needs review, > 0.45 different
   async findSimilarFace(embedding: number[], excludeWallet?: string, threshold: number = 0.6, requestStartTime?: Date): Promise<{ match: FaceVerification; distance: number } | null> {
     try {
       // Normalize incoming embedding for consistent comparison with stored (normalized) embeddings
