@@ -7111,8 +7111,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Treat both 'verified' and 'needs_review' as verified=true for feature access
+      // Only 'duplicate' status should block features
+      const isApproved = verification.status === 'verified' || verification.status === 'needs_review';
+      
       res.json({
-        verified: verification.status === 'verified',
+        verified: isApproved,
         status: verification.status,
         isNeedsReview: verification.status === 'needs_review',
         isDuplicate: verification.status === 'duplicate',
@@ -7580,9 +7584,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storageToken
       );
       
+      // Treat both 'verified' and 'needs_review' as verified=true for feature access
+      const isApprovedSubmit = status === 'verified' || status === 'needs_review';
+      
       res.json({
         success: true,
-        verified: status === 'verified',
+        verified: isApprovedSubmit,
         isDuplicate: false, // Duplicates return 409 early
         isNeedsReview: status === 'needs_review',
         isEstablishedUser, // If true, user is already onboarded - no XP bonus eligible

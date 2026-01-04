@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, Camera, Check, AlertTriangle, RefreshCw, Eye, ArrowLeft, ArrowRight, Sparkles, Clock } from 'lucide-react';
+import { Loader2, Camera, Check, AlertTriangle, RefreshCw, Eye, ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFingerprint } from '@/lib/fingerprint';
 import { Progress } from '@/components/ui/progress';
@@ -987,24 +987,10 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
         {status === 'complete' && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/80">
             <div className="text-center text-white space-y-3 px-6">
-              <div className={`h-16 w-16 rounded-full flex items-center justify-center mx-auto ${
-                verificationResult?.isNeedsReview ? 'bg-blue-500' : 'bg-emerald-500'
-              }`}>
-                {verificationResult?.isNeedsReview ? (
-                  <Clock className="h-10 w-10" />
-                ) : (
-                  <Check className="h-10 w-10" />
-                )}
+              <div className="h-16 w-16 rounded-full flex items-center justify-center mx-auto bg-emerald-500">
+                <Check className="h-10 w-10" />
               </div>
-              <p className="font-semibold text-lg">
-                {verificationResult?.isNeedsReview ? 'Pending Review' : 'Verified!'}
-              </p>
-              
-              {verificationResult?.isNeedsReview && (
-                <p className="text-sm text-white/80">
-                  Your verification is under review
-                </p>
-              )}
+              <p className="font-semibold text-lg">Verified!</p>
               
               {verificationResult?.pendingXp != null && verificationResult.pendingXp > 0 && (
                 <p className="text-sm text-white/80">
