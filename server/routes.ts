@@ -7102,6 +7102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const verification = await storage.getFaceVerification(address);
+      console.log(`[FaceVerification] GET status for ${address}: ${verification ? `verified=${verification.status === 'verified'}, status=${verification.status}` : 'not found'}`);
       
       if (!verification) {
         return res.json({ 
@@ -7132,6 +7133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Submit face verification
   app.post('/api/face-verification/submit', async (req, res) => {
     try {
+      console.log(`[FaceVerification] Submit request received for wallet: ${req.body?.walletAddress}`);
       const { walletAddress, embeddingHash, embedding, storageToken, challengesPassed, qualityMetrics } = req.body;
       const userAgent = req.get('user-agent') || undefined;
       const processingStartTime = Date.now();

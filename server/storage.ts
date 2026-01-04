@@ -6616,6 +6616,8 @@ export class DbStorage extends MemStorage {
     matchedWalletScore?: string;
   }): Promise<FaceVerification> {
     try {
+      console.log(`[FaceVerification] Creating verification for ${data.walletAddress} with status: ${data.status || 'verified'}`);
+      
       // Normalize embedding before storing for consistent comparison
       const normalizedEmbedding = data.embedding ? this.normalizeEmbedding(data.embedding) : null;
       
@@ -6637,6 +6639,8 @@ export class DbStorage extends MemStorage {
           matchedWalletScore: data.matchedWalletScore || null,
         })
         .returning();
+      
+      console.log(`[FaceVerification] Successfully created verification for ${data.walletAddress}, id: ${result[0]?.id}`);
       return result[0];
     } catch (error) {
       console.error('[FaceVerification] Error creating verification:', error);
