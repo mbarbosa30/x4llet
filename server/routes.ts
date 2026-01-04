@@ -213,10 +213,15 @@ function resolveChain(chainId: number) {
 }
 
 // MaxFlow API Proxy Routes (v1 API - https://maxflow.one/api/v1)
-// Primary domain with fallback to Replit internal domain for DNS reliability
-const MAXFLOW_API_BASE = 'https://maxflow.one/api/v1';
-const MAXFLOW_API_FALLBACK = 'https://TrustFlow.replit.app/api/v1'; // Fallback for DNS issues
-const MAXFLOW_REQUEST_TIMEOUT_MS = 15000; // 15 second timeout
+// Multiple fallback domains for DNS/timeout reliability
+const MAXFLOW_HOSTS = [
+  'https://maxflow.one/api/v1',
+  'https://TrustFlow.replit.app/api/v1',
+  'https://senador.one/api/v1',
+];
+const MAXFLOW_API_BASE = MAXFLOW_HOSTS[0]; // Primary for URL construction
+const MAXFLOW_GET_TIMEOUT_MS = 15000; // 15 second timeout for GET requests
+const MAXFLOW_POST_TIMEOUT_MS = 25000; // 25 second timeout for POST requests (vouch, etc.)
 
 // Helper: Standard headers for MaxFlow API requests
 const MAXFLOW_HEADERS_BASE = {
@@ -262,86 +267,97 @@ async function singleFetch(
   });
 }
 
-// Helper: Fetch with timeout, retry, and fallback for MaxFlow API
+// Helper: Fetch with timeout, retry across multiple hosts for MaxFlow API
 // Note: Returns globalThis.Response (fetch API), not Express Response
-// Implements retry logic for DNS failures (EAI_AGAIN) with exponential backoff
-// Falls back to TrustFlow.replit.app if primary domain DNS fails
-async function fetchMaxFlow(url: string, options: RequestInit = {}, retries = 3): Promise<globalThis.Response> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), MAXFLOW_REQUEST_TIMEOUT_MS);
-  
-  // Compose signals: both the helper's timeout and any caller-supplied signal can abort
-  const signals: AbortSignal[] = [controller.signal];
-  if (options.signal) {
-    signals.push(options.signal);
-  }
-  const composedSignal = signals.length > 1 ? AbortSignal.any(signals) : controller.signal;
+// Iterates through all hosts (maxflow.one, TrustFlow.replit.app, senador.one)
+// Uses configurable timeout based on HTTP method (GET=15s, POST=25s)
+// Retries DNS failures with exponential backoff before moving to next host
+async function fetchMaxFlow(url: string, options: RequestInit = {}): Promise<globalThis.Response> {
+  const method = (options.method || 'GET').toUpperCase();
+  const timeoutMs = method === 'POST' ? MAXFLOW_POST_TIMEOUT_MS : MAXFLOW_GET_TIMEOUT_MS;
+  const dnsRetries = 2; // Number of DNS retries per host
   
   // Build headers - only add Content-Type for POST/PUT/PATCH with body
   const headers: Record<string, string> = { ...MAXFLOW_HEADERS_BASE };
-  const method = (options.method || 'GET').toUpperCase();
   if ((method === 'POST' || method === 'PUT' || method === 'PATCH') && options.body) {
     headers['Content-Type'] = 'application/json';
   }
   
-  // Retry loop with exponential backoff for DNS failures
+  // Extract the path from the URL (relative to the base)
+  let urlPath = url;
+  for (const host of MAXFLOW_HOSTS) {
+    if (url.startsWith(host)) {
+      urlPath = url.substring(host.length);
+      break;
+    }
+  }
+  
+  // Try each host in order
   let lastError: any = null;
-  for (let attempt = 0; attempt < retries; attempt++) {
-    try {
-      return await singleFetch(url, options, headers, composedSignal);
-    } catch (error: any) {
-      lastError = error;
+  for (let hostIndex = 0; hostIndex < MAXFLOW_HOSTS.length; hostIndex++) {
+    const host = MAXFLOW_HOSTS[hostIndex];
+    const fullUrl = urlPath.startsWith('/') ? `${host}${urlPath}` : `${host}/${urlPath}`;
+    
+    // Retry loop for DNS failures on this host
+    for (let dnsAttempt = 0; dnsAttempt <= dnsRetries; dnsAttempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       
-      // If it's the last attempt or not a DNS error, break and try fallback below
-      if (attempt === retries - 1 || !isDnsError(error)) {
+      // Compose signals: timeout + caller's signal (if any)
+      const signals: AbortSignal[] = [controller.signal];
+      if (options.signal) {
+        signals.push(options.signal);
+      }
+      const composedSignal = signals.length > 1 ? AbortSignal.any(signals) : controller.signal;
+      
+      const startTime = Date.now();
+      try {
+        const response = await singleFetch(fullUrl, options, headers, composedSignal);
+        clearTimeout(timeoutId);
+        const elapsed = Date.now() - startTime;
+        
+        // Treat 5xx as retriable - try next host
+        if (response.status >= 500) {
+          console.log(`[MaxFlow] Host ${hostIndex + 1}/${MAXFLOW_HOSTS.length} (${host}) returned ${response.status} in ${elapsed}ms, trying next`);
+          lastError = new Error(`HTTP ${response.status}`);
+          break; // Move to next host
+        }
+        
+        if (hostIndex > 0 || dnsAttempt > 0) {
+          console.log(`[MaxFlow] Host ${hostIndex + 1}/${MAXFLOW_HOSTS.length} (${host}) succeeded in ${elapsed}ms (status: ${response.status})`);
+        }
+        return response;
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        lastError = error;
+        const elapsed = Date.now() - startTime;
+        
+        const errorCode = error?.cause?.code || error?.code || error?.name || 'unknown';
+        
+        // For DNS errors, retry with backoff on the same host
+        if (isDnsError(error) && dnsAttempt < dnsRetries) {
+          const delay = 500 * Math.pow(2, dnsAttempt);
+          console.log(`[MaxFlow] Host ${hostIndex + 1} DNS error (${errorCode}), retry ${dnsAttempt + 1}/${dnsRetries} in ${delay}ms`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue; // Retry same host
+        }
+        
+        console.log(`[MaxFlow] Host ${hostIndex + 1}/${MAXFLOW_HOSTS.length} (${host}) failed in ${elapsed}ms: ${errorCode}`);
+        
+        // Move to next host on DNS (after retries exhausted) or timeout errors
+        if (shouldTryFallback(error)) {
+          break; // Move to next host
+        }
+        
+        // For other errors, also move to next host
+        console.log(`[MaxFlow] Non-DNS/timeout error, trying next host`);
         break;
       }
-      
-      // Exponential backoff: 500ms, 1000ms, 2000ms
-      const delay = 500 * Math.pow(2, attempt);
-      console.log(`[MaxFlow] DNS error (${error.cause?.code || error.code}), retrying in ${delay}ms (attempt ${attempt + 1}/${retries})`);
-      await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
   
-  // If DNS error or timeout and URL uses primary domain, try fallback
-  if (shouldTryFallback(lastError) && url.includes(MAXFLOW_API_BASE)) {
-    const fallbackUrl = url.replace(MAXFLOW_API_BASE, MAXFLOW_API_FALLBACK);
-    const errorType = isDnsError(lastError) ? 'DNS' : 'timeout';
-    console.log(`[MaxFlow] Primary domain ${errorType} failed, trying fallback: ${fallbackUrl}`);
-    
-    // Create fresh controller for fallback (original may be aborted)
-    const fallbackController = new AbortController();
-    const fallbackTimeoutId = setTimeout(() => fallbackController.abort(), MAXFLOW_REQUEST_TIMEOUT_MS);
-    
-    // Compose signals: fallback timeout + caller's signal (if any)
-    const fallbackSignals: AbortSignal[] = [fallbackController.signal];
-    if (options.signal) {
-      fallbackSignals.push(options.signal);
-    }
-    const composedFallbackSignal = fallbackSignals.length > 1 
-      ? AbortSignal.any(fallbackSignals) 
-      : fallbackController.signal;
-    
-    try {
-      const fallbackResponse = await singleFetch(fallbackUrl, options, headers, composedFallbackSignal);
-      console.log(`[MaxFlow] Fallback succeeded (status: ${fallbackResponse.status})`);
-      clearTimeout(timeoutId);
-      clearTimeout(fallbackTimeoutId);
-      return fallbackResponse;
-    } catch (fallbackError: any) {
-      clearTimeout(fallbackTimeoutId);
-      console.error(`[MaxFlow] Fallback also failed: ${fallbackError.cause?.code || fallbackError.code || fallbackError.message}`);
-      // Preserve original error for consistency
-    }
-  }
-  
-  // All retries and fallback exhausted
-  clearTimeout(timeoutId);
-  const errorCode = lastError?.cause?.code || lastError?.code;
-  if (errorCode === 'EAI_AGAIN' || errorCode === 'ENOTFOUND') {
-    console.error(`[MaxFlow] DNS resolution failed after ${retries} retries and fallback (code: ${errorCode})`);
-  }
+  // All hosts exhausted
+  console.error(`[MaxFlow] All ${MAXFLOW_HOSTS.length} hosts failed`);
   throw lastError;
 }
 
