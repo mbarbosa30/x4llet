@@ -225,64 +225,127 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
       
       // Load MediaPipe for liveness detection (blink, head turn)
       setLoadingMessage('Loading liveness detection...');
-      const vision = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm');
+      console.log('[FaceVerification] Starting model load...');
+      
+      let vision;
+      try {
+        vision = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm');
+        console.log('[FaceVerification] MediaPipe vision module loaded');
+      } catch (importErr) {
+        console.error('[FaceVerification] Failed to import MediaPipe:', importErr);
+        throw new Error('Failed to load face detection library. Check your internet connection.');
+      }
+      
       const { FaceLandmarker, FilesetResolver } = vision;
       
-      const filesetResolver = await FilesetResolver.forVisionTasks(
-        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
-      );
+      let filesetResolver;
+      try {
+        filesetResolver = await FilesetResolver.forVisionTasks(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+        );
+        console.log('[FaceVerification] MediaPipe WASM loaded');
+      } catch (wasmErr) {
+        console.error('[FaceVerification] Failed to load WASM:', wasmErr);
+        throw new Error('Failed to load face detection (WASM). Try a different browser.');
+      }
       
-      faceLandmarkerRef.current = await FaceLandmarker.createFromOptions(filesetResolver, {
-        baseOptions: {
-          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
-          delegate: 'GPU'
-        },
-        runningMode: 'VIDEO',
-        numFaces: 1,
-        minFaceDetectionConfidence: 0.7,  // Require 70% confidence for detection
-        minFacePresenceConfidence: 0.7,   // Require 70% confidence face is present
-        minTrackingConfidence: 0.7,        // Require 70% confidence for tracking
-        outputFaceBlendshapes: true,
-        outputFacialTransformationMatrixes: true
-      });
+      // Try GPU first, fall back to CPU if GPU fails
+      let faceLandmarker;
+      try {
+        faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
+          baseOptions: {
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+            delegate: 'GPU'
+          },
+          runningMode: 'VIDEO',
+          numFaces: 1,
+          minFaceDetectionConfidence: 0.7,
+          minFacePresenceConfidence: 0.7,
+          minTrackingConfidence: 0.7,
+          outputFaceBlendshapes: true,
+          outputFacialTransformationMatrixes: true
+        });
+        console.log('[FaceVerification] FaceLandmarker created with GPU');
+      } catch (gpuErr) {
+        console.warn('[FaceVerification] GPU delegate failed, falling back to CPU:', gpuErr);
+        try {
+          faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
+            baseOptions: {
+              modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+              delegate: 'CPU'
+            },
+            runningMode: 'VIDEO',
+            numFaces: 1,
+            minFaceDetectionConfidence: 0.7,
+            minFacePresenceConfidence: 0.7,
+            minTrackingConfidence: 0.7,
+            outputFaceBlendshapes: true,
+            outputFacialTransformationMatrixes: true
+          });
+          console.log('[FaceVerification] FaceLandmarker created with CPU fallback');
+        } catch (cpuErr) {
+          console.error('[FaceVerification] Both GPU and CPU delegates failed:', cpuErr);
+          throw new Error('Failed to initialize face detection. Your device may not be supported.');
+        }
+      }
+      faceLandmarkerRef.current = faceLandmarker;
       
       // Load face-api.js for identity embeddings (128D face descriptors)
-      // Use script loader approach since ESM import doesn't work reliably
       setLoadingMessage('Loading face recognition...');
       
       // Load face-api.js via script tag if not already loaded
       if (!(window as any).faceapi) {
-        await new Promise<void>((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
-          script.onload = () => resolve();
-          script.onerror = () => reject(new Error('Failed to load face-api.js'));
-          document.head.appendChild(script);
-        });
+        try {
+          await new Promise<void>((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
+            script.onload = () => {
+              console.log('[FaceVerification] face-api.js script loaded');
+              resolve();
+            };
+            script.onerror = () => reject(new Error('Failed to load face-api.js script'));
+            document.head.appendChild(script);
+          });
+        } catch (scriptErr) {
+          console.error('[FaceVerification] Failed to load face-api.js:', scriptErr);
+          throw new Error('Failed to load face recognition library. Check your internet connection.');
+        }
       }
       
       const faceapi = (window as any).faceapi;
       if (!faceapi) {
-        throw new Error('face-api.js not available');
+        throw new Error('face-api.js not available after loading');
       }
       faceApiRef.current = faceapi;
       
       // Load required models from CDN
       const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
-      await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-      ]);
-      console.log('[FaceVerification] face-api.js models loaded successfully');
+      try {
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+        ]);
+        console.log('[FaceVerification] face-api.js models loaded successfully');
+      } catch (modelErr) {
+        console.error('[FaceVerification] Failed to load face-api.js models:', modelErr);
+        throw new Error('Failed to load face recognition models. Check your internet connection.');
+      }
       
       setLoadingMessage('Starting camera...');
       await startCamera();
+      console.log('[FaceVerification] All models loaded and camera started');
       setStatus('ready');
-    } catch (err) {
+    } catch (err: any) {
       console.error('[FaceVerification] Failed to load models:', err);
-      setError('Failed to load face detection. Please try again.');
+      const errorMessage = err?.message || 'Failed to load face detection. Please try again.';
+      setError(errorMessage);
       setStatus('error');
+      toast({
+        title: 'Face Check Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
     }
   }, []);
 
