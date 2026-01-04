@@ -7114,6 +7114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         verified: verification.status === 'verified',
         status: verification.status,
+        isNeedsReview: verification.status === 'needs_review',
         isDuplicate: verification.status === 'duplicate',
         duplicateOf: verification.duplicateOf,
         challengesPassed: JSON.parse(verification.challengesPassed || '[]'),

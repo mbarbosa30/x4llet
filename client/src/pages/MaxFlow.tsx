@@ -146,6 +146,7 @@ export default function MaxFlow() {
   const { data: faceVerificationData, isLoading: isLoadingFaceVerification } = useQuery<{
     verified: boolean;
     status: string | null;
+    isNeedsReview: boolean;
     isDuplicate: boolean;
     duplicateOf: string | null;
     challengesPassed: string[];
@@ -155,6 +156,10 @@ export default function MaxFlow() {
     queryFn: () => fetch(`/api/face-verification/${address}`).then(res => res.json()),
     enabled: !!address,
   });
+  
+  // User has completed face check if status exists (verified, needs_review, or duplicate)
+  // This allows UI to transition even for needs_review, while security-gated features still check verified=true
+  const hasFaceCheckCompleted = faceVerificationData?.status != null;
 
   const { data: gdIdentity, isLoading: isLoadingGdIdentity } = useQuery<IdentityStatus>({
     queryKey: ['/api/gooddollar/identity', address],
@@ -824,7 +829,7 @@ export default function MaxFlow() {
                   </div>
                 </div>
               </Card>
-            ) : (!faceVerificationData?.verified) ? (
+            ) : (!hasFaceCheckCompleted) ? (
               <Card className="p-4">
                 <Suspense fallback={
                   <div className="flex items-center justify-center py-8">
@@ -851,6 +856,23 @@ export default function MaxFlow() {
                 </Suspense>
               </Card>
             ) : null}
+
+            {/* Needs Review Banner - Shows when face check is complete but pending admin review */}
+            {faceVerificationData?.isNeedsReview && (
+              <Card className="p-4 border-blue-500 bg-blue-50 dark:bg-blue-950/20">
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center flex-shrink-0">
+                    <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-blue-700 dark:text-blue-400">Verification Pending Review</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Your face check is complete and under review. Some features may be limited until approved.
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
 
             {/* Pending XP Banner - Shows when user is face verified but has pending XP (hasn't vouched yet) */}
             {faceVerificationData?.verified && xpData && xpData.pendingFaceXp > 0 && (

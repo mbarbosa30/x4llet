@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, Camera, Check, AlertTriangle, RefreshCw, Eye, ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
+import { Loader2, Camera, Check, AlertTriangle, RefreshCw, Eye, ArrowLeft, ArrowRight, Sparkles, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFingerprint } from '@/lib/fingerprint';
 import { Progress } from '@/components/ui/progress';
@@ -81,7 +81,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [videoAspect, setVideoAspect] = useState<number>(3/4); // Default portrait ratio
   const [loadingMessage, setLoadingMessage] = useState<string>('Initializing...');
-  const [verificationResult, setVerificationResult] = useState<{ xpAwarded?: number; pendingXp?: number } | null>(null);
+  const [verificationResult, setVerificationResult] = useState<{ xpAwarded?: number; pendingXp?: number; isNeedsReview?: boolean } | null>(null);
   const [faceQuality, setFaceQuality] = useState<FaceQuality>({
     confidence: false,
     faceSize: false,
@@ -740,7 +740,7 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
       
       // Update state only if still mounted
       if (isMountedRef.current) {
-        setVerificationResult({ xpAwarded, pendingXp });
+        setVerificationResult({ xpAwarded, pendingXp, isNeedsReview: result.isNeedsReview === true });
         setStatus('complete');
         setIsSubmitting(false);
       }
@@ -987,10 +987,24 @@ export default function FaceVerification({ walletAddress, onComplete, onReset }:
         {status === 'complete' && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/80">
             <div className="text-center text-white space-y-3 px-6">
-              <div className="h-16 w-16 rounded-full bg-emerald-500 flex items-center justify-center mx-auto">
-                <Check className="h-10 w-10" />
+              <div className={`h-16 w-16 rounded-full flex items-center justify-center mx-auto ${
+                verificationResult?.isNeedsReview ? 'bg-blue-500' : 'bg-emerald-500'
+              }`}>
+                {verificationResult?.isNeedsReview ? (
+                  <Clock className="h-10 w-10" />
+                ) : (
+                  <Check className="h-10 w-10" />
+                )}
               </div>
-              <p className="font-semibold text-lg">Verified!</p>
+              <p className="font-semibold text-lg">
+                {verificationResult?.isNeedsReview ? 'Pending Review' : 'Verified!'}
+              </p>
+              
+              {verificationResult?.isNeedsReview && (
+                <p className="text-sm text-white/80">
+                  Your verification is under review
+                </p>
+              )}
               
               {verificationResult?.pendingXp != null && verificationResult.pendingXp > 0 && (
                 <p className="text-sm text-white/80">
