@@ -232,6 +232,19 @@ function isDnsError(error: any): boolean {
          error?.code === 'ENOTFOUND';
 }
 
+// Helper: Check if error is a timeout/abort error
+function isTimeoutError(error: any): boolean {
+  return error?.name === 'AbortError' || 
+         error?.name === 'TimeoutError' ||
+         error?.message?.includes('aborted') ||
+         error?.message?.includes('timeout');
+}
+
+// Helper: Check if error should trigger fallback (DNS or timeout)
+function shouldTryFallback(error: any): boolean {
+  return isDnsError(error) || isTimeoutError(error);
+}
+
 // Helper: Single fetch attempt with timeout
 async function singleFetch(
   url: string, 
@@ -291,17 +304,33 @@ async function fetchMaxFlow(url: string, options: RequestInit = {}, retries = 3)
     }
   }
   
-  // If DNS error and URL uses primary domain, try fallback
-  if (isDnsError(lastError) && url.includes(MAXFLOW_API_BASE)) {
+  // If DNS error or timeout and URL uses primary domain, try fallback
+  if (shouldTryFallback(lastError) && url.includes(MAXFLOW_API_BASE)) {
     const fallbackUrl = url.replace(MAXFLOW_API_BASE, MAXFLOW_API_FALLBACK);
-    console.log(`[MaxFlow] Primary domain DNS failed, trying fallback: ${fallbackUrl}`);
+    const errorType = isDnsError(lastError) ? 'DNS' : 'timeout';
+    console.log(`[MaxFlow] Primary domain ${errorType} failed, trying fallback: ${fallbackUrl}`);
+    
+    // Create fresh controller for fallback (original may be aborted)
+    const fallbackController = new AbortController();
+    const fallbackTimeoutId = setTimeout(() => fallbackController.abort(), MAXFLOW_REQUEST_TIMEOUT_MS);
+    
+    // Compose signals: fallback timeout + caller's signal (if any)
+    const fallbackSignals: AbortSignal[] = [fallbackController.signal];
+    if (options.signal) {
+      fallbackSignals.push(options.signal);
+    }
+    const composedFallbackSignal = fallbackSignals.length > 1 
+      ? AbortSignal.any(fallbackSignals) 
+      : fallbackController.signal;
     
     try {
-      const fallbackResponse = await singleFetch(fallbackUrl, options, headers, composedSignal);
+      const fallbackResponse = await singleFetch(fallbackUrl, options, headers, composedFallbackSignal);
       console.log(`[MaxFlow] Fallback succeeded (status: ${fallbackResponse.status})`);
       clearTimeout(timeoutId);
+      clearTimeout(fallbackTimeoutId);
       return fallbackResponse;
     } catch (fallbackError: any) {
+      clearTimeout(fallbackTimeoutId);
       console.error(`[MaxFlow] Fallback also failed: ${fallbackError.cause?.code || fallbackError.code || fallbackError.message}`);
       // Preserve original error for consistency
     }
