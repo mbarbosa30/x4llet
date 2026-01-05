@@ -7076,10 +7076,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const spentGd = dailySpending ? Number(dailySpending.gdSpent) / 1e18 : 0;
       const remainingGd = dailyLimitGd - spentGd;
       
+      // Treat both 'verified' and 'needs_review' as faceVerified for feature access
+      const isFaceApproved = faceVerification?.status === 'verified' || faceVerification?.status === 'needs_review';
+      
       res.json({
-        faceVerified: faceVerification?.status === 'verified',
+        faceVerified: isFaceApproved,
         gdVerified,
-        eligible: (faceVerification?.status === 'verified') && gdVerified,
+        eligible: isFaceApproved && gdVerified,
         dailyLimit: dailyLimitGd,
         spent: spentGd,
         remaining: Math.max(0, remainingGd),
