@@ -444,7 +444,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch { /* ignore parse errors */ }
 
       // Compute local face verification status
-      const faceEnrolled = faceVerification !== null && faceVerification.status === 'verified';
+      // Treat both 'verified' and 'needs_review' as enrolled for feature access
+      const faceEnrolled = faceVerification !== null && (faceVerification.status === 'verified' || faceVerification.status === 'needs_review');
       const faceDuplicate = faceVerification?.status === 'duplicate';
       const faceLastVerified = faceVerification?.createdAt || null;
 
@@ -6198,8 +6199,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const today = new Date().toISOString().split('T')[0];
       
       // Check face verification status
+      // Treat both 'verified' and 'needs_review' as faceVerified for feature access
       const faceVerification = await storage.getFaceVerification(normalizedAddress);
-      const faceVerified = faceVerification?.status === 'verified';
+      const faceVerified = faceVerification?.status === 'verified' || faceVerification?.status === 'needs_review';
       // Check both status and duplicateOf for duplicate detection
       const faceDuplicate = faceVerification?.status === 'duplicate' || !!faceVerification?.duplicateOf;
       
@@ -6268,8 +6270,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Check face is verified
-      if (!faceVerification || faceVerification.status !== 'verified') {
+      // Check face is verified (treat 'verified' and 'needs_review' as approved)
+      const isFaceApproved = faceVerification?.status === 'verified' || faceVerification?.status === 'needs_review';
+      if (!isFaceApproved) {
         return res.status(403).json({ 
           error: 'Face verification required',
           message: 'Complete Face Check in the MaxFlow tab to redeem USDC',
@@ -6931,9 +6934,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // === VERIFICATION CHECKS ===
       
-      // 1. Check face verification status
+      // 1. Check face verification status (treat 'verified' and 'needs_review' as approved)
       const faceVerification = await storage.getFaceVerification(normalizedAddress);
-      if (!faceVerification || faceVerification.status !== 'verified') {
+      const isFaceApprovedForExchange = faceVerification?.status === 'verified' || faceVerification?.status === 'needs_review';
+      if (!isFaceApprovedForExchange) {
         return res.status(403).json({ 
           error: 'Face verification required',
           code: 'FACE_NOT_VERIFIED',
