@@ -2970,45 +2970,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = await response.json();
       console.log('[MaxFlow API] Vouch success:', JSON.stringify(data, null, 2));
       
-      // Cache the endorsee's fresh score from the response (API now returns it directly)
       const endorseeAddress = req.body.endorsee;
       const endorserAddress = req.body.endorser;
       
-      if (endorseeAddress && data.endorseeLocalHealth !== undefined) {
-        console.log(`[MaxFlow API] Caching fresh score for vouchee ${endorseeAddress}: ${data.endorseeLocalHealth}`);
-        
-        // Load existing cached score (raw - bypasses staleness check) to preserve vouch_counts and activity
-        const existingScore = await storage.getMaxFlowScoreRaw(endorseeAddress);
-        
-        if (existingScore) {
-          // Update just the local_health while preserving other fields
-          await storage.saveMaxFlowScore(endorseeAddress, {
-            ...existingScore,
-            address: endorseeAddress.toLowerCase(),
-            local_health: data.endorseeLocalHealth,
-            cached: false,
-            cached_at: new Date().toISOString(),
-          });
-        } else {
-          // No existing cache - fetch full score in background to get complete metadata
-          console.log(`[MaxFlow API] No existing cache for ${endorseeAddress}, fetching full score in background`);
-          (async () => {
-            try {
-              const scoreResponse = await fetchMaxFlow(`${MAXFLOW_API_BASE}/score/${endorseeAddress}`);
-              if (scoreResponse.ok) {
-                const scoreData = await scoreResponse.json();
-                // Update with fresh local_health from vouch response
-                scoreData.local_health = data.endorseeLocalHealth;
-                scoreData.cached_at = new Date().toISOString();
-                await storage.saveMaxFlowScore(endorseeAddress, scoreData);
-                console.log(`[MaxFlow API] Cached full score for new vouchee ${endorseeAddress}`);
-              }
-            } catch (err) {
-              console.error(`[MaxFlow API] Failed to fetch full score for vouchee:`, err);
-            }
-          })();
-        }
+      // CRITICAL FIX: Invalidate cached MaxFlow scores for BOTH parties after successful vouch
+      // This ensures fresh scores are fetched on next request, solving the "stale no-score" bug
+      // where users vouched days ago still show no MaxFlow score due to cached empty results
+      if (endorseeAddress) {
+        console.log(`[MaxFlow API] Invalidating cached score for vouchee ${endorseeAddress}`);
+        await storage.deleteMaxFlowScore(endorseeAddress);
       }
+      if (endorserAddress) {
+        console.log(`[MaxFlow API] Invalidating cached score for voucher ${endorserAddress}`);
+        await storage.deleteMaxFlowScore(endorserAddress);
+      }
+      
+      // Fetch fresh scores for both in background (fire and forget)
+      (async () => {
+        try {
+          if (endorseeAddress) {
+            const scoreResponse = await fetchMaxFlow(`${MAXFLOW_API_BASE}/score/${endorseeAddress}`);
+            if (scoreResponse.ok) {
+              const scoreData = await scoreResponse.json();
+              await storage.saveMaxFlowScore(endorseeAddress, scoreData);
+              console.log(`[MaxFlow API] Refreshed score for vouchee ${endorseeAddress}`);
+            }
+          }
+          if (endorserAddress) {
+            const scoreResponse = await fetchMaxFlow(`${MAXFLOW_API_BASE}/score/${endorserAddress}`);
+            if (scoreResponse.ok) {
+              const scoreData = await scoreResponse.json();
+              await storage.saveMaxFlowScore(endorserAddress, scoreData);
+              console.log(`[MaxFlow API] Refreshed score for voucher ${endorserAddress}`);
+            }
+          }
+        } catch (err) {
+          console.error(`[MaxFlow API] Failed to refresh scores after vouch:`, err);
+        }
+      })();
       
       // Award pending face verification XP to endorser (first vouch unlocks the reward)
       let pendingXpAwarded = 0;

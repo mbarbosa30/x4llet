@@ -400,6 +400,7 @@ export interface IStorage {
   getMaxFlowScore(address: string): Promise<MaxFlowScore | null>;
   getMaxFlowScoreRaw(address: string): Promise<MaxFlowScore | null>; // Bypasses staleness check
   saveMaxFlowScore(address: string, scoreData: MaxFlowScore): Promise<void>;
+  deleteMaxFlowScore(address: string): Promise<void>; // Invalidate cache after vouch
   
   getBalanceHistory(address: string, chainId: number, days?: number): Promise<BalanceHistoryPoint[]>;
   saveBalanceSnapshot(address: string, chainId: number, balance: string): Promise<void>;
@@ -912,6 +913,10 @@ export class MemStorage implements IStorage {
   }
 
   async saveMaxFlowScore(address: string, scoreData: MaxFlowScore): Promise<void> {
+    // MemStorage doesn't cache MaxFlow scores
+  }
+
+  async deleteMaxFlowScore(address: string): Promise<void> {
     // MemStorage doesn't cache MaxFlow scores
   }
 
@@ -1959,7 +1964,8 @@ export class DbStorage extends MemStorage {
     // Stale-while-revalidate: Always return cached data if it exists
     // Caller should check _stale flag and trigger background refresh if needed
     try {
-      const MAXFLOW_CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours - match frontend staleTime
+      const MAXFLOW_CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours - for users with actual scores
+      const MAXFLOW_NO_SCORE_TTL_MS = 1 * 60 * 60 * 1000; // 1 hour - for users with no score yet (may receive vouches soon)
       
       const cached = await db
         .select()
@@ -1975,9 +1981,13 @@ export class DbStorage extends MemStorage {
       const rawData = JSON.parse(cached[0].scoreData);
       const normalizedData = normalizeMaxFlowScore(rawData) as MaxFlowScore;
       
+      // Use shorter TTL for "no score" entries - these users might receive vouches and need fresh checks
+      const hasScore = normalizedData.local_health && normalizedData.local_health > 0;
+      const effectiveTTL = hasScore ? MAXFLOW_CACHE_TTL_MS : MAXFLOW_NO_SCORE_TTL_MS;
+      
       // Mark as stale if cache is older than TTL, but still return the data
-      if (cacheAge > MAXFLOW_CACHE_TTL_MS) {
-        console.log(`[DB Cache] MaxFlow score stale for ${address} (age: ${Math.round(cacheAge / 1000 / 60)}min), returning with _stale flag`);
+      if (cacheAge > effectiveTTL) {
+        console.log(`[DB Cache] MaxFlow score stale for ${address} (age: ${Math.round(cacheAge / 1000 / 60)}min, hasScore: ${hasScore}), returning with _stale flag`);
         return { ...normalizedData, _stale: true } as MaxFlowScore;
       }
 
@@ -2033,6 +2043,17 @@ export class DbStorage extends MemStorage {
       console.log(`[DB Cache] Saved MaxFlow score for ${address}`);
     } catch (error) {
       console.error('[DB] Error saving MaxFlow score:', error);
+    }
+  }
+
+  async deleteMaxFlowScore(address: string): Promise<void> {
+    try {
+      await db
+        .delete(cachedMaxflowScores)
+        .where(eq(cachedMaxflowScores.address, address.toLowerCase()));
+      console.log(`[DB Cache] Deleted MaxFlow score for ${address}`);
+    } catch (error) {
+      console.error('[DB] Error deleting MaxFlow score:', error);
     }
   }
 
