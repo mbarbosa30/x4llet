@@ -607,6 +607,10 @@ export interface IStorage {
     reason: string;
     details?: string;
   }): Promise<GeoReport>;
+  
+  // Global settings
+  getGlobalSetting(key: string): Promise<string | null>;
+  setGlobalSetting(key: string, value: string): Promise<void>;
 }
 
 export interface GasDrip {
@@ -1371,6 +1375,15 @@ export class MemStorage implements IStorage {
     details?: string;
   }): Promise<GeoReport> {
     throw new Error('GeoChat not available in MemStorage');
+  }
+
+  async getGlobalSetting(key: string): Promise<string | null> {
+    // MemStorage stub - no persistence
+    return null;
+  }
+
+  async setGlobalSetting(key: string, value: string): Promise<void> {
+    // MemStorage stub - no-op
   }
 }
 

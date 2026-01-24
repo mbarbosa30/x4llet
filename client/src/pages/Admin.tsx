@@ -240,6 +240,7 @@ interface SchedulerStatus {
     };
     drawSchedule: string;
     checkInterval: string;
+    poolEnabled: boolean;
   };
 }
 
@@ -275,13 +276,14 @@ function createAuthHeader(username: string, password: string): string {
   return `Basic ${credentials}`;
 }
 
-async function authenticatedRequest(method: string, url: string, authHeader: string) {
+async function authenticatedRequest(method: string, url: string, authHeader: string, body?: object) {
   const response = await fetch(url, {
     method,
     headers: {
       'Content-Type': 'application/json',
       'Authorization': authHeader,
     },
+    body: body ? JSON.stringify(body) : undefined,
   });
 
   if (!response.ok) {
@@ -577,6 +579,28 @@ export default function Admin() {
       console.error('Failed to load scheduler status:', error);
     } finally {
       setIsLoadingSchedulerStatus(false);
+    }
+  };
+
+  const [isTogglingPool, setIsTogglingPool] = useState(false);
+  const togglePoolEnabled = async (enabled: boolean) => {
+    setIsTogglingPool(true);
+    try {
+      const res = await authenticatedRequest('POST', '/api/admin/pool/toggle', authHeader, { enabled });
+      if (res.ok) {
+        toast({
+          title: `Pool ${enabled ? 'enabled' : 'disabled'}`,
+          description: enabled ? 'Pool feature is now active and visible to users' : 'Pool feature is now hidden from users',
+        });
+        loadSchedulerStatus(authHeader);
+      } else {
+        toast({ title: 'Failed to toggle pool', description: 'Please try again', variant: 'destructive' });
+      }
+    } catch (error) {
+      console.error('Failed to toggle pool:', error);
+      toast({ title: 'Error', description: 'Failed to toggle pool feature', variant: 'destructive' });
+    } finally {
+      setIsTogglingPool(false);
     }
   };
 
@@ -1297,7 +1321,17 @@ export default function Admin() {
                     <CardContent className="space-y-3">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
-                          <span className="text-xs text-muted-foreground block">Status</span>
+                          <span className="text-xs text-muted-foreground block">Pool Feature</span>
+                          <span className="font-medium flex items-center gap-1">
+                            {schedulerStatus.scheduler.poolEnabled ? (
+                              <><CheckCircle2 className="h-4 w-4 text-green-500" /> Enabled</>
+                            ) : (
+                              <><AlertCircle className="h-4 w-4 text-yellow-500" /> Disabled</>
+                            )}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-xs text-muted-foreground block">Scheduler</span>
                           <span className="font-medium flex items-center gap-1">
                             {schedulerStatus.scheduler.isRunning ? (
                               <><CheckCircle2 className="h-4 w-4 text-green-500" /> Running</>
@@ -1336,10 +1370,28 @@ export default function Admin() {
                           <span className="text-sm">{schedulerStatus.scheduler.currentWeekDraw.status}</span>
                         </div>
                       )}
-                      <Button onClick={() => loadSchedulerStatus(authHeader)} variant="outline" className="w-full" data-testid="button-refresh-scheduler">
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Refresh Status
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button onClick={() => loadSchedulerStatus(authHeader)} variant="outline" className="flex-1" data-testid="button-refresh-scheduler">
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Refresh Status
+                        </Button>
+                        <Button 
+                          onClick={() => togglePoolEnabled(!schedulerStatus.scheduler.poolEnabled)} 
+                          variant={schedulerStatus.scheduler.poolEnabled ? "destructive" : "default"}
+                          className="flex-1"
+                          disabled={isTogglingPool}
+                          data-testid="button-toggle-pool"
+                        >
+                          {isTogglingPool ? (
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          ) : schedulerStatus.scheduler.poolEnabled ? (
+                            <AlertCircle className="h-4 w-4 mr-2" />
+                          ) : (
+                            <CheckCircle2 className="h-4 w-4 mr-2" />
+                          )}
+                          {schedulerStatus.scheduler.poolEnabled ? 'Disable Pool' : 'Enable Pool'}
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 )}

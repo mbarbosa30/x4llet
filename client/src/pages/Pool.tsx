@@ -181,6 +181,23 @@ export default function Pool() {
   const { toast } = useToast();
   const { address, isLoading: isLoadingWallet } = useWallet({ redirectOnMissing: false });
   const [optInPercent, setOptInPercent] = useState<number>(50); // Default to 50% for intro
+
+  // Check if pool feature is enabled - redirect to earn page if disabled
+  const { data: poolEnabledData, isLoading: isLoadingPoolEnabled } = useQuery<{ enabled: boolean }>({
+    queryKey: ['/api/pool/enabled'],
+    queryFn: async () => {
+      const res = await fetch('/api/pool/enabled');
+      if (!res.ok) return { enabled: false };
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (!isLoadingPoolEnabled && poolEnabledData?.enabled === false) {
+      setLocation('/earn');
+    }
+  }, [isLoadingPoolEnabled, poolEnabledData?.enabled, setLocation]);
   const [hasInitializedOptIn, setHasInitializedOptIn] = useState(false);
   // Cached view state - prevents flash between intro and main views on navigation
   const [cachedHasParticipated, setCachedHasParticipated] = useState<boolean | null>(() => {

@@ -250,6 +250,13 @@ export async function triggerAutomaticDraw(): Promise<{
 
 async function schedulerTick(): Promise<void> {
   try {
+    // Check if pool feature is enabled
+    const poolEnabled = await storage.getGlobalSetting('pool_enabled');
+    if (poolEnabled !== 'true') {
+      // Pool is disabled - skip all scheduling operations
+      return;
+    }
+    
     await ensureCurrentWeekDraw();
     
     if (shouldExecuteDraw()) {

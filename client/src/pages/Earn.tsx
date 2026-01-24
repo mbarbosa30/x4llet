@@ -334,6 +334,18 @@ export default function Earn() {
     },
   });
 
+  // Check if pool feature is enabled (for conditional UI rendering)
+  const { data: poolEnabledData } = useQuery<{ enabled: boolean }>({
+    queryKey: ['/api/pool/enabled'],
+    queryFn: async () => {
+      const res = await fetch('/api/pool/enabled');
+      if (!res.ok) return { enabled: false };
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+  const isPoolEnabled = poolEnabledData?.enabled ?? false;
+
   interface PoolStatusData {
     user: {
       optInPercent: number;
@@ -1533,26 +1545,29 @@ export default function Earn() {
               </AccordionItem>
             </Accordion>
 
-            <Card 
-              className="p-4 hover-elevate cursor-pointer" 
-              onClick={() => setLocation('/pool')}
-              data-testid="card-pool-link"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#0055FF]/10 flex items-center justify-center flex-shrink-0">
-                    <Sparkles className="h-5 w-5 text-[#0055FF]" />
+            {/* Prize Pool - only shown when pool feature is enabled */}
+            {isPoolEnabled && (
+              <Card 
+                className="p-4 hover-elevate cursor-pointer" 
+                onClick={() => setLocation('/pool')}
+                data-testid="card-pool-link"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-[#0055FF]/10 flex items-center justify-center flex-shrink-0">
+                      <Sparkles className="h-5 w-5 text-[#0055FF]" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-medium text-foreground/80">Prize Pool</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Win weekly prizes from savings yield
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-xs font-medium text-foreground/80">Prize Pool</h3>
-                    <p className="text-xs text-muted-foreground">
-                      Win weekly prizes from savings yield
-                    </p>
-                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </Card>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="allocation" className="mt-4 space-y-4">
@@ -1562,43 +1577,45 @@ export default function Earn() {
               </p>
             </div>
 
-            {/* Prize Pool */}
-            <Card className="p-4" data-testid="card-allocation-pool">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-[#0055FF]/10 flex items-center justify-center flex-shrink-0">
-                  <Trophy className="h-5 w-5 text-[#0055FF]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xs font-medium text-foreground/80">Prize Pool</h3>
-                    {(localOptInPercent ?? 0) > 0 && (
-                      <Badge variant="outline" className="text-xs text-success border-success/30">Active</Badge>
-                    )}
+            {/* Prize Pool - only shown when pool feature is enabled */}
+            {isPoolEnabled && (
+              <Card className="p-4" data-testid="card-allocation-pool">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 bg-[#0055FF]/10 flex items-center justify-center flex-shrink-0">
+                    <Trophy className="h-5 w-5 text-[#0055FF]" />
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Chance to win weekly prizes
-                  </p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-xs font-medium text-foreground/80">Prize Pool</h3>
+                      {(localOptInPercent ?? 0) > 0 && (
+                        <Badge variant="outline" className="text-xs text-success border-success/30">Active</Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Chance to win weekly prizes
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              {(localOptInPercent ?? 0) > 0 ? (
-                <div className="mt-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Yield contribution</span>
-                    <span className="font-medium tabular-nums text-success">{localOptInPercent}%</span>
+                {(localOptInPercent ?? 0) > 0 ? (
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Yield contribution</span>
+                      <span className="font-medium tabular-nums text-success">{localOptInPercent}%</span>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="mt-4">
-                  <Link href="/pool">
-                    <Button className="w-full" data-testid="button-activate-pool">
-                      <Trophy className="h-4 w-4" />
-                      Activate Prize Pool
-                    </Button>
-                  </Link>
-                </div>
-              )}
-            </Card>
+                ) : (
+                  <div className="mt-4">
+                    <Link href="/pool">
+                      <Button className="w-full" data-testid="button-activate-pool">
+                        <Trophy className="h-4 w-4" />
+                        Activate Prize Pool
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </Card>
+            )}
 
             {/* Coming Soon Options */}
             <div className="space-y-3">

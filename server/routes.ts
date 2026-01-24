@@ -4185,6 +4185,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
+  // Public: Check if pool feature is enabled (for UI visibility)
+  app.get('/api/pool/enabled', async (req, res) => {
+    try {
+      const poolEnabled = await storage.getGlobalSetting('pool_enabled');
+      // Default to false (disabled) when setting doesn't exist - pool is paused by default
+      const enabled = poolEnabled === 'true';
+      res.json({ enabled });
+    } catch (error) {
+      console.error('[Pool] Error checking pool enabled status:', error);
+      // On error, default to disabled for safety
+      res.json({ enabled: false });
+    }
+  });
+
   // Get pool status (current pool, your tickets, countdown)
   app.get('/api/pool/status/:address', async (req, res) => {
     try {
@@ -5183,16 +5197,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/admin/pool/scheduler', adminAuthMiddleware, async (req, res) => {
     try {
       const status = await getSchedulerStatus();
+      const poolEnabled = await storage.getGlobalSetting('pool_enabled');
       res.json({
         scheduler: {
           ...status,
           drawSchedule: 'Sunday 00:00 UTC (weekly)',
           checkInterval: 'Every hour',
+          poolEnabled: poolEnabled !== 'false', // Default to true if not set
         },
       });
     } catch (error) {
       console.error('[Pool] Error getting scheduler status:', error);
       res.status(500).json({ error: 'Failed to get scheduler status' });
+    }
+  });
+
+  // Admin: Toggle pool feature on/off
+  app.post('/api/admin/pool/toggle', adminAuthMiddleware, async (req, res) => {
+    try {
+      const { enabled } = req.body;
+      if (typeof enabled !== 'boolean') {
+        return res.status(400).json({ error: 'Missing or invalid "enabled" parameter (boolean required)' });
+      }
+      
+      await storage.setGlobalSetting('pool_enabled', String(enabled));
+      console.log(`[Pool] Pool feature ${enabled ? 'enabled' : 'disabled'} by admin`);
+      
+      res.json({ 
+        success: true, 
+        poolEnabled: enabled,
+        message: `Pool feature has been ${enabled ? 'enabled' : 'disabled'}`,
+      });
+    } catch (error) {
+      console.error('[Pool] Error toggling pool feature:', error);
+      res.status(500).json({ error: 'Failed to toggle pool feature' });
     }
   });
 

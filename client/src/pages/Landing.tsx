@@ -207,7 +207,7 @@ function MobileLanding({
               <div className="w-px h-10 bg-[#0055FF]" />
               <div>
                 <div className="text-sm font-semibold uppercase tracking-wide text-foreground/80">Yield Allocation</div>
-                <div className="text-xs text-muted-foreground">Pool prizes, causes, AI credits, & more.</div>
+                <div className="text-xs text-muted-foreground">Direct earnings to causes, AI credits, & more.</div>
               </div>
             </div>
             
@@ -303,7 +303,7 @@ function MobileLanding({
                 <Sliders className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
                 <span className="text-sm font-semibold uppercase tracking-wide">ERC-4626 Potential</span>
               </div>
-              <p className="text-sm text-muted-foreground pl-8">Access prize-linked savings, vulnerable communities, AI tools, & Buy Now Pay Later.</p>
+              <p className="text-sm text-muted-foreground pl-8">Access yield-bearing savings, vulnerable communities, AI tools, & Buy Now Pay Later.</p>
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-3">
@@ -645,10 +645,10 @@ function DesktopLanding({
         <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
           <div className="order-2 lg:order-1 space-y-6">
             <h2 className="text-4xl font-black uppercase tracking-tight">
-              Savings That<br />Feel Like Winning.
+              Save Smarter,<br />Earn More.
             </h2>
             <p className="text-muted-foreground text-lg">
-              Don't just say "{apyDisplay || '3.1%'} APY." Experience the thrill of the prize pool. Save money, earn tickets, win prizes. No-loss lottery protocol integrated directly.
+              Earn {apyDisplay || '3.1%'} APY on your savings automatically. Your money works for you 24/7 through Aave's battle-tested DeFi protocol. No lock-ups, withdraw anytime.
             </p>
             <Button size="lg" variant="outline" onClick={() => setLocation('/create')}>
               Start Saving <ArrowRight className="h-4 w-4" />
@@ -656,15 +656,15 @@ function DesktopLanding({
           </div>
           <div className="order-1 lg:order-2 flex justify-center">
             <Card className="p-6 max-w-sm shadow-[8px_8px_0px_0px_rgb(0,0,0)]">
-              <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-4">Save & Win</div>
+              <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-4">Easy Yield</div>
               <div className="space-y-4">
                 <div className="text-sm text-muted-foreground">
-                  If I keep <span className="font-bold text-foreground">$50</span> in nanoPay...
+                  Deposit <span className="font-bold text-foreground">$100</span> today...
                 </div>
                 <div className="py-4 border-y border-foreground/10">
-                  <div className="text-sm text-muted-foreground">...I could win up to</div>
-                  <div className="text-4xl font-black text-[#0055FF]">$500</div>
-                  <div className="text-sm text-muted-foreground">in the weekly pool</div>
+                  <div className="text-sm text-muted-foreground">...earn approximately</div>
+                  <div className="text-4xl font-black text-[#0055FF]">${((100 * (parseFloat(apyDisplay || '3.1') / 100)).toFixed(2))}</div>
+                  <div className="text-sm text-muted-foreground">per year in passive yield</div>
                 </div>
               </div>
             </Card>
