@@ -260,6 +260,9 @@ export default function Dashboard() {
   const [donationAmount, setDonationAmount] = useState('');
   const [isDonating, setIsDonating] = useState(false);
   const [timePeriod, setTimePeriod] = useState<7 | 30 | 90>(30);
+  const [activeTab, setActiveTab] = useState('growth');
+  const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set());
+  const [tabLoading, setTabLoading] = useState<Record<string, boolean>>({});
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -279,7 +282,7 @@ export default function Dashboard() {
         description: 'Welcome to the analytics dashboard',
       });
 
-      loadAllData(authHeaderValue);
+      loadInitialData(authHeaderValue);
     } catch (error: any) {
       toast({
         title: 'Authentication Failed',
@@ -291,75 +294,137 @@ export default function Dashboard() {
     }
   };
 
-  const loadAllData = async (auth: string, days: number = timePeriod) => {
+  // Load only overview and current tab data on login
+  const loadInitialData = async (auth: string) => {
     setIsLoading(true);
     try {
-      const [
-        overviewRes,
-        walletGrowthRes,
-        transactionVolumeRes,
-        chainBreakdownRes,
-        poolRes,
-        aaveRes,
-        facilitatorRes,
-        maxflowRes,
-        gooddollarRes,
-        xpRes,
-        cumulativeGrowthRes,
-        activeInactiveRes,
-        transactionTrendsRes,
-        tvlRes,
-        balanceDistRes,
-        chainUsageRes,
-        dauWauRes,
-        featureAdoptionRes,
-        funnelsRes,
-      ] = await Promise.all([
-        authenticatedRequest('GET', '/api/admin/analytics/overview', auth),
-        authenticatedRequest('GET', `/api/admin/analytics/wallet-growth?days=${days}`, auth),
-        authenticatedRequest('GET', `/api/admin/analytics/transaction-volume?days=${days}`, auth),
-        authenticatedRequest('GET', '/api/admin/analytics/chain-breakdown', auth),
-        authenticatedRequest('GET', '/api/admin/analytics/pool', auth),
-        authenticatedRequest('GET', '/api/admin/analytics/aave', auth),
-        authenticatedRequest('GET', '/api/admin/analytics/facilitator', auth),
-        authenticatedRequest('GET', '/api/admin/analytics/maxflow', auth),
-        authenticatedRequest('GET', '/api/admin/analytics/gooddollar', auth),
-        authenticatedRequest('GET', '/api/admin/analytics/xp', auth),
-        authenticatedRequest('GET', `/api/admin/analytics/cumulative-growth?days=${days}`, auth),
-        authenticatedRequest('GET', '/api/admin/analytics/active-inactive', auth),
-        authenticatedRequest('GET', `/api/admin/analytics/transaction-trends?days=${days}`, auth),
-        authenticatedRequest('GET', `/api/admin/analytics/tvl?days=${days}`, auth),
-        authenticatedRequest('GET', '/api/admin/analytics/balance-distribution', auth),
-        authenticatedRequest('GET', `/api/admin/analytics/chain-usage?days=${days}`, auth),
-        authenticatedRequest('GET', `/api/admin/analytics/dau-wau?days=${days}`, auth),
-        authenticatedRequest('GET', '/api/admin/analytics/feature-adoption', auth),
-        authenticatedRequest('GET', '/api/admin/analytics/funnels', auth),
-      ]);
-
+      const overviewRes = await authenticatedRequest('GET', '/api/admin/analytics/overview', auth);
       setOverview(await overviewRes.json());
-      setWalletGrowth(await walletGrowthRes.json());
-      setTransactionVolume(await transactionVolumeRes.json());
-      setChainBreakdown(await chainBreakdownRes.json());
-      setPoolAnalytics(await poolRes.json());
-      setAaveAnalytics(await aaveRes.json());
-      setFacilitatorAnalytics(await facilitatorRes.json());
-      setMaxflowAnalytics(await maxflowRes.json());
-      setGooddollarAnalytics(await gooddollarRes.json());
-      setXpAnalytics(await xpRes.json());
-      setCumulativeGrowth(await cumulativeGrowthRes.json());
-      setActiveInactive(await activeInactiveRes.json());
-      setTransactionTrends(await transactionTrendsRes.json());
-      setTvlData(await tvlRes.json());
-      setBalanceDistribution(await balanceDistRes.json());
-      setChainUsage(await chainUsageRes.json());
-      setDauWau(await dauWauRes.json());
-      setFeatureAdoption(await featureAdoptionRes.json());
-      setConversionFunnels(await funnelsRes.json());
       setLastRefresh(new Date());
+      // Load initial tab data
+      await loadTabData('growth', auth);
     } catch (error) {
       console.error('Failed to load analytics:', error);
       toast({
         title: 'Failed to load data',
+        description: 'Some analytics may not be available',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Load data for a specific tab
+  const loadTabData = async (tab: string, auth: string, days: number = timePeriod, forceReload = false) => {
+    if (!forceReload && loadedTabs.has(tab)) return;
+    
+    setTabLoading(prev => ({ ...prev, [tab]: true }));
+    try {
+      switch (tab) {
+        case 'growth':
+          const [cumulativeGrowthRes, walletGrowthRes] = await Promise.all([
+            authenticatedRequest('GET', `/api/admin/analytics/cumulative-growth?days=${days}`, auth),
+            authenticatedRequest('GET', `/api/admin/analytics/wallet-growth?days=${days}`, auth),
+          ]);
+          setCumulativeGrowth(await cumulativeGrowthRes.json());
+          setWalletGrowth(await walletGrowthRes.json());
+          break;
+        case 'engagement':
+          const [activeInactiveRes, dauWauRes] = await Promise.all([
+            authenticatedRequest('GET', '/api/admin/analytics/active-inactive', auth),
+            authenticatedRequest('GET', `/api/admin/analytics/dau-wau?days=${days}`, auth),
+          ]);
+          setActiveInactive(await activeInactiveRes.json());
+          setDauWau(await dauWauRes.json());
+          break;
+        case 'balances':
+          const [tvlRes, balanceDistRes] = await Promise.all([
+            authenticatedRequest('GET', `/api/admin/analytics/tvl?days=${days}`, auth),
+            authenticatedRequest('GET', '/api/admin/analytics/balance-distribution', auth),
+          ]);
+          setTvlData(await tvlRes.json());
+          setBalanceDistribution(await balanceDistRes.json());
+          break;
+        case 'chains':
+          const [chainBreakdownRes, chainUsageRes, transactionVolumeRes] = await Promise.all([
+            authenticatedRequest('GET', '/api/admin/analytics/chain-breakdown', auth),
+            authenticatedRequest('GET', `/api/admin/analytics/chain-usage?days=${days}`, auth),
+            authenticatedRequest('GET', `/api/admin/analytics/transaction-volume?days=${days}`, auth),
+          ]);
+          setChainBreakdown(await chainBreakdownRes.json());
+          setChainUsage(await chainUsageRes.json());
+          setTransactionVolume(await transactionVolumeRes.json());
+          break;
+        case 'funnels':
+          const [featureAdoptionRes, funnelsRes] = await Promise.all([
+            authenticatedRequest('GET', '/api/admin/analytics/feature-adoption', auth),
+            authenticatedRequest('GET', '/api/admin/analytics/funnels', auth),
+          ]);
+          setFeatureAdoption(await featureAdoptionRes.json());
+          setConversionFunnels(await funnelsRes.json());
+          break;
+        case 'pool':
+          const poolRes = await authenticatedRequest('GET', '/api/admin/analytics/pool', auth);
+          setPoolAnalytics(await poolRes.json());
+          break;
+        case 'yield':
+          const [aaveRes, transactionTrendsRes] = await Promise.all([
+            authenticatedRequest('GET', '/api/admin/analytics/aave', auth),
+            authenticatedRequest('GET', `/api/admin/analytics/transaction-trends?days=${days}`, auth),
+          ]);
+          setAaveAnalytics(await aaveRes.json());
+          setTransactionTrends(await transactionTrendsRes.json());
+          break;
+        case 'facilitator':
+          const facilitatorRes = await authenticatedRequest('GET', '/api/admin/analytics/facilitator', auth);
+          setFacilitatorAnalytics(await facilitatorRes.json());
+          break;
+        case 'trust':
+          const maxflowRes = await authenticatedRequest('GET', '/api/admin/analytics/maxflow', auth);
+          setMaxflowAnalytics(await maxflowRes.json());
+          break;
+        case 'ubi':
+          const gooddollarRes = await authenticatedRequest('GET', '/api/admin/analytics/gooddollar', auth);
+          setGooddollarAnalytics(await gooddollarRes.json());
+          break;
+        case 'xp':
+          const xpRes = await authenticatedRequest('GET', '/api/admin/analytics/xp', auth);
+          setXpAnalytics(await xpRes.json());
+          break;
+      }
+      setLoadedTabs(prev => new Set([...prev, tab]));
+    } catch (error) {
+      console.error(`Failed to load ${tab} tab data:`, error);
+      toast({
+        title: 'Failed to load data',
+        description: `Could not load ${tab} analytics`,
+        variant: 'destructive',
+      });
+    } finally {
+      setTabLoading(prev => ({ ...prev, [tab]: false }));
+    }
+  };
+
+  // Handle tab change - load data on demand
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    loadTabData(tab, authHeader);
+  };
+
+  // Refresh all loaded tabs
+  const refreshAllData = async () => {
+    setIsLoading(true);
+    try {
+      const overviewRes = await authenticatedRequest('GET', '/api/admin/analytics/overview', authHeader);
+      setOverview(await overviewRes.json());
+      // Reload current tab
+      await loadTabData(activeTab, authHeader, timePeriod, true);
+      setLastRefresh(new Date());
+    } catch (error) {
+      console.error('Failed to refresh analytics:', error);
+      toast({
+        title: 'Failed to refresh data',
         description: 'Some analytics may not be available',
         variant: 'destructive',
       });
@@ -390,7 +455,7 @@ export default function Dashboard() {
       });
 
       setDonationAmount('');
-      loadAllData(authHeader);
+      await refreshAllData();
     } catch (error: any) {
       toast({
         title: 'Donation failed',
@@ -580,7 +645,9 @@ export default function Dashboard() {
                   size="sm"
                   onClick={() => {
                     setTimePeriod(days);
-                    loadAllData(authHeader, days);
+                    // Clear loaded tabs cache so data reloads with new time period
+                    setLoadedTabs(new Set());
+                    loadTabData(activeTab, authHeader, days, true);
                   }}
                   disabled={isLoading}
                   className="rounded-none border-0"
@@ -590,7 +657,7 @@ export default function Dashboard() {
                 </Button>
               ))}
             </div>
-            <Button onClick={() => loadAllData(authHeader)} disabled={isLoading} data-testid="button-refresh-analytics">
+            <Button onClick={refreshAllData} disabled={isLoading} data-testid="button-refresh-analytics">
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
@@ -689,19 +756,41 @@ export default function Dashboard() {
               </Card>
             </div>
 
-            <Tabs defaultValue="growth" className="space-y-4">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
               <TabsList className="flex flex-wrap gap-1 w-full max-w-5xl h-auto">
-                <TabsTrigger value="growth" data-testid="tab-growth">Growth</TabsTrigger>
-                <TabsTrigger value="engagement" data-testid="tab-engagement">Engagement</TabsTrigger>
-                <TabsTrigger value="balances" data-testid="tab-balances">Balances</TabsTrigger>
-                <TabsTrigger value="chains" data-testid="tab-chains">Chains</TabsTrigger>
-                <TabsTrigger value="funnels" data-testid="tab-funnels">Funnels</TabsTrigger>
-                <TabsTrigger value="pool" data-testid="tab-pool">Pool</TabsTrigger>
-                <TabsTrigger value="yield" data-testid="tab-yield">Yield</TabsTrigger>
-                <TabsTrigger value="facilitator" data-testid="tab-facilitator">Facilitator</TabsTrigger>
-                <TabsTrigger value="trust" data-testid="tab-trust">Trust</TabsTrigger>
-                <TabsTrigger value="ubi" data-testid="tab-ubi">UBI</TabsTrigger>
-                <TabsTrigger value="xp" data-testid="tab-xp">XP</TabsTrigger>
+                <TabsTrigger value="growth" data-testid="tab-growth">
+                  Growth {tabLoading.growth && <Loader2 className="h-3 w-3 ml-1 animate-spin" />}
+                </TabsTrigger>
+                <TabsTrigger value="engagement" data-testid="tab-engagement">
+                  Engagement {tabLoading.engagement && <Loader2 className="h-3 w-3 ml-1 animate-spin" />}
+                </TabsTrigger>
+                <TabsTrigger value="balances" data-testid="tab-balances">
+                  Balances {tabLoading.balances && <Loader2 className="h-3 w-3 ml-1 animate-spin" />}
+                </TabsTrigger>
+                <TabsTrigger value="chains" data-testid="tab-chains">
+                  Chains {tabLoading.chains && <Loader2 className="h-3 w-3 ml-1 animate-spin" />}
+                </TabsTrigger>
+                <TabsTrigger value="funnels" data-testid="tab-funnels">
+                  Funnels {tabLoading.funnels && <Loader2 className="h-3 w-3 ml-1 animate-spin" />}
+                </TabsTrigger>
+                <TabsTrigger value="pool" data-testid="tab-pool">
+                  Pool {tabLoading.pool && <Loader2 className="h-3 w-3 ml-1 animate-spin" />}
+                </TabsTrigger>
+                <TabsTrigger value="yield" data-testid="tab-yield">
+                  Yield {tabLoading.yield && <Loader2 className="h-3 w-3 ml-1 animate-spin" />}
+                </TabsTrigger>
+                <TabsTrigger value="facilitator" data-testid="tab-facilitator">
+                  Facilitator {tabLoading.facilitator && <Loader2 className="h-3 w-3 ml-1 animate-spin" />}
+                </TabsTrigger>
+                <TabsTrigger value="trust" data-testid="tab-trust">
+                  Trust {tabLoading.trust && <Loader2 className="h-3 w-3 ml-1 animate-spin" />}
+                </TabsTrigger>
+                <TabsTrigger value="ubi" data-testid="tab-ubi">
+                  UBI {tabLoading.ubi && <Loader2 className="h-3 w-3 ml-1 animate-spin" />}
+                </TabsTrigger>
+                <TabsTrigger value="xp" data-testid="tab-xp">
+                  XP {tabLoading.xp && <Loader2 className="h-3 w-3 ml-1 animate-spin" />}
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="growth" className="space-y-4">
